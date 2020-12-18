@@ -1,0 +1,539 @@
+<?label 15.2. Perl Coding Techniques?><html><head><title>Perl Coding Techniques (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch15_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch15_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">15.2. Perl Coding Techniques</h2>
+
+
+<p>In this <a name="INDEX-2961" /> <a name="INDEX-2,962" /> <a name="INDEX-2,963" /> <a name="INDEX-2,964" />section, we'll discuss
+<a name="INDEX-2965" />programming techniques that will help
+us develop stable, bug-free applications. These techniques are easy
+to use, and using them can help you avoid bugs in the first place:</p>
+
+
+<ul><li><p>Always <tt class="literal">use</tt> <tt class="literal">strict</tt>.</p></li><li><p>Check the status of system calls.</p></li><li><p>Verify that each file <tt class="function">open</tt> is successful.</p></li><li><p>Trap <tt class="function">die.</tt></p></li><li><p>Lock files.</p></li><li><p>Unbuffer the output stream when necessary.</p></li><li><p>Use <em class="emphasis">binmode</em> when necessary.</p></li></ul>
+<p>Let's review each of these in detail.</p>
+
+
+<a name="ch15-6-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.2.1. Use strict</h3>
+
+
+<p>You should use the <tt class="literal">strict</tt>
+<a name="INDEX-2966" /> <a name="INDEX-2,967" />
+<a name="INDEX-2968" />
+pragma for any Perl script more than a few lines long, and for all
+CGI scripts. Simply place the following line at the top of your
+script:</p>
+
+
+<blockquote><pre class="code">use strict;</pre></blockquote>
+
+
+<p>If an import list is not specified, <tt class="literal">strict</tt>
+generates errors if you use symbolic references, bareword identifiers
+as subroutines, or use variables that are not localized, fully
+qualified, or pre-defined using the <tt class="literal">vars</tt> argument.</p>
+
+
+<p>Here are two snippets of code, one which will compile successfully
+under <tt class="literal">strict</tt>, and the other which will cause
+errors:</p>
+
+
+<blockquote><pre class="code">use strict;
+
+$id = 2000;
+$field = \$id;
+print $$field;        ## Success, will print 2000
+
+$field = "id";
+print $$field;        ## Error!</pre></blockquote>
+
+
+<p>
+<a name="INDEX-2969" />
+<a name="INDEX-2970" />Symbolic references are names of
+variables, used to get at the underlying object. In the second
+snippet above, we are trying to get at the value of
+<tt class="literal">$id</tt> indirectly. As a result, Perl will generate an
+error like the following:</p>
+
+
+<blockquote><pre class="code">Can't use string ("id") as a SCALAR ref while "strict refs" in use ...</pre></blockquote>
+
+
+<p>Now, let's look at <a name="INDEX-2971" />
+<a name="INDEX-2972" />bareword subroutines. Take the
+following example:</p>
+
+
+<blockquote><pre class="code">use strict "subs";
+greeting;
+...
+sub greeting
+{
+    print "Hello Friend!";
+}</pre></blockquote>
+
+
+<p>When Perl looks at the second line, it doesn't know what it is.
+It could be a string in a void context or it could be a subroutine or
+function call. When we run this code, Perl will generate the
+following error:</p>
+
+
+<blockquote><pre class="code">Bareword "greeting" not allowed while "strict subs" in use at simple line 3.
+Execution of simple aborted due to compilation errors.</pre></blockquote>
+
+
+<p>We can solve this in one of several ways. We can create a prototype,
+declare <em class="emphasis">greeting</em> as a subroutine with the
+<tt class="literal">subs</tt> module, use the <tt class="literal">&amp;</tt>
+prefix, or pass an <a name="INDEX-2973" />
+<a name="INDEX-2974" />empty list, like so:</p>
+
+
+<blockquote><pre class="code">sub greeting;              ## prototype
+use subs qw (greeting);    ## use subs
+
+&amp;greeting;                 ## &amp; prefix
+greeting(  );                ## null list</pre></blockquote>
+
+
+<p>This forces us to be clear about the use of subroutines in our
+applications.</p>
+
+
+<p>The last restriction that <tt class="literal">strict</tt> imposes on us
+involves
+<a name="INDEX-2975" />
+<a name="INDEX-2976" />variable declaration. You have
+probably run across source code where you're not sure if a
+certain variable is <a name="INDEX-2977" /> <a name="INDEX-2,978" />global, or local to a function or
+subroutine. By using the <tt class="literal">vars</tt> argument with
+<tt class="literal">strict</tt>, we can eliminate this guessing.</p>
+
+
+<p>Here's a trivial example:</p>
+
+
+<blockquote><pre class="code">use strict "vars";
+$soda = "Coke";</pre></blockquote>
+
+
+<p>Since we haven't told Perl what <tt class="literal">$soda</tt> is, it
+will complain with the following error:</p>
+
+
+<blockquote><pre class="code">Global symbol "$soda" requires explicit package name at simple line 3.
+Execution of simple aborted due to compilation errors.</pre></blockquote>
+
+
+<p>We can solve this problem by using a <a name="INDEX-2979" />
+<a name="INDEX-2980" />fully qualified variable name,
+declaring the variable using the <tt class="literal">vars</tt> module, or
+localizing it with <em class="emphasis">my</em>, like so:</p>
+
+
+<blockquote><pre class="code">$main::soda = "Coke";    ## Fully qualified
+use vars qw ($soda);     ## Declare using vars module
+my $soda;                ## Localize</pre></blockquote>
+
+
+<p>As you can see, the <tt class="literal">strict</tt> module imposes a very
+rigid environment for developing applications. But, that's a
+very nice and powerful feature, because it helps us track down a
+variety of bugs. In addition, the module allows for great flexibility
+as well. For example, if we know that a certain piece of code works
+fine, but will fail under <tt class="literal">strict</tt>, we can turn
+certain <a name="INDEX-2981" /> <a name="INDEX-2,982" />restrictions off, like so:</p>
+
+
+<blockquote><pre class="code">## code that passes strict
+...
+{
+    no strict;    ## or no strict "vars";
+    
+    ## code that will not pass strict
+}</pre></blockquote>
+
+
+<p>All code within the block, delimited by braces, will have no
+restrictions.</p>
+
+
+<p>With this type of flexibility and control, there is no reason why you
+should not be using <tt class="literal">strict</tt> to help you develop
+cleaner, bug-free 
+<a name="INDEX-2983" /> <a name="INDEX-2,984" /> <a name="INDEX-2,985" />applications.</p>
+</div>
+
+
+
+
+<a name="ch15-7-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.2.2. Check Status of System Calls</h3>
+
+
+<p>Before we <a name="INDEX-2986" /> <a name="INDEX-2,987" /> <a name="INDEX-2,988" />discuss anything in this section,
+here's a mantra to
+<a name="INDEX-2989" />code by:</p>
+
+
+<blockquote class="simplelist">
+
+<p>"Always check the return value of all the system <a name="INDEX-2990" /><a name="INDEX-2,991" />commands, 
+including <tt class="function">open</tt>, <tt class="function">eval</tt>, and <tt class="function">system</tt>."</p>
+
+</blockquote>
+
+
+<p>Since web servers are typically configured to run as
+<em class="emphasis">nobody</em>, or a user with minimal access
+privileges, we must be very careful when performing any file or
+system I/O. Take, for example, the following code:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+print "Content-type: text/html\n\n";
+...
+open FILE, "/usr/local/apache/data/recipes.txt";
+
+while (&lt;FILE&gt;) {
+    s/^\s*$/&lt;P&gt;/, next if (/^\s*$/);
+    s/\n/&lt;BR&gt;/;
+    ...
+}
+
+close FILE;</pre></blockquote>
+
+
+<p>If the <em class="emphasis">/usr/local/apache/data</em> directory is not
+world readable, then the
+<em class="emphasis">open</em>
+<a name="INDEX-2992" />
+<a name="INDEX-2993" /> command will fail, and we will end up
+with no output. This isn't really desirable, since the user
+will have no idea what happened.</p>
+
+
+<p>A solution to this problem is to check the status of
+<em class="emphasis">open</em>:</p>
+
+
+<blockquote><pre class="code">...
+open FILE, "/usr/local/apache/data/recipes.txt"
+    or error ( $q, "Sorry, I can't access the recipe data!" );
+
+print "Content-type: text/html\n\n";
+...</pre></blockquote>
+
+
+<p>If the <em class="emphasis">open</em> fails, we call a custom
+<em class="emphasis">error</em> function to return a nicely formatted HTML
+document and exit.</p>
+
+
+<p>You need to follow the same process when creating or updating files,
+as well. In order for a CGI application to write to a file, it has to
+have write permissions on the file, as well as the directories in
+which the file resides.</p>
+
+
+<p>Some of the more commonly used <a name="INDEX-2994" />system functions include:
+<em class="emphasis">open</em>, <em class="emphasis">close</em>,
+<em class="emphasis">flock</em>, <em class="emphasis">eval,</em> and
+<em class="emphasis">system</em>. You should make it a habit to check the
+return value of such functions, so you can take preventative action.</p>
+</div>
+
+
+
+
+<a name="ch15-8-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.2.3. Is It Open?</h3>
+
+
+<p>In various examples throughout the book, we've used the
+<em class="emphasis">open</em>
+<a name="INDEX-2995" />
+<a name="INDEX-2996" /> function to create pipes to
+execute external applications and perform data redirection.
+Unfortunately, unlike in the previous section, there is no easy way
+to determine if an application is executed successfully within the
+pipe.</p>
+
+
+<p>Here's a simple example that sorts some numerical data.</p>
+
+
+<blockquote><pre class="code">open FILE, "| /usr/local/gnu/sort"
+    or die "Could not create pipe: $!";
+
+print "Content-type: text/plain\n\n";
+
+## fill the @data array with some numerical data
+...
+
+print FILE join ("\n", @data);
+close FILE;</pre></blockquote>
+
+
+<p>If we cannot create the pipe, which is almost never the case, we
+return an error. But, what if the path to the
+<em class="emphasis">sort</em> command is incorrect? Then, the user will
+not see any error, nor any reasonable output.</p>
+
+
+<p>So, how do we determine if the
+<em class="emphasis">sort</em>
+<a name="INDEX-2997" /> command executes successfully?
+Unfortunately, due to the way the shell operates, the status of the
+command is available only after the file handle is closed.</p>
+
+
+<p>Here's an example:</p>
+
+
+<blockquote><pre class="code">open FILE, "| /usr/local/gnu/sort"
+    or die "Could not create pipe: $!";
+
+### code ommitted for brevity
+...
+
+close FILE;
+
+my $status = ($? &gt;&gt; 8);
+
+if ( $status ) {
+    print "Sorry! I cannot access the data at this time!";
+}</pre></blockquote>
+
+
+<p>Once the <a name="INDEX-2998" />file handle is closed, Perl stores
+the actual return status in the <tt class="literal">$?</tt> variable. We
+determine the true status (i.e.,
+or 1) by right shifting the actual status by eight bits.</p>
+
+
+<p>There is also another, albeit less portable and reliable, method to
+determine the status of the pipe. This involves checking the
+<a name="INDEX-2999" /> <a name="INDEX-3000" />
+<a name="INDEX-3001" />PID of the child process, spawned by the
+<em class="emphasis">open</em>
+<a name="INDEX-3002" /> function:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use CGI;
+
+my $q = new CGI;
+
+my $pid    = open FILE, "| /usr/local/gnu/sort";
+my $status = kill 0, $pid;
+
+$status or die "Cannot open pipe to sort: $!";
+
+## We're successful!
+print $q-&gt;header( "text/plain" );
+...</pre></blockquote>
+
+
+<p>We use the <em class="emphasis">kill</em>
+<a name="INDEX-3003" />
+<a name="INDEX-3004" />
+<a name="INDEX-3005" /> function to send a signal of
+zero to the process created by the pipe. If the process is dead,
+which means the application within the pipe never got executed, the
+operating system returns a value of zero. As mentioned before, this
+technique is not 100% reliable, and will not work on all Unix
+platforms, but it's something you might want to try.</p>
+</div>
+
+
+
+
+<a name="ch15-9-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.2.4. Trap die</h3>
+
+
+<p>Don't forget about our earlier discussion about
+<em class="emphasis">die</em>. If your code or a module that you call
+invokes Perl's <em class="emphasis">die</em>
+<a name="INDEX-3006" /> <a name="INDEX-3007" />
+<a name="INDEX-3008" /> <a name="INDEX-3009" /> <a name="INDEX-3010" /> function, it will certainly trigger a
+<em class="emphasis">500 Internal Server Error</em> unless you trap it.
+Use CGI::Carp to trap fatal calls and
+<a name="INDEX-3011" />
+<a name="INDEX-3012" /> <a name="INDEX-3013" />
+<a name="INDEX-3014" />redirect the messages to the browser.
+Add this line to the top of your script:</p>
+
+
+<blockquote><pre class="code">use CGI::Carp qw( fatalsToBrowser );</pre></blockquote>
+
+
+<p>Refer to <a href="ch05_05.htm#ch05-94791">Section 5.5, "Handling Errors"</a> for more on CGI::Carp.</p>
+</div>
+
+
+
+
+<a name="ch15-10-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.2.5. File Locking</h3>
+
+
+<p>If you find that you are losing data in your data files, or
+<a name="INDEX-3015" />
+<a name="INDEX-3016" />
+<a name="INDEX-3017" />files are becoming corrupt, then you
+are probably not locking them. The Web is a multi-user environment
+and multiple users may access the same document or CGI application at
+the same time. Let's take a look at an example that
+doesn't perform any locking:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use CGI;
+use CGIBook::Error;
+
+my $cgi      = new CGI;  
+my $email    = $cgi-&gt;param ("email")    || "Anonymous";
+my $comments = $cgi-&gt;param ("comments") || "No comments";
+...
+open FILE, "&gt;&gt;/usr/local/apache/data/guestbook.txt"
+    or error( $q, "Cannot add your entry to guestbook!");
+
+print FILE "From $email: $comments\n\n";
+close FILE;
+
+print "Location: /generic/thanks.html\n\n";</pre></blockquote>
+
+
+<p>Now, imagine a scenario where multiple users, say 100, access this
+application at the exact same time. What happens? A hundred CGI
+application processes all will try to write to the
+<em class="emphasis">guestbook.txt</em> file, and more than likely,
+we'll end up with data loss and corruption.</p>
+
+
+<p>In order to solve the problem, we need to lock the file. Refer to
+<a href="ch10_01.htm#ch10-77048">Section 10.1.1, "Locking"</a> for more details.</p>
+</div>
+
+
+
+
+<a name="ch15-11-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.2.6. Unbuffer Output Stream</h3>
+
+
+<p>Sometimes, you may run into
+<a name="INDEX-3018" />
+<a name="INDEX-3019" /> <a name="INDEX-3020" />what seems like
+<a name="INDEX-3021" />a very strange error where output
+doesn't appear in the order in which it is sent to standard
+output stream. This typically occurs when you call an external
+application to generate output.</p>
+
+
+<p>For example, the following example might not work properly on all
+systems:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+print "Content-type: text/plain\n\n";
+system "/bin/finger";</pre></blockquote>
+
+
+<p>In what seems like a very bizarre error, the output from
+<em class="emphasis">system</em>
+<a name="INDEX-3022" /> can actually appear
+before the content type header. This is the result of buffering the
+standard output stream.</p>
+
+
+<p>You can turn buffering off, like so:</p>
+
+
+<blockquote><pre class="code">$| = 1;</pre></blockquote>
+
+
+<p>This forces Perl to <a name="INDEX-3023" />flush the
+standard output stream buffers after every write.</p>
+</div>
+
+
+
+
+<a name="ch15-12-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.2.7. Use binmode</h3>
+
+
+<p>On <a name="INDEX-3024" />
+<a name="INDEX-3025" />operating systems that
+<a name="INDEX-3026" />distinguish between binary and text files,
+most notably Windows 95, NT, and the Macintosh, we have to be very
+careful, especially when returning binary output. For example, the
+following application creates a simple dynamic image:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use GD;
+use strict;
+
+my $image = new GD::Image( 100, 100 );
+
+my $white = $image-&gt;colorAllocate( 255, 255, 255 );
+my $black = $image-&gt;colorAllocate( 0, 0, 0 );
+my $red   = $image-&gt;colorAllocate( 255, 0, 0 );
+
+$image-&gt;arc( 50, 50, 95, 75, 0, 360, $black );
+$image-&gt;fill( 50, 50, $red );
+
+print "Content-type: image/png\n\n";
+print $image-&gt;png;</pre></blockquote>
+
+
+<p>However, the output will result in a broken image if we run the
+application on a platform mentioned above. The solution is to use the
+<em class="emphasis">binmode</em> function to treat the resulting output
+as binary information:</p>
+
+
+<blockquote><pre class="code">## code omitted for brevity
+...
+binmode STDOUT;
+print $image-&gt;png;<a name="INDEX-3027" />
+<a name="INDEX-3028" />
+<a name="INDEX-3029" />
+<a name="INDEX-3030" />
+<a name="INDEX-3031" /></pre></blockquote>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch15_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch15_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">15. Debugging CGI Applications</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">15.3. Debugging Tools</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

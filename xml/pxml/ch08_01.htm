@@ -1,0 +1,250 @@
+<html><head><title>Beyond Trees: XPath, XSLT, and More (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch08_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h1 class="chapter">Chapter 8. Beyond Trees: XPath, XSLT, and More</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#perlxml-CHP-8-SECT-1">Tree Climbers</a><br />
+<a href="ch08_02.htm">XPath</a><br />
+<a href="ch08_03.htm">XSLT</a><br />
+<a href="ch08_04.htm">Optimized Tree Processing</a><br /></p></div>
+
+
+
+
+<p>In the<a name="INDEX-674" /></a> last chapter, we introduced the
+concepts behind handling XML documents as memory trees. Our use of
+them was kind of primitive, limited to building, traversing, and
+modifying pieces of trees. This is okay for small, uncomplicated
+documents and tasks, but serious XML processing requires beefier
+tools. In this chapter, we examine ways to make tree processing
+easier, faster, and more efficient.
+</p>
+
+
+<div class="sect1"><a name="perlxml-CHP-8-SECT-1" /></a>
+<h2 class="sect1">8.1. Tree Climbers</h2>
+
+<p>The first in our lineup of power tools is the<a name="INDEX-675" /></a> tree climber. As the name suggests, it
+climbs a tree for you, finding the nodes in the order you want them,
+making your code simpler and more focused on per-node processing.
+Using a tree climber is like having a trained monkey climb up a tree
+to get you coconuts so you don't have to scrape your
+own skin on the bark to get them; all you have to do is drill a hole
+in the shell and pop in a straw.
+</p>
+
+<p>The simplest kind of tree climber is an
+<em class="emphasis">iterator</em><a name="INDEX-676" /></a> (sometimes called a
+<em class="emphasis">walker</em><a name="INDEX-677" /></a>). It can move forward or backward in
+a tree, doling out node references as you tell it to move. The notion
+of moving forward in a tree involves matching the order of nodes as
+they would appear in the text representation of the document. The
+exact algorithm for iterating forward is this:
+</p>
+
+<ul><li>
+<p>If there's no current node, start at the root node. </p>
+</li><li>
+<p>If the current node has children, move to the first child. </p>
+</li><li>
+<p>Otherwise, if the current node has a following sibling, move to it. </p>
+</li><li>
+<p>If none of these options work, go back up the list of the current
+node's ancestors and try to find one with an
+unprocessed sibling.
+</p>
+</li></ul>
+<p>With this algorithm, the iterator will eventually reach every node in
+a tree, which is useful if you want to process all the nodes in a
+document part. You could also implement this algorithm recursively,
+but the advantage to doing it iteratively is that you can stop in
+between nodes to do other things. <a href="ch08_01.htm#perlxml-CHP-8-EX-1">Example 8-1</a> shows
+how one might implement an iterator object for DOM trees.
+We've included methods for moving both forward and
+backward.
+</p>
+
+<a name="perlxml-CHP-8-EX-1" /></a><div class="example">
+<h4 class="objtitle">Example 8-1. A DOM iterator package </h4>
+<blockquote><pre class="code">package XML::DOMIterator;
+
+sub new {
+  my $class = shift;
+  my $self = {@_};
+  $self-&gt;{ Node } = undef;
+  return bless( $self, $class );
+}
+
+# move forward one node in the tree
+#
+sub forward {
+  my $self = shift;
+
+  # try to go down to the next level
+  if( $self-&gt;is_element and
+      $self-&gt;{ Node }-&gt;getFirstChild ) {
+    $self-&gt;{ Node } = $self-&gt;{ Node }-&gt;getFirstChild;
+
+  # try to go to the next sibling, or an acestor's sibling
+  } else {
+    while( $self-&gt;{ Node }) {
+      if( $self-&gt;{ Node }-&gt;getNextSibling ) {
+        $self-&gt;{ Node } = $self-&gt;{ Node }-&gt;getNextSibling;
+        return $self-&gt;{ Node };
+      }
+      $self-&gt;{ Node } = $self-&gt;{ Node }-&gt;getParentNode;
+    }
+  }
+}
+
+# move backward one node in the tree
+#
+sub backward {
+  my $self = shift;
+
+  # go to the previous sibling and descend to the last node in its tree
+  if( $self-&gt;{ Node }-&gt;getPreviousSibling ) {
+    $self-&gt;{ Node } = $self-&gt;{ Node }-&gt;getPreviousSibling;
+    while( $self-&gt;{ Node }-&gt;getLastChild ) {
+      $self-&gt;{ Node } = $self-&gt;{ Node }-&gt;getLastChild;
+    }
+
+  # go up
+  } else {
+    $self-&gt;{ Node } = $self-&gt;{ Node }-&gt;getParentNode;
+  }
+  return $self-&gt;{ Node };
+}
+
+# return a reference to the current node
+#
+sub node {
+  my $self = shift;
+  return $self-&gt;{ Node };
+}
+
+# set the current node
+#
+sub reset {
+  my( $self, $node ) = @_;
+  $self-&gt;{ Node } = $node;
+}
+
+# test if current node is an element
+#
+sub is_element {
+  my $self = shift;
+  return( $self-&gt;{ Node }-&gt;getNodeType == 1 );
+}</pre></blockquote>
+</div>
+
+<p><a href="ch08_01.htm#perlxml-CHP-8-EX-2">Example 8-2</a> is a test program for the iterator
+package. It prints out a short description of every node in an XML
+document tree -- first in forward order, then in backward order.
+</p>
+
+<a name="perlxml-CHP-8-EX-2" /></a><div class="example">
+<h4 class="objtitle">Example 8-2. A test program for the iterator package </h4>
+<blockquote><pre class="code">use XML::DOM;
+
+# initialize parser and iterator
+my $dom_parser = new XML::DOM::Parser;
+my $doc = $dom_parser-&gt;parsefile( shift @ARGV );
+my $iter = new XML::DOMIterator;
+$iter-&gt;reset( $doc-&gt;getDocumentElement );
+
+# print all the nodes from start to end of a document
+print "\nFORWARDS:\n";
+my $node = $iter-&gt;node;
+my $last;
+while( $node ) {
+  describe( $node );
+  $last = $node;
+  $node = $iter-&gt;forward;
+}
+
+# print all the nodes from end to start of a document
+print "\nBACKWARDS:\n";
+$iter-&gt;reset( $last );
+describe( $iter-&gt;node );
+while( $iter-&gt;backward ) {
+  describe( $iter-&gt;node );
+}
+
+# output information about the node
+#
+sub describe {
+  my $node = shift;
+  if( ref($node) =~ /Element/ ) {
+    print 'element: ', $node-&gt;getNodeName, "\n";
+  } elsif( ref($node) =~ /Text/ ) {
+    print "other node: \"", $node-&gt;getNodeValue, "\"\n";
+  }
+}</pre></blockquote>
+</div>
+
+<p>Many tree packages provide automated tree climbing capability.
+<tt class="literal">XML::LibXML::Node</tt> has a method <tt class="literal">iterator(
+)</tt> that traverses a node's subtree,
+applying a subroutine to each node.
+<tt class="literal">Data::Grove::Visitor</tt><a name="INDEX-678" /></a> performs a similar function.
+</p>
+
+<p><a href="ch08_01.htm#perlxml-CHP-8-EX-3">Example 8-3</a> shows a program that uses an automated
+tree climbing function to test processing instructions in a document.
+</p>
+
+<a name="perlxml-CHP-8-EX-3" /></a><div class="example">
+<h4 class="objtitle">Example 8-3. Processing instruction tester </h4>
+<blockquote><pre class="code">use XML::LibXML;
+
+my $dom = new XML::LibXML;
+my $doc = $dom-&gt;parse_file( shift @ARGV );
+my $docelem = $doc-&gt;getDocumentElement;
+$docelem-&gt;iterator( \&amp;find_PI );
+
+sub find_PI {
+  my $node = shift;
+  return unless( $node-&gt;nodeType == &amp;XML_PI_NODE );
+  print "Found processing instruction: ", $node-&gt;nodeName, "\n";
+}</pre></blockquote>
+</div>
+
+<p>Tree climbers are terrific for tasks that involve processing the
+whole document, since they automate the process of moving from node
+to node. However, you won't always have to visit
+every node. Often, you only want to pick out one from the bunch or
+get a set of nodes that satisfy a certain criterion, such as having a
+particular element name or attribute value. In these cases, you may
+want to try a more selective approach, as we will demonstrate in the
+next section.
+</p>
+
+</div>
+
+
+
+
+
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch08_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">7.4. XML::LibXML</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">8.2. XPath</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

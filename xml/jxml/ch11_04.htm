@@ -1,0 +1,213 @@
+<html><head><title>The Real World (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch11_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">11.4. The Real World</h2>
+
+<p>I'll conclude this chapter with a short look at some important
+details of using XML-RPC in the real world. This continues the focus
+on allowing you to use XML not because it is the newest and neatest
+technology, but because it is the best for solving certain
+situations. All of the knowledge within this book, the XML
+specifications, and other XML books will not make your application
+operate as well as it could if you do not know when and how to use
+XML and XML-RPC correctly! This section highlights some of the common
+issues that arise in using XML-RPC.
+</p>
+
+<a name="javaxml2-CHP-11-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">11.4.1. Where's the XML in XML-RPC?</h3>
+
+<p><a name="INDEX-1172" />After working through this chapter, you
+may have been surprised that you didn't have to write any SAX,
+DOM, or JDOM code. In fact, you used very little XML directly at all.
+This is because the XML-RPC libraries were responsible for the
+encoding and decoding of the requests that your clients sent to and
+from the servers. While this may seem a little bit of a letdown, as
+you didn't write any code that directly manipulates XML, you
+are definitely using XML technology. The simple request to the
+<tt class="literal">sayHello( )</tt> method was actually translated to an
+HTTP call that looks like <a href="ch11_04.htm#javaxml2-CHP-11-EX-10">Example 11-10</a>.
+</p>
+
+<a name="javaxml2-CHP-11-EX-10" /><div class="example">
+<h4 class="objtitle">Example 11-10. XML for XML-RPC request </h4>
+<blockquote><pre class="code">POST /RPC2 HTTP/1.1
+User-Agent: Tomcat Web Server/3.1 Beta (Sun Solaris 2.6)
+Host: newInstance.com
+Content-Type: text/xml
+Content-length: 234
+
+&lt;?xml version="1.0"?&gt;
+&lt;methodCall&gt;
+  &lt;methodName&gt;hello.sayHello&lt;/methodName&gt;
+  &lt;params&gt;
+    &lt;param&gt;
+      &lt;value&gt;&lt;string&gt;Brett&lt;/string&gt;&lt;/value&gt;
+    &lt;/param&gt;
+  &lt;/params&gt;
+&lt;/methodCall&gt;</pre></blockquote>
+</div>
+
+<p>The XML-RPC libraries on the server receive this and decode it,
+matching it with a handler method (if one is available that matches).
+The requested Java method is then invoked, and the server encodes the
+result back into XML, as shown in <a href="ch11_04.htm#javaxml2-CHP-11-EX-11">Example 11-11</a>.
+</p>
+
+<a name="javaxml2-CHP-11-EX-11" /><div class="example">
+<h4 class="objtitle">Example 11-11. XML underlying an XML-RPC response </h4>
+<blockquote><pre class="code">HTTP/1.1 200 OK
+Connection: close
+Content-Type: text/xml
+Content-Length: 149
+Date: Mon, 11 Apr 2000 03:32:19 CST
+Server: Tomcat Web Server/3.1 Beta-Sun Solaris 2.6
+
+&lt;?xml version="1.0"?&gt;
+&lt;methodResponse&gt;
+  &lt;params&gt;
+    &lt;param&gt;
+      &lt;value&gt;&lt;string&gt;Hello Brett&lt;/string&gt;&lt;/value&gt;
+    &lt;/param&gt;
+  &lt;/params&gt;
+&lt;/methodResponse&gt;</pre></blockquote>
+</div>
+
+<p>This communication all happens without you having to worry about the
+details.
+</p>
+
+</div>
+<a name="javaxml2-CHP-11-SECT-4.2" /><div class="sect2">
+<h3 class="sect2">11.4.2. Shared Instances</h3>
+
+<p><a name="INDEX-1173" />
+<a name="INDEX-1174" />In the
+examples, I looked at using static data objects to share data across
+multiple instances of the same class. However, there are times when
+an instance itself is shared. This may not be because of an XML-RPC
+need, but because of a need to use the class differently on the
+server. For example, the singleton design pattern in Java mandates
+that only one instance of a class ever be created, and that instance
+is shared across all applications. This is usually accomplished by
+using a static method called <tt class="literal">getInstance(
+)</tt><a name="INDEX-1175" />
+<a name="INDEX-1176" /> instead of constructing the object:
+</p>
+
+<blockquote><pre class="code">Scheduler scheduler;
+
+// Get the single instance, which is managed in the Scheduler class
+scheduler = Scheduler.getInstance( );
+
+// Add an event for right now
+scheduler.addEvent("Picnic", new Date( ));</pre></blockquote>
+
+<p>To ensure that no classes directly instantiate the
+<tt class="literal">Scheduler</tt> class, the constructor is usually made
+private or protected. While this forces clients to use this code to
+get an instance, it can also cause confusion when using the class as
+an XML-RPC handler. Remember that registering a handler has always
+been accomplished with the instantiation of the handler class.
+However, the <tt class="literal">WebServer</tt> class requires only a valid
+instance as a parameter, not necessarily a new instance. For example,
+the <a name="INDEX-1177" />following code is a perfectly acceptable
+way to add a handler:
+</p>
+
+<blockquote><pre class="code">WebServer server = new WebServer(8585);
+
+// Create a handler class
+HelloHandler hello = new HelloHandler( );
+server.addHandler("hello", hello);</pre></blockquote>
+
+<p>The server class does not distinguish between these methodologies, as
+long as the handler class is instantiated when it gets passed into
+the <tt class="literal">addHandler( )</tt> method. So you can make a small
+change to this code if you want to add an instance of the singleton
+<tt class="literal">Scheduler</tt> class described previously:
+</p>
+
+<blockquote><pre class="code">WebServer server = new WebServer(8585);
+
+// Pass in the singleton instance
+server.addHandler("scheduler", Scheduler.getInstance( ));</pre></blockquote>
+
+<p>This passes in the shared instance just as if the class were being
+instantiated through a constructor with the new keyword, and
+preserves any information shared across the singleton class. Many
+classes used in services such as XML-RPC are built as singletons to
+avoid the use of static data variables, as a shared instance allows
+the data to be stored in member variables; the single instance then
+operates upon those member variables for all client requests.
+</p>
+
+</div>
+<a name="javaxml2-CHP-11-SECT-4.3" /><div class="sect2">
+<h3 class="sect2">11.4.3. To Servlet or Not To Servlet</h3>
+
+<p>The use of a servlet as an XML-RPC server has become a popular option
+recently. For more details on
+<a name="INDEX-1178" />
+<a name="INDEX-1179" />servlets, see Jason Hunter's
+<em class="emphasis">Java Servlet Programming</em>
+(O'Reilly). In fact, the XML-RPC Java classes that you
+downloaded include a servlet with the distribution. It is both legal
+and common to use a servlet in this way, having the servlet do
+nothing but field XML-RPC requests. However, it is not always the
+best idea.
+</p>
+
+<p>If you have a machine that must serve other HTTP requests for Java
+tasks, then a servlet engine is a good choice for handling the
+details of these requests. In this case, running a servlet as an
+XML-RPC server is a good idea. However, one of the advantages of
+XML-RPC is it allows handler classes with complex, process-intensive
+tasks to be separated from other application code. The
+<tt class="literal">Scheduler</tt> class could be placed on a server with
+classes that performed complex indexing, algorithmic modeling, and
+perhaps graphical transformations. All of these functions are very
+expensive for application clients to perform. However, adding a
+servlet engine and accepting application requests for other tasks as
+well as the XML-RPC handling greatly reduces the processing power
+available to these handler classes. In this case, the only requests
+that should be coming to the server are for these handler classes.
+</p>
+
+<p>In the case where only XML-RPC requests are accepted (as indicated
+previously), it is rarely a good idea to use a servlet for the
+XML-RPC server. The provided <tt class="literal">WebServer</tt> class is
+small, light, and designed specifically for handling XML-RPC requests
+over HTTP. A servlet engine is designed to accept any HTTP request,
+and is not tuned as well for XML-RPC requests in particular. Over
+time, you will begin to see performance degradation in the servlet
+engine as compared to the <tt class="literal">WebServer</tt> class. Unless
+you have a compelling reason to use a servlet for other non-XML-RPC
+tasks, stick with the lightweight XML-RPC server designed for the
+purpose you need<a name="INDEX-1180" />. 
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch11_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">11.3. Putting the Load on the Server</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">11.5. What's Next?</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

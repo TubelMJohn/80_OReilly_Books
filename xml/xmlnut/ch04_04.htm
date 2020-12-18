@@ -1,0 +1,140 @@
+<html><head><title>Namespaces and DTDs (XML in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Elliotte Rusty Harold and W. Scott Means" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0-596-00292-0" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XML in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XML in a Nutshell" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch05_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">4.4. Namespaces and DTDs</h2>
+
+<p>Namespaces <a name="xmlnut2-IDXTERM-389" /> <a name="xmlnut2-IDXTERM-390" />are <a name="IXT-4-239529" />completely independent of DTDs and
+can be used in both valid and invalid documents. A document can have
+a DTD but not use namespaces or use namespaces but not have a DTD. It
+can use both namespaces and DTDs or neither namespaces nor DTDs.
+Namespaces do not in any way change DTD syntax nor do they change the
+definition of validity. For instance, the DTD of a valid document
+that uses an element named <tt class="literal">dc:title</tt> must include
+an <tt class="literal">ELEMENT</tt> declaration properly specifying the
+content of the <tt class="literal">dc:title</tt> element. For example:
+</p>
+
+<blockquote><pre class="code">&lt;!ELEMENT dc:title (#PCDATA)&gt;</pre></blockquote>
+
+<p>The name of the element in the document must exactly match the name
+of the element in the DTD including the prefix. The DTD cannot omit
+the prefix and simply declare a <tt class="literal">title</tt> element. The
+same is true of prefixed attributes. For instance, if an element used
+in the document has <tt class="literal">xlink:type</tt> and
+<tt class="literal">xlink:href</tt> attributes, then the DTD must declare
+the <tt class="literal">xlink:type</tt> and <tt class="literal">xlink:href</tt>
+attributes, not simply <tt class="literal">type</tt> and
+<tt class="literal">href</tt>.
+</p>
+
+<p>Conversely, if an element uses an <tt class="literal">xmlns</tt> attribute
+to set the default namespace and does not attach prefixes to
+elements, then the names of the elements must be declared without
+prefixes in the DTD. The validator neither knows nor cares about the
+existence of namespaces. All it sees is that some element and
+attribute names happen to contain colons; as far as
+it's concerned, such names are perfectly valid as
+long as they're declared.
+</p>
+
+<a name="xmlnut2-CHP-4-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">4.4.1. Parameter Entity References for Namespace Prefixes</h3>
+
+<p>Requiring <a name="IXT-4-239530" />DTDs
+<a name="IXT-4-239531" />to declare the
+prefixed names instead of the raw names or some combination of local
+part and namespace URI makes it difficult to change the prefix in
+valid documents. The problem is that changing the prefix requires
+changing all declarations that use that prefix in the DTD as well.
+However, with a little forethought, parameter entity references can
+alleviate the pain quite a bit.
+</p>
+
+<p>The trick is to define as parameter entities both the namespace
+prefix and the colon that separates the prefix from the local name,
+like this:
+</p>
+
+<blockquote><pre class="code">&lt;!ENTITY % dc-prefix "dc"&gt;
+&lt;!ENTITY % dc-colon ":"&gt;</pre></blockquote>
+
+<p>The second step is to define the qualified names as more parameter
+entity references, like these:
+</p>
+
+<blockquote><pre class="code">&lt;!ENTITY % dc-title       "%dc-prefix;%dc-colon;title"&gt;
+&lt;!ENTITY % dc-creator     "%dc-prefix;%dc-colon;creator"&gt;
+&lt;!ENTITY % dc-description "%dc-prefix;%dc-colon;description"&gt;
+&lt;!ENTITY % dc-date        "%dc-prefix;%dc-colon;date"&gt;</pre></blockquote>
+
+<a name="ch04-14-fm2xml" /><blockquote><b>WARNING:</b> 
+Do <a name="IXT-4-239532" />
+<a name="IXT-4-239533" />not
+omit this <a name="IXT-4-239534" />step and
+try to use the <tt class="literal">dc-prefix</tt> and
+<tt class="literal">dc-colon</tt> parameter entities directly in
+<tt class="literal">ELEMENT</tt> and <tt class="literal">ATTLIST</tt>
+declarations. This will fail because XML parsers add extra space
+around the entity's replacement text when
+they're used outside another
+entity's replacement text.</p>
+</blockquote>
+ <p>Then you use the
+entity references for the qualified name in all declarations, like
+this: </p>
+
+
+<blockquote><pre class="code">&lt;!ELEMENT %dc-title; (#PCDATA)&gt;
+&lt;!ELEMENT %dc-creator; (#PCDATA)&gt;
+&lt;!ELEMENT %dc-description; (#PCDATA)&gt;
+&lt;!ELEMENT %dc-date; (#PCDATA)&gt;
+&lt;!ELEMENT rdf:Description
+  ((%dc-title; | %dc-creator; | %dc-description; | %dc-date; )*)
+&gt;</pre></blockquote>
+
+<p>Now a document that needs to change the prefix simply changes the
+parameter entity definitions. In some cases, this will be done by
+editing the DTD directly. In others, it may be done by overriding the
+definitions in the document's own internal DTD
+subset. For example, to change the prefix from <tt class="literal">dc</tt>
+to <tt class="literal">dublin</tt>, you'd add this entity
+definition somewhere in the DTD before the normal definition:
+</p>
+
+<blockquote><pre class="code">&lt;!ENTITY % dc-prefix "dublin"&gt;</pre></blockquote>
+
+<p>If you wanted to use the default namespace instead of explicit
+prefixes, you'd redefine both the
+<tt class="literal">dc-prefix</tt> and <tt class="literal">dc-colon</tt> entities
+as the empty <a name="IXTR3-89" />string, like <a name="IXTR3-90" /> <a name="IXTR3-91" />this:
+</p>
+
+<blockquote><pre class="code">&lt;!ENTITY % dc-prefix ""&gt;
+&lt;!ENTITY % dc-colon  ""&gt;</pre></blockquote>
+
+
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch05_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">4.3. How Parsers Handle Namespaces</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">5. Internationalization</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

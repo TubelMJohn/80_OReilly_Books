@@ -1,0 +1,204 @@
+<?label 8.3. Encryption?><html><head><title>Encryption (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch08_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">8.3. Encryption</h2>
+
+
+<p>
+<a name="INDEX-1726" />
+<a name="INDEX-1727" />
+<a name="INDEX-1728" />Encryption
+can be an effective tool when developing secure solutions. There are
+two scenarios where it is especially useful for web applications. The
+first is to protect sensitive data so that it cannot be intercepted
+and viewed by others. A
+<a name="INDEX-1729" /> <a name="INDEX-1,730" /> <a name="INDEX-1,731" />secure https connections using SSL (or
+TLS) provides this protection. The second scenario involves
+<a name="INDEX-1732" />validation, such as ensuring that the
+user has not tampered with the values of hidden fields in a form.
+This is handled by generating hashes, or <a name="INDEX-1733" />digests, that
+can be used like checksums to verify that the data matches what is
+expected.</p>
+
+
+<p>You could use a <a name="INDEX-1734" />
+<a name="INDEX-1735" />
+<a name="INDEX-1736" />
+<a name="INDEX-1737" />hash algorithm, such as MD5 or
+SHA-1, to secure <a href="ch08_02.htm#ch08-83626">Example 8-3</a>. You would do this by
+generating a digest for both the data on the page -- the product
+name and price -- and a secret phrase stored on the server:</p>
+
+
+<blockquote><pre class="code">use constant $SECRET_PHRASE =&gt; "ThIs phrAsE ShOUld bE DiFFiCUlT 2 gueSS.";
+my $digest = generate_digest( $name, $price, $SECRET_PHRASE );</pre></blockquote>
+
+
+<p>You could then insert the value of the digest into your form as an
+additional hidden field, as shown in <a href="ch08_03.htm#ch08-68027">Example 8-5</a>.</p>
+
+
+
+<a name="ch08-68027" /><div class="example">
+<h4 class="objtitle">Example 8-5. sb3000.html </h4>
+
+<blockquote><pre class="code">&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;Super Blaster 3000&lt;/title&gt;
+  &lt;/head&gt;
+  
+  &lt;body bgcolor="#FFFFFF"&gt;
+    &lt;h2&gt;Super Blaster 3000&lt;/h2&gt;
+    &lt;hr&gt;
+    
+    &lt;form action="https://localhost/cgi/buy.cgi" method="GET"&gt;
+      &lt;input type="hidden" name="price" value="30.00"&gt;
+      &lt;input type="hidden" name="name" value="Super Blaster 3000"&gt;
+      &lt;input type="hidden" name="digest"
+        value="a38b37b5c80a79d2efb31ad78e9b8361"&gt;
+      .
+      .</pre></blockquote>
+</div>
+
+
+<p>When the CGI script receives the input, it recalculates a digest from
+the product's name and price along with the secret phrase. If
+it matches the digest that was supplied from the form, then the user
+has not modified the data.</p>
+
+
+<p>The value of your secret phrase must not be easy to guess, and it
+should be protected on your server. Like passwords and other
+sensitive data, you may wish to place your secret phrase in a file
+outside of your CGI directory and document root and have your CGI
+scripts read this value when it is needed. This way, if a
+misconfiguration in your web server allows users to view the source
+of your CGI scripts, then your secret phrase would not be
+compromised.</p>
+
+
+<p>In this example, the simplest solution may be to simply look up the
+prices on the server and not pass them through hidden fields, but
+there are certainly circumstances when you must expose data like
+this, and digests are an effective way to verify your data.</p>
+
+
+<p>Now let's look at how to actually generate digests. We will
+look at two algorithms: MD5 and SHA-1.</p>
+
+
+<a name="ch08-5-fm2xml" /><div class="sect2">
+<h3 class="sect2">8.3.1. MD5</h3>
+
+
+<p>
+<a name="INDEX-1738" />
+<a name="INDEX-1739" />MD5 is a 128-bit, one-way hash
+algorithm. It produces a short message digest for your data that is
+extremely unlikely to be produced for other data. However, from a
+digest it is not possible to derive the original data. The
+<a name="INDEX-1740" />
+<a name="INDEX-1741" />Digest::MD5
+module allows you to create MD5 digests in Perl.<a href="#FOOTNOTE-15">[15]</a></p><blockquote>
+
+<a name="FOOTNOTE-15" /><p>[15]You
+may also see references to the MD5.pm module; MD5.pm is deprecated
+and is now only a wrapper to the Digest::MD5 module.</p>
+
+</blockquote>
+
+
+<p>The digest that Digest::MD5 generates for you is available in three
+different formats: as raw <a name="INDEX-1742" />
+<a name="INDEX-1743" />
+<a name="INDEX-1744" />binary
+data, converted to hexadecimal, and converted to Base64 format. The
+latter two formats produce longer strings, but they can be safely
+inserted within HTML, email, etc. The hexadecimal digest is 32
+characters; the Base64 digest is 22 characters. Base64 encoding uses
+characters <tt class="literal">A-Z</tt>, <tt class="literal">a-z</tt>,
+<tt class="literal">0-9</tt>, <tt class="literal">+</tt>, <tt class="literal">/</tt>,
+and <tt class="literal">=</tt>.</p>
+
+
+<p>You can use the Digest::MD5 module this way to generate a hexadecimal
+digest:</p>
+
+
+<blockquote><pre class="code">use Digest::MD5 qw( md5_hex );
+my $hex_digest = md5_hex( @data );</pre></blockquote>
+
+
+<p>You can use the Digest::MD5 module this way to generate a Base64
+digest:</p>
+
+
+<blockquote><pre class="code">use Digest::MD5 qw( md5_base64 );
+my $base64_digest = md5_base64( @data );</pre></blockquote>
+
+
+<p>It is still possible for someone who has a digest and who knows
+possible original values to generate digests for each of the possible
+values to compare against the target digest. Thus, if you wish to
+generate digests that cannot be guessed, you should supply data that
+varies enough to not be predictable.</p>
+
+
+<p>The MD5 algorithm has received criticism within the last few years
+because researchers discovered internal weaknesses, which may make it
+easier to find different sets of data that produce the same digest.
+No one has done this, because it is still quite challenging, but the
+challenge looks smaller than previously assumed, and it may happen in
+the near future. This does not mean that it is any easier for someone
+to generate the original data from a digest, only that it may
+eventually be possible to calculate other data that collides with the
+digest. The SHA-1 algorithm does not currently have this problem.</p>
+</div>
+
+
+
+
+<a name="ch08-6-fm2xml" /><div class="sect2">
+<h3 class="sect2">8.3.2. SHA-1</h3>
+
+
+<p>
+<a name="INDEX-1745" />
+<a name="INDEX-1746" />Digest::SHA1, which
+<a name="INDEX-1747" />is included in Digest::MD5, provides an
+interface to the 160-bit SHA-1 algorithm. It is considered more
+secure than MD5, but it does take longer to generate. You can use it
+just like Digest::MD5:</p>
+
+
+<blockquote><pre class="code">use Digest::SHA1 qw( sha1_hex sha1_base64 );
+my $hex_digest    = sha1_hex( @data );
+my $base64_digest = sha1_base64( @data );</pre></blockquote>
+
+
+<p>Hexadecimal SHA-1 digests are 40 characters; Base64 digests are 27
+<a name="INDEX-1748" />
+<a name="INDEX-1749" />
+<a name="INDEX-1750" />characters.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch08_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">8.2. Handling User Input</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">8.4. Perl's Taint Mode</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

@@ -1,0 +1,980 @@
+<html><head><title>Win32::Internet (Perl in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Stephen Spainhour" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002416L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch22_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch22_08.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">22.7. Win32::Internet</h2>
+
+<p><a name="INDEX-3237" />The Win32::Internet extension
+implements the Win32 Internet APIs (found in
+<em class="emphasis">WININET.DLL</em>), providing support for HTTP, FTP,
+and Gopher connections.
+</p>
+
+<p>All types of connections start as a basic Internet connection that
+must be opened with the following command<a name="INDEX-3238" />:
+</p>
+
+<blockquote><pre class="code">use Win32::Internet;
+$Connection = Win32::Internet-&gt;new( );</pre></blockquote>
+
+<p>This creates an Internet object in Perl on which you use the
+functions provided in this module to create more specific connection
+objects. The objects and functions that create them are:
+</p>
+
+<ul><li>
+<p>Internet connections (the main object, with <tt class="literal">new</tt>)</p>
+</li><li>
+<p>URLs (with <tt class="literal">OpenURL</tt>)</p>
+</li><li>
+<p>FTP sessions (with <tt class="literal">FTP</tt>)</p>
+</li><li>
+<p>HTTP sessions (with <tt class="literal">HTTP</tt>)</p>
+</li><li>
+<p>HTTP requests (with <tt class="literal">OpenRequest</tt>)</p>
+</li></ul>
+<p>This module provides different levels of implementation of the Win32
+Internet functions. Some routines use several Win32 API functions to
+perform a complex task in a single call; they are simpler to use, but
+less powerful. Other functions implement nothing more and nothing
+less than the corresponding API function, so you can use all of their
+power, but with some additional programming steps.
+</p>
+
+<p>For example, the function <tt class="literal">FetchURL</tt> fetches the
+contents of any HTTP, FTP, or Gopher URL with a simple command:
+</p>
+
+<blockquote><pre class="code">$inet = new Win32::Internet( );
+$file = $inet-&gt;FetchURL("http://www.yahoo.com");</pre></blockquote>
+
+<p>You can achieve the same result with this series of commands, which
+is what <tt class="literal">FetchURL</tt> actually does:
+</p>
+
+<blockquote><pre class="code">$inet = new Win32::Internet( );
+$url = $inet-&gt;OpenURL("http://www.yahoo.com");
+$file = $url-&gt;ReadFile( );
+$url-&gt;Close( );</pre></blockquote>
+
+<a name="perlnut2-CHP-22-SECT-7.1" /><div class="sect2">
+<h3 class="sect2">22.7.1. General Internet Methods</h3>
+
+<p>The methods described in this section are used on Internet
+<a name="INDEX-3239" />connection objects created with
+<tt class="literal">new</tt>:
+</p>
+
+<blockquote><pre class="code">$inet = Win32::Internet-&gt;new( );</pre></blockquote>
+
+<p>You can supply <tt class="literal">new</tt> with an optional list of
+arguments (or a reference to a hash containing them) that looks like
+this:
+</p>
+
+<blockquote><pre class="code">Win32::Internet-&gt;new [<em class="replaceable"><tt>useragent</em>, <em class="replaceable">opentype</em>, <em class="replaceable">proxy</em>, <em class="replaceable">proxybypass</em>, <em class="replaceable">flags</tt></em>] 
+Win32::Internet-&gt;new [<em class="replaceable"><tt>$hashref</tt></em>]</pre></blockquote>
+
+<p>The parameters and their values are:</p>
+
+<dl>
+<dt><i><em class="replaceable"><tt>useragent</tt></em></i></dt>
+<dd>
+The user agent string passed to HTTP requests. Default is
+<tt class="literal">Perl-Win32Internet/version</tt>.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>opentype</tt></em></i></dt>
+<dd>
+How to access the Internet (e.g., directly or using a proxy). Default
+is <tt class="literal">INTERNET_OPEN_TYPE_DIRECT</tt>.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>proxy</tt></em></i></dt>
+<dd>
+Name of the proxy server (or servers) to use. Default is none.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>proxybypass</tt></em></i></dt>
+<dd>
+Optional list of hostnames or IP addresses that are known locally.
+Default is none.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>flags</tt></em></i></dt>
+<dd>
+Additional flags affecting the behavior of the function. Default is
+none.
+</p>
+</dd>
+
+</dl>
+
+<p>If you pass a hash reference to the function, the following values
+are taken from the hash:
+</p>
+
+<blockquote><pre class="code">%hash=(
+  "useragent"   =&gt; "useragent",
+  "opentype"    =&gt; "opentype",
+  "proxy"       =&gt; "proxy",
+  "proxybypass" =&gt; "proxybypass",
+  "flags"       =&gt; flags,
+);</pre></blockquote>
+
+<p>The following methods can be used on Internet connection objects.</p>
+
+
+<a name="INDEX-3240" /><a name="INDEX-3241" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>CanonicalizeURL</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;CanonicalizeURL(<em class="replaceable">URL</em>, [<em class="replaceable">flags</em>])
+</pre><p><a name="INDEX-3240" /><a name="INDEX-3241" />Converts a URL to a
+canonical format, which includes converting unsafe characters to
+escape sequences. Returns the canonicalized URL, or
+<tt class="literal">undef</tt> on error. For the possible values of
+<em class="replaceable"><tt>flags</tt></em>, refer to the Microsoft Win32
+Internet Functions documentation.
+</p></div>
+
+<a name="INDEX-3242" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Close</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;Close([$<em class="replaceable">obj</em>])
+</pre><p><a name="INDEX-3242" />Closes an Internet connection. This can
+be applied to any Win32::Internet object. Note that it is not
+strictly required to close the connections you create, since the
+Win32::Internet objects are automatically closed when the program
+ends (or when such an object is destroyed by other means).
+</p></div>
+
+<a name="INDEX-3243" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>CombineURL</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;CombineURL(<em class="replaceable">baseURL</em>, <em class="replaceable">relativeURL</em>, [<em class="replaceable">flags</em>])
+</pre><p><a name="INDEX-3243" />Combines a base and relative
+URL into a single URL. Returns the (canonicalized) combined URL, or
+<tt class="literal">undef</tt> on error. For the possible values of flags,
+refer to the Microsoft Win32 Internet Functions documentation.
+</p></div>
+
+<a name="INDEX-3244" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>ConnectBackoff</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;ConnectBackoff([<em class="replaceable">value</em>])
+</pre><p><a name="INDEX-3244" />Reads or sets the delay
+value, in milliseconds, to wait between connection retries. If no
+value parameter is specified, the current value is returned;
+otherwise, the delay between retries is set.
+</p></div>
+
+<a name="INDEX-3245" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>ConnectionRetries</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;ConnectRetries([<em class="replaceable">value</em>])
+</pre><p><a name="INDEX-3245" />Reads or sets the number of
+times a connection is retried before considering it failed. If no
+value parameter is specified, the current value is returned;
+otherwise, the number of retries is set. The default value is
+<tt class="literal">5</tt>.
+</p></div>
+
+<a name="INDEX-3246" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>ConnectTimeout</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;ConnectTimeout([<em class="replaceable">value</em>])
+</pre><p><a name="INDEX-3246" />Reads or sets the timeout
+value (in milliseconds) before a connection is considered failed. If
+no value parameter is specified, the current value is returned;
+otherwise, the timeout is set to <em class="replaceable"><tt>value</tt></em>.
+The default value is infinity.
+</p></div>
+
+<a name="INDEX-3247" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>ControlReceiveTimeout</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;ControlReceiveTimeout([<em class="replaceable">value</em>])
+</pre><p><a name="INDEX-3247" />Reads or sets the timeout
+value (in milliseconds) to use for non-data (control) receive
+requests before they are canceled. Currently, this value has meaning
+only for FTP sessions. If no value parameter is specified, the
+current value is returned; otherwise, the timeout is set. The default
+value is infinity.
+</p></div>
+
+<a name="INDEX-3248" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>ControlSendTimeout</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;ControlSendTimeout([<em class="replaceable">value</em>])
+</pre><p><a name="INDEX-3248" />Reads or sets the timeout
+value (in milliseconds) to use for non-data (control) send requests
+before they are canceled. Currently, this value has meaning only for
+FTP sessions. If no value parameter is specified, the current value
+is returned; otherwise, the timeout is set. The default value is
+infinity.
+</p></div>
+
+<a name="INDEX-3249" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>CrackURL</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;CrackURL(<em class="replaceable">URL</em>, [<em class="replaceable">flags</em>])
+</pre><p><a name="INDEX-3249" />Splits a URL into its
+component parts and returns them in an array. Returns
+<tt class="literal">undef</tt> on error. The array will contain the
+following values: (<em class="replaceable"><tt>scheme</tt></em>,
+<em class="replaceable"><tt>host</em>, <em class="replaceable">port</tt></em>,
+<em class="replaceable"><tt>username</tt></em>,
+<em class="replaceable"><tt>password</em>, <em class="replaceable">path</tt></em>,
+<em class="replaceable"><tt>extrainfo</tt></em>). For example, the URL
+<em class="emphasis">http://www.divinf.it/index.html#top</em> can be
+split into:
+</p><blockquote><pre class="code">http, www.divinf.it, 80, anonymous, dada@divinf.it, /index.html, #top</pre></blockquote><p>If you don't specify a flags parameter,
+<tt class="literal">ICU_ESCAPE</tt> will be used by default; for the
+possible values of <em class="replaceable"><tt>flags</tt></em>, refer to the
+Microsoft Win32 Internet Functions documentation.
+</p></div>
+
+<a name="INDEX-3250" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>CreateURL</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+$<em class="replaceable">inet</em>-&gt;CreateURL(<em class="replaceable">scheme</em>, <em class="replaceable">hostname</em>, <em class="replaceable">port</em>, <em class="replaceable">username</em>, <em class="replaceable">password</em>, <em class="replaceable">path</em>, <em class="replaceable">extrainfo</em>, [<em class="replaceable">flags</em>])
+$<em class="replaceable">inet</em>-&gt;CreateURL($<em class="replaceable">hashref</em>, [<em class="replaceable">flags</em>]) 
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-3250" />Creates a URL from its
+component parts. Returns <tt class="literal">undef</tt> on error and the
+created URL if successful. If you pass a hash reference, the
+following values are taken from the array:
+</p><blockquote><pre class="code">%hash=(
+  "scheme"    =&gt; "scheme",
+  "hostname"  =&gt; "hostname",
+  "port"      =&gt; port,
+  "username"  =&gt; "username",
+  "password"  =&gt; "password",
+  "path"      =&gt; "path",
+  "extrainfo" =&gt; "extrainfo",
+);</pre></blockquote><p>If you don't specify a flags parameter,
+<tt class="literal">ICU_ESCAPE</tt> will be used by default; for the other
+possible values of <em class="replaceable"><tt>flags</tt></em>, refer to the
+Microsoft Win32 Internet Functions documentation.
+</p></div>
+
+<a name="INDEX-3251" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>DataReceiveTimeout</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;DataReceiveTimeout([<em class="replaceable">value</em>])
+</pre><p><a name="INDEX-3251" />Reads or sets the timeout
+value (in milliseconds) to use for data receive requests before they
+are canceled. If no value parameter is specified, the current value
+is returned; otherwise, the timeout is set. The default value is
+infinity.
+</p></div>
+
+<a name="INDEX-3252" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>DataSendTimeout</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;DataSendTimeout([<em class="replaceable">value</em>])
+</pre><p><a name="INDEX-3252" />Reads or sets the timeout
+value (in milliseconds) to use for data send requests before they are
+canceled. If no value parameter is specified, the current value is
+returned; otherwise, the timeout is set. The default value is
+infinity.
+</p></div>
+
+<a name="INDEX-3253" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Error</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;Error(  )
+</pre><p><a name="INDEX-3253" />Returns the last
+recorded error in the form of an array or string (depending on the
+context) containing the error number and an error description. Can be
+applied on any Win32::Internet object (FTP sessions, etc.). There are
+three types of errors you can encounter, recognizable by the error
+number returned:
+</p><dl>
+<dt><i><em class="emphasis">-1</em></i></dt>
+<dd>
+A "trivial" error has occurred in
+the package. For example, you tried to use a method on the wrong type
+of object.
+</p>
+</dd>
+
+
+<dt><i><em class="emphasis">1-11,999</em></i></dt>
+<dd>
+A generic error has occurred, and the Win32::GetLastError error
+message is returned.
+</p>
+</dd>
+
+
+<dt><i><em class="emphasis">12,000 and higher</em></i></dt>
+<dd>
+An Internet error has occurred, and the extended Win32 Internet API
+error message is returned.
+</p>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-3254" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>FetchURL</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;FetchURL(<em class="replaceable">URL</em>)
+</pre><p><a name="INDEX-3254" />Fetches the content of an
+HTTP, FTP, or Gopher URL. Returns the contents of the file read (or
+<tt class="literal">undef</tt> if there was an error and nothing was read).
+</p></div>
+
+<a name="INDEX-3255" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>FTP</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+$<em class="replaceable">inet</em>-&gt;FTP($<em class="replaceable">ftpobject</em>, <em class="replaceable">server</em>, <em class="replaceable">username</em>, <em class="replaceable">pwd</em>, [<em class="replaceable">port</em>, <em class="replaceable">pasv</em>, <em class="replaceable">context</em>])
+$<em class="replaceable">inet</em>-&gt;FTP($<em class="replaceable">ftpobject</em>, $<em class="replaceable">hashref</em>)
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-3255" />Opens an FTP connection to
+<em class="replaceable"><tt>server</tt></em>, logging in with the given username
+and password. The new connection object is saved to
+<em class="replaceable"><tt>ftpobject</tt></em>. The parameters and their values
+are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>server</tt></em></i></dt>
+<dd>
+The server to connect to.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>username</tt></em></i></dt>
+<dd>
+The username used to log in to the server. Default is
+<tt class="literal">anonymous</tt>.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>pwd</tt></em></i></dt>
+<dd>
+The password used to log in to the server. Default is none.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>port</tt></em></i></dt>
+<dd>
+The port of the FTP service on the server. Default is
+<tt class="literal">21</tt>.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>pasv</tt></em></i></dt>
+<dd>
+If it is a value other than <tt class="literal">0</tt>, use passive
+transfer mode. Otherwise, it is taken from the parent Internet
+connection object; you can set this value with the
+<tt class="literal">Pasv</tt> method.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>context</tt></em></i></dt>
+<dd>
+A number to identify this operation if it is asynchronous. See
+<tt class="literal">SetStatusCallback</tt> and
+<tt class="literal">GetStatusCallback</tt> for more info on asynchronous
+operations.
+</p>
+
+<p>If you pass a hash reference, the following values are taken from the
+hash:
+</p>
+
+<blockquote><pre class="code">%hash=(
+  "server"   =&gt; "server",
+  "username" =&gt; "username",
+  "password" =&gt; "password",
+  "port"     =&gt; port,
+  "pasv"     =&gt; pasv,
+  "context"  =&gt; context,
+);</pre></blockquote>
+
+<p>The <tt class="literal">FTP</tt> method returns <tt class="literal">undef</tt> if
+the connection failed, a number otherwise. You can then call any of
+the FTP functions as methods of the newly created FTP object.
+</p>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-3256" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>GetResponse</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;GetResponse(  )
+</pre><p><a name="INDEX-3256" />Returns the text sent by a
+remote server in response to the last function executed. It applies
+to any Win32::Internet object, particularly FTP sessions.
+</p></div>
+
+<a name="INDEX-3257" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>GetStatusCallback</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;GetStatusCallback(<em class="replaceable">context</em>)
+</pre><p><a name="INDEX-3257" />Returns information about
+the progress of the asynchronous operation identified by context;
+this information consists of two values: a status code (one of the
+<tt class="literal">INTERNET_STATUS_*</tt> constants) and an additional
+value depending on the status code. For example, if the status code
+returned is <tt class="literal">INTERNET_STATUS_HANDLE_CREATED</tt>, the
+second value will hold the handle just created. For more information
+on these values, refer to the Microsoft Win32 Internet Functions
+documentation.
+</p></div>
+
+<a name="INDEX-3258" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>HTTP</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+$<em class="replaceable">inet</em>-&gt;HTTP(<em class="replaceable">httpobject</em>, <em class="replaceable">server</em>, <em class="replaceable">username</em>, <em class="replaceable">password</em>, [<em class="replaceable">port</em>, <em class="replaceable">flags</em>, <em class="replaceable">context</em>])
+$<em class="replaceable">inet</em>-&gt;HTTP($<em class="replaceable">httpobject</em>, $<em class="replaceable">hashref</em>)
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-3258" />Opens an HTTP connection to
+<em class="replaceable"><tt>server</tt></em>, logging in with the given username
+and password. The new connection object is saved as
+<em class="replaceable"><tt>httpobject</tt></em>. The parameters and their
+values are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>server</tt></em></i></dt>
+<dd>
+The server to connect to.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>username</tt></em></i></dt>
+<dd>
+The username used to log in to the server. Default is
+<tt class="literal">anonymous</tt>.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>password</tt></em></i></dt>
+<dd>
+The password used to log in to the server. Default is none.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>port</tt></em></i></dt>
+<dd>
+The port of the HTTP service on the server. Default is
+<tt class="literal">80</tt>. 
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>flags</tt></em></i></dt>
+<dd>
+Additional flags affecting the behavior of the function.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>context</tt></em></i></dt>
+<dd>
+A number to identify this operation if it is asynchronous.</p>
+
+<p>If you pass a hash reference, the following values are taken from the
+hash:
+</p>
+
+<blockquote><pre class="code">%hash=(
+  "server"   =&gt; "server",
+  "username" =&gt; "username",
+  "password" =&gt; "password",
+  "port"     =&gt; port,
+  "flags"    =&gt; flags,
+  "context"  =&gt; context,
+);</pre></blockquote>
+<p>The <tt class="literal">HTTP</tt> method returns <tt class="literal">undef</tt>
+if the connection failed, a number otherwise. You can then call any
+of the HTTP functions as methods of the newly created
+<em class="replaceable"><tt>httpobject</tt></em>.
+</p>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-3259" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>OpenURL</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;OpenURL(<em class="replaceable">urlobject</em>, <em class="replaceable">URL</em>)
+</pre><p><a name="INDEX-3259" />Opens a connection to an
+HTTP, FTP, or Gopher URL. Returns <tt class="literal">undef</tt> on error,
+or a number if the connection was successful. You can then retrieve
+the URL content by applying the methods
+<tt class="literal">QueryDataAvailable</tt> and <tt class="literal">ReadFile</tt>
+on the newly created <em class="replaceable"><tt>urlobject</tt></em>. See also
+<tt class="literal">FetchURL</tt>.
+</p></div>
+
+<a name="INDEX-3260" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Password</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;Password([<em class="replaceable">password</em>])
+</pre><p><a name="INDEX-3260" />Reads or sets the password
+used for an FTP or HTTP connection. If no password parameter is
+specified, the current value is returned.
+</p></div>
+
+<a name="INDEX-3261" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>QueryDataAvailable</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;QueryDataAvailable(  )
+</pre><p><a name="INDEX-3261" />Returns the number of bytes
+of data available to be read immediately by a subsequent call to
+<tt class="literal">ReadFile</tt> (or <tt class="literal">undef</tt> on error).
+Can be applied to URL or HTTP request objects.
+</p></div>
+
+<a name="INDEX-3262" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>QueryOption</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;QueryOption(<em class="replaceable">option</em>)
+</pre><p><a name="INDEX-3262" />Queries an Internet option.
+For the possible values of <em class="replaceable"><tt>option</tt></em>, refer
+to the Microsoft Win32 Internet Functions documentation.
+</p></div>
+
+<a name="INDEX-3263" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>ReadEntireFile</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;ReadEntireFile(  )
+</pre><p><a name="INDEX-3263" />Reads all the data available
+from an opened URL or HTTP request object. Returns what has been
+read, or <tt class="literal">undef</tt> on error.
+</p></div>
+
+<a name="INDEX-3264" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>ReadFile</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;ReadFile(<em class="replaceable">bytes</em>)
+</pre><p><a name="INDEX-3264" />Reads and returns the
+specified number of bytes of data from an opened URL or HTTP request
+object. Returns <tt class="literal">undef</tt> on error. Be careful to keep
+<em class="replaceable"><tt>bytes</tt></em> to an acceptable value.
+</p></div>
+
+<a name="INDEX-3265" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>SetOption</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;SetOption(<em class="replaceable">option</em>, <em class="replaceable">value</em>)
+</pre><p><a name="INDEX-3265" />Sets an Internet option. For
+the possible values of <em class="replaceable"><tt>option</tt></em>, refer to
+the Microsoft Win32 Internet Functions documentation.
+</p></div>
+
+<a name="INDEX-3266" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>SetStatusCallback</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;SetStatusCallback(  )
+</pre><p><a name="INDEX-3266" />Initializes the callback
+routine used to return data about the progress of an asynchronous
+operation. This is one of the steps required to perform asynchronous
+operations; the complete procedure is:
+</p><blockquote><pre class="code"># Use the INTERNET_FLAG_ASYNC when initializing
+$params{'flags'}=INTERNET_FLAG_ASYNC;
+$inet = new Win32::Internet(params);
+
+# Initialize the callback routine
+$inet-&gt;SetStatusCallback( );
+
+# Specify the context parameter (the last 1 in this case)
+$inet-&gt;HTTP($http, "www.yahoo.com", "anonymous", "dada\@divinf.it", 
+            80, 0, 1);</pre></blockquote><p>At this point, control returns immediately to Perl, and
+<tt class="literal">$inet-&gt;Error( )</tt> will return
+<tt class="literal">997</tt>, which means an asynchronous I/O operation is
+pending. Now, you can call:
+</p><blockquote><pre class="code">$http-&gt;GetStatusCallback(1);</pre></blockquote><p>in a loop to verify what's happening; see also
+<tt class="literal">GetStatusCallback</tt>.
+</p></div>
+
+<a name="INDEX-3267" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>TimeConvert</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;TimeConvert(<em class="replaceable">time</em>)
+</pre><p><a name="INDEX-3267" />Takes an HTTP date/time
+string and returns the date/time converted in the following array:
+(<em class="replaceable"><tt>seconds</tt></em>,
+<em class="replaceable"><tt>minutes</em>, <em class="replaceable">hours</tt></em>,
+<em class="replaceable"><tt>day</em>, <em class="replaceable">month</tt></em>,
+<em class="replaceable"><tt>year</tt></em>,
+<em class="replaceable"><tt>day_of_week</tt></em>).
+</p></div>
+
+<a name="INDEX-3268" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>UserAgent</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;UserAgent([<em class="replaceable">name</em>])
+</pre><p><a name="INDEX-3268" />Reads or sets the user agent
+name used for HTTP requests. If no name is specified, the current
+value is returned.
+</p></div>
+
+<a name="INDEX-3269" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Username</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;Username([<em class="replaceable">name</em>])
+</pre><p><a name="INDEX-3269" />Reads or sets the username
+used for an FTP or HTTP connection. If no name parameter is
+specified, the current value is returned.
+</p></div>
+
+<a name="INDEX-3270" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Version</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">inet</em>-&gt;Version(  )
+</pre><p><a name="INDEX-3270" />Returns the version numbers
+for the Win32::Internet package and the
+<em class="emphasis">WININET.DLL</em> version, as an array or string,
+depending on the context. The string returned will contain
+<em class="replaceable"><tt>package_version</em>/<em class="replaceable">DLL_version</tt></em>,
+while the array will contain:
+<em class="replaceable"><tt>package_version</tt></em><tt class="literal">,</tt>
+<em class="replaceable"><tt>DLL_version</tt></em>. For example:
+</p><blockquote><pre class="code">$version = $inet-&gt;Version( );
+# Should return "0.06/4.70.1215"
+@version = $inet-&gt;Version( );
+# Should return ("0.06", "4.70.1215")</pre></blockquote></div>
+
+</div>
+<a name="perlnut2-CHP-22-SECT-7.2" /><div class="sect2">
+<h3 class="sect2">22.7.2. FTP Functions</h3>
+
+<p><a name="INDEX-3271" />The methods described in this section are
+used to control FTP sessions. They apply to FTP session objects
+created by the <tt class="literal">FTP</tt> method on an Internet
+connection object. <tt class="literal">FTP</tt> creates an open FTP session
+and assigns it to an object (<tt class="literal">$FTP</tt>):
+</p>
+
+<blockquote><pre class="code">use Win32::Internet;
+$inet = new Win32::Internet( );
+$inet-&gt;FTP($FTP, "hostname", "username", "password");</pre></blockquote>
+
+<p>The following methods are used on FTP session objects.</p>
+
+
+
+<a name="INDEX-3272" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Ascii</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+$<em class="replaceable">FTP</em>-&gt;Ascii(  )
+$<em class="replaceable">FTP</em>-&gt;Asc(  )
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-3272" />Sets the ASCII transfer mode
+for this FTP session. It will be applied to subsequent
+<tt class="literal">Get</tt> functions.
+</p></div>
+
+<a name="INDEX-3273" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Binary</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+$<em class="replaceable">FTP</em>-&gt;Binary(  )
+$<em class="replaceable">FTP</em>-&gt;Bin(  )
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-3273" />Sets the binary transfer
+mode for this FTP session. It will be applied to subsequent
+<tt class="literal">Get</tt> functions.
+</p></div>
+
+<a name="INDEX-3274" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Cd</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+$<em class="replaceable">FTP</em>-&gt;Cd(<em class="replaceable">path</em>)
+$<em class="replaceable">FTP</em>-&gt;Cwd(<em class="replaceable">path</em>)
+$<em class="replaceable"><tt>FTP</em>-&gt;Chdir(<em class="replaceable">path</tt></em>)
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-3274" />Changes the current
+directory on the FTP remote host. Returns
+<em class="replaceable"><tt>path</tt></em>, or <tt class="literal">undef</tt> on
+error.
+</p></div>
+
+<a name="INDEX-3275" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Delete</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+$<em class="replaceable">FTP</em>-&gt;Delete(<em class="replaceable">file</em>)
+$<em class="replaceable">FTP</em>-&gt;Del(<em class="replaceable">file</em>)
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-3275" />Deletes <em class="replaceable"><tt>file</tt></em>on the FTP remote host. Returns <tt class="literal">undef</tt> on error.
+</p></div>
+
+<a name="INDEX-3276" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Get</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">FTP</em>-&gt;Get(<em class="replaceable">file</em>, [<em class="replaceable">local</em>, <em class="replaceable">overwrite</em>, <em class="replaceable">flags</em>, <em class="replaceable">context</em>])
+</pre><p><a name="INDEX-3276" />Gets the remote FTP
+<em class="replaceable"><tt>file</tt></em> and saves it locally in
+<em class="replaceable"><tt>local</em>. If <em class="replaceable">local</tt></em>is not specified, it will be the same name as
+<em class="replaceable"><tt>file</tt></em>. Returns <tt class="literal">undef</tt> on
+error. The parameters and their values are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>file</tt></em></i></dt>
+<dd>
+The name of the remote file on the FTP server.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>local</tt></em></i></dt>
+<dd>
+The name of the local file to create.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>overwrite</tt></em></i></dt>
+<dd>
+If <tt class="literal">0</tt>, overwrites <em class="replaceable"><tt>local</tt></em>if it exists. With any other value, the function fails if the local
+file already exists. Default is <tt class="literal">0</tt>.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>flags</tt></em></i></dt>
+<dd>
+Additional flags affecting the behavior of the function. None by
+default.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>context</tt></em></i></dt>
+<dd>
+A number to identify this operation if it is asynchronous. (See
+<tt class="literal">SetStatusCallback</tt> and
+<tt class="literal">GetStatusCallback</tt> for more information on
+asynchronous operations.) None by default.
+</p>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-3277" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>List</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+$<em class="replaceable">FTP</em>-&gt;List([<em class="replaceable">pattern</em>, <em class="replaceable">listmode</em>])
+$<em class="replaceable">FTP</em>-&gt;Ls([<em class="replaceable">pattern</em>, <em class="replaceable">listmode</em>])
+$<em class="replaceable"><tt>FTP</em>-&gt;Dir([<em class="replaceable">pattern</em>, <em class="replaceable">listmode</tt></em>])
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-3277" />Returns a list containing the files
+found in the current directory, matching the given
+<em class="replaceable"><tt>pattern</tt></em>, if specified. The content of the
+returned list depends on the <em class="replaceable"><tt>listmode</tt></em>parameter, which can have the following values:
+</p><dl>
+<dt><b><tt class="literal">1</tt> <em class="emphasis">(default)</em></b></dt>
+<dd>
+The list contains the names of the files found.</p>
+</dd>
+
+
+<dt><b><tt class="literal">2</tt></b></dt>
+<dd>
+The list contains seven values for each file:</p>
+
+<ul>
+<li><p>The filename</p></li>
+<li><p>The DOS short filename, a.k.a. 8.3</p></li>
+<li><p>The size</p></li>
+<li><p>The attributes</p></li>
+<li><p>The creation time</p></li>
+<li><p>The last access time</p></li>
+<li><p>The last modified time</p></li>
+</ul>
+
+</dd>
+
+
+<dt><b><tt class="literal">3</tt></b></dt>
+<dd>
+The list contains a reference to a hash for each found file. Each
+hash contains the following key/value pairs:
+</p>
+
+
+<blockquote><pre class="code">name =&gt; <em class="replaceable"><tt>filename</tt></em>
+altname =&gt; <em class="replaceable"><tt>DOS short filename, a.k.a. 8.3</tt></em>
+size =&gt; <em class="replaceable"><tt>size</tt></em>
+attr =&gt; <em class="replaceable"><tt>attributes</tt></em>
+ctime =&gt; <em class="replaceable"><tt>creation time</tt></em>
+atime =&gt; <em class="replaceable"><tt>last access time</tt></em>
+mtime =&gt; <em class="replaceable"><tt>last modified time</tt></em></pre></blockquote>
+
+
+<p>All times are reported as strings of the following format: second,
+hour, minute, day, month, year. For example:
+</p>
+
+<blockquote><pre class="code">$file-&gt;{'mtime'} == "0,10,58,9,12,1996"
+# Stands for 09 Dec 1996 at 10:58:00</pre></blockquote>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-3278" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Mkdir</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+$<em class="replaceable">FTP</em>-&gt;Mkdir(<em class="replaceable">name</em>)
+$<em class="replaceable">FTP</em>-&gt;Md(<em class="replaceable">name</em>)
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-3278" />Creates the directory
+<em class="replaceable"><tt>name</tt></em> on the FTP remote host. Returns
+<tt class="literal">undef</tt> on error.
+</p></div>
+
+<a name="INDEX-3279" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Mode</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">FTP</em>-&gt;Mode([<em class="replaceable">mode</em>])
+</pre><p><a name="INDEX-3279" />If called with no arguments, returns
+the current transfer mode for this FTP session
+(<tt class="literal">asc</tt> for ASCII or <tt class="literal">bin</tt> for
+binary). The <em class="replaceable"><tt>mode</tt></em> argument can be
+<tt class="literal">asc</tt> or <tt class="literal">bin</tt>, in which case the
+appropriate transfer mode is selected. Returns
+<tt class="literal">undef</tt> on error.
+</p></div>
+
+<a name="INDEX-3280" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Pasv</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">FTP</em>-&gt;Pasv([<em class="replaceable">mode</em>])
+</pre><p><a name="INDEX-3280" />If called with no arguments,
+returns <tt class="literal">1</tt> if the current FTP session has passive
+transfer mode enabled; <tt class="literal">0</tt> if not. You can call it
+with a <em class="replaceable"><tt>mode</tt></em> parameter
+(<tt class="literal">0</tt>/<tt class="literal">1</tt>) only as a method of a
+Internet object, in which case it will set the default value for the
+next FTP object you create (i.e., set it before, because you
+can't change this value once you open the FTP
+session).
+</p></div>
+
+<a name="INDEX-3281" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Put</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">FTP</em>-&gt;Put(<em class="replaceable">file</em>, [<em class="replaceable">remote</em>, <em class="replaceable">context</em>]<em class="replaceable">)</em></pre><p><a name="INDEX-3281" />Uploads the local
+<em class="replaceable">file</em> to the FTP server, saving it under
+the name <em class="replaceable"><tt>remote</tt></em>, which, if omitted, is the
+same name as <em class="replaceable"><tt>file</tt></em>. Returns
+<tt class="literal">undef</tt> on error. <em class="replaceable"><tt>context</tt></em>is a number to identify this operation if it is asynchronous. See
+<tt class="literal">SetStatusCallback</tt> and
+<tt class="literal">GetStatusCallback</tt> for more information on
+asynchronous operations.
+</p></div>
+
+<a name="INDEX-3282" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Pwd</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">FTP</em>-&gt;Pwd(  )
+</pre><p><a name="INDEX-3282" />Returns the current
+directory on the FTP server, or <tt class="literal">undef</tt> on error.
+</p></div>
+
+<a name="INDEX-3283" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Rename</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+$<em class="replaceable">FTP</em>-&gt;Rename(<em class="replaceable">oldfile</em>, <em class="replaceable">newfile</em><em class="replaceable">)</em>
+$<em class="replaceable">FTP</em>-&gt;Ren(<em class="replaceable">oldfile</em>, <em class="replaceable">newfile</em>)
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-3283" />Renames a file on the FTP
+remote host. Returns <tt class="literal">undef</tt> on error.
+</p></div>
+
+<a name="INDEX-3284" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Rmdir</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+$<em class="replaceable">FTP</em>-&gt;Rmdir(<em class="replaceable">name</em>)
+$<em class="replaceable">FTP</em>-&gt;Rd(<em class="replaceable">name</em>)
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-3284" />Removes the directory
+<em class="replaceable"><tt>name</tt></em> on the FTP remote host. Returns
+<tt class="literal">undef</tt> on error.
+</p></div>
+
+</div>
+<a name="perlnut2-CHP-22-SECT-7.3" /><div class="sect2">
+<h3 class="sect2">22.7.3. HTTP Functions</h3>
+
+<p><a name="INDEX-3285" />The methods described in this section are
+used to create and control an HTTP session. Open an HTTP session
+using the <tt class="literal">HTTP</tt> method on an Internet connection
+object:
+</p>
+
+<blockquote><pre class="code">use Win32::Internet;
+$inet = new Win32::Internet( );
+$inet-&gt;HTTP($http, "hostname", "username", "password");</pre></blockquote>
+
+<p>This opens the session and creates the HTTP session object
+<tt class="literal">$http</tt>. The following methods can be used on HTTP
+session objects.
+</p>
+
+
+<a name="INDEX-3286" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>AddHeader</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">request</em>-&gt;AddHeader(<em class="replaceable">header</em>, [<em class="replaceable">flags</em>])
+</pre><p><a name="INDEX-3286" />Adds HTTP request headers to an HTTP
+request object created with <tt class="literal">OpenRequest</tt>. For the
+possible values of <em class="replaceable"><tt>flags</tt></em>, refer to the
+Microsoft Win32 Internet Functions documentation.
+</p></div>
+
+<a name="INDEX-3287" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>OpenRequest</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+$<em class="replaceable">http</em>-&gt;OpenRequest(<em class="replaceable">requestobject</em>, [<em class="replaceable">path</em>, <em class="replaceable">method</em>, <em class="replaceable">version</em>, 
+<em class="replaceable">referer</em>, <em class="replaceable">accept</em>, <em class="replaceable">flags</em>, <em class="replaceable">context</em>])
+$<em class="replaceable"><tt>http</em>-&gt;OpenRequest($<em class="replaceable">requestobject</em>, <em class="replaceable">hashref</tt></em>)
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-3287" />Opens an HTTP request and
+saves it as
+<tt class="literal">$</tt><em class="replaceable"><tt>requestobject</tt></em>. Returns
+<tt class="literal">undef</tt> on error, or a number if the connection was
+successful. You can then use one of the <tt class="literal">AddHeader</tt>,
+<tt class="literal">SendRequest</tt>, <tt class="literal">QueryInfo</tt>,
+<tt class="literal">QueryDataAvailable</tt>, and
+<tt class="literal">ReadFile</tt> methods on the newly created
+<em class="replaceable"><tt>requestobject</tt></em>. The optional parameters and
+their values are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>path</tt></em> </i></dt>
+<dd>
+The object to request. This is generally a filename, an executable
+module, etc. The default is <tt class="literal">/</tt>.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>method</tt></em></i></dt>
+<dd>
+The method to use, which can be GET, POST, HEAD, or PUT. Default is
+GET.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>version</tt></em></i></dt>
+<dd>
+The HTTP version. Default is <tt class="literal">HTTP/1.0</tt>.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>referer</tt></em></i></dt>
+<dd>
+The URL of the document from which the URL in the request was
+obtained.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>accept</tt></em></i></dt>
+<dd>
+The content types accepted. They must be separated by a
+<tt class="literal">\0</tt> (ASCII zero). Default types are <tt class="literal">text/*
+image/gif image/jpeg</tt>.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>flags</tt></em></i></dt>
+<dd>
+Additional flags affecting the behavior of the function.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>context</tt></em></i></dt>
+<dd>
+A number to identify this operation if it is asynchronous. See
+<tt class="literal">SetStatusCallback</tt> and
+<tt class="literal">GetStatusCallback</tt> for more information on
+asynchronous operations.
+</p>
+</dd>
+
+</dl><p>A reference to a hash containing the previous list of parameters can
+also be supplied to this method:
+</p><blockquote><pre class="code">%hash=(
+  "path"        =&gt; "path",
+  "method"      =&gt; "method",
+  "version"     =&gt; "version",
+  "referer"     =&gt; "referer",
+  "accept"      =&gt; "accept",
+  "flags"       =&gt; flags,
+  "context"     =&gt; context,
+);</pre></blockquote></div>
+
+<a name="INDEX-3288" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>QueryInfo</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">request</em>-&gt;QueryInfo(<em class="replaceable">header</em>, [<em class="replaceable">flags</em>])
+</pre><p><a name="INDEX-3288" />Queries information about an
+HTTP request object
+(<tt class="literal">$</tt><em class="replaceable"><tt>request</tt></em>) created with
+<tt class="literal">OpenRequest</tt>. You can specify a header (for
+example, <tt class="literal">Content-type</tt>) and/or one or more flags.
+If you don't specify
+<em class="replaceable"><tt>flags</tt></em>,
+<tt class="literal">HTTP_QUERY_CUSTOM</tt> will be used by default; this
+means that the header should contain a valid HTTP header name. For
+the possible values of <em class="replaceable"><tt>flags</tt></em>, refer to the
+Microsoft Win32 Internet Functions documentation.
+</p></div>
+
+<a name="INDEX-3289" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Request</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+$<em class="replaceable">http</em>-&gt;Request([<em class="replaceable">path</em>, <em class="replaceable">method</em>, <em class="replaceable">version</em>, <em class="replaceable">referer</em>, <em class="replaceable">accept</em>, <em class="replaceable">flags</em>])
+$<em class="replaceable">http</em>-&gt;Request(<em class="replaceable">hashref</em>)
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-3289" />Performs an HTTP request and
+returns an array containing the status code, the headers, and the
+content of the file. It is a one-step procedure that executes
+<tt class="literal">OpenRequest</tt>, <tt class="literal">SendRequest</tt>,
+<tt class="literal">QueryInfo</tt>, <tt class="literal">ReadFile</tt>, and
+finally, <tt class="literal">Close</tt>. For a description of the
+parameters, see <tt class="literal">OpenRequest</tt>.
+</p></div>
+
+<a name="INDEX-3290" /><a name="INDEX-3291" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>SendRequest</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">request</em>-&gt;SendRequest([<em class="replaceable">postdata</em>])
+</pre><p><a name="INDEX-3290" />Sends an HTTP request to the
+destination server. <em class="replaceable"><tt>postdata</tt></em> contains any
+optional data to send immediately after the request header; this is
+generally used for POST or PUT requests. Your request object must
+contain the following content header for post data to be processed.
+You can add the header with <tt class="literal">AddHeader</tt>:
+</p><a name="INDEX-3291" /><blockquote><pre class="code">...
+$request-&gt;AddHeader("Content-Type: application/x-www-form-urlencoded");
+$request-&gt;SendRequest("key1=value1&amp;key2=value2&amp;key3=value3");</pre></blockquote></div>
+
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch22_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch22_08.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">22.6. Win32::FileSecurity</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">22.8. Win32::IPC</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+</map>
+
+</body></html>

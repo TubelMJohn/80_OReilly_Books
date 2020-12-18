@@ -1,0 +1,664 @@
+<html><head><title>Consuming SAX2 Events (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch04_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+    <h1 class="chapter">Chapter 4. Consuming SAX2 Events</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#sax2-CHP-4-SECT-1">More About ContentHandler </a><br />
+<a href="ch04_02.htm">The LexicalHandler Interface </a><br />
+<a href="ch04_03.htm">Exposing DTD Information </a><br />
+<a href="ch04_04.htm">Turning SAX Events into Data Structures </a><br />
+<a href="ch04_05.htm">XML Pipelines </a><br /></p></div>
+
+    
+
+	<p>
+<a name="INDEX-490" /></a>
+<a name="INDEX-491" /></a>
+        Most of the power of SAX is exposed through event callbacks.
+	In previous chapters you've seen some of the most widely
+	used event callbacks as well as how to ensure that all the callbacks
+	are generated and reported to application code.
+	</p>
+
+	<p>This chapter presents the rest of the standard SAX 
+	event-handling interfaces (including the extension handlers),
+	then talks about some of the common ways
+	that event consumers use those interfaces.
+	These interfaces are primarily implemented by application code
+	that consumes events and needs to solve particular problems.
+	You might also write custom event producers, which call
+	these interfaces directly rather than expecting some
+	type of <em class="emphasis">XMLReader</em> to issue them.
+	</p>
+
+    
+
+    <div class="sect1"><a name="sax2-CHP-4-SECT-1" /></a>
+	<h2 class="sect1">4.1. More About ContentHandler </h2>
+
+	<p>
+<a name="INDEX-492" /></a>
+        In <a href="ch02_03.htm#sax2-CHP-2-SECT-3">Section 2.3, "Basic ContentHandler Events"</a>, in <a href="ch02_01.htm">Chapter 2, "Introducing SAX2"</a>,
+	we looked at the most important APIs used to handle XML
+	document content. Some other APIs were deferred to this
+	section because they aren't used as widely.
+	Depending on what problems you're solving, you may rely
+	heavily on some of these additional methods.
+	</p>
+
+	<a name="sax2-CHP-4-SECT-1.1" /></a><div class="sect2">
+	    <h3 class="sect2">4.1.1. Other ContentHandler Methods </h3>
+ 
+	    <p>
+<a name="INDEX-493" /></a>
+            Five <em class="emphasis">ContentHandler</em>
+	    callbacks were discussed in Chapter 2:
+	    <a href="ch02_03.htm#sax2-CHP-2-SECT-3.4">Section 2.3.4, "Essential ContentHandler Callbacks"</a> explained how
+	    characters and element boundaries were reported, and
+	    <a href="ch02_06.htm#sax2-CHP-2-SECT-6.4">Section 2.6.4, "ContentHandler and Prefix Mappings"</a> explained how
+	    namespace-prefix scopes were reported.
+	    But the interface has five other <?troff .ne 10?>methods.
+	    Here's what they do and when you'll want to use them:
+	    </p>
+
+	    <dl>
+
+		<dt><b>
+		    <tt class="literal">void setDocumentLocator (Locator l)</tt>
+		    </b></dt>
+		<dd><p>
+<a name="INDEX-494" /></a>
+<a name="INDEX-495" /></a>
+                This is normally the first callback from a
+		parser; the single parameter is a
+		<em class="emphasis">Locator</em>, discussed later.
+		Strictly speaking, SAX parsers are not required to provide
+		a locator or to make this callback;
+		however, you'd want to avoid parsers that don't provide this
+		information.
+		Your implementation of this callback will normally just
+		save the locator; it can't do much more since it's the 
+		only SAX
+		event callback that can't throw a
+		<em class="emphasis">SAXException</em>:
+		</p>
+
+		<blockquote><pre class="code">
+class MyHandler implements ContentHandler ... {
+    private Locator     locator;
+    ...
+    public void setDocumentLocator (Locator l)
+	{ locator = l; }
+    ...
+}</pre></blockquote>
+
+		<p>Use this object as discussed later in this chapter, in
+		<a href="ch04_01.htm#sax2-CHP-4-SECT-1.2">Section 4.1.2, "The Locator Interface "</a>.
+		It is the standard way to report
+		the base URI of the XML text currently being parsed;
+		that information is essential for resolving relative URIs.
+		It's also essential for diagnostics that tell you
+		where application code detects errors in large quantities
+		of XML text.
+		</p>
+		
+		</dd>
+
+		<dt><b>
+		<tt class="literal">void startDocument ()</tt></b></dt>
+		<dt><b><tt class="literal">void endDocument ()</tt></b></dt>
+
+		<dd><p>
+<a name="INDEX-496" /></a>
+<a name="INDEX-497" /></a>
+                These two callbacks bracket
+		processing for a
+		document, and they are normally used to manage application
+		state associated with the document being parsed.
+		If you're parsing a document, these methods will always
+		be called once each, even when parsing is cut
+		short by a thrown exception.
+		No other methods have such guarantees.
+		</p>
+		
+		<p><tt class="literal">startDocument()</tt> is always called
+		before any data is reported from the parser, and is normally
+		used to initialize application data structures.
+		It will usually be the second callback from the parser;
+		parsers that provide a <em class="emphasis">Locator</em>
+		will report that first. You can't rely on a
+		<tt class="literal">setDocumentLocator()</tt>
+		call before <tt class="literal">startDocument()</tt>;
+		structure your initialization code to do the
+		real work in the callback guaranteed to be available.
+		</p>
+		
+		<p><tt class="literal">endDocument()</tt> is always called
+		to report that no more document data will be provided.
+		The normal application response is to clean up
+		all state associated with the current parse.
+		The parser closes any input data streams you gave it
+		using an <em class="emphasis">InputSource</em> (discussed later),
+		so the application <?troff .ne 10?>doesn't need to do that.
+		Cleanup would include forgetting any saved
+		<em class="emphasis">Locator</em> since that object
+		is no longer usable when the parse is complete.
+		Also, you'd likely close other files or sockets that were
+		opened while processing this document:
+		</p>
+
+		<blockquote><pre class="code">
+class MyHandler implements ContentHandler ... {
+    ...
+    public void startDocument ()
+    throws SAXException
+    {
+	// initialize data structures for ALL handlers here
+	...
+    }
+    public void endDocument ()
+    throws SAXException
+    {
+	// free those same data structures
+	locator = null;
+	elementStack = null;
+	...
+    }
+    ...
+}</pre></blockquote>
+		
+		<p>These two calls are widely used in robust SAX
+		code because they provide such good hooks to control
+		memory usage and manage associated file descriptors. However, some SAX2 parsers have a bug that reduces the robustness offered by SAX; they won't correctly call <tt class="literal">endDocument()</tt> when parsing is aborted by throwing exceptions.
+		</p>
+
+		</dd>
+
+		<dt><b>
+<tt class="literal">void processingInstruction (target, data)</tt>
+		</b></dt>
+
+		<dd><p>
+<a name="INDEX-498" /></a>
+                Processing Instructions (PIs) are used
+		in XML for data that doesn't obey the rules of a DTD.
+		They can be placed anywhere in a document, including within
+		the DTD, except inside other markup constructs like tags.
+		Unlike comments, PIs are designed for applications to use.
+		They're part of the document structure that
+		programmatic logic must understand; they can
+		follow rules, just not ones found in a DTD or schema. 
+		This method has two parameters:
+		</p>
+
+		<dl>
+
+		    <dt><b>
+			<tt class="literal">String</tt> <em class="replaceable">target</em></b></dt>
+
+		    <dd><p>
+<a name="INDEX-499" /></a>
+                    XML applications use this parameter
+		    to determine how to handle the PI.
+		    You can rely on the fact that it'll never
+		    be the string <tt class="literal">xml</tt>
+		    (in any combination of upper- and lowercase characters)
+		    because XML and text declarations
+		    are not processing instructions.
+		    </p>
+		    
+		    <p>
+<a name="INDEX-500" /></a>
+                    Some documents follow the convention that the target
+		    of a PI names a notation (perhaps the fully qualified URI
+		    found in its system identifier) and the meaning is 
+		    associated with the notation rather than the name.
+		    That's a fine practice to follow, but it isn't essential.
+		    Most code just compares target names as strings,
+		    rather than use data reported with
+		    <tt class="literal">DTDHandler.notationDecl()</tt>
+		    to figure out what a target name should mean.
+		    </p></dd>
+
+		    <dt><b>
+			<tt class="literal">String</tt> <em class="replaceable">data</em></b></dt>
+
+		    <dd><p>
+<a name="INDEX-501" /></a>
+                    This parameter is data 
+	 	    associated with the PI,
+		    and it may be the null string if no data was provided
+		    after the target name.
+		    Some applications use the syntax of an attribute here;
+		    others don't bother.
+		    </p></dd>
+
+		</dl>
+
+		<p>
+<a name="INDEX-502" /></a>
+                Processing instructions are natural to use in
+		template systems and other document-oriented
+		applications.<a href="#FOOTNOTE-19">[19]</a></p><blockquote class="footnote"><a name="FOOTNOTE-19" /></a><p>[19]For example, the
+		syntax of PHP, the web page scripting tool, looks like a
+		processing instruction, <tt class="literal">&lt;?php ...?&gt;</tt>.
+		For various reasons, PHP is not actually an XML
+		document syntax.
+		</p></blockquote>
+
+		<p>Processing instructions are normally safe to ignore
+		when your processing doesn't recognize them (passing them on to any subsequent processing stage), or to store. If the parser does recognize them, it normally acts on then immediately. For example, an <tt class="literal">&lt;?xml-stylesheet ...?&gt;</tt> PI might select a particular XSLT stylesheet to use for generating a servlet's output. The processing instruction event is used later, in <a href="ch06_03.htm#sax2-CHP-6-EX-9">Example 6-9</a>.
+
+		</p></dd>
+
+		<dt><b>
+		<tt class="literal">void ignorableWhitespace(buf,offset,len)</tt>
+		</b></dt>
+
+		<dd><p>
+<a name="INDEX-503" /></a>
+<a name="INDEX-504" /></a>
+<a name="INDEX-505" /></a>
+                This is an optional callback, made by
+		most parsers (including all that are validating) to report
+		whitespace that separates elements in element content models,
+		like those of the form <tt class="literal">(title,para*,sect1*)</tt> but
+		not <tt class="literal">(#PCDATA|para|comment)*</tt>,
+		<tt class="literal">ANY</tt>, or <tt class="literal">EMPTY</tt>.
+		Whitespace before or after the document's root element
+		is not treated as ignorable and is completely discarded.
+		Providing this information is a requirement of the XML
+		specification, since this kind of whitespace is defined
+		to be markup rather than document content.
+		If the parser doesn't see such a content model declaration
+		for any reason, it can't use this callback;
+		it'll use <tt class="literal">characters()</tt> instead,
+		and applications will need to figure out if the
+		whitespace is part of markup or part of content.
+		</p>
+		
+		<p>The parameters are exactly the same as those of the
+		<tt class="literal">characters()</tt> callback, except
+		that you know the characters in the specified range
+		will all be spaces, tabs, or newlines.
+		(Keep that in mind if you're directly producing ignorable
+		whitespace to feed some event consumer.
+		Using CRLF- or CR-style line ends here is a bug,
+		though you might not see immediate <?troff .ne 10?>consequences.)
+		Like <tt class="literal">characters()</tt>, this method can be
+		called several times in a row, to complete processing
+		a single stretch of characters.
+		</p>
+
+		<p>There are two popular ways to handle this callback.
+		My favorite is to drop all the characters;
+		they're only in the source document to make the
+		elements lay out nicely,
+		so they won't ever mean anything.
+		There's rarely a reason to even look at the data,
+		much less save it.
+		The other option is to delegate handling and just call the
+		<tt class="literal">characters()</tt> callback with the
+		whitespace.
+		</p>
+		
+		</dd>
+
+		<dt><b>
+		<tt class="literal">void skippedEntity (String name)</tt>
+		</b></dt>
+
+		<dd><p>
+<a name="INDEX-506" /></a>
+                The parameter is a
+		<em class="emphasis">String</em>
+		that identifies an internal or external parsed entity.
+		General entity names are presented as found in their
+		declarations (<tt class="literal">dudley</tt>).
+		Parameter entity names begin with a percent sign
+		(<tt class="literal">%nell</tt>).
+		The external DTD subset is special; it's an unnamed
+		parameter entity and is reported with the name
+		<tt class="literal">[dtd]</tt>.
+		You might not be able to tell if the skipped entity was 
+		an internal or external entity, even
+		using <em class="emphasis">DeclHandler</em> events.
+		</p>
+		
+		<p>You probably don't ever want to see this call,
+		since it means that part of your document has been hidden.
+		XML 1.0 processors are required to report this case;
+		SAX 1.0 didn't, and most other parser-level APIs (such
+		as DOM Level 2) still don't.
+		This is a call that only nonvalidating parsers 
+		may issue, and even then only if they are not parsing all
+		the external entities referred to in documents -- that 
+		is, where one or both of the
+		external entities feature
+		flags is set to false, to disable reading external
+		general or parameter entities.
+		No widely used Java parsers clear those flags by default,
+		so this is a rare call in Java.
+		However some C parsers, such as Expat (used in Mozilla),
+		won't normally parse external entities,
+		so the notion isn't exotic in all languages.
+<a name="INDEX-507" /></a>
+		
+</p></dd>
+
+	    </dl>
+
+	</div>
+
+	<a name="sax2-CHP-4-SECT-1.2" /></a><div class="sect2">
+	    <h3 class="sect2">4.1.2. The Locator Interface </h3>
+
+	    <p>
+<a name="INDEX-508" /></a>
+            This useful interface is sometimes overlooked.
+	    It gives information that is essential for providing
+	    location-sensitive diagnostics and is often given to
+	    <em class="emphasis">SAXParseException</em> constructors.
+	    That same information is also needed to resolve relative URIs
+	    in document content or attribute values (such as
+	    <tt class="literal">xml:base</tt>).
+	    Parsers provide one instance of this class, which can be
+	    used inside event callbacks to find what entity triggered
+	    the event and approximately where.
+	    Use that locator only during such callbacks.
+	    There are only a few methods in this class.
+	    </p>
+
+	    <dl>
+
+		<dt><b>
+		    <tt class="literal">String getSystemId ()</tt>
+		    </b></dt>
+
+		<dd><p>
+<a name="INDEX-509" /></a>
+                This is the most important method in
+		this interface.
+		It returns the base URI (system ID) for the entity
+		being parsed; this is always an absolute URI.
+		(However, versions of Xerces that are current at this
+		writing have a bug here. They sometimes return nonabsolute URIs.) Use this method to identify the document or external entity in diagnostics or to resolve relative URIs (perhaps in conjunction with <tt class="literal">xml:base</tt> attributes).
+		</p>
+		
+		<p>If the parser doesn't know this value, null is
+		returned. This normally indicates that the parser was
+		not given such a URI inside of a
+		<em class="emphasis">InputSource</em> encapsulating document
+		text. That's bad practice
+		except when it's unavoidable, such as parsing in-memory data
+		or input to the POST method in a servlet.
+		</p></dd>
+
+		
+		    <dt><b><tt class="literal">int getLineNumber ()</tt></b></dt>
+		    <dt><b><tt class="literal">int getColumnNumber ()</tt></b></dt>
+
+		<dd><p>
+<a name="INDEX-510" /></a>
+<a name="INDEX-511" /></a>
+                These two functions approximate the current
+		position of a parser within an entity.
+		The position reflected is where the relevant event's data
+		ended. It is only an approximation for diagnostics,
+		but most parsers do try to be accurate about the line number.
+		</p>
+		
+		<p>These numbers count up from 1 as appropriate for
+		user-oriented diagnostics. Not all implementations will provide these values; 
+		the value <tt class="literal">-1</tt> is returned to indicate
+		that no value was provided.
+		</p>
+		
+		</dd>
+		
+		<dt><b>
+		    <tt class="literal">String getPublicId ()</tt>
+		    </b></dt>
+
+		<dd><p>
+<a name="INDEX-512" /></a>
+                A public identifier may be provided
+		with this method. Otherwise null is returned.
+		This may be useful for diagnostics in some cases.
+		</p></dd>
+
+	    </dl>
+
+	    <p>
+<a name="INDEX-513" /></a>
+<a name="INDEX-514" /></a>
+            One common use for a locator is to report an error
+	    detected while an application processes document content.
+	    The <em class="emphasis">SAXParseException</em> class has two
+	    constructors that take locator parameters. (The descriptive
+	    string is always first, the locator is second, and an
+	    optional "root cause" exception is third.) Once you
+	    create such an exception, it can be thrown directly, which
+	    always terminates a parse. Or you pass it to an
+	    <em class="emphasis">ErrorHandler</em> to centralize error
+	    handling-policy in your application:
+	    </p>
+
+	    <blockquote><pre class="code">
+// "locator" was saved when setDocumentLocator() was called earlier
+// or was initialized to null; this is safe in both cases
+try {
+    ...
+    engine.setWarpFactor (11);
+    ...
+} catch (DriveException e) {
+    SAXParseException	spe = new SAXParseException (
+	    "The warp engine's gonna blow!",
+	    locator,
+	    e);
+    errHandler.error (e);
+    // we'll get here whenever such problems are ignored
+}</pre></blockquote>
+
+	    <p>To resolve relative URIs in document content -- for example, one found in an <tt class="sgmltag-element">&lt;xhtml:a href="..."/&gt;</tt> reference in a link checker -- you'd use code like this
+	    (ignoring <tt class="literal">xml:base</tt> complications):
+	    </p>
+
+	    <blockquote><pre class="code">
+public void startElement (String uri, String lname, String qname,
+	Attributes atts) throws SAXException
+{
+    if (xhtmlURI.equals (uri)) {
+	if ("a".equals (lname)) {
+	    String href = atts.getValue ("href");
+	    if (href != null) {
+		// ASSUMES:  locator is nonnull
+		System.out.println ("Found href to: " +
+		    new URI (new URI(locator.getSystemId ()), href));
+	    }
+	    // else presumably &lt;xhtml:a name="..."/&gt;
+	}
+    } ...
+}</pre></blockquote>
+
+	    <p>
+<a name="INDEX-515" /></a>
+            Some of the <em class="emphasis">XMLReader</em> 
+	    implementations cannot possibly call
+	    <tt class="literal">ContentHandler.setDocumentLocator()</tt>
+	    with a <em class="emphasis">Locator</em>.
+	    When parsing in-memory data structures, such as a DOM document,
+	    a locator will normally be meaningless.
+	    When parsing in-memory buffers like a <em class="emphasis">String</em> (with
+	    a <em class="emphasis">StringReader</em>), there won't
+	    usually be a URI in the locator.
+	    </p>
+
+	    <p>If your application supports the layered
+	    <tt class="literal">xml:base</tt> convention (which lets documents
+	    "lie" about their true locations for purposes of resolving
+	    relative URIs), it will need to track those
+	    attributes itself, as part of a context stack mechanism.
+	    (An example of such a stack is shown later, in
+	    <a href="ch05_01.htm#sax2-CHP-5-EX-1">Example 5-1</a>.)
+	    Such attributes can sometimes help make up for SAX event
+	    sources that can't provide locator information, such as
+	    DOM-to-SAX producers.
+	    But they can confuse things too: in the following
+	    example, <tt class="literal">xml:base</tt> would apply to the
+	    top element and its direct children, but nothing
+	    within the external entity reference.
+	    (Let's assume, for the sake of discussion, that no element
+	    has an <tt class="literal">xml:base</tt> attribute.)
+	    </p>
+
+	    <blockquote><pre class="code">
+&lt;top xml:base="http://www.example.com/moved/doc2.xml"&gt;
+    &lt;xhtml:a href="abc.xml"/&gt;
+    &lt;xhtml:div&gt; &amp;external; &lt;/xhtml:div&gt;
+    &lt;xhtml:a href="xyz.xml"/&gt;
+&lt;/top&gt;</pre></blockquote>
+
+	    <p>When character content of an element is reported,
+	    characters from different external entities will get
+	    different callbacks, so the locator can be used to
+	    tell those different entities apart from each other.
+<a name="INDEX-516" /></a>
+</p>
+
+	</div>
+
+	<div class="sect2">
+	    <h3 class="sect2">4.1.3. Internationalization Concerns</h3>
+
+	    <p>
+<a name="INDEX-517" /></a>
+<a name="INDEX-518" /></a>
+<a name="INDEX-519" /></a>
+
+            One of the goals of XML was to bring Unicode into
+	    widespread use so that the Web could really become worldwide
+	    in terms of people, not just technology.
+	    This brings several concerns into text management.
+	    You may not need to worry about these if you're working
+	    only in ASCII or with just one character encoding.
+	    While you're just starting out with Java and XML you
+	    should certainly avoid worrying about these details.
+	    Some other users of SAX2 will need to understand these
+	    issues. Since they surface primarily with
+	    <em class="emphasis">ContentHandler</em> event callbacks,
+	    we briefly summarize them here.
+	    </p>
+
+	    <p>
+<a name="INDEX-520" /></a>
+<a name="INDEX-521" /></a>
+<a name="INDEX-522" /></a>
+            If your application works with MathML, or in various
+	    languages whose character sets gained support in Unicode 3.1
+	    through the so-called Astral Planes, you will need to know
+	    that what Java calls a <tt class="literal">char</tt> is not really
+	    the same thing as a Unicode character or an XML character.
+	    If you aren't using such languages, you'll probably be able
+	    to ignore this issue for a while. Still, you might want to
+	    read about Unicode 3.1 to learn more about this and minimize 
+	    trouble later.
+	    By the time you read this, the W3C may even have
+	    completed its "Blueberry" XML update, intended to allow
+	    the use of some such characters within XML names.
+	    </p>
+
+	    <p>
+<a name="INDEX-523" /></a>
+<a name="INDEX-524" /></a>
+<a name="INDEX-525" /></a>
+            In the case of such characters, whose Unicode code point
+	    is above the value <tt class="literal">U+FFFF</tt> (the maximum
+	    16-bit code point), these characters are mapped to two
+	    Java <tt class="literal">char</tt> values, called a
+	    <em class="emphasis">surrogate pair</em>.
+	    The <tt class="literal">char</tt> values are in a range reserved
+	    for <em class="emphasis">surrogate</em> characters, with a 
+	    <em class="emphasis">high surrogate</em> always
+	    immediately followed by a <em class="emphasis">low surrogate</em>.
+	    (This is called a <em class="emphasis">big-endian</em> sequence.)
+	    Surrogate pairs can show up in several places in XML,
+	    and hence in SAX2:
+	    in character content, processing instructions, attribute
+	    values (including defaults in the DTD), and comments.
+	    </p>
+
+	    <p>
+<a name="INDEX-526" /></a>
+<a name="INDEX-527" /></a>
+            At this time, Java does not have APIs to explicitly
+	    support characters using surrogate pairs, although character
+	    arrays and <em class="emphasis">java.lang.String</em> will hold
+	    them as if the <tt class="literal">char</tt> values weren't part of
+	    the same character.
+	    The <em class="emphasis">java.lang.Character</em> class doesn't
+	    recognize surrogate pairs.
+	    The best precaution seems to be to prefer APIs that talk in
+	    terms of slices of character arrays (or 
+	    <em class="emphasis">Strings</em>), rather than
+	    in terms of individual Java <tt class="literal">char</tt> values.
+	    This approach also handles <?troff .ne 10?>other situations where more
+	    than one <tt class="literal">char</tt> value is needed per character.
+	    </p>
+
+	    <p>
+<a name="INDEX-528" /></a>
+<a name="INDEX-529" /></a>
+            Depending on the character encodings you're using
+	    and the applications you're implementing, you may also need
+	    to pay attention to the W3C Character Model
+	(<a href="http://www.w3.org/TR/charmod/">http://www.w3.org/TR/charmod/</a>
+	    at this writing) and Unicode Normalization Form C.
+	    Briefly, these aim to eliminate undesirable representations
+	    of characters and to handle some other cases where Unicode
+	    characters aren't the same as XML characters or a Java
+	    <tt class="literal">char</tt>, such as composite characters.
+	    For example, many accented characters are represented by
+	    composing two or more Unicode characters.
+	    Systems work better when they only need to handle one way to
+	    represent such characters, and Form C addresses that problem.
+<a name="INDEX-530" /></a>
+<a name="INDEX-531" /></a>
+	    
+</p>
+
+	    </div>
+
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch04_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">3.5. Other Kinds of SAX2 Event Producers</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">4.2. The LexicalHandler Interface </td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+      </map>
+
+</body></html>

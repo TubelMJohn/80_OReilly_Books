@@ -1,0 +1,569 @@
+<html><head><title>Getting Dirty (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch12_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch12_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">12.3. Getting Dirty</h2>
+
+<p><a name="INDEX-1216" />There are three basic steps in writing
+any SOAP-based system, and I'll look at each in turn:
+</p>
+
+<ul><li>
+<p>Decide on SOAP-RPC or SOAP messaging</p>
+</li><li>
+<p>Write or obtain access to a SOAP service</p>
+</li><li>
+<p>Write or obtain access to a SOAP client</p>
+</li></ul>
+<p>The first step is to decide if you want to use SOAP for RPC-style
+calls, in which a remote procedure is invoked on a server, or for
+messaging, in which a client simply sends pieces of information to a
+server. I'll detail these processes in the next section. Once
+you've made that design decision, you need to access, or code
+up, a service. Of course, since we're all Java pros here, this
+chapter shows you how to code up your own. Finally, you need to write
+the client for this service, and watch things take off.
+</p>
+
+<a name="javaxml2-CHP-12-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">12.3.1. RPC or Messaging?</h3>
+
+<p>Your first task is actually not code-related but design-related. You
+need to determine if you want an RPC service or a messaging one. The
+first, RPC, is something you should be pretty familiar with after the
+last chapter. A client invokes a remote procedure on a server
+somewhere, and then gets some sort of response. In this scenario,
+SOAP is simply acting as a more extensible XML-RPC system, allowing
+better error handling and passing of complex types across the
+network. This is a concept you should already understand, and because
+it turns out that RPC systems are simple to write in SOAP, I'll
+start off there. This chapter describes how to write an RPC service,
+and then an RPC client, and put the system in action.
+</p>
+
+<p>The second style of SOAP processing is message-based. Instead of
+invoking remote procedures, it provides for transfer of information.
+As you can imagine, this is pretty powerful, and doesn't depend
+on a client knowing about a particular method on some server. It also
+models distributed systems more closely, allowing packets of data
+(packet in the figurative sense, not in the network sense) to be
+passed around, keeping various systems aware of what other systems
+are doing. It is also more complicated than the simpler RPC-style
+programming, so I'll cover it in the next chapter with other
+business-to-business details after you're well grounded in
+SOAP-RPC programming.
+</p>
+
+<p>Like most design issues, the actual process of making this decision
+is left up to you. Look at your application and determine exactly
+what you want SOAP to do for you. If you have a server and a set of
+clients that just need to perform tasks remotely, then RPC is
+probably well suited for your needs. However, in larger systems that
+are exchanging data rather than performing specific business
+functions on request, SOAP's messaging capabilities may be a
+better match.
+</p>
+
+</div>
+<a name="javaxml2-CHP-12-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">12.3.2. An RPC Service</h3>
+
+<p><a name="INDEX-1217" />
+<a name="INDEX-1218" />With
+the formalities out of the way, it's time to get going, fast
+and furious. As you'll recall from the last chapter, in RPC you
+need a class that is going to have its methods invoked remotely.
+</p>
+
+<a name="javaxml2-CHP-12-SECT-3.2.1" /><div class="sect3">
+<h3 class="sect3">12.3.2.1. Code artifacts</h3>
+
+<p>I'll start by showing you some <em class="filename">code
+artifacts</em><a name="INDEX-1219" /> to have available on the server.
+These artifacts are classes with methods that are exposed to RPC
+clients.<a href="#FOOTNOTE-21">[21]</a> Rather than use the
+simple class from last chapter, I offer a slightly more complex
+example to show you what SOAP can do. In that vein, <a href="ch12_03.htm#javaxml2-CHP-12-EX-4">Example 12-4</a> is a class that stores a CD inventory, such as
+an application for an online music store might use. I'm
+introducing a basic version here, and will add to it later in the
+chapter.<a name="INDEX-1220" />
+<a name="INDEX-1221" />
+<a name="INDEX-1222" />
+</p><blockquote class="footnote"> <a name="FOOTNOTE-21" /><p>[21]You can use scripts through the Bean
+Scripting Framework, but for the sake of space I won't cover
+that here. Check out the upcoming O'Reilly SOAP book, as well
+as the online documentation at <a href="http://xml.apache.org/soap">http://xml.apache.org/soap</a>, for more details
+on script support in SOAP.</p> </blockquote>
+
+<a name="javaxml2-CHP-12-EX-4" /><div class="example">
+<h4 class="objtitle">Example 12-4. The CDCatalog class </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.util.Hashtable;
+
+public class CDCatalog {
+
+    /** The CDs, by title */
+    private Hashtable catalog;
+
+    public CDCatalog( ) {
+        catalog = new Hashtable( );
+
+        // Seed the catalog
+        catalog.put("Nickel Creek", "Nickel Creek");
+        catalog.put("Let it Fall", "Sean Watkins");
+        catalog.put("Aerial Boundaries", "Michael Hedges");
+        catalog.put("Taproot", "Michael Hedges");
+    }
+
+    public void addCD(String title, String artist) {
+        if ((title == null) || (artist == null)) {
+            throw new IllegalArgumentException("Title and artist cannot be null.");
+        }
+        catalog.put(title, artist);        
+    }
+
+    public String getArtist(String title) {
+        if (title == null) {
+            throw new IllegalArgumentException("Title cannot be null.");
+        }
+
+        // Return the requested CD
+        return (String)catalog.get(title);
+    }
+
+    public Hashtable list( ) {
+        return catalog;
+    }
+}</pre></blockquote>
+</div>
+
+<p>This allows for adding a new CD, searching for an artist by a CD
+title, and getting all current CDs. Take note that the <tt class="literal">list(
+)</tt><a name="INDEX-1223" />
+<a name="INDEX-1224" /> method returns a
+<tt class="literal">Hashtable</tt>, and there is nothing special I have to
+do to make that work; Apache SOAP provides automatic mapping of the
+<tt class="literal">Hashtable</tt> Java type, much as XML-RPC did.
+</p>
+
+<p>Compile this class, and make sure you've got everything typed
+in (or downloaded, if you choose) correctly. Notice that the
+<tt class="literal">CDCatalog</tt> class has no knowledge about SOAP. This
+means you can take your existing Java classes and expose them through
+SOAP-RPC, which reduces the work required on your end to move to a
+SOAP-based architecture if needed.
+</p>
+
+</div>
+
+<a name="javaxml2-CHP-12-SECT-3.2.2" /><div class="sect3">
+<h3 class="sect3">12.3.2.2. Deployment descriptors</h3>
+
+<p><a name="INDEX-1225" />With
+the Java coding done, you now need to define a deployment descriptor.
+This specifies several key things to a SOAP server:
+</p>
+
+<ul><li>
+<p>The URN of the SOAP service for clients to access</p>
+</li><li>
+<p>The method or methods available to clients</p>
+</li><li>
+<p>The serialization and deserialization handlers for any custom classes</p>
+</li></ul>
+<p>The first is similar to a URL, and required for a client to connect
+to any SOAP server. The second is exactly what you expect: a list of
+methods letting the client know what are allowable artifacts for a
+SOAP client. It also lets the SOAP server, which I'll cover in
+a moment, know what requests to accept. The third is a means of
+telling the SOAP server how to handle any custom parameters;
+I'll come back to this in the next section when I add some more
+complex behavior to the catalog.
+</p>
+
+<p>I'll show you the deployment descriptor and detail each item
+within it. <a href="ch12_03.htm#javaxml2-CHP-12-EX-5">Example 12-5</a> is the deployment descriptor
+for the <tt class="literal">CDCatalog</tt> service we're
+creating.<a name="INDEX-1226" />
+</p>
+
+<a name="javaxml2-CHP-12-EX-5" /><div class="example">
+<h4 class="objtitle">Example 12-5. The CDCatalog deployment descriptor </h4>
+<blockquote><pre class="code">&lt;isd:service xmlns:isd="http://xml.apache.org/xml-soap/deployment"
+             id="urn:cd-catalog"
+&gt;
+  &lt;isd:provider type="java"
+                scope="Application"
+                methods="addCD getArtist list"
+  &gt;
+    &lt;isd:java class="javaxml2.CDCatalog" static="false" /&gt;
+  &lt;/isd:provider&gt;
+
+  &lt;isd:faultListener&gt;org.apache.soap.server.DOMFaultListener&lt;/isd:faultListener&gt;
+&lt;/isd:service&gt;</pre></blockquote>
+</div>
+
+<p>First, I referenced the Apache SOAP deployment namespace, and then
+supplied a URN for my service through the <tt class="literal">id</tt>
+attribute. This should be something unique across services, and
+descriptive of the service. I showed about as much originality in
+naming the service as Dave Matthews did with his band, but it gets
+the job done. Then, I specified through the <tt class="literal">java</tt>
+element the class to expose, including its package name (through the
+<tt class="literal">class</tt> attribute), and indicated that the methods
+being exposed were not static ones (through the
+<tt class="literal">static</tt> attribute).
+</p>
+
+<p>Next, I specified a <a name="INDEX-1227" />fault listener implementation to use.
+Apache's SOAP implementation provides two; I used the first,
+<tt class="literal">DOMFaultListener</tt>. This listener returns any
+exception and fault information through an additional DOM element in
+the response to the client. I'll get back to this when I look
+at writing clients, so don't worry too much about it right now.
+The other fault listener implementation is
+<tt class="literal">org.apache.soap.server.ExceptionFaultListener</tt>.
+This listener exposes any faults through an additional parameter
+returned to the client. Since quite a few SOAP-based applications are
+already going to be working in Java and XML APIs like DOM, it's
+common to use the <tt class="literal">DOMFaultListener</tt> in most cases.
+</p>
+
+</div>
+
+<a name="javaxml2-CHP-12-SECT-3.2.3" /><div class="sect3">
+<h3 class="sect3">12.3.2.3. Deploying the service</h3>
+
+<p><a name="INDEX-1228" />At this
+point, you've got a working deployment descriptor and a set of
+code artifacts to expose, and you can deploy your service. Apache
+SOAP comes with a utility to do this task, provided you have done the
+setup work. First, you need a deployment descriptor for your service,
+which I just talked about. Second, you need to make the classes for
+your service available to the SOAP server. The best way to do this is
+to <em class="emphasis">jar</em> up the service class from the last
+section:
+</p>
+
+<blockquote><pre class="code">jar cvf javaxml2.jar javaxml2/CDCatalog.class</pre></blockquote>
+
+<p>Take this <em class="filename">jar</em> file and drop it into your
+<em class="filename">lib/</em> directory (or wherever libraries are
+auto-loaded for your servlet engine), and restart your servlet
+engine.
+</p>
+<blockquote><b>WARNING:</b> 
+
+<a name="INDEX-1229" />When you do this, you have created a snapshot of your class file. Changing the code in the <em class="filename">CDCatalog.java</em> file and recompiling it will not cause the servlet engine to pick up the changes. You'll need to re-<em class="emphasis">jar</em> the archive and copy it over to your <em class="emphasis">lib/</em> directory each time code changes are made to ensure your service is updated. You'll also want to restart your servlet engine to make sure the changes are picked up by the engine as well.
+</p>
+</blockquote>
+<p>With your service class (or classes) accessible by your SOAP server,
+you can now deploy the service, using Apache SOAP's
+<tt class="literal">org.apache.soap.server.ServiceManager</tt> utility
+class:
+</p>
+
+<blockquote><pre class="code">C:\javaxml2\Ch12&gt;java org.apache.soap.server.ServiceManagerClient 
+    http://localhost:8080/soap/servlet/rpcrouter deploy xml\CDCatalogDD.xml</pre></blockquote>
+
+<p>The first argument is the SOAP server and RPC router servlet, the
+second is the action to take, and the third is the relevant
+deployment descriptor. Once this has executed, verify your service
+was added:
+</p>
+
+<blockquote><pre class="code">(gandalf)/javaxml2/Ch12$ java org.apache.soap.server.ServiceManagerClient 
+    http://localhost:8080/soap/servlet/rpcrouter list
+Deployed Services:
+        urn:cd-catalog
+        urn:AddressFetcher
+        urn:xml-soap-demo-calculator</pre></blockquote>
+
+<p>At a minimum, this should show any and all services you have
+available on the server. Finally, you can easily undeploy the
+service, as long as you know its name:
+</p>
+
+<blockquote><pre class="code">C:\javaxml2\Ch12&gt;java org.apache.soap.server.ServiceManagerClient 
+    http://localhost:8080/soap/servlet/rpcrouter undeploy urn:cd-catalog</pre></blockquote>
+
+<p>Every time you update your service code, you must undeploy and then
+redeploy to ensure the SOAP server is running the newest copy.
+</p>
+
+</div>
+</div>
+<a name="javaxml2-CHP-12-SECT-3.3" /><div class="sect2">
+<h3 class="sect2">12.3.3. An RPC Client</h3>
+
+<p><a name="INDEX-1230" />Next
+up is the client. I'm going to keep things simple, and just
+write a couple of command-line programs that invoke SOAP-RPC. It
+would be impossible to try and guess your business case, so I just
+focus on the SOAP details and let you work out integration with your
+existing software. Once you have the business portion of your code
+working, there are some basic steps you'll take in every
+<a name="INDEX-1231" />SOAP-RPC call:
+</p>
+
+<ul><li>
+<p>Create the SOAP-RPC call</p>
+</li><li>
+<p>Set up any type mappings for custom parameters</p>
+</li><li>
+<p>Set the URI of the SOAP service to use</p>
+</li><li>
+<p>Specify the method to invoke</p>
+</li><li>
+<p>Specify the encoding to use</p>
+</li><li>
+<p>Add any parameters to the call</p>
+</li><li>
+<p>Connect to the SOAP service</p>
+</li><li>
+<p>Receive and interpret a response</p>
+</li></ul>
+<p>That may seem like a lot, but most of the operations are one- or
+two-line method invocations. In other words, talking to a SOAP
+service is generally a piece of cake. <a href="ch12_03.htm#javaxml2-CHP-12-EX-6">Example 12-6</a>
+shows the code for the <tt class="literal">CDAdder</tt><a name="INDEX-1232" /> <a name="INDEX-1233" />
+class, which allows you to add a new CD to the catalog. Take a look
+at the code, and then I'll walk you through the juicy bits.
+</p>
+
+<a name="javaxml2-CHP-12-EX-6" /><div class="example">
+<h4 class="objtitle">Example 12-6. The CDAdder class </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.net.URL;
+import java.util.Vector;
+import org.apache.soap.Constants;
+import org.apache.soap.Fault;
+import org.apache.soap.SOAPException;
+import org.apache.soap.rpc.Call;
+import org.apache.soap.rpc.Parameter;
+import org.apache.soap.rpc.Response;
+
+public class CDAdder {
+
+    public void add(URL url, String title, String artist) 
+        throws SOAPException {
+
+        System.out.println("Adding CD titled '" + title + "' by '" +
+            artist + "'");
+
+        // Build the Call object
+        Call call = new Call( );
+        call.setTargetObjectURI("urn:cd-catalog");
+        call.setMethodName("addCD");
+        call.setEncodingStyleURI(Constants.NS_URI_SOAP_ENC);
+
+        // Set up parameters
+        Vector params = new Vector( );
+        params.addElement(new Parameter("title", String.class, title, null));
+        params.addElement(new Parameter("artist", String.class, artist, null));
+        call.setParams(params);
+
+        // Invoke the call
+        Response response;
+        response = call.invoke(url, "");
+
+        if (!response.generatedFault( )) {
+            System.out.println("Successful CD Addition.");
+        } else {
+            Fault fault = response.getFault( );
+            System.out.println("Error encountered: " + fault.getFaultString( ));
+        }
+    }
+
+    public static void main(String[] args) {
+        if (args.length != 3) {
+            System.out.println("Usage: java javaxml2.CDAdder [SOAP server URL] " +
+                "\"[CD Title]\" \"[Artist Name]\"");
+            return;
+        }
+
+        try {
+            // URL for SOAP server to connect to
+            URL url = new URL(args[0]);
+
+            // Get values for new CD
+            String title = args[1];
+            String artist = args[2];
+
+            // Add the CD
+            CDAdder adder = new CDAdder( );
+            adder.add(url, title, artist);
+        } catch (Exception e) {
+            e.printStackTrace( );
+        }
+    }
+}</pre></blockquote>
+</div>
+
+<p>This program captures the URL of the SOAP server to connect to, as
+well as information needed to create and add a new CD to the catalog.
+Then, in the <tt class="literal">add( )</tt> method, the code creates the
+SOAP <tt class="literal">Call</tt> object, on which all the interesting
+interaction occurs. The target URI of the SOAP service and the method
+to invoke are set on the call, and both match up to values from the
+service's deployment descriptor from <a href="ch12_03.htm#javaxml2-CHP-12-EX-5">Example 12-5</a>. Next, the encoding is set, which should
+always be the constant <tt class="literal">Constants.NS_URI_SOAP_ENC</tt>
+unless you have very unique encoding needs.
+</p>
+
+<p>The program creates a new <tt class="literal">Vector</tt> populated with
+SOAP <tt class="literal">Parameter</tt> objects. Each of these represents a
+parameter to the specified method, and since the <tt class="literal">addCD(
+)</tt> method takes two <tt class="literal">String</tt> values, this
+is pretty simple. Supply the name of the parameter (for use in the
+XML and debugging), the class for the parameter, and the value. The
+fourth argument is an optional encoding, if a single parameter needs
+a special encoding. For no special treatment, the value
+<tt class="literal">null</tt> suffices. The resulting
+<tt class="literal">Vector</tt> is then added to the
+<tt class="literal">Call</tt> object.
+</p>
+
+<p>Once your call is set up, use the <tt class="literal">invoke( )</tt> method
+on that object. The return value from this method is an
+<tt class="literal">org.apache.soap.Response</tt> instance, which is
+queried for any problems that resulted. This is fairly
+self-explanatory, so I'll leave it to you to walk through the
+code. Once you've compiled your client and followed the
+instructions earlier in this chapter for setting up your classpath,
+run the example as follows:<a name="INDEX-1234" /> <a name="INDEX-1235" /> 
+</p>
+
+<blockquote><pre class="code">C:\javaxml2\build&gt;java javaxml2.CDAdder 
+   http://localhost:8080/soap/servlet/rpcrouter 
+   "Riding the Midnight Train" "Doc Watson"
+
+Adding CD titled 'Riding the Midnight Train' by 'Doc Watson'
+Successful CD Addition</pre></blockquote>
+
+<p><a href="ch12_03.htm#javaxml2-CHP-12-EX-7">Example 12-7</a> is another simple class,
+<tt class="literal">CDLister</tt><a name="INDEX-1236" />
+<a name="INDEX-1237" />,
+which lists all current CDs in the catalog. I won't go into
+detail on it, as it's very similar to <a href="ch12_03.htm#javaxml2-CHP-12-EX-6">Example 12-6</a>, and is mainly a reinforcement of what
+I've already talked about.
+</p>
+
+<a name="javaxml2-CHP-12-EX-7" /><div class="example">
+<h4 class="objtitle">Example 12-7. The CDLister class </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.net.URL;
+import java.util.Enumeration;
+import java.util.Hashtable;
+import java.util.Vector;
+import org.apache.soap.Constants;
+import org.apache.soap.Fault;
+import org.apache.soap.SOAPException;
+import org.apache.soap.rpc.Call;
+import org.apache.soap.rpc.Parameter;
+import org.apache.soap.rpc.Response;
+
+public class CDLister {
+
+    public void list(URL url) throws SOAPException {
+        System.out.println("Listing current CD catalog.");
+
+        // Build the Call object
+        Call call = new Call( );
+        call.setTargetObjectURI("urn:cd-catalog");
+        call.setMethodName("list");
+        call.setEncodingStyleURI(Constants.NS_URI_SOAP_ENC);
+
+        // No parameters needed
+
+        // Invoke the call
+        Response response;
+        response = call.invoke(url, "");
+
+        if (!response.generatedFault( )) {
+            Parameter returnValue = response.getReturnValue( );
+            Hashtable catalog = (Hashtable)returnValue.getValue( );
+            Enumeration e = catalog.keys( );
+            while (e.hasMoreElements( )) {
+                String title = (String)e.nextElement( );
+                String artist = (String)catalog.get(title);
+                System.out.println("  '" + title + "' by " + artist);
+            }
+        } else {
+            Fault fault = response.getFault( );
+            System.out.println("Error encountered: " + fault.getFaultString( ));
+        }
+    }
+
+    public static void main(String[] args) {
+        if (args.length != 1) {
+            System.out.println("Usage: java javaxml2.CDAdder [SOAP server URL]");
+            return;
+        }
+
+        try {
+            // URL for SOAP server to connect to
+            URL url = new URL(args[0]);
+
+            // List the current CDs
+            CDLister lister = new CDLister( );
+            lister.list(url);
+        } catch (Exception e) {
+            e.printStackTrace( );
+        }
+    }
+}</pre></blockquote>
+</div>
+
+<p>The only difference in this method from the
+<tt class="literal">CDAdder</tt> class is that the
+<tt class="literal">Response</tt> object has a return value (the
+<tt class="literal">Hashtable</tt> from the <tt class="literal">list( )</tt>
+method). This is returned as a <tt class="literal">Parameter</tt> object,
+which allows a client to check its encoding and then extract the
+actual method return value. Once that's done, the client can
+use the returned value like any other Java object, and in the example
+simply runs through the CD catalog and prints out each one. You can
+now run this additional client to see it in action:
+</p>
+
+<blockquote><pre class="code">C:\javaxml2\build&gt;java javaxml2.CDLister 
+    http://localhost:8080/soap/servlet/rpcrouter
+Listing current CD catalog.
+  'Riding the Midnight Train' by Doc Watson
+  'Taproot' by Michael Hedges
+  'Nickel Creek' by Nickel Creek
+  'Let it Fall' by Sean Watkins
+  'Aerial Boundaries' by Michael Hedges</pre></blockquote>
+
+<p>That's really all there is to basic RPC functionality in SOAP.
+I'd like to push on a bit, though, and talk about a few more
+complex topics.<a name="INDEX-1238" /> <a name="INDEX-1239" /> 
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch12_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch12_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">12.2. Setting Up</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">12.4. Going Further</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

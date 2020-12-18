@@ -1,0 +1,165 @@
+<html><head><title>An HTTP Authentication Example:The Unicode Mailing Archive (Perl &amp; LWP)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Sean Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001789L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl &amp; LWP" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; LWP" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch12_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">11.4. An HTTP Authentication Example:The Unicode Mailing Archive</h2>
+
+<p>Most password-protected
+<a name="INDEX-650" />
+<a name="INDEX-651" /> <a name="INDEX-652" />sites (whether protected
+via HTTP Basic Authentication or otherwise) are that way because the
+sites' owners don't want just
+anyone to look at the content. And it would be a bit odd if I gave
+away such a username and password by mentioning it in this book!
+However, there is one well-known site whose content is password
+protected without being secret: the mailing list archive of the
+Unicode mailing lists.
+</p>
+
+<p>In an effort to keep email-harvesting bots from finding the Unicode
+mailing list archive while spidering the Web for fresh email
+addresses, the Unicode.org sysadmins have put a password on that part
+of their site. But to allow people (actual not-bot humans) to access
+the site, the site administrators publicly state the password, on an
+unprotected page, at <a href="http://www.unicode.org/mail-arch/">http://www.unicode.org/mail-arch/</a>, which
+links to the protected part, but also states the username and
+password you should use.
+</p>
+
+<p>The main Unicode mailing list (called <em class="emphasis">unicode</em>)
+once in a while has a thread that is really very interesting and you
+really must read, but it's buried in a thousand
+other messages that are not even worth downloading, even in digest
+form. Luckily, this problem meets a tidy solution with LWP:
+I've written a short program that, on the first of
+every month, downloads the index of all the previous
+month's messages and reports the number of messages
+that has each topic as its subject.
+</p>
+
+<p>The trick is that the web pages that list this information are
+password protected. Moreover, the URL for the index of last
+month's posts is different every month, but in a
+fairly obvious way. The URL for March 2002, for example, is:
+</p>
+
+<blockquote><pre class="code">http://www.unicode.org/mail-arch/unicode-ml/y2002-m03/</pre></blockquote>
+
+<p>Deducing the URL for the month that has just ended is simple enough:</p>
+
+<blockquote><pre class="code"><b class="emphasis-bold"># To be run on the first of every month..</b>.
+use POSIX ('strftime');
+my $last_month = strftime("y%Y-m%m", localtime(time - 24 * 60 * 60));
+# Since today is the first, one day ago (24*60*60 seconds) is in
+#  last month.
+my $url = "http://www.unicode.org/mail-arch/unicode-ml/$last_month/";</pre></blockquote>
+
+<p>But getting the contents of that URL involves first providing the
+username and password <em class="emphasis">and</em> realm name. The
+Unicode web site doesn't publicly declare the realm
+name, because it's an irrelevant detail for users
+with interactive browsers, but we need to know it for our call to the
+<tt class="literal">credential</tt> method. To find out the realm name, try
+accessing the URL in an interactive browser. The realm will be shown
+in the authentication dialog box, as shown in <a href="ch11_03.htm#perllwp-CHP-11-FIG-1">Figure 11-1</a>. 
+</p>
+
+<p>In this case, it's
+"Unicode-MailList-Archives," which
+is all we needed to make our request:
+</p>
+
+<blockquote><pre class="code">my $browser = LWP::UserAgent-&gt;new;
+$browser-&gt;credentials(
+  'www.unicode.org:80',  # Don't forget the ":80"!
+  # This is no secret...
+  'Unicode-MailList-Archives',
+  'unicode-ml' =&gt; 'unicode'
+);
+print "Getting topics for last month, $last_month\n",
+      " from $url\n";
+my $response = $browser-&gt;get($url);
+die "Error getting $url: ", $response-&gt;status_line
+  if $response-&gt;is_error;</pre></blockquote>
+
+<p>If this fails (if the Unicode site's admins have
+changed the username or password or even the realm name), that will
+<tt class="literal">die</tt> with this error message:
+</p>
+
+<blockquote><pre class="code">Error getting http://www.unicode.org/mail-arch/unicode-ml/y2002-m03/:
+401 Authorization Required at unicode_list001.pl line 21.</pre></blockquote>
+
+<p>But assuming the authorization data is correct, the page is retrieved
+as if it were a normal, unprotected page. From there, counting the
+topics and noting the absolute URL of the first message of each
+thread is a matter of extracting data from the HTML source and
+reporting it concisely.
+</p>
+
+<blockquote><pre class="code">my(%posts, %first_url);
+while( ${ $response-&gt;content_ref }
+ =~ m{&lt;li&gt;&lt;a href="(\d+.html)"&gt;&lt;strong&gt;(.*?)&lt;/strong&gt;}g
+   # Like: &lt;li&gt;&lt;a href="0127.html"&gt;&lt;strong&gt;Klingon&lt;/strong&gt;
+) {
+  my($url, $topic) = ($1,$2);
+ 
+  # Strip any number of "Re:" prefixes.
+  while( $topic =~ s/^Re:\s+//i ) {}
+ 
+  ++$posts{$topic};
+  use URI;   # For absolutizing URLs...
+  $first_url{$topic} ||= URI-&gt;new_abs($url, $response-&gt;base);
+}
+ 
+print "Topics:\n", reverse sort map   # Most common first:
+  sprintf("% 5s %s\n       %s\n",
+          $posts{$_}, $_, $first_url{$_}
+  ), keys %posts;</pre></blockquote>
+
+<p>Typical output starts out like this:</p>
+
+<blockquote><pre class="code">Getting topics for last month, y2002-m02
+ from http://www.unicode.org/mail-arch/unicode-ml/y2002-m02/
+Topics:
+   86 Unicode and Security
+       http://www.unicode.org/mail-arch/unicode-ml/y2002-m02/0021.html
+   47 ISO 3166 (country codes) Maintenance Agency Web pages move
+       http://www.unicode.org/mail-arch/unicode-ml/y2002-m02/0390.html
+   41 Unicode and end users
+       http://www.unicode.org/mail-arch/unicode-ml/y2002-m02/0260.html
+   27 Unicode Search Engines
+       http://www.unicode.org/mail-arch/unicode-ml/y2002-m02/0360.html
+   22 Smiles, faces, etc
+       http://www.unicode.org/mail-arch/unicode-ml/y2002-m02/0275.html
+   18 This spoofing and security thread
+       http://www.unicode.org/mail-arch/unicode-ml/y2002-m02/0216.html
+   16 Standard Conventions and euro
+       http://www.unicode.org/mail-arch/unicode-ml/y2002-m02/0418.html</pre></blockquote>
+
+<p>This continues for a few pages.</p>
+
+
+ 
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch12_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">11.3. Authentication</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">12. Spiders</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+</map>
+
+</body></html>

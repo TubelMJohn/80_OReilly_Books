@@ -1,0 +1,812 @@
+<html><head><title>Serialization (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch05_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">5.2. Serialization</h2>
+
+<p>One of the most common questions about using DOM is, "I have a
+<a name="INDEX-459" />DOM
+tree; how do I write it out to a file?" This question is asked
+so often because DOM Levels 1 and 2 do not provide a standard means
+of serialization for DOM trees. While this is a bit of a shortcoming
+of the API, it provides a great example in using DOM (and as
+you'll see in the next chapter, DOM Level 3 seeks to correct
+this problem). In this section, to familiarize you with the DOM,
+I'm going to walk you through a class that takes a DOM tree as
+input, and serializes that tree to a supplied output.
+</p>
+
+<a name="javaxml2-CHP-5-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">5.2.1. Getting a DOM Parser</h3>
+
+<p><a name="INDEX-460" />
+<a name="INDEX-461" />Before
+I talk about outputting a DOM tree, I will give you information on
+getting a DOM tree in the first place. For the sake of example, all
+that the code in this chapter does is read in a file, create a DOM
+tree, and then write that DOM tree back out to another file. However,
+this still gives you a good start on DOM and prepares you for some
+more advanced topics in the next chapter.
+</p>
+
+<p>As a result, there are two
+<a name="INDEX-462" />Java source files of interest in
+this chapter. The first is the serializer itself, which is called
+(not surprisingly) <em class="emphasis">DOMSerializer.java</em>. The second, which
+I'll start on now, is <em class="emphasis">SerializerTest.java</em>. This class takes in a
+filename for the XML document to read and a filename for the document
+to serialize out to. Additionally, it demonstrates how to take in a
+file, parse it, and obtain the resultant DOM tree object, represented
+by the <tt class="literal">org.w3c.dom.Document</tt> class. Go ahead and
+download this class from the book's web site, or enter in the
+code as shown in <a href="ch05_02.htm#javaxml2-CHP-5-EX-1">Example 5-1</a>, for the
+<tt class="literal">SerializerTest</tt><a name="INDEX-463" />
+<a name="INDEX-464" />
+class.
+</p>
+
+<a name="javaxml2-CHP-5-EX-1" /><div class="example">
+<h4 class="objtitle">Example 5-1. The SerializerTest class </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.io.File;
+import org.w3c.dom.Document;
+
+// Parser import
+import org.apache.xerces.parsers.DOMParser;
+
+public class SerializerTest {
+
+    public void test(String xmlDocument, String outputFilename) 
+        throws Exception {
+
+        File outputFile = new File(outputFilename);
+        DOMParser parser = new DOMParser( );
+
+        // Get the DOM tree as a Document object
+
+        // Serialize
+    }
+
+    public static void main(String[] args) {
+        if (args.length != 2) {
+            System.out.println(
+                "Usage: java javaxml2.SerializerTest " +
+                "[XML document to read] " +
+                "[filename to write out to]");
+            System.exit(0);
+        }
+
+        try {
+            SerializerTest tester = new SerializerTest( );
+            tester.test(args[0], args[1]);
+        } catch (Exception e) {
+            e.printStackTrace( );
+        }
+    }
+}</pre></blockquote>
+</div>
+
+<p>This example obviously has a couple of pieces missing, represented by
+the two comments in the <tt class="literal">test( )</tt> method. I'll
+supply those in the next two sections, first explaining how to get a
+DOM tree object, and then detailing the
+<tt class="literal">DOMSerializer</tt> class itself.
+</p>
+
+</div>
+<a name="javaxml2-CHP-5-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">5.2.2. DOM Parser Output</h3>
+
+<p><a name="INDEX-465" />Remember
+that in SAX, the focus of interest in the parser was the lifecycle of
+the process, as all the callback methods provided us
+"hooks" into the data as it was being parsed. In the DOM,
+the focus of interest lies in the output from the parsing process.
+Until the entire document is parsed and added into the output tree
+structure, the data is not in a usable state. The output of a parse
+intended for use with the DOM interface is an
+<tt class="literal">org.w3c.dom.Document</tt><a name="INDEX-466" /> object. This object acts as a
+"handle" to the tree your XML data is in, and in terms of
+the element hierarchy I've discussed, it is equivalent to one
+level above the root element in your XML document. In other words, it
+"owns" each and every element in the XML document input.
+</p>
+
+<p>Because the DOM standard focuses on manipulating data, there is a
+variety of mechanisms used to obtain the <tt class="literal">Document</tt>
+object after a parse. In many implementations, such as older versions
+of the IBM XML4J parser, the <tt class="literal">parse(
+)</tt><a name="INDEX-467" /> method
+returned the <tt class="literal">Document</tt> object. The code to use such
+an implementation of a DOM parser would look like this:
+</p>
+
+<blockquote><pre class="code">File outputFile = new File(outputFilename);
+DOMParser parser = new DOMParser( );
+Document doc = parser.parse(xmlDocument);</pre></blockquote>
+
+<p>Most newer parsers, such as Apache Xerces, do not follow this
+methodology. In order to maintain a standard interface across both
+SAX and DOM parsers, the <tt class="literal">parse(
+)</tt><a name="INDEX-468" /> method
+in these parsers returns <tt class="literal">void</tt>, as the SAX example
+of using the <tt class="literal">parse( )</tt> method did. This change
+allows an application to use a DOM parser class and a SAX parser
+class interchangeably; however, it requires an additional method to
+obtain the <tt class="literal">Document</tt> object result from the XML
+parsing. In Apache Xerces, this method is named <tt class="literal">getDocument(
+)</tt><a name="INDEX-469" />.
+Using this type of parser (as I do in the example), you can add the
+following example to your <tt class="literal">test(
+)</tt><a name="INDEX-470" /> method
+to obtain the resulting DOM tree from parsing the supplied input
+file:
+</p>
+
+<blockquote><pre class="code">    public void test(String xmlDocument, String outputFilename) 
+        throws Exception {
+
+        File outputFile = new File(outputFilename);
+        DOMParser parser = new DOMParser( );
+
+        // Get the DOM tree as a Document object
+        <tt class="userinput"><b>parser.parse(xmlDocument);
+        Document doc = parser.getDocument( );</b></tt>
+
+        // Serialize
+    }</pre></blockquote>
+
+<p>This of course assumes you are using Xerces, as the
+<tt class="literal">import</tt> statement at the beginning of the source
+file indicates:
+</p>
+
+<blockquote><pre class="code">import org.apache.xerces.parsers.DOMParser;</pre></blockquote>
+
+<p>If you are using a different parser, you'll need to change this
+import to your vendor's DOM parser class. Then consult your
+vendor's documentation to determine which of the
+<tt class="literal">parse( )</tt> mechanisms you need to employ to get the
+DOM result of your parse. In <a href="ch07_01.htm">Chapter 7, "JDOM"</a>, I'll
+look at Sun's JAXP API and other ways to standardize a means of
+accessing a DOM tree from any parser implementation. Although there
+is some variance in getting this result, all the uses of this result
+that we look at are standard across the DOM specification, so you
+should not have to worry about any other implementation curveballs in
+the rest of this chapter.<a name="INDEX-471" /> 
+</p>
+
+</div>
+<a name="javaxml2-CHP-5-SECT-2.3" /><div class="sect2">
+<h3 class="sect2">5.2.3. DOMSerializer</h3>
+
+<p><a name="INDEX-472" /> <a name="INDEX-473" />I've
+been throwing the term <em class="filename">serialization</em> around
+quite a bit, and should probably make sure you know what I mean. When
+I say
+<a name="INDEX-474" />serialization,
+I simply mean outputting the XML.
+<a name="INDEX-475" />This could be a file (using a Java
+<tt class="literal">File</tt>), an <tt class="literal">OutputStream</tt>, or a
+<tt class="literal">Writer</tt>. There are certainly more output forms
+available in Java, but these three cover most of the bases (in fact,
+the latter two do, as a <tt class="literal">File</tt> can be easily
+converted to a <tt class="literal">Writer</tt>, but accepting a
+<tt class="literal">File</tt> is a nice convenience feature). In this case,
+the serialization taking place is in an XML format; the DOM tree is
+converted back to a well-formed XML document in a textual format.
+It's important to note that the XML format is used, as you
+could easily code serializers to write HTML, WML, XHTML, or any other
+format. In fact, Apache Xerces provides these various classes, and
+I'll touch on them briefly at the end of this chapter.
+</p>
+
+<a name="javaxml2-CHP-5-SECT-2.3.1" /><div class="sect3">
+<h3 class="sect3">5.2.3.1. Getting started</h3>
+
+<p>To get you past the preliminaries, <a href="ch05_02.htm#javaxml2-CHP-5-EX-2">Example 5-2</a> is
+the skeleton for the
+<tt class="literal">DOMSerializer</tt><a name="INDEX-476" /> class. It
+imports all the needed classes to get the code going, and defines the
+different entry points (for a <tt class="literal">File</tt>,
+<tt class="literal">OutputStream</tt>, and <tt class="literal">Writer</tt>) to
+the class. Two of these three methods simply defer to the third (with
+a little I/O magic). The example also sets up some member variables
+for the indentation to use, the line separator, and methods to modify
+those properties.
+</p>
+
+<a name="javaxml2-CHP-5-EX-2" /><div class="example">
+<h4 class="objtitle">Example 5-2. The DOMSerializer skeleton </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import org.w3c.dom.Document;
+import org.w3c.dom.DocumentType;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
+public class DOMSerializer {
+
+    /** Indentation to use */
+    private String indent;
+
+    /** Line separator to use */
+    private String lineSeparator;
+
+    public DOMSerializer( ) {
+        indent = "";
+        lineSeparator = "\n";
+    }
+
+    public void setLineSeparator(String lineSeparator) {
+        this.lineSeparator = lineSeparator;
+    }
+
+    public void serialize(Document doc, OutputStream out)
+        throws IOException {
+        
+        Writer writer = new OutputStreamWriter(out);
+        serialize(doc, writer);
+    }
+
+    public void serialize(Document doc, File file)
+        throws IOException {
+
+        Writer writer = new FileWriter(file);
+        serialize(doc, writer);
+    }
+
+    public void serialize(Document doc, Writer writer)
+        throws IOException {
+
+        // Serialize document
+    }
+}</pre></blockquote>
+</div>
+
+<p>Once this code is saved into a
+<a name="INDEX-477" /><em class="emphasis">DOMSerializer.java</em> source file, everything
+ends up in the version of the <tt class="literal">serialize(
+)</tt><a name="INDEX-478" />
+method that takes a <tt class="literal">Writer</tt>. Nice and tidy.
+</p>
+
+</div>
+
+<a name="javaxml2-CHP-5-SECT-2.3.2" /><div class="sect3">
+<h3 class="sect3">5.2.3.2. Launching serialization</h3>
+
+<p>With the setup in place for starting serialization, it's time
+to define the process of working through the DOM tree. One nice facet
+of DOM already mentioned is that all of the specific DOM structures
+that represent XML (including the <tt class="literal">Document</tt> object)
+extend the DOM <tt class="literal">Node</tt> interface. This enables the
+coding of a single method that handles
+<a name="INDEX-479" />serialization of all DOM node types.
+Within that method, you can differentiate between node types, but by
+accepting a <tt class="literal">Node</tt> as input, it enables a very
+simple way of handling all DOM types. Additionally, it sets up a
+methodology that allows for
+<a name="INDEX-480" />recursion,
+any programmer's best friend. Add the <tt class="literal">serializeNode(
+)</tt><a name="INDEX-481" />
+method shown here, as well as the initial invocation of that method
+in the <tt class="literal">serialize( )</tt><a name="INDEX-482" /> method (the common code point just
+discussed):
+</p>
+
+<blockquote><pre class="code">    public void serialize(Document doc, Writer writer)
+        throws IOException {
+
+        <tt class="userinput"><b>// Start serialization recursion with no indenting
+        serializeNode(doc, writer, "");
+        writer.flush( );</b></tt>
+    }
+ 
+    public void serializeNode(Node node, Writer writer, 
+                              String indentLevel)
+        throws IOException {
+    }</pre></blockquote>
+
+<p>Additionally, an
+<tt class="literal">indentLevel</tt><a name="INDEX-483" /> variable is put in place; this sets us
+up for recursion. In other words, the <tt class="literal">serializeNode(
+)</tt> method can indicate how much the node being worked with
+should be indented, and when recursion takes place, can add another
+level of indentation (using the <tt class="literal">indent</tt> member
+variable). Starting out (within the <tt class="literal">serialize( )</tt>
+method), there is an empty <tt class="literal">String</tt> for indentation;
+at the next level, the default is two spaces for indentation, then
+four spaces at the next level, and so on. Of course, as recursive
+calls unravel, things head back up to no indentation. All
+that's left now is to handle the various node types.
+</p>
+
+</div>
+
+<a name="javaxml2-CHP-5-SECT-2.3.3" /><div class="sect3">
+<h3 class="sect3">5.2.3.3. Working with nodes</h3>
+
+<p>Once within the <tt class="literal">serializeNode( )</tt> method, the first
+task is to determine what type of <a name="INDEX-484" />node has been passed in.
+Although you could approach this with a Java methodology, using the
+<tt class="literal">instanceof</tt> keyword and Java reflection, the DOM
+language bindings for Java make this task much simpler. The
+<a name="INDEX-485" />
+<a name="INDEX-486" /><tt class="literal">Node</tt>
+interface defines a helper method, <a name="INDEX-487" /><tt class="literal">getNodeType( )</tt>, which
+returns an integer value. This value can be compared against a set of
+constants (also defined within the <tt class="literal">Node</tt>
+interface), and the type of <tt class="literal">Node</tt> being examined
+can be quickly and easily determined. This also fits very naturally
+into the Java <a name="INDEX-488" /><tt class="literal">switch</tt> construct, which
+can be used to break up serialization into logical sections. The code
+here covers almost all DOM node types; although there are some
+additional node types defined (see <a href="ch05_01.htm#javaxml2-CHP-5-FIG-2">Figure 5-2</a>),
+these are the most common, and the concepts here can be applied to
+the less common node types as well:
+</p>
+
+<blockquote><pre class="code">    public void serializeNode(Node node, Writer writer, 
+                              String indentLevel)
+        throws IOException {
+
+        <tt class="userinput"><b>// Determine action based on node type
+        switch (node.getNodeType( )) {
+            case Node.DOCUMENT_NODE:
+                break;
+            
+            case Node.ELEMENT_NODE:
+                break;
+            
+            case Node.TEXT_NODE:
+                break;
+
+            case Node.CDATA_SECTION_NODE:
+                break;
+
+            case Node.COMMENT_NODE:
+                break;
+            
+            case Node.PROCESSING_INSTRUCTION_NODE:
+                break;
+            
+            case Node.ENTITY_REFERENCE_NODE:
+                break;
+                
+            case Node.DOCUMENT_TYPE_NODE: 
+                break;                
+        }</b></tt>
+    }</pre></blockquote>
+
+<p>This code is fairly useless; however, it helps to see all of the DOM
+node types laid out here in a line, rather than mixed in with all of
+the code needed to perform actual serialization. I want to get to
+that now, though, starting with the first node passed into this
+method, an instance of the
+<tt class="literal">Document</tt><a name="INDEX-489" />
+<a name="INDEX-490" />
+interface.
+</p>
+
+<p>Because the <a name="INDEX-491" /><tt class="literal">Document</tt> interface is an
+extension of the <tt class="literal">Node</tt> interface, it can be used
+interchangeably with the other node types. However, it is a special
+case, as it contains the root element as well as the XML
+document's DTD and some other special information not within
+the XML element hierarchy. As a result, you need to extract the root
+element and pass that back to the serialization method (starting
+recursion). Additionally, the XML declaration itself is printed out:
+</p>
+
+<blockquote><pre class="code">            case Node.DOCUMENT_NODE:	
+                writer.write("&lt;?xml version=\"1.0\"?&gt;");
+                writer.write(lineSeparator);
+
+                Document doc = (Document)node;
+                serializeNode(doc.getDocumentElement( ), writer, "");
+                break;</pre></blockquote>
+<blockquote><b>WARNING:</b> 
+DOM Level 2 (as well as SAX 2.0) does not expose the
+<a name="INDEX-492" />XML declaration. This may
+not seem like a big deal, until you consider that the encoding of the
+document is included in this declaration. DOM Level 3 is expected to
+address this deficiency, and I'll cover that in the next
+chapter. Be careful not to write DOM applications that depend on this
+information until this feature is in place.
+</p>
+</blockquote>
+<p>Since the code needs to access a <tt class="literal">Document</tt>-specific
+method (as opposed to one defined in the generic
+<tt class="literal">Node</tt> interface), the <tt class="literal">Node</tt>
+implementation must be cast to the <tt class="literal">Document</tt>
+interface. Then invoke the object's
+<a name="INDEX-493" />
+<a name="INDEX-494" /><tt class="literal">getDocumentElement( )</tt>
+method to obtain the root element of the XML input document, and in
+turn pass that on to the <tt class="literal">serializeNode( )</tt> method,
+starting the recursion and traversal of the DOM tree.
+</p>
+
+<p>Of course, the most common task in serialization is to take a DOM
+<tt class="literal">Element</tt> and print out its name, attributes, and
+value, and then print its children. As you would suspect, all of
+these can be easily accomplished with DOM method calls. First you
+need to get the name of the XML element, which is available through
+the <a name="INDEX-495" />
+<a name="INDEX-496" /><tt class="literal">getNodeName( )</tt> method
+within the <tt class="literal">Node</tt> interface. The code then needs to
+get the children of the current element and serialize these as well.
+A <tt class="literal">Node</tt>'s children can be accessed through
+the <a name="INDEX-497" />
+<a name="INDEX-498" /><tt class="literal">getChildNodes( )</tt> method,
+which returns an instance of a DOM <tt class="literal">NodeList</tt>. It is
+trivial to obtain the length of this list, and then iterate through
+the children calling the serialization method on each, continuing the
+recursion. There's also quite a bit of logic that ensures
+correct indentation and line feeds; these are really just formatting
+issues, and I won't spend time on them here. Finally, the
+closing bracket of the element can be output:
+</p>
+
+<blockquote><pre class="code">            case Node.ELEMENT_NODE:
+                String name = node.getNodeName( );
+                writer.write(indentLevel + "&lt;" + name);
+                writer.write("&gt;");
+                
+                // recurse on each child
+                NodeList children = node.getChildNodes( );
+                if (children != null) {
+                    if ((children.item(0) != null) &amp;&amp;
+                        (children.item(0).getNodeType( ) == 
+                        Node.ELEMENT_NODE)) {
+                            
+                        writer.write(lineSeparator);
+                    }
+                    for (int i=0; i&lt;children.getLength( ); i++) {  
+                        serializeNode(children.item(i), writer,
+                            indentLevel + indent);
+                    }
+                    if ((children.item(0) != null) &amp;&amp;
+                        (children.item(children.getLength( )-1)
+                                .getNodeType( ) ==
+                        Node.ELEMENT_NODE)) {
+                     
+                        writer.write(indentLevel);       
+                    }
+                }
+                
+                writer.write("&lt;/" + name + "&gt;");
+                writer.write(lineSeparator);
+                break;</pre></blockquote>
+
+<p>Of course, astute readers (or DOM experts) will notice that I left
+out something important: the element's attributes! These are
+the only pseudo-exception to the strict tree that DOM builds. They
+should be an exception, though, since an attribute is not really a
+child of an element; it's (sort of) lateral to it. Basically
+the relationship is a little muddy. In any case, the attributes of an
+element are available through the <tt class="literal">getAttributes(
+)</tt><a name="INDEX-499" />
+method on the <tt class="literal">Node</tt> interface. This method returns
+a
+<tt class="literal">NamedNodeMap</tt><a name="INDEX-500" />,
+and that too can be iterated through. Each <tt class="literal">Node</tt>
+within this list can be polled for its name and value, and suddenly
+the attributes are handled! Enter the code as shown here to take care
+of this:
+</p>
+
+<blockquote><pre class="code">            case Node.ELEMENT_NODE:
+                String name = node.getNodeName( );
+                writer.write(indentLevel + "&lt;" + name);
+                <tt class="userinput"><b>NamedNodeMap attributes = node.getAttributes( );
+                for (int i=0; i&lt;attributes.getLength( ); i++) {
+                    Node current = attributes.item(i);
+                    writer.write(" " + current.getNodeName( ) +
+                                 "=\"" + current.getNodeValue( ) +
+                                 "\"");
+                }</b></tt>
+                writer.write("&gt;");
+                
+                // recurse on each child
+                NodeList children = node.getChildNodes( );
+                if (children != null) {
+                    if ((children.item(0) != null) &amp;&amp;
+                        (children.item(0).getNodeType( ) == 
+                        Node.ELEMENT_NODE)) {
+                            
+                        writer.write(lineSeparator);
+                    }
+                    for (int i=0; i&lt;children.getLength( ); i++) {
+                      serializeNode(children.item(i), writer,
+                            indentLevel + indent);
+                    }
+                    if ((children.item(0) != null) &amp;&amp;
+                        (children.item(children.getLength( )-1)
+                                .getNodeType( ) ==
+                        Node.ELEMENT_NODE)) {
+                     
+                        writer.write(indentLevel);       
+                    }
+                }
+                
+                writer.write("&lt;/" + name + "&gt;");
+                writer.write(lineSeparator);
+                break;</pre></blockquote>
+
+<p>Next on the list of node types is <tt class="literal">Text</tt> nodes.
+Output is quite simple, as you only need to use the now-familiar
+<a name="INDEX-501" /><tt class="literal">getNodeValue( )</tt>
+method of the DOM <tt class="literal">Node</tt> interface to get the
+textual data and print it out; the same is true for
+<tt class="literal">CDATA</tt> nodes, except that the data within a
+<tt class="literal">CDATA</tt> section should be enclosed within the
+<tt class="literal">CDATA</tt> XML semantics (surrounded by
+<tt class="literal">&lt;![CDATA[</tt> and <tt class="literal">]]&gt;</tt>). You
+can add the logic within those two cases now:
+</p>
+
+<blockquote><pre class="code">            case Node.TEXT_NODE:
+                writer.write(node.getNodeValue( ));
+                break;
+
+            case Node.CDATA_SECTION_NODE:
+                writer.write("&lt;![CDATA[" +
+                             node.getNodeValue( ) + "]]&gt;");
+                break;</pre></blockquote>
+
+<p>Dealing with comments in DOM is about as simple as it gets. The
+<tt class="literal">getNodeValue( )</tt> method returns the text within the
+<tt class="literal">&lt;!--</tt> and <tt class="literal">--&gt;</tt> XML
+constructs. That's really all there is to it; see this code
+addition:
+</p>
+
+<blockquote><pre class="code">            case Node.COMMENT_NODE:
+                writer.write(indentLevel + "&lt;!-- " +
+                             node.getNodeValue( ) + " --&gt;");
+                writer.write(lineSeparator);
+                break;</pre></blockquote>
+
+<p>Moving on to the next DOM node type: <a name="INDEX-502" /> <a name="INDEX-503" />the
+DOM bindings for Java define an interface to handle processing
+instructions that are within the input XML document, rather obviously
+called <tt class="literal">ProcessingInstruction</tt>. This is useful, as
+these instructions do not follow the same markup model as XML
+elements and attributes, but are still important for applications to
+know about. In the table of contents XML document, there aren't
+any PIs present (although you could easily add some for testing).
+</p>
+
+<p>The PI node in the DOM is a little bit of a break from what you have
+seen so far: to fit the syntax into the <tt class="literal">Node</tt>
+interface model, the <tt class="literal">getNodeValue( )</tt> method
+returns all data instructions within a PI in one
+<tt class="literal">String</tt>. This allows quick output of the PI;
+however, you still need to use <tt class="literal">getNodeName( )</tt> to
+get the name of the PI. If you were writing an application that
+received PIs from an XML document, you might prefer to use the actual
+<tt class="literal">ProcessingInstruction</tt> interface; although it
+exposes the same data, the method names (<tt class="literal">getTarget(
+)</tt> and <tt class="literal">getData( )</tt>) are more in line with
+a PI's format. With this understanding, you can add in the code
+to print out any PIs in supplied XML documents:
+</p>
+
+<blockquote><pre class="code">            case Node.PROCESSING_INSTRUCTION_NODE:
+                writer.write("&lt;?" + node.getNodeName( ) +
+                             " " + node.getNodeValue( ) +
+                             "?&gt;");                
+                writer.write(lineSeparator);
+                break;</pre></blockquote>
+
+<p>While the code to deal with PIs is perfectly workable, there is a
+problem. In the case that handled document nodes, all the serializer
+did was pull out the document element and recurse. The problem is
+that this approach ignores any other child nodes of the
+<tt class="literal">Document</tt> object, such as top-level PIs and any
+<tt class="literal">DOCTYPE</tt> declarations. Those node types are
+actually <em class="emphasis">lateral</em> to the document element (root
+element), and are ignored. Instead of just pulling out the document
+element, then, the following code serializes <em class="emphasis">all</em>
+child nodes on the supplied <tt class="literal">Document</tt> object:
+</p>
+
+<blockquote><pre class="code">            case Node.DOCUMENT_NODE:
+                writer.write("&lt;xml version=\"1.0\"&gt;");
+                writer.write(lineSeparator);
+
+                <tt class="userinput"><b>// recurse on each child
+                NodeList nodes = node.getChildNodes( );
+                if (nodes != null) {
+                    for (int i=0; i&lt;nodes.getLength( ); i++) {
+                        serializeNode(nodes.item(i), writer, "");
+                    }
+                }
+                /*
+                Document doc = (Document)node;
+                serializeNode(doc.getDocumentElement( ), writer, "");
+                */</b></tt>
+                break;</pre></blockquote>
+
+<p>With this in place, the code can deal with
+<tt class="literal">DocumentType</tt> nodes, which represent a
+<tt class="literal">DOCTYPE</tt> declaration. Like PIs, a DTD declaration
+can be helpful in exposing external information that might be needed
+in processing an XML document. However, since there can be public and
+system IDs as well as other DTD-specific data, the code needs to cast
+the <tt class="literal">Node</tt> instance to the
+<tt class="literal">DocumentType</tt> interface to access this additional
+data. Then, use the helper methods to get the name of the
+<tt class="literal">Node</tt>, which returns the name of the element in the
+document that is being constrained, the<a name="INDEX-504" /> public ID (if it exists), and the
+<a name="INDEX-505" />system ID of the
+DTD referenced. Using this information, the original DTD can be
+serialized:
+</p>
+
+<blockquote><pre class="code">            case Node.DOCUMENT_TYPE_NODE: 
+                DocumentType docType = (DocumentType)node;
+                writer.write("&lt;!DOCTYPE " + docType.getName( ));
+                if (docType.getPublicId( ) != null)  {
+                    System.out.print(" PUBLIC \"" + 
+                        docType.getPublicId( ) + "\" ");              
+                } else {
+                    writer.write(" SYSTEM ");
+                }
+                writer.write("\"" + docType.getSystemId( ) + "\"&gt;";
+                writer.write(lineSeparator);
+                break;</pre></blockquote>
+
+<p>All that's left at this point is handling entities and entity
+references. In this chapter, I will skim over entities and focus on
+entity references; more details on entities and notations are in the
+next chapter. For now, a reference can simply be output with the
+<tt class="literal">&amp;</tt> and <tt class="literal">;</tt> characters
+surrounding it:
+</p>
+
+<blockquote><pre class="code">            case Node.ENTITY_REFERENCE_NODE:
+                writer.write("&amp;" + node.getNodeName( ) + ";");    
+                break;</pre></blockquote>
+
+<p>There are a few surprises that may trip you up when it comes to the
+output from a node such as this. The definition of how entity
+references should be processed within DOM allows a lot of latitude,
+and also relies heavily on the underlying parser's behavior. In
+fact, most XML parsers have expanded and processed entity references
+before the XML document's data ever makes its way into the DOM
+tree. Often, when expecting to see an entity reference within your
+DOM structure, you will find the text or values
+<em class="emphasis">referenced</em> rather than the entity reference
+itself. To test this for your parser, you'll want to run the
+<tt class="literal">SerializerTest</tt> class on the <em class="emphasis">contents.xml</em> document (which I'll cover
+in the next section) and see what it does with the
+<tt class="literal">OReillyCopyright</tt> entity reference. In Apache, this
+comes across as an entity reference, by the way.
+</p>
+
+<p>And that's it! As I mentioned, there are a few other node
+types, but covering them isn't worth the trouble at this point;
+you get the idea about how DOM works. In the next chapter, I'll
+take you deeper than you probably ever wanted to go. For now,
+let's put the pieces together and see some results.<a name="INDEX-506" /> <a name="INDEX-507" /><a name="INDEX-508" /> <a name="INDEX-509" />
+</p>
+
+</div>
+</div>
+<a name="javaxml2-CHP-5-SECT-2.4" /><div class="sect2">
+<h3 class="sect2">5.2.4. The Results</h3>
+
+<p>With the <tt class="literal">DOMSerializer</tt> class complete, all
+that's left is to invoke the serializer's
+<tt class="literal">serialize( )</tt><a name="INDEX-510" /> method in
+the test class. To do this, add the following lines to the
+<tt class="literal">SerializerTest</tt> class:
+</p>
+
+<blockquote><pre class="code">    public void test(String xmlDocument, String outputFilename) 
+        throws Exception {
+
+        File outputFile = new File(outputFilename);
+        DOMParser parser = new DOMParser( );
+
+        // Get the DOM tree as a Document object
+        parser.parse(xmlDocument);
+        Document doc = parser.getDocument( );
+
+        // Serialize
+        <tt class="userinput"><b>DOMSerializer serializer = new DOMSerializer( );
+        serializer.serialize(doc, new File(outputFilename));</b></tt>
+    }</pre></blockquote>
+
+<p>This fairly simple addition completes the classes, and you can run
+the example on <a href="ch02_01.htm">Chapter 2, "Nuts and Bolts"</a>'s <em class="emphasis">contents.xml</em> file, as shown:
+</p>
+
+<blockquote><pre class="code">C:\javaxml2\build&gt;java javaxml2.SerializerTest 
+    c:\javaxml2\ch05\xml\contents.xml
+    output.xml</pre></blockquote>
+
+<p>While you don't get any exciting output here, you can open up
+the newly created <em class="filename">output.xml</em> file and check it
+over for accuracy. It should contain all the information in the
+original XML document, with only the differences already discussed in
+previous sections. A portion of my <em class="filename">output.xml</em> is
+shown in <a href="ch05_02.htm#javaxml2-CHP-5-EX-3">Example 5-3</a>.
+</p>
+
+<a name="javaxml2-CHP-5-EX-3" /><div class="example">
+<h4 class="objtitle">Example 5-3. A portion of the output.xml serialized DOM tree </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+&lt;!DOCTYPE book SYSTEM "DTD/JavaXML.dtd"&gt;
+&lt;!--  Java and XML Contents  --&gt;
+&lt;book xmlns="http://www.oreilly.com/javaxml2" 
+      xmlns:ora="http://www.oreilly.com"&gt;
+  &lt;title ora:series="Java"&gt;Java and XML&lt;/title&gt;
+
+
+  &lt;!--  Chapter List  --&gt;
+
+  &lt;contents&gt;
+    &lt;chapter number="2" title="Nuts and Bolts"&gt;
+      &lt;topic name="The Basics"&gt;&lt;/topic&gt;
+
+      &lt;topic name="Constraints"&gt;&lt;/topic&gt;
+
+      &lt;topic name="Transformations"&gt;&lt;/topic&gt;
+
+      &lt;topic name="And More..."&gt;&lt;/topic&gt;
+
+      &lt;topic name="What's Next?"&gt;&lt;/topic&gt;
+
+    &lt;/chapter&gt;</pre></blockquote>
+</div>
+
+<p>You may notice that there is quite a bit of extra whitespace in the
+output; that's because the serializer adds some line feeds
+every time <tt class="literal">writer.write(lineSeparator)</tt> appears in
+the code. Of course, the underlying DOM tree has some line feeds in
+it as well, which are reported as <tt class="literal">Text</tt> nodes. The
+end result in many of these cases is the double line breaks, as seen
+in the output.
+</p>
+<blockquote><b>WARNING:</b> 
+
+Let me be very clear that the <tt class="literal">DOMSerializer</tt><a name="INDEX-511" />
+<a name="INDEX-512" />
+<a name="INDEX-513" /> class shown in this chapter is for example purposes, and is not a good production solution. While you are welcome to use the class in your own applications, realize that several important options are left out, like encoding and setting advanced options for indentation, line feeds, and line wrapping. Additionally, entities are handled only in passing (complete treatment would be twice as long as this chapter already is!). Your parser probably has its own serializer class, if not multiple classes, that perform this task at least as well, if not better, than the example in this chapter. However, you now should understand what's going on under the hood in those classes. As a matter of reference, if you are using Apache Xerces, the classes to look at are in the <tt class="literal">org.apache.xml.serialize</tt>. Some particularly useful ones are the <tt class="literal">XMLSerializer</tt>, <tt class="literal">XHTMLSerializer</tt>, and <tt class="literal">HTMLSerializer</tt>. Check them out -- they offer a good solution, until DOM Level 3 comes out with a standardized one.
+</p>
+</blockquote>
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch05_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">5. DOM</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">5.3. Mutability</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

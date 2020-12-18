@@ -1,0 +1,362 @@
+<?label 9.4. sendmail?><html><head><title>sendmail (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch09_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch09_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">9.4. sendmail</h2>
+
+
+<p>Without <tt class="command">sendmail</tt>
+<a name="INDEX-1869" />
+<a name="INDEX-1870" />
+<a name="INDEX-1871" />, Internet email might
+not exist. Although other mail transport agents (MTAs) do exist, the
+vast majority of mail servers on the Internet all run
+<tt class="command">sendmail</tt>. It was originally written by Eric Allman
+starting around 1980 and, as we mentioned earlier, the Internet was
+very different then. <em class="emphasis">sendmail</em> tackled the
+formidable task of transferring mail between very different networks.
+Thus, it has never been a simple program, and it has grown. It has
+become one of the most complicated applications to ever fully
+understand; the number of command-line flags and configuration
+parameters it now accepts is truly mind-boggling. Fortunately, we
+only need to learn a few things in order to have it send messages for
+us. If you want to learn more about sendmail, see
+<em class="citetitle">sendmail</em> by Bryan Costales with Eric Allman
+(O'Reilly &amp; Associates, Inc.).</p>
+
+
+<p><tt class="command">sendmail</tt> generally comes preinstalled on
+<a name="INDEX-1872" />Unix
+machines and has recently been ported to Windows NT. On Unix, it is
+often installed in <em class="filename">/usr/lib/sendmail</em>, but
+<em class="filename">/usr/sbin/sendmail</em> and
+<em class="filename">/usr/ucb/lib/sendmail</em> are also possible
+locations. These examples will use
+<em class="filename">/usr/lib/sendmail</em> as the location of the
+<tt class="command">sendmail</tt> program. If your copy is installed
+elsewhere, simply replace this with the path to your copy of
+<tt class="command">sendmail</tt>.</p>
+
+
+<a name="ch09-5-fm2xml" /><div class="sect2">
+<h3 class="sect2">9.4.1. Command-Line Options</h3>
+
+
+<p>You generally want to call
+<a name="INDEX-1873" /> <a name="INDEX-1,874" />
+<a name="INDEX-1875" />sendmail
+with at least a couple of command-line options. When sending a
+message, <tt class="command">sendmail</tt> assumes it is being run
+interactively by a user, so it sets the sender to be that of the
+user, and it allows the user to enter a period on its own line to
+signal the end of the message. You can override these settings and
+will probably want to. In addition, if you are sending multiple email
+messages, you may wish to queue them so that
+<tt class="command">sendmail</tt> can deliver them asynchronously without
+pausing to deliver each one.</p>
+
+
+<p><a href="ch09_04.htm#ch09-97770">Table 9-1</a> lists the important options you should
+know.</p>
+
+
+
+<a name="ch09-97770" /><h4 class="objtitle">Table 9-1. Common sendmail Options </h4><table border="1">
+
+
+
+<tr>
+<th>
+<p>Option</p></th>
+<th>
+<p>Description</p></th>
+</tr>
+
+
+
+
+<tr>
+<td>
+<blockquote><pre class="code">-t</pre></blockquote></td>
+<td>
+<p>Read <em class="emphasis">To</em>, <em class="emphasis">Cc</em>, and
+<em class="emphasis">Bcc</em> from the message headers.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">-f "email address"</pre></blockquote></td>
+<td>
+<p>Make the message appear to be <em class="emphasis">From</em> the specified
+email address.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">-F "full name"</pre></blockquote></td>
+<td>
+<p>Make the message appear to be <em class="emphasis">From</em> the specified
+name.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">-i</pre></blockquote></td>
+<td>
+<p>Ignore periods on lines by themselves.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">-odq</pre></blockquote></td>
+<td>
+<p>Queue messages to be sent later instead of processing them one at a
+time.</p></td>
+</tr>
+
+
+</table>
+
+
+<p><a href="ch09_04.htm#ch09-99939">Example 9-1</a> is a short CGI script in Perl that uses
+many of these options.</p>
+
+
+
+<a name="ch09-99939" /><div class="example">
+<h4 class="objtitle">Example 9-1. feedback_sendmail.cgi </h4>
+<a name="INDEX-1876" />
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use CGI;
+
+# Clean up environment for taint mode before calling sendmail
+BEGIN {
+    $ENV{PATH} = "/bin:/usr/bin";
+    delete @ENV{ qw( IFS CDPATH ENV BASH_ENV ) };
+}
+
+my $q       = new CGI;
+my $email   = validate_email_address( $q-&gt;param( "email" ) );
+my $message = $q-&gt;param( "message" );
+
+unless ( $email ) {
+    print $q-&gt;header( "text/html" ),
+          $q-&gt;start_html( "Invalid Email Address" ),
+          $q-&gt;h1( "Invalid Email Address" ),
+          $q-&gt;p( "The email address you entered is invalid. " .
+                 "Please use your browser's Back button to " .
+                 "return to the form and try again." );
+          $q-&gt;end_html;
+    exit;
+}
+
+send_feedback( $email, $message );
+send_receipt( $email );
+
+print $q-&gt;redirect( "/feedback/thanks.html" );
+
+sub send_feedback {
+    my( $email, $message ) = @_;
+    
+    open MAIL, "| /usr/lib/sendmail -t -i"
+        or die "Could not open sendmail: $!";
+    
+    print MAIL &lt;&lt;END_OF_MESSAGE;
+To: webmaster\@scripted.com
+Reply-To: $email
+Subject: Web Site Feedback
+
+Feedback from a user:
+
+$message
+END_OF_MESSAGE
+    close MAIL or die "Error closing sendmail: $!";
+}
+
+sub send_receipt {
+    my $email = shift;
+    
+    open MAIL, "| /usr/lib/sendmail -t -F'$from_name' -f'$from_email'"
+        or die "Could not open sendmail: $!";
+    print MAIL &lt;&lt;END_OF_MESSAGE;
+To: $email
+Subject: Your feedback
+
+Your message has been sent and someone should be responding to you 
+shortly. Thanks for taking the time to provide us with your feedback!
+END_OF_MESSAGE
+    close MAIL or die "Error closing sendmail: $!";
+}</pre></blockquote>
+</div>
+
+
+<p>We collect two pieces of information from the user: an email address
+and a message to send to customer service. We validate the email
+address according to the subroutine earlier in this chapter, but we
+don't include the code for that subroutine here. The script
+then composes two messages and forwards users to a static page to
+thank them.</p>
+
+
+<p>The first message goes to customer service. It uses the
+<em class="emphasis">-t</em>
+<a name="INDEX-1877" /> option as well as the
+<em class="emphasis">-i</em> option. The<a name="INDEX-1878" /> <em class="emphasis">-i</em> option is a
+good idea if the message includes any dynamic information. It
+prevents a single dot from prematurely ending the email message.</p>
+
+
+<p>The <em class="emphasis">-t</em> option is the most important of these
+options. It tells <tt class="command">sendmail</tt> to read the routing
+information for the recipient from the message itself. Otherwise you
+have to provide the recipient's email address on the command
+line. Generally, you call <tt class="command">sendmail</tt> like this:</p>
+
+
+<blockquote><pre class="code">/usr/lib/sendmail mary@somewhere.com</pre></blockquote>
+
+
+<p><tt class="command">sendmail</tt> then reads the message including the
+headers and body from its STDIN and sends the message on to Mary,
+even if the <em class="emphasis">To</em>, <em class="emphasis">Cc</em>, or
+<em class="emphasis">Bcc</em> fields say it should go elsewhere! This can
+get confusing.</p>
+
+
+<p>You should always use the
+<em class="emphasis">-t</em>
+<a name="INDEX-1879" />
+flag. First, it makes your life easier, since it automatically
+handles the <em class="emphasis">To</em>, <em class="emphasis">Cc</em>, and
+<em class="emphasis">Bcc</em> fields. Second, it lets you avoid that awful
+<a name="INDEX-1880" />security risk of passing user data
+through the <a name="INDEX-1881" />shell. Many times you will be
+sending email to an address that was entered into an HTML form, so
+being able to simply include the email address in the body of the
+message instead is another big win.</p>
+
+
+<p>Once this message has been sent, the script sends a
+<a name="INDEX-1882" />confirmation to the user. It also uses the
+<em class="emphasis">-t</em> option here, and here we see the security
+benefit. The email address comes from the user, but we don't
+have to worry about passing it through the shell.</p>
+
+
+<p>In this second email, we also use two other
+<a name="INDEX-1883" />fields to override the sender's
+<a name="INDEX-1884" />routing information.
+<tt class="command">sendmail</tt> will not automatically read the
+sender's email address from the headers as it does for the
+<em class="emphasis">-t</em> option. This must be specified with the
+<em class="emphasis">-f</em>
+<a name="INDEX-1885" /> and <em class="emphasis">-F</em> options.
+There are two options in order to support the extended address
+notation including a name and an email address in this form:</p>
+
+
+<blockquote><pre class="code">The Webmaster &lt;webmaster@scripted.com&gt;</pre></blockquote>
+
+
+<p>It is important to override the sender's routing information
+because if the message to Mary bounces, it will come back to the
+original sender, and if the
+<a name="INDEX-1886" /> <a name="INDEX-1,887" />user that the web server runs as has a
+standard account with a mail box, bounced messages will collect
+there. If it has no mail account, then they'll bounce back and
+forth either until they time out or some system administrator gets
+annoyed at the increased network traffic and steps in. Ideally, your
+system should be configured so that any mail addressed to
+<em class="emphasis">nobody</em> (the user your web server runs as) is
+automatically forwarded to the webmaster. If this hasn't been
+done, or you aren't sure, then it's a good idea to set
+the <em class="emphasis">-f</em> option to a real email address that
+someone monitors or that is processed automatically. We'll see
+how to set up a process to handle mail like this at the end of this
+chapter.</p>
+
+
+<p>Note that if you do <a name="INDEX-1888" />override the sender's email
+address with the <em class="emphasis">-f</em> option,
+<tt class="command">sendmail</tt> will add an extra
+<a name="INDEX-1889" />header to the email message unless you
+are a <a name="INDEX-1890" />
+<a name="INDEX-1891" />trusted user. This extra header
+typically looks like the following:</p>
+
+
+<blockquote><pre class="code">X-Authentication-Warning: scripted.com: sguelich set sender to nobody@scripted.com using -f</pre></blockquote>
+
+
+<p>By default, the users who have permission to use the
+<em class="emphasis">-f</em> option without generating this warning are
+<em class="emphasis">root</em>, <em class="emphasis">daemon</em>, and
+<em class="emphasis">uucp</em>. Most mail agents do not actually pay
+attention to this header, so it is rare that recipients will see it.
+However, you can avoid sending it by adding
+<em class="emphasis">nobody</em> to the trusted users section in
+<em class="filename">/etc/sendmail.cf</em>.</p>
+</div>
+
+
+
+
+<a name="ch09-6-fm2xml" /><div class="sect2">
+<h3 class="sect2">9.4.2. Mail Queue</h3>
+
+
+<p>The remaining option <a name="INDEX-1892" />
+<a name="INDEX-1893" /> <a name="INDEX-1,894" /> <a name="INDEX-1,895" />we haven't discussed is the
+<em class="emphasis">-odq</em> option. It is useful if you are sending out
+many messages at the same time. For example, you may run a web site
+that connects job hunters with available positions. You have the job
+hunters record keywords describing the types of positions they are
+looking for in a database along with their email addresses. Then,
+when the new positions available today have been entered, you start a
+CGI script which matches the job hunters' keywords against the
+positions. The script generates and sends out customized messages to
+the job hunters notifying them if there are any matches. In this
+example, you would want to use the <em class="emphasis">-odq</em> option.
+It takes sendmail time to find remote servers and deliver messages,
+so your script runs much, much faster if you simply add them to the
+queue to be processed separately and don't wait for sendmail to
+try to deliver each message.</p>
+
+
+<p>You do need to make sure that <em class="emphasis">sendmail</em> is
+configured on your system to process the queue or the messages may
+just sit around indefinitely. If you aren't sure, ask your
+system administrator.</p>
+
+
+<p>Also note that queuing messages this way is only a good idea if each
+message you are sending out is unique. If you are sending the same
+message to multiple people, don't queue a separate message
+addressed to each person, 
+<a name="INDEX-1896" /> <a name="INDEX-1,897" /> <a name="INDEX-1,898" />use the
+<em class="emphasis">Bcc</em>
+<a name="INDEX-1899" /> field instead.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch09_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch09_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">9.3. Structure of Internet Email</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">9.5. mailx and mail</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

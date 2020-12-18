@@ -1,0 +1,263 @@
+<html><head><title>Win32::Registry (Perl in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Stephen Spainhour" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002416L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch22_14.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch22_16.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">22.15. Win32::Registry</h2>
+
+<p><a name="INDEX-3351" /><a name="INDEX-3352" />This module provides access to the
+Windows Registry, the database that stores information about all
+parts of your system and software. Many operating-system and
+application behaviors are controlled by Registry data. The
+Win32::Registry module gives you a way to access and update registry
+information with Perl.
+</p>
+
+<a name="ch22-159-fm2xml" /><blockquote><b>WARNING:</b> 
+Always be careful when making changes to the registry. If vital
+system information gets changed by mistake, your system could become
+inoperable. Always make certain you have a backup of your registry
+before you start making modifications. </p>
+</blockquote>
+
+<p>The Registry module
+automatically creates objects for the top-level registry trees. These
+objects are created in the <tt class="literal">main:</tt>: namespace, and
+each key that you open or create is accessed via one of these root
+objects. The top-level objects are: </p>
+
+<blockquote><pre class="code">$HKEY_CLASSES_ROOT
+$HKEY_CURRENT_USER
+$HKEY_LOCAL_MACHINE
+$HKEY_USERS
+$HKEY_PERFORMANCE_DATA
+$HKEY_CURRENT_CONFIG
+$HKEY_DYN_DATA</pre></blockquote>
+
+<p>If you are outside of the main (default) namespace, you should
+package declare the keys, e.g., <tt class="literal">$main::HKEY_USERS</tt>.
+</p>
+
+<p><a name="INDEX-3353" />The <tt class="literal">Open</tt>
+method creates new key objects for subtrees or subkeys under another
+open key object. Initially, a new key is opened from one of the main
+key objects. For example:
+</p>
+
+<blockquote><pre class="code">use Win32::Registry;
+$p = "SOFTWARE\Microsoft\Windows NT\CurrentVersion";
+$HKEY_LOCAL_MACHINE-&gt;Open($p, $CurrVer) || die "Open $!";</pre></blockquote>
+
+<p>This example creates a key object <tt class="literal">$CurrVer</tt> for the
+<tt class="literal">CurrentVersion</tt> key for Windows NT. This key
+contains several values for the current version of the operating
+system. With the new key open, you can read or change the values it
+contains (every key has at least one unnamed, default value), or open
+and create subkeys. The <tt class="literal">Open</tt> method can create key
+objects only for existing keys.
+</p>
+
+<p>Registry values are represented in Win32::Registry functions by three
+elements: the name of the value, the data type of the value, and the
+value itself. There are several different data types for the values.
+Win32::Registry defines the following constants for these types:
+</p>
+
+<dl>
+<dt><b><tt class="literal">REG_SZ</tt></b></dt>
+<dd>
+String data</p>
+</dd>
+
+
+<dt><b><tt class="literal">REG_DWORD</tt></b></dt>
+<dd>
+Unsigned four-byte integer</p>
+</dd>
+
+
+<dt><b><tt class="literal">REG_MULTI_SZ</tt></b></dt>
+<dd>
+Multiple strings delimited with NULL</p>
+</dd>
+
+
+<dt><b><tt class="literal">REG_EXPAND_SZ</tt></b></dt>
+<dd>
+Strings that expand (e.g., based on environment variables)</p>
+</dd>
+
+
+<dt><b><tt class="literal">REG_BINARY</tt></b></dt>
+<dd>
+Binary data (no particular format is assumed)</p>
+</dd>
+
+</dl>
+
+<a name="perlnut2-CHP-22-SECT-15.1" /><div class="sect2">
+<h3 class="sect2">22.15.1. Win32::Registry Methods</h3>
+
+<p>The following methods can be used on key objects, either on the
+preopened main keys or subkeys that you have already opened.
+</p>
+
+
+
+<a name="INDEX-3354" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Create</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$key<em class="replaceable">-&gt;</em>Create<em class="replaceable">(</em>$<em class="replaceable">newkey</em>, <em class="replaceable">name</em><em class="replaceable">)</em></pre><p><a name="INDEX-3354" />Creates a new key identified by
+<em class="replaceable">name</em> and saves it as the object reference
+named by <tt class="literal">$</tt><em class="replaceable"><tt>newkey</tt></em>. If
+the key already exists, this function simply opens the key. New keys
+can only be created one level below the key on which
+<tt class="literal">Create</tt> is used.
+</p></div>
+
+<a name="INDEX-3355" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>DeleteKey</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">key</em>-&gt;DeleteKey(<em class="replaceable">subkey</em>)
+</pre><p><a name="INDEX-3355" />Deletes a subkey of the
+current key. This function will delete all values in the subkey and
+the subkey itself. A key cannot be deleted if it contains any
+subkeys.
+</p></div>
+
+<a name="INDEX-3356" /><a name="INDEX-3357" /><a name="INDEX-3358" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>DeleteValue</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">key</em>-&gt;DeleteValue(<em class="replaceable">name</em>)
+</pre><p><a name="INDEX-3356" />Deletes a value identified
+by <em class="replaceable"><tt>name</tt></em> from the current key.<a name="INDEX-3357" /><a name="INDEX-3358" />
+</p></div>
+
+<a name="INDEX-3359" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>GetKeys</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">key</em>-&gt;GetKeys($<em class="replaceable">listref</em>)
+</pre><p><a name="INDEX-3359" />Returns the names of the
+subkeys of the current key to the list referenced by
+<em class="replaceable"><tt>listref</tt></em>.
+</p></div>
+
+<a name="INDEX-3360" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>GetValues</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">key</em>-&gt;GetValues($<em class="replaceable">hashref</em>)
+</pre><p><a name="INDEX-3360" />Returns the values contained
+in the current key to the hash referenced by
+<em class="replaceable"><tt>hashref</tt></em>. Each registry value name is a
+hash key, while the hash value is a reference to a three-element list
+containing the name of the value, the data type, and the value.
+</p></div>
+
+<a name="INDEX-3361" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Load</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">key</em>-&gt;Load(<em class="replaceable">subkey</em>, <em class="replaceable">filename</em>)
+</pre><p><a name="INDEX-3361" />Loads a registry file to the named
+<em class="replaceable"><tt>subkey</tt></em> from file
+<em class="replaceable"><tt>filename</tt></em>.
+</p></div>
+
+<div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Open</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">parent</em>-&gt;Open(<em class="replaceable">keyname</em>, $<em class="replaceable">key</em>)
+</pre><p>Opens a registry key named in <em class="replaceable">keyname</em> and
+saves it as the object reference named by
+<tt class="literal">$</tt><em class="replaceable"><tt>key</tt></em>.
+<em class="replaceable"><tt>keyname</tt></em> is the name of a key relative to
+the object on which <tt class="literal">Open</tt> is used
+(<tt class="literal">$</tt><em class="replaceable"><tt>parent</tt></em>).
+</p></div>
+
+<a name="INDEX-3362" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>QueryKey</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">key</em>-&gt;QueryKey($<em class="replaceable">class</em>, $<em class="replaceable">subs</em>, $<em class="replaceable">vals</em>)
+</pre><p><a name="INDEX-3362" />Retrieves information about
+the current key and returns it to the named scalar variables. The key
+class is saved in the <em class="replaceable"><tt>class</tt></em> variable (it
+will be the null string "" on Win95
+since it doesn't use key classes). The number of
+subkeys is saved in the
+<tt class="literal">$</tt><em class="replaceable"><tt>subs</tt></em> variable, and the
+number of values in the current key is saved in
+<tt class="literal">$</tt><em class="replaceable"><tt>vals</tt></em>.
+</p></div>
+
+<a name="INDEX-3363" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>QueryValue</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">key</em>-&gt;QueryValue(<em class="replaceable">name</em>, $<em class="replaceable">var</em>)
+</pre><p><a name="INDEX-3363" />Returns the value of the
+registry value specified by <em class="replaceable"><tt>name</tt></em> and saves
+it in the scalar variable
+<tt class="literal">$</tt><em class="replaceable"><tt>var</tt></em>.
+</p></div>
+
+<a name="INDEX-3364" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>Save</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">key</em>-&gt;Save(<em class="replaceable">filename</em>)
+</pre><p><a name="INDEX-3364" />Saves the registry tree root and the
+current key to a file, <em class="replaceable"><tt>filename</tt></em>.
+</p></div>
+
+<a name="INDEX-3365" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>SetValue</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">key</em><em class="replaceable">-&gt;</em>SetValue<em class="replaceable">(</em><em class="replaceable">subkey</em>, <em class="replaceable">type</em>, <em class="replaceable">value</em><em class="replaceable">)</em></pre><p><a name="INDEX-3365" />Sets the default (unnamed)
+value for the specified subkey of the key object on which
+<tt class="literal">SetValue</tt> is used. The arguments are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>subkey</tt></em></i></dt>
+<dd>
+Name of the subkey</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>type</tt></em></i></dt>
+<dd>
+One of the type constants (listed above) describing the value</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>value</tt></em></i></dt>
+<dd>
+Value of the key</p>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-3366" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>SetValueEx</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">key</em>-&gt;SetValueEx(<em class="replaceable">name</em>, <em class="replaceable">res</em>, <em class="replaceable">type</em>, <em class="replaceable">value</em>)
+</pre><p><a name="INDEX-3366" />Sets a value specified by
+<em class="replaceable"><tt>name</tt></em> in the current key (or creates the
+value if it doesn't already exist). The arguments
+are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>res</tt></em></i></dt>
+<dd>
+A reserved argument for future use (use <tt class="literal">0</tt> as a
+placeholder)
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>type</tt></em></i></dt>
+<dd>
+The data type constant (listed above) describing the value</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>value</tt></em></i></dt>
+<dd>
+The value of the key</p>
+</dd>
+
+</dl></div>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch22_14.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch22_16.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">22.14. Win32::Process</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">22.16. Win32::Semaphore</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+</map>
+
+</body></html>

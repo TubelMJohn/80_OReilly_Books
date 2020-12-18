@@ -1,0 +1,164 @@
+<html><head><title>clock-bezier.ppl (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appc_10.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="appc_12.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">C.11. clock-bezier.ppl</h2>
+
+<p>In <a href="ch22_01.htm">Chapter 22, "Perl/Tk and the Web"</a>, we discussed the Netscape PerlPlus
+Plugin and used several PPL programs in our examples. We include two
+PPL programs in this appendix. The first is the
+<em class="filename">clock-bezier.ppl</em> program, shown in <a href="appc_11.htm#mastperltk-APP-C-FIG-3">Figure C-3</a>. 
+</p>
+
+<a name="mastperltk-APP-C-FIG-3" /><div class="figure"><img src="figs/mptk.ac03.gif" alt="Figure C-3" width="174" height="281" /></div><h4 class="objtitle">Figure C-3. clock-bezier.ppl</h4>
+
+<blockquote><pre class="code">#!/usr/local/bin/perl -w
+#
+# This most entertaining program was written in Tcl/Tk by Scott Hess
+# (shess@winternet.com).  It's a clock that uses a bezier curve anchored
+# at four points&#x2014;the hour position, the minute position, the second
+# position and the center of the clock&#x2014;to show the time.
+#
+# &lt;Button-1&gt; switches between display modes, and &lt;Button-2&gt; switches
+# between line thicknesses.
+#
+# Perl/Tk version by Stephen.O.Lidie@Lehigh.EDU, 2000/02/05.
+
+use POSIX qw/asin/;
+use Tk;
+use subs qw/buildclock hands setclock/;
+use vars qw/$clock %hand $mw $pi180 $resize/;
+use strict;
+
+%hand = (
+    hour    =&gt; 0.40,
+    minute  =&gt; 0.75,
+    second  =&gt; 0.85,
+    0       =&gt; 0.00,
+    intick  =&gt; 0.95,
+    outtick =&gt; 1.00,
+    width   =&gt; 0.05,
+    scale   =&gt; 100,
+
+    type    =&gt; 'bezier',
+    types   =&gt; [qw/normal curve angle bezier/],
+    tindx   =&gt; 3,
+    normal  =&gt; [qw/minute 0 0 second 0 0 hour 0 0 minute/],
+    curve   =&gt; [qw/minute 0 second 0 hour 0 minute/],
+    angle   =&gt; [qw/minute second second hour/],
+    bezier  =&gt; [qw/minute second 0 hour/],
+    
+    tick    =&gt; [qw/intick outtick/],
+);
+$pi180 = asin(1) / 90.0;
+$resize = 0;
+
+$mw = MainWindow-&gt;new;
+$clock = $mw-&gt;Canvas(qw/-width 200 -height 200/);
+$clock-&gt;pack(qw/-expand 1 -fill both/);
+$mw-&gt;bind('&lt;Configure&gt;' =&gt; \&amp;buildclock);
+$mw-&gt;bind('&lt;Button-1&gt;'  =&gt; \&amp;incrtype);
+$mw-&gt;bind('&lt;Button-2&gt;'  =&gt; \&amp;incrwidth);
+buildclock;
+$mw-&gt;repeat(1000 =&gt; sub {my(@t) = localtime; setclock @t[0 .. 2]});
+MainLoop;
+
+sub buildclock  {
+
+    # Build the clock.  Puts tickmarks every 30 degrees, tagged
+    # "ticks", and prefills the "hands" line.
+
+    my $pi180 = asin(1)/90.0;
+    
+    Tk::catch {$clock-&gt;delete('marks')};
+    $clock-&gt;update;
+    my $w = $clock-&gt;width;
+    $mw-&gt;geometry("${w}x${w}") if $resize; # ensure clock is square
+    $resize++;
+    $hand{scale} = $w / 2.0;
+    
+    # This is a horrid hack.  Use the hands( ) procedure to
+    # calculate the tickmark positions by temporarily changing
+    # the clock type.
+    
+    my $type = $hand{type};
+    $hand{type} = 'tick';
+    my %angles;
+    for (my $ii = 0; $ii &lt; 12; $ii++) {
+        $angles{intick} = $angles{outtick} = $ii * 30 * $pi180;
+        $clock-&gt;createLine(hands(\%angles), -tags =&gt; [qw/ticks marks/]);
+    }
+    $hand{type} =  $type;
+    
+    $clock-&gt;createLine(qw/0 0 0 0 -smooth 1 -tags/ =&gt; [qw/hands marks/]);
+    $clock-&gt;itemconfigure(qw/marks -capstyle round -width/ =&gt;
+              $hand{width} * $hand{scale});
+}
+
+sub hands {
+
+    # Calculate the set of points for the current hand type and
+    # the angles in the passed array.
+
+    my($aa) = @_;
+
+    my $ss = $hand{scale};
+    my @points;
+    foreach my $desc ( @{ $hand{$hand{type}} } ) {
+        push @points, sin($aa-&gt;{$desc}) * $hand{$desc} * $ss + $ss;
+        push @points, $ss - cos($aa-&gt;{$desc}) * $hand{$desc} * $ss;
+    }
+    #print join(', ', @points), "\n";
+    return @points;
+}
+
+sub incrtype {
+    $hand{type} = $hand{types}-&gt;[ ++$hand{tindx} % @{$hand{types}} ];
+}
+
+sub incrwidth {
+    my $w = $hand{width} + .05;
+    $hand{width} = $w &gt; .25 ? 0 : $w;
+    $clock-&gt;itemconfigure('marks', -width =&gt; $hand{width} * $hand{scale});
+}
+
+sub setclock {
+
+    # Calculate the angles for the second, minute, and hour hands,
+    # and then update the clock hands to match.
+
+    my($second, $minute, $hour) = @_;
+
+    my %angles;
+    $angles{0}      = 0;
+    $angles{second} = $second *  6 * $pi180;
+    $angles{minute} = $minute *  6 * $pi180;
+    $angles{hour}   = $hour   * 30 * $pi180 + $angles{minute} / 12;
+
+    my $sector  = int( $angles{second} + 0.5 );
+    my(@colors) = qw/cyan green blue purple red yellow orange/;
+    $clock-&gt;itemconfigure(qw/hands -fill/ =&gt; $colors[$sector]);
+
+    $clock-&gt;coords('hands',  hands \%angles);
+}</pre></blockquote>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appc_10.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="appc_12.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">C.10. Robot Control Program complex.ptr</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">C.12. tkhanoi.ppl</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

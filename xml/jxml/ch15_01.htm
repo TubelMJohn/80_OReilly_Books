@@ -1,0 +1,479 @@
+<html><head><title>Data Binding (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch15_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+
+<h1 class="chapter">Chapter 15. Data Binding</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#javaxml2-CHP-15-SECT-1">First Principles</a><br />
+<a href="ch15_02.htm">Castor</a><br />
+<a href="ch15_03.htm">Zeus</a><br />
+<a href="ch15_04.htm">JAXB</a><br />
+<a href="ch15_05.htm">What's Next?</a><br /></p></div>
+
+<p><a name="INDEX-1398" /></a> <a name="INDEX-1399" /></a>I've tried to run the gamut in
+what I've covered so far, and even in the order that I've
+covered it. When I started talking about Java in <a href="ch02_01.htm">Chapter 2, "Nuts and Bolts"</a>, you had complete control. SAX provided the
+thinnest of veneers over XML, and basically provided a framework with
+which to write lots of callbacks. When I moved to DOM and JDOM, you
+got quite a bit more help, albeit with some loss of power. These
+tree-based, in-memory models were more convenient, although you had
+to pay a small price in terms of performance. Moving on to JAXP, you
+were placed higher up the chain of command, but gained another level
+of abstraction. At that point, you still had some control, but were
+working strictly in XML.
+</p>
+
+<p>Then I shifted gears, and we looked at web publishing frameworks,
+XML-RPC, SOAP, and business-to-business and web services. This was a
+far cry from the down-and-dirty approach taken in the first half of
+the book. While you had immensely more convenience and
+specialization, you lost a lot of control over how XML was handled,
+and sometimes didn't see XML at all (like in XML-RPC). This may
+have left you (as it left me) missing getting your hands dirty a bit.
+You can't make the subtle tweaks in an XML document's
+values when working with SOAP, for example, that you could when using
+SAX or JDOM. However, the convenience of WSDL was nice, and had
+advantages over typing an element's name wrong in DOM. In
+short, it left me wishing for a happy medium.
+</p>
+
+<p>Data binding provides that medium, and I want to take you through the
+extreme ends of the spectrum before talking about it. In this
+chapter, I show you a way to get most of the power of a low-level API
+with most of the convenience of an XML-based application framework
+(like SOAP). This will probably be something almost everyone can use
+at some point, and that many can use for a variety of tasks. First, I
+cover the basic principles that make data binding work. This will be
+a general overview, as the various data binding
+<a name="INDEX-1400" /></a>packages all have their own specific
+methodologies. Once you have some grounding, I take you on a quick
+tour of the two open source data binding APIs, and then Sun's
+emerging API, JAXB. So, buckle up and dive in.
+</p>
+
+<a name="javaxml2-CHP-15-SIDEBAR-1" /></a><blockquote><table border="1" cellpadding="6"><tr><td>
+<h4 class="objtitle">What About Quick? What About JATO? What About...?</h4>
+
+<p>Some of you may be disappointed (or even upset) that I haven't
+covered your favorite API. However, I didn't make my decisions
+about which APIs to cover arbitrarily. I chose the two open source
+APIs that were compatible with JAXB and used the same principles. I
+selected open source APIs because they are free, and you can use them
+today; I don't expect you to shell out thousands of dollars for
+a product like Breeze XML Studio to run my
+examples<a href="#FOOTNOTE-25">[25]</a>. And I selected Castor and Zeus because they
+use XML standards like XML Schema and DTDs for constraints.
+</p>
+
+<p>If you're looking for coverage of JXQuick, you won't find
+it here. The schemas used by JXQuick to represent document
+constraints and Java classes (QIML, QJML, etc.) are not XML
+standards, and therefore much less useful in communicating
+information about your XML to other applications. For this reason, I
+haven't included it; you can find out more, though, online at
+<a href="http://quickutil.sourceforge.net/view/Main/JXQuick">http://quickutil.sourceforge.net/view/Main/JXQuick</a>.
+</p>
+
+<p>The same goes for JATO, located online at <a href="http://sourceforge.net/projects/jato">http://sourceforge.net/projects/jato</a>, which
+is more of a scripting language for XML and Java mappings. Because
+this is less data binding, and more data mapping, it didn't fit
+well into this chapter or into a JAXB model of doing things. You can
+check both of these packages out online and make your own decisions.
+I always recommend you use what's best for your project.
+</p>
+
+
+<blockquote class="footnote"><a name="FOOTNOTE-25" /></a><p>[25]That's not meant to be a knock on Breeze, by
+the way. I just generally think you should use something that's free
+rather than the same something you have to pay for. If you want to try
+a commercial offering, go gor it.</p></blockquote></td></tr></table><p></blockquote>
+
+<div class="sect1"><a name="javaxml2-CHP-15-SECT-1" /></a>
+<h2 class="sect1">15.1. First Principles</h2>
+
+<p>Before diving into specific packages and frameworks that handle data
+binding, you need to have a basic understanding of what XML data
+binding is. This turns out to be pretty simple, though, so
+you'll be coding in no time. First, take a plain old XML
+document, like the one shown in <a href="ch15_01.htm#javaxml2-CHP-15-EX-1">Example 15-1</a>.
+</p>
+
+<a name="javaxml2-CHP-15-EX-1" /></a><div class="example">
+<h4 class="objtitle">Example 15-1. Homespun tapes XML catalog </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+
+&lt;catalog xmlns="http://www.homespuntapes.com"&gt;
+  &lt;item id="VD-DOK-GT01" level="4"&gt;
+    &lt;title&gt;Doc's Guitar Fingerpicking and Flatpicking&lt;/title&gt;
+    &lt;teacher&gt;Doc Watson&lt;/teacher&gt;
+    &lt;guest&gt;Pete Seeger&lt;/guest&gt;
+    &lt;guest&gt;Mike Seeger&lt;/guest&gt;
+    &lt;guest&gt;Jack Lawrence&lt;/guest&gt;
+    &lt;guest&gt;Kirk Sutphin&lt;/guest&gt;
+    &lt;description&gt;Doc Watson, a true master of traditional guitar styles, teaches, 
+      in detail, some of the most reuested fingerpicking and flatpicking tunes in
+      his vast repertoire, for guitarists at all levels.&lt;/description&gt;
+  &lt;/item&gt;
+  &lt;item id="VD-WLX-GT01" level="4"&gt;
+    &lt;title&gt;The Guitar of David Wilcox&lt;/title&gt;
+    &lt;teacher&gt;David Wilcox&lt;/teacher&gt;
+    &lt;description&gt;Create fresh new guitar sounds with rich, ringing voicings! David
+      even shows you how to invent your own tunings.&lt;/description&gt;
+  &lt;/item&gt;
+  &lt;item id="VD-THI-MN01" level="3"&gt;
+    &lt;title&gt;Essential Techniques for Mandolin&lt;/title&gt;
+    &lt;teacher&gt;Chris Thile&lt;/teacher&gt;
+    &lt;description&gt;Here's a lesson that will thrill and inspire mandolin players at
+      all levels.&lt;/description&gt;
+  &lt;/item&gt;
+  &lt;item id="CDZ-SM01" level="4"&gt;
+    &lt;title&gt;Sam Bush Teaches Mandolin Repertoire and Techniques&lt;/title&gt;
+    &lt;teacher&gt;Sam Bush&lt;/teacher&gt;
+    &lt;description&gt;Learn complete solos to eight traditional and orignal tunes, each
+      one jam-packed with licks, runs, and musical variations.&lt;/description&gt;
+  &lt;/item&gt;
+&lt;/catalog&gt;</pre></blockquote>
+</div>
+
+<p>In previous chapters, you learned how to use SAX, DOM, JDOM, and JAXP
+to access this document. You could manipulate both its
+<em class="filename">structure</em><a name="INDEX-1401" /></a> (the names and ordering of elements,
+attributes, and other lexical constructs) and its
+<em class="filename">content</em> (the actual data). However, many times
+you don't need access to the document's structure, and
+only want to work with its data.
+</p>
+
+<p>In this latter case, it's overkill and a bit on the annoying
+side to have to write code that parses your document, extracts the
+data, and puts it into some format that you can use. It would be much
+nicer to run a program (or API. . . are you starting to get the
+picture here?) that did this for you, and produced usable Java
+classes. In fact, this is exactly what data binding does. With data
+binding, there are three distinct processes that can occur one after
+another, in differing order, or in completely unrelated processes.
+I'll cover each in turn.
+</p>
+
+<a name="javaxml2-CHP-15-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">15.1.1. Class Generation</h3>
+
+<p><a name="INDEX-1402" /></a>
+<a name="INDEX-1403" /></a>The first process, class
+generation, provides a means to convert an XML document to Java. When
+data binding converts an XML document into a Java representation, it
+seeks to provide access to just the data in the document.
+Additionally, data binding provides some level of meaning to the
+information in the document. It does this by creating the Java
+representation with accessor and mutator<a href="#FOOTNOTE-26">[26]</a>
+methods like <tt class="literal">getItem( )</tt> and <tt class="literal">setTeacher(
+)</tt>, instead of <tt class="literal">getElement( )</tt> and
+<tt class="literal">setAttribute( )</tt>. This makes dealing with documents
+like the one in <a href="ch15_01.htm#javaxml2-CHP-15-EX-1">Example 15-1</a> less about Java and more
+about business logic, which is obviously a good thing. However, these
+wonderfully Java classes must exist before an XML document can be
+turned into an instance of one, so I'm back to class
+generation.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-26" /></a><p>[26]When I say
+"accessor," I'm referring to what most people call
+a "getter" method; when I say "mutator,"
+I'm referring to what most people call a "setter"
+method. However, I also know that a "setter" is a dog,
+not a Java method, so I'm quick to tell my students not to use
+that term. Just an idiosyncrasy, I suppose!</p> </blockquote>
+
+<p><em class="filename">Class generation</em> is the process of taking a set
+of XML constraints and generating Java classes (and possibly
+interfaces) from those constraints. Think about it this way: XML
+constraints (like those found in a DTD or XML Schema) are equivalent
+to Java class definitions. They define the way that data is
+represented. On the other hand, an XML document is equivalent to an
+instance of these classes, in that it is simply a set of data that
+fulfills the contract defined by the document's constraints.
+Now, read this paragraph again, slowly, and you'll have it.
+</p>
+
+<p>The data binding frameworks I talk about in this chapter all have a
+way of representing a document's constraints (usually through a
+DTD or an XML Schema, but there are also some other options, which
+I'll get to in the appropriate section). These constraints can
+then be run through some form of a class generation tool, and you get
+Java source code ready to compile. This code, once compiled, can be
+used to generate instance data based on an XML document. You end up
+with a process akin to that shown in <a href="ch15_01.htm#javaxml2-CHP-15-FIG-1">Figure 15-1</a>.
+</p>
+
+<a name="javaxml2-CHP-15-FIG-1" /></a><div class="figure"><img height="338" alt="Figure 15-1" src="figs/javax_1501.gif" width="280" /></div><h4 class="objtitle">Figure 15-1. Class generation in XML data binding</h4>
+
+<p>Note that the final product here can be concrete classes, interfaces,
+interfaces and implementations, or any other permutation of Java
+classes. In the case of <a href="ch15_01.htm#javaxml2-CHP-15-EX-1">Example 15-1</a> (assuming that
+the constraints are represented in some arbitrary form), you might
+end up with a <tt class="literal">Catalog</tt> interface like this:
+</p>
+
+<blockquote><pre class="code">public interface Catalog {
+    public List getItemList( );
+    public void addItem(Item item);
+    public void setItemList(List items);
+}</pre></blockquote>
+
+<p>Further, you might have an <tt class="literal">Item</tt> interface like
+this:
+</p>
+
+<blockquote><pre class="code">public interface Item {
+    public String getID( );
+    public void setID(String id);
+    public int getLevel( );
+    public void setLevel(int level);
+
+    public String getTitle( );
+    public void setTitle(String title);
+    public String getTeacher( );
+    public void setTeacher(String teacher);
+    public List getGuests( );
+    public void addGuest(String guest);
+    public void setGuestList(List guests);
+    public String getDescription( );
+    public void setDescription( );
+}</pre></blockquote>
+
+<p>This is quite a bit more useful than writing hundreds of lines of SAX
+callbacks. It makes working with the document a piece of cake,
+instead of an exercise in your Java and XML API skills. These are
+just examples, and not necessarily representative of what
+you'll get using the APIs covered in this chapter. However, in
+the following sections, I'll show you exactly how to use the
+API and let you know what to expect.
+</p>
+
+</div>
+<a name="javaxml2-CHP-15-SECT-1.2" /></a><div class="sect2">
+<h3 class="sect2">15.1.2. Unmarshalling</h3>
+
+<p><a name="INDEX-1404" /></a>
+<a name="INDEX-1405" /></a>Keep in mind that once you have
+a set of generated classes, you still don't have a great many
+uses for them. Sure, you could use an existing lower-level XML API to
+read in an XML document, pull out the data, create new instances of
+the generated classes, and populate them with the data from the XML.
+But data binding provides all this out of the box, so why bother with
+that? In fact, data binding frameworks provide for exactly that
+process. And in that context, <em class="filename">unmarshalling</em> is
+the process of converting an XML document into an instance of a Java
+class.
+</p>
+
+<a name="ch15-5-fm2xml" /></a><blockquote><b>NOTE:</b> 
+
+I've seen, and even been a part of, a lot of confusion about the marshalling/unmarshalling terminology. I'm using the terminology as defined in Sun's latest version of the Java Architecture for Data Binding (JAXB) specification, which is certain to become the standardized vocabulary. In that specification, marshalling is moving from Java to XML, and unmarshalling is moving from XML to Java. I'd stick with those definitions if I were you, as well.
+<p></p>
+</blockquote>
+<p>This turns out to be a pretty simple process; you get an XML
+document, pass it to some tool or class instance in your data binding
+framework, and you get back a Java object. This is usually a class
+instance of the top-level Java object representing your document. So,
+again using <a href="ch15_01.htm#javaxml2-CHP-15-EX-1">Example 15-1</a>, you would get back an
+instance of the <tt class="literal">Catalog</tt> class. You'll
+typically need to cast from a <tt class="literal">java.lang.Object</tt> to
+the specific class that you're expecting, since the framework
+won't know anything about your classes (because they were
+generated). But after the class cast, you're ready to work with
+the object as a <tt class="literal">Catalog</tt>, not as an XML document.
+You can then use the various accessor and mutator methods to work
+with the data, and when you are ready to send the document back to
+the XML from whence it came, you marshal the document.
+</p>
+
+</div>
+<a name="javaxml2-CHP-15-SECT-1.3" /></a><div class="sect2">
+<h3 class="sect2">15.1.3. Marshalling</h3>
+
+<p><em class="filename">Marshalling</em><a name="INDEX-1406" /></a>
+is just the opposite of unmarshalling. It is the process of
+converting a Java object and its dependent objects into an XML
+representation. In many cases, marshalling is part of a repeated
+cycle of transformations to and from XML, and is paired with
+unmarshalling. As an example, check out <a href="ch15_01.htm#javaxml2-CHP-15-FIG-2">Figure 15-2</a>,
+which is a typical application flow.
+</p>
+
+<a name="javaxml2-CHP-15-FIG-2" /></a><div class="figure"><img height="331" alt="Figure 15-2" src="figs/javax_1502.gif" width="175" /></div><h4 class="objtitle">Figure 15-2. XML data binding application flow</h4>
+
+<p>There are two distinct ways to marshal a Java object. The first is to
+invoke a <tt class="literal">marshal( )</tt> method on an object; this
+method is usually generated along with the accessors and mutators
+during class generation. The method recursively calls the
+<tt class="literal">marshal( )</tt> method on each of its dependent
+objects, until you end up with an XML document. Note that the target
+XML document does <em class="emphasis">not</em> have to be the same as the
+original XML; you can easily end up with a vast number of archived
+XML documents by supplying different filenames to the marshalling
+process.
+</p>
+
+<p>A different approach to marshalling, and the one I favor, is having a
+standalone class that performs marshalling. Instead of invoking
+<tt class="literal">marshal( )</tt> on a generated object, you invoke
+<tt class="literal">marshal( )</tt> on the standalone class, and pass it
+the object to marshal. This is useful because it performs the same
+tasks as illustrated previously, but also allows classes that were
+not originally unmarshalled from XML to be converted to XML. Think
+about it this way: data binding, used like this, becomes a
+persistence framework. Any object with bean-like properties
+(<tt class="literal">setXXX( )</tt> and <tt class="literal">getXXX( )</tt>) can
+easily be converted to XML! You get the power of data binding with
+the flexibility of persistence. This is a handy combination, and
+supported by some of the frameworks I talk about in this chapter.
+</p>
+
+<p>I realize that if you're new to data binding, this may sound a
+bit confusing and vague; sort of like talking about chemistry.
+I'd much rather blow some things up (err. . . you know!), so in
+the rest of the chapter I show you how to use some data binding
+frameworks. Since I'm going to cover four of these, none of the
+examples are immensely complex; instead I focus on how to use the
+class generation, marshalling, and unmarshalling capabilities of each
+framework. That should be more than enough to get you going.
+</p>
+
+</div>
+<a name="javaxml2-CHP-15-SECT-1.4" /></a><div class="sect2">
+<h3 class="sect2">15.1.4. Use Cases</h3>
+
+<p><a name="INDEX-1407" /></a> <a name="INDEX-1408" /></a>
+<a name="INDEX-1409" /></a>As a
+final explanation of data binding and why it's worthwhile, I
+will give you a small sampling of use-cases. Some of these are best
+suited for the lower-level APIs like SAX or DOM, and some are perfect
+for data binding. In <a href="ch15_01.htm#javaxml2-CHP-15-TABLE-1">Table 15-1</a>, I've listed
+a common use case, the type of API that would work well, and a short
+reasoning behind my decision. This should help you see how data
+binding fits into the XML landscape.
+</p>
+
+<a name="javaxml2-CHP-15-TABLE-1" /></a><h4 class="objtitle">Table 15-1. API use cases </h4><table border="1">
+
+
+
+
+<tr>
+<th>
+<p>Use case</p>
+</th>
+<th>
+<p>Well-suited API</p>
+</th>
+<th>
+<p>Reasoning</p>
+</th>
+</tr>
+
+
+<tr>
+<td>
+<p>XML IDE</p>
+</td>
+<td>
+<p>DOM or JDOM</p>
+</td>
+<td>
+<p>Tree-based viewing of XML, as in an IDE, closely follows the
+tree-based models of DOM and JDOM.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>XML messaging server</p>
+</td>
+<td>
+<p>SAX</p>
+</td>
+<td>
+<p>Since speed is the most important factor, SAX allows the fastest
+stream-based reading of messages.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Configuration data</p>
+</td>
+<td>
+<p>Data binding</p>
+</td>
+<td>
+<p>The content, rather than the model, is paramount. Data binding saves
+time and adds convenience to reading configuration data.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>XML transformations</p>
+</td>
+<td>
+<p>DOM or JDOM</p>
+</td>
+<td>
+<p>Changing both structure and content requires modification of content
+(rules out SAX) and structure (rules out data binding).
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>XML messaging client</p>
+</td>
+<td>
+<p>Data binding</p>
+</td>
+<td>
+<p>When the message format is known ahead of time, the client can
+benefit from easy Java objects, as created by data binding.
+</p>
+</td>
+</tr>
+
+</table><p>
+
+<p>Obviously, these are just a few common XML applications, but they
+should give you an idea of when to use a low-level API and when to
+use a higher-level one.
+</p>
+
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch15_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">14.4. What's Next?</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">15.2. Castor</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+      </map>
+
+</body></html>

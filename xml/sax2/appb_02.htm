@@ -1,0 +1,143 @@
+<html><head><title>Event Consumer Issues  (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appb_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="appb_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+	<h2 class="sect1">B.2. Event Consumer Issues </h2>
+
+	<p>
+<a name="INDEX-804" />
+        The primary Infoset concern for SAX2 event consumers is
+	to understand how the stream of events represents the information
+	structures used in the Infoset. Applications need to track some
+	state if they need access to some of those structures or random
+	access to anything.
+	It's typical to track only a few items, and ignore the rest as
+	being incidental background noise.
+	Streaming processing discards items as soon as possible.
+	</p>
+
+	<p>You really shouldn't care, but since the <em class="emphasis">String</em> datatype
+	can't handle more than two gigabytes of data, and strings are used
+	to pass certain document data to applications, there's a chance
+	that some documents could cause trouble by overflowing that limit.
+	If you encounter such a document, consult a pathologist. There really isn't much you can do about this.
+	</p>
+
+	<div class="sect2">
+	    <h3 class="sect2">B.2.1. Structural Issues</h3>
+
+	    <p>The [children] properties are arbitrarily sized,
+	    ordered sequences
+	    of information items, which are presented in document order by
+	    SAX2 event callbacks. Most other information items are not
+	    ordered, such as [notations], [unparsed entities],
+	    and [attributes] properties. Only [children] properties would
+	    need to be stored in order-preserving data structures.
+	    </p>
+
+	    <p>While most information items are provided through a single
+	    callback, some of the more complex ones involve matched,
+	    and (except in one case) cleanly nested, pairs of calls to <tt class="literal">start()</tt> and <tt class="literal">end()</tt>
+	    the item. Such items include the Document itself, its Document
+	    Type Declaration, Elements, and Namespace Information. To track
+	    those items, applications implement some kind of context
+	    stack tracking.
+	    </p>
+
+	    <p>The [parent] properties of some information items are
+	    implicitly encoded through such SAX2 nested event reports.
+	    Except for items that can be direct children of the Document
+	    or Document Type Information Items, applications often push
+	    stack entries when <tt class="literal">startElement()</tt> is called
+	    and pop them when <tt class="literal">endElement()</tt> is called.
+	    </p>
+
+	    <p>The children of Document and Document Type Information Items
+	    have curious restrictions: they don't always match the actual
+	    text structure. For example, information items for notations
+	    and unparsed entities are found in the Document Information Item,
+	    but they're textually part of the Document Type;
+	    and comments are stripped out of DTDs.
+	    You can use more natural structures in your applications if
+	    the descriptive Infoset structure seems awkward.
+	    </p>
+
+	    <p>Other complex information items are implicitly decoded
+	    from DTD declarations. To track such items, applications must
+	    save declarations during DTD processing, to ensure that they
+	    can be correlated with information in the body of a document.
+	    Examples of such items include [notation] properties for
+	    Unparsed Entities and processing instructions, most properties
+	    for Unexpanded Entity References, and [references] properties
+	    of attributes.
+	    </p>
+
+	    </div>
+    
+	<div class="sect2">
+	    <h3 class="sect2">B.2.2. Base URIs, xml:base, and Locator Data</h3>
+
+	    <p>
+<a name="INDEX-805" />
+<a name="INDEX-806" />
+<a name="INDEX-807" />
+<a name="INDEX-808" />
+            Some information items have a [base URI] property
+	    that is computed according to <tt class="literal">xml:base</tt> rules.
+	    Except for two cases, these rules amount to using
+	    <tt class="literal">Locator.getSystemId()</tt> to find the absolute
+	    base URI; the producer needs to provide this information.
+	    SAX2 effectively augments <em class="emphasis">every</em>
+	    information item with this information, as well
+	    as line and column location within such entities.
+	    (However, applications can cause this information to be lost
+	    if they provide <em class="emphasis">InputSource</em> objects
+	    without including those base URIs as the system IDs.)
+	    </p>
+
+	    <p>The two exceptional cases are for Elements and for
+	    processing instructions within the document element.
+	    In these instances, the computation is complex because
+	    <tt class="literal">xml:base</tt> attributes can play a role;
+	    it is demonstrated in <a href="ch05_01.htm#sax2-CHP-5-EX-1">Example 5-1</a>.
+	    Consumers must be able to invoke
+	    <tt class="literal">Locator.getSystemId()</tt> to get the entity's
+	    URI in <tt class="literal">LexicalHandler.startEntity()</tt>
+	    when the entity is shown to be external using
+	    <tt class="literal">DeclHandler.externalEntityDecl()</tt>.
+	    And they must also maintain a stack of URIs, augmenting
+	    it with <tt class="literal">xml:base</tt> values.
+	    </p>
+
+	    <p>Application code should use 
+	    <em class="emphasis">Locator</em> information to generate
+	    meaningful diagnostics.
+	    However, conforming applications will use the URI computed
+	    with <tt class="literal">xml:base</tt> when absolutizing relative
+	    URIs found in attribute values,
+	    character data, processing instructions, or
+	    (primarily for HTML legacy data models) comments. Except for the <tt class="literal">startDTD()</tt> call, all system identifiers reported through SAX are delivered as absolute URIs. An upcoming extension feature flag will probably let that behavior be changed, so you can choose whether the parser or the application absolutizes the URIs. Meanwhile, you should be aware that some SAX parsers have bugs in how they report such identifiers.</p>
+
+	    </div>
+    
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appb_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="appb_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">B. SAX2 and the XML Infoset</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">B.3. Document Information Item </td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

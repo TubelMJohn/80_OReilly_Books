@@ -1,0 +1,638 @@
+<?label 4.5. Error Handling ?><html><head><title>Error Handling  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch04_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">4.5. Error Handling </h2>
+
+
+
+<p>The <a name="INDEX-414" />handling
+<a name="INDEX-415" />of errors within programs, or the lack
+thereof, is one of the more common causes of questions concerning
+programming with DBI. Someone will ask "Why doesn't my
+program work?" and the answer generally runs along the lines of
+"Why aren't you performing error checking?" Sure
+enough, nine out of ten times when error checking is added, the exact
+error message appears and the cause for error is obvious.</p>
+
+
+
+<a name="ch04-ch04_automatic_0" /><div class="sect2">
+<h3 class="sect2">4.5.1. Automatic Versus Manual Error Checking </h3>
+
+
+
+<p>Early <a name="INDEX-416" />versions <a name="INDEX-417" />of the DBI required programmers to
+perform their own error checking, in a traditional way similar to the
+examples listed earlier for connecting to a database. Each method
+that returned some sort of status indicator as to its success or
+failure should have been followed by an error condition checking
+statement. This is an excellent, slightly C-esque way of programming,
+but it quickly gets to be tiresome, and the temptation to skip the
+error checking grows.</p>
+
+
+
+<p>The DBI now has a far more straightforward error-handling capability
+in the style of
+<em class="emphasis">exception</em>
+<a name="INDEX-418" />s.
+That is, when DBI internally detects that an error has occurred after
+a DBI method call, it can automatically <a name="INDEX-419" />
+<a name="INDEX-420" />either
+<tt class="literal">warn()</tt>
+<a name="INDEX-421" /> or
+<tt class="literal">die()</tt>
+<a name="INDEX-422" /> <a name="INDEX-423" />
+<a name="INDEX-424" />with
+an appropriate message. This shifts the onus of error checking away
+from the programmer and onto DBI itself, which does the job in the
+reliable and tireless way that you'd expect.</p>
+
+
+
+<p>Manual error checking still has a place in some applications where
+failures are expected and common. For example, should a database
+connection attempt fail, your program can detect the error, sleep for
+five minutes, and automatically re-attempt a connection. With
+automatic error checking, your program will exit, telling you only
+that the connection attempt failed.</p>
+
+
+
+<p>DBI allows mixing and matching of error-checking styles by allowing
+you to selectively enable and disable automatic error checking on a
+per-handle basis.</p>
+
+
+
+<a name="ch04-2-fm2xml" /><div class="sect3">
+<h3 class="sect3">4.5.1.1. Manual error checking </h3>
+
+
+
+<p>Of <a name="INDEX-425" />course,
+<a name="INDEX-426" />the 
+<a name="INDEX-427" />DBI still allows you to manually
+error check your programs and the execution of DBI methods. This form
+of error checking is more akin to classic C and Perl programming,
+where each important statement is checked to ensure that it has
+executed successfully, allowing the program to take evasive action
+upon failure.</p>
+
+
+
+<p>DBI, by default, performs basic automatic error reporting for you by
+enabling the <tt class="literal">PrintError</tt> attribute. To disable this
+feature, simply set the value to <tt class="literal">0</tt> either via the
+handle itself after instantiation, or, in the case of database
+handles, via the attribute hash of the <tt class="literal">connect(
+)</tt>
+<a name="INDEX-428" /> <a name="INDEX-429" />
+method.</p>
+
+
+
+<p>For example:</p>
+
+
+
+<blockquote><pre class="code">### Attributes to pass to DBI-&gt;connect(  )
+%attr = (
+    PrintError =&gt; 0,
+    RaiseError =&gt; 0
+);
+
+### Connect...
+my $dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" , \%attr );
+
+### Re-enable warning-level automatic error reporting...
+$dbh-&gt;{PrintError} = 1;</pre></blockquote>
+
+
+
+<p>Most DBI methods will return a false status value, usually
+<tt class="literal">undef</tt>, when execution fails. This is easily tested
+by Perl in the following way:</p>
+
+
+
+<blockquote><pre class="code">### Try connecting to a database
+my $dbh = DBI-&gt;connect( ... )
+    or die "Can't connect to database: $DBI::errstr!\";</pre></blockquote>
+
+
+
+<p>The following program disables <a name="INDEX-430" />automatic
+error handling, with our own tests to check for errors. This example
+also moves the attributes into the <tt class="literal">connect( )</tt>
+method call itself, a clean style that's commonly used:</p>
+
+
+
+<blockquote><pre class="code">
+  #!/usr/bin/perl -w
+  #
+  # ch04/error/ex1: Small example using manual error checking.
+  
+  use DBI;            # Load the DBI module
+  
+  ### Perform the connection using the Oracle driver
+  my $dbh = DBI-&gt;connect( undef, "stones", "stones", {
+      PrintError =&gt; 0,
+      RaiseError =&gt; 0
+  } ) or die "Can't connect to the database: $DBI::errstr\n";
+  
+  ### Prepare a SQL statement for execution
+  my $sth = $dbh-&gt;prepare( "SELECT * FROM megaliths" )
+      or die "Can't prepare SQL statement: $DBI::errstr\n";
+  
+  ### Execute the statement in the database
+  $sth-&gt;execute
+      or die "Can't execute SQL statement: $DBI::errstr\n";
+  
+  ### Retrieve the returned rows of data
+  my @row;
+  while ( @row = $sth-&gt;fetchrow_array(  ) ) {
+      print "Row: @row\n";
+  }
+  warn "Data fetching terminated early by error: $DBI::errstr\n"
+      if $DBI::err;
+  
+  ### Disconnect from the database
+  $dbh-&gt;disconnect
+      or warn "Error disconnecting: $DBI::errstr\n";
+  
+  exit;</pre></blockquote>
+
+
+
+<p>As can be seen from the example, the code to check the errors that
+may have arisen in a DBI method is actually longer than the code to
+perform the operations themselves. Similarly, it is entirely possible
+that you may just genuinely forget to add a check after a statement,
+which may result in extremely bizarre program execution and error
+reporting, not to mention hours of wasted debugging <a name="INDEX-431" />time!</p>
+</div>
+
+
+
+
+
+<a name="ch04-ch04_automatic_1" /><div class="sect3">
+<h3 class="sect3">4.5.1.2. Automatic error checking </h3>
+
+
+
+<p>The <a name="INDEX-432" />automatic
+error checking capabilities of the DBI operates on two levels. The
+<tt class="literal">PrintError</tt> handle attribute tells DBI to call the
+Perl <tt class="literal">warn(
+)</tt>
+<a name="INDEX-433" /> function (which typically
+results in errors being printed to the screen when encountered) and
+the <tt class="literal">RaiseError</tt> handle attribute (which tells DBI
+to call the Perl <tt class="literal">die(
+)</tt>
+<a name="INDEX-434" /> function upon error, typically
+causing the script to immediately abort).</p>
+
+
+
+<p>Because the standard Perl functions of <tt class="literal">warn( )</tt> and
+<tt class="literal">die( )</tt> are used, you can change the effects of
+<tt class="literal">PrintError</tt> and <tt class="literal">RaiseError</tt> with
+the <tt class="literal">$SIG{_ _WARN_ _}</tt>
+<a name="INDEX-435" /> and <tt class="literal">$SIG{_
+_DIE_ _}</tt>
+<a name="INDEX-436" /> signal handlers. Similarly, a
+<tt class="literal">die( )</tt> from <tt class="literal">RaiseError</tt> can be
+caught via <tt class="literal">eval { ... }</tt>.</p>
+
+
+
+<p>These different levels of automatic error checking can be turned on
+for any handle, although database handles are usually the most common
+and useful. To enable the style of automatic error checking you want,
+you may set the value of either of the following two attributes:</p>
+
+
+
+<blockquote><pre class="code">$h-&gt;{PrintError} = 1;
+$h-&gt;{RaiseError} = 1;</pre></blockquote>
+
+
+
+<p>Similarly, to <a name="INDEX-437" />disable
+automatic error checking, simply set the value of these attributes to
+<tt class="literal">0</tt>.</p>
+
+
+
+<p>If both <tt class="literal">RaiseError</tt> and
+<tt class="literal">PrintError</tt> are enabled, an error will cause
+<tt class="literal">warn( )</tt> and <tt class="literal">die( )</tt> to be
+executed sequentially. If no <tt class="literal">$SIG{_ _DIE_ _}</tt>
+handle has been defined, <tt class="literal">warn( )</tt> is skipped to
+avoid the error message being printed twice.<a href="#FOOTNOTE-41">[41]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-41" /><p>[41]The
+exact behavior when both attributes are set may change in future
+versions. This is something to consider if the code is inside an
+<tt class="literal">eval</tt>.</p>
+
+
+</blockquote>
+
+
+
+<p>A more common way in which these attributes are used is to specify
+them in the optional attribute hash supplied to
+<tt class="literal">DBI-</tt>&gt;<tt class="literal">connect( )</tt> when
+connecting to a database. Automatic error checking is the recommended
+style in which to write DBI code, so <tt class="literal">PrintError</tt> is
+enabled by default in <tt class="literal">DBI-</tt>&gt;<tt class="literal">connect(
+)</tt>. You can think of this as training wheels for novices and
+grease for quick-and-dirty script writers. Authors of more
+significant works usually either enable <tt class="literal">RaiseError</tt>
+or disable <tt class="literal">PrintError</tt> and do their own error
+checking.</p>
+
+
+
+<p>The following short example illustrates the use of
+<tt class="literal">RaiseError</tt> instead of manual error checking is:</p>
+
+
+
+<blockquote><pre class="code">
+  #!/usr/bin/perl -w
+  #
+  # ch04/error/ex2: Small example using automatic error handling with 
+  #                 RaiseError, i.e., the program will abort upon detection
+  #                 of any errors.
+  
+  use DBI;            # Load the DBI module
+  
+  my ($dbh, $sth, @row);
+  
+  ### Perform the connection using the Oracle driver
+  $dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" , {
+      PrintError =&gt; 0,   ### Don't report errors via warn(  )
+      RaiseError =&gt; 1    ### Do report errors via die(  )
+  } );
+  ### Prepare a SQL statement for execution
+  $sth = $dbh-&gt;prepare( "SELECT * FROM megaliths" );
+  
+  ### Execute the statement in the database
+  $sth-&gt;execute(  );
+  
+  ### Retrieve the returned rows of data
+  while ( @row = $sth-&gt;fetchrow_array(  ) ) {
+      print "Row: @row\n";
+  }
+  
+  ### Disconnect from the database
+  $dbh-&gt;disconnect(  );
+  
+  exit;</pre></blockquote>
+
+
+
+<p>This example is both shorter and more readable than the manual error
+checking shown in a following example. The actual program logic is
+clearer. The most obvious additional benefit is that we can forget to
+handle error checking manually after a DBI operation, since the DBI
+will check for errors for <a name="INDEX-438" />us.</p>
+</div>
+
+
+
+
+
+<a name="ch04-ch04_mixed_0" /><div class="sect3">
+<h3 class="sect3">4.5.1.3. Mixed error checking </h3>
+
+
+
+<p>You <a name="INDEX-439" />can mix
+error checking styles within a single program, since automatic error
+checking can be easily enabled and disabled on a per-handle basis.
+There are plenty of occasions where mixed error checking is useful.
+For example, you might have a program that runs continuously, such as
+one that polls a database for recently added stock market quotes
+every couple of minutes.</p>
+
+
+
+<p>Disaster occurs! The database crashes! The ideal situation here is
+that the next time the program tries connecting to the database and
+fails, it'll wait a few minutes before retrying rather than
+aborting the program altogether. Once we've connected to the
+database, the error checking should now simply warn when a statement
+fails and not <a name="INDEX-440" /> <a name="INDEX-441" />die.<a name="INDEX-442" /> <a name="INDEX-443" /></p>
+
+
+
+<p>This mixed style of error checking can be broken down into two areas:
+manual error checking for the
+<tt class="literal">DBI-</tt>&gt;<tt class="literal">connect( )</tt> call, and
+automatic error checking via <tt class="literal">PrintError</tt> for all
+other statements. This is illustrated in the following example
+program:</p>
+
+
+
+<blockquote><pre class="code">
+  #!/usr/bin/perl -w
+  #
+  # ch04/error/mixed1: Example showing mixed error checking modes.
+  
+  use DBI;            # Load the DBI module
+  
+  ### Attributes to pass to DBI-&gt;connect(  ) to disable automatic
+  ### error checking
+  my %attr = (
+      PrintError =&gt; 0,
+      RaiseError =&gt; 0,
+  );
+  
+  ### The program runs forever and ever and ever and ever ...
+  while ( 1 ) {
+      my $dbh;
+      
+      ### Attempt to connect to the database. If the connection
+      ### fails, sleep and retry until it succeeds ...
+      until (
+          $dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" , 
+                 \%attr )
+      ) {
+          warn "Can't connect: $DBI::errstr. Pausing before retrying.\n";
+          sleep( 5 * 60 );
+      }
+      
+      eval {      ### Catch _any_ kind of failures from the code within
+      
+          ### Enable auto-error checking on the database handle
+          $dbh-&gt;{RaiseError} = 1;
+      
+          ### Prepare a SQL statement for execution
+          my $sth = $dbh-&gt;prepare( "SELECT stock, value FROM current_values" );
+      
+          while (1) {
+      
+              ### Execute the statement in the database
+              $sth-&gt;execute(  );
+      
+              ### Retrieve the returned rows of data
+              while ( my @row = $sth-&gt;fetchrow_array(  ) ) {
+                  print "Row: @row\n";
+              }
+      
+              ### Pause for the stock market values to move
+              sleep 60;
+          }
+      
+      };
+      warn "Monitoring aborted by error: $@\n" if $@;
+      
+      ### Short sleep here to avoid thrashing the database
+      sleep 5;
+  }
+  
+  exit;</pre></blockquote>
+
+
+
+<p>
+<a name="INDEX-444" />This
+<a name="INDEX-445" />program
+
+<a name="INDEX-446" /> <a name="INDEX-447" />demonstrates that with DBI, you can
+easily write explicit error checking and recovery code alongside
+automatic <a name="INDEX-448" />error checking.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch04-ch04_error_1" /><div class="sect2">
+<h3 class="sect2">4.5.2. Error Diagnostics </h3>
+
+
+
+<p>The <a name="INDEX-449" />ability <a name="INDEX-450" />to trap errors within the DBI is
+very useful, with either manual or automatic error checking, but this
+information is only marginally useful on its own. To be truly useful,
+it is necessary to discern exactly what the error was in order to
+track it down and debug it.</p>
+
+
+
+<p>To this end, DBI defines several error diagnostic methods that can be
+invoked against any valid handle, driver, database, or statement.
+These methods will inform the programmer of the error code and report
+the verbose information from the last DBI method called. These are:</p>
+
+
+
+<blockquote><pre class="code">$rv  = $h-&gt;err();
+$str = $h-&gt;errstr();
+$str = $h-&gt;state();</pre></blockquote>
+
+
+
+<p>These various methods return the following items of information that
+can be used for more accurate debugging of errors:</p>
+
+
+
+<ul><li><p><tt class="literal">$h-</tt>
+<a name="INDEX-451" />
+<a name="INDEX-452" />
+<a name="INDEX-453" />&gt;<tt class="literal">err()</tt>
+returns the error number that is associated with the current error
+flagged against the handle <tt class="literal">$h</tt>. The values returned
+will be completely dependent on the values produced by the underlying
+database system. Some systems may not support particularly meaningful
+information; for example, mSQL errors always have the error number of
+<tt class="literal">-1</tt>. Oracle is slightly more helpful: a connection
+failure may flag an ORA-12154 error message upon connection failure,
+which would return the value of <tt class="literal">12154</tt> by invoking
+<tt class="literal">$h-</tt>&gt;<tt class="literal">err()</tt>. Although this
+value is usually a number, you should not rely on
+that.</p></li>
+
+<li><p><tt class="literal">$h-</tt>
+<a name="INDEX-454" />&gt;<tt class="literal">errstr()</tt>
+is a slightly more useful method, in that it returns a string
+containing a description of the error, as provided by the underlying
+database. This string should correspond to the error number returned
+in <tt class="literal">$h-</tt>&gt;<tt class="literal">err()</tt>.</p>
+
+
+
+<p>For example, mSQL returns <tt class="literal">-1</tt> as the error number
+for all errors, which is not particularly useful. However, invoking
+<tt class="literal">$h-</tt>&gt;<tt class="literal">errstr()</tt> provides far
+more useful information. In the case of connection failure, the
+error:</p>
+<blockquote><pre class="code">ERROR : Can't connect to local MSQL server</pre></blockquote>
+
+
+
+<p>might be generated and returned by
+<tt class="literal">$h-</tt>&gt;<tt class="literal">errstr()</tt>. Under Oracle,
+a connection failure returning the error number of
+<tt class="literal">12154</tt> will return the following string as its
+descriptive error message:</p>
+
+
+<blockquote><pre class="code">ORA-12154: TNS:could not resolve service name (DBD ERROR: OCIServerAttach)</pre></blockquote></li>
+
+
+
+<li><p><tt class="literal">$h-</tt>
+<a name="INDEX-455" />&gt;<tt class="literal">state()</tt>
+returns a string in the format of the standard SQLSTATE
+five-character error string. Many drivers do not fully support this
+method, and upon invoking it to discern the SQLSTATE code, the value:</p>
+
+<blockquote><pre class="code">S1000</pre></blockquote>
+
+<p>will be returned. The specific general success code
+<tt class="literal">00000</tt> is translated to <tt class="literal">0</tt>, so
+that if no error has been flagged, this method will return a
+<tt class="literal">false</tt> value.</p></li></ul>
+
+
+<p>The error information for a handle is reset by the DBI before
+most DBI method calls. Therefore, it's important to check for
+errors from one method call before calling the next method on the
+same handle. If you need to refer to error information later
+you'll need to save it somewhere else yourself.</p>
+
+
+<p>A
+rewriting of the previous example to illustrate using the specific
+handle methods to report on errors can be seen in the following code:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch04/error/ex3: Small example using manual error checking which also uses 
+#                 handle-specific methods for reporting on the errors.
+
+use DBI;            # Load the DBI module
+
+### Attributes to pass to DBI-&gt;connect() to disable automatic
+### error checking
+my %attr = (
+    PrintError =&gt; 0,
+    RaiseError =&gt; 0,
+);
+
+### Perform the connection using the Oracle driver
+my $dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" , \%attr )
+    or die "Can't connect to database: ", $DBI::errstr, "\n";
+
+### Prepare a SQL statement for execution
+my $sth = $dbh-&gt;prepare( "SELECT * FROM megaliths" )
+    or die "Can't prepare SQL statement: ", $dbh-&gt;errstr(), "\n";
+
+### Execute the statement in the database
+$sth-&gt;execute
+    or die "Can't execute SQL statement: ", $sth-&gt;errstr(), "\n";
+
+### Retrieve the returned rows of data
+while ( my @row = $sth-&gt;fetchrow_array() ) {
+    print "Row: @row\n";
+}
+warn "Problem in fetchrow_array(): ", $sth-&gt;errstr(), "\n"
+    if $sth-&gt;err();
+
+### Disconnect from the database
+$dbh-&gt;disconnect
+    or warn "Failed to disconnect: ", $dbh-&gt;errstr(), "\n";
+
+exit;</pre></blockquote>
+
+
+
+<p>As you can see, it's even more long-winded than using the
+<tt class="literal">$DBI::errstr</tt> variable, which can at least be
+interpolated directly into the error messages.</p>
+
+
+
+<p>In addition to these three methods, which allow finely grained error
+checking at a handle level, there are three corresponding variables
+that will contain the same information, but at a DBI class level:</p>
+
+<blockquote><pre class="code">$DBI::err
+$DBI::errstr
+$DBI::state</pre></blockquote>
+<a name="INDEX-456" />
+<a name="INDEX-457" />
+<a name="INDEX-458" />
+<a name="INDEX-459" />
+
+
+<p>Use of these variables is essentially the same as that of
+<tt class="literal">$h-</tt>&gt;<tt class="literal">err()</tt> and friends, but
+the values referred to are for the <em class="emphasis">last handle
+used</em> within DBI. They are particularly handy for
+interpolating into strings for error messages.</p>
+
+
+
+<p>Since these variables are associated with the last handle used within
+the DBI, they have an even shorter lifespan than the handle error
+methods, and should be used only immediately after the method call
+that failed. Otherwise, it is highly likely they will contain
+misleading error information.</p>
+
+
+
+<p>The one case where the variables are very useful is for connection
+errors. When these errors occur, there's no new handle returned
+in which to hold error information. Since scripts don't use the
+internal driver handles, the <tt class="literal">$DBI::errstr</tt> variable
+provides a very simple and effective way to get the error message
+from a <tt class="literal">connect()</tt> failure.</p>
+
+
+
+<p>In summary, for most applications, automatic error checking using
+<tt class="literal">RaiseError</tt> and/or <tt class="literal">PrintError</tt> is
+recommended. Otherwise, manual checking can be used and
+<tt class="literal">$DBI::errstr</tt> can easily be interpolated into
+messages. The handle methods are available for more <a name="INDEX-460" />complex
+<a name="INDEX-461" />applications.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch04_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">4.4. Connection and Disconnection </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">4.6. Utility Methods and Functions </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

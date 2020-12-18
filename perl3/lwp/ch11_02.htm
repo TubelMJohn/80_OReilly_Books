@@ -1,0 +1,264 @@
+<html><head><title>Adding Extra Request Header Lines (Perl &amp; LWP)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Sean Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001789L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl &amp; LWP" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; LWP" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch11_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">11.2. Adding Extra Request Header Lines</h2>
+
+<p>Here's some simplistic
+<a name="INDEX-629" />
+<a name="INDEX-630" />
+<a name="INDEX-631" />
+<a name="INDEX-632" />debugging advice: if your browser sees
+one thing at a given URL, but your LWP program sees another, first
+try just turning on cookie support, with an empty cookie jar. If that
+fails, have it read in your browser's cookie
+file.<a href="#FOOTNOTE-4">[4]</a> And if
+<em class="emphasis">that</em> fails, it's time to start
+wondering what means the remote site is using for distinguishing your
+LWP program's requests from your
+browser's requests.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-4" /><p> [4]Currently there is support for only Netscape
+cookie files. But check CPAN; someone might write support for other
+browsers' cookie files.</p> </blockquote>
+
+<p>Every kind of browser sends different HTTP headers besides the very
+minimal headers that LWP::UserAgent typically sends. For example,
+whereas an LWP::UserAgent browser by default sends this header line:
+</p>
+
+<blockquote><pre class="code">User-Agent: libwww-perl/5.5394</pre></blockquote>
+
+<p>Netscape 4.76 sends a header line like this:</p>
+
+<blockquote><pre class="code">User-Agent: Mozilla/4.76 [en] (Win98; U)</pre></blockquote>
+
+<p>And also sends these header fields that an LWP::UserAgent browser
+doesn't send normally at all:
+</p>
+
+<blockquote><pre class="code">Accept: image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, image/png, */*
+Accept-Charset: iso-8859-1,*,utf-8
+Accept-Encoding: gzip
+Accept-Language: en-US</pre></blockquote>
+
+<p>(That's assuming you've set your
+language preferences to U.S. English). That's on top
+of any <tt class="literal">Connection:</tt> <tt class="literal">keep-alive</tt>
+headers that may be sent, if the browser or any intervening firewall
+supports that feature (<tt class="literal">keep-alive</tt>) of HTTP.
+</p>
+
+<p>Opera 5.12 is not much different:</p>
+
+<blockquote><pre class="code">User-Agent: Opera/5.12 (Windows 98; U)  [en]
+Accept: text/html, image/png, image/jpeg, image/gif, image/x-xbitmap, */*
+Accept-Language: en
+Accept-Encoding: deflate, gzip, x-gzip, identity, *;q=0</pre></blockquote>
+
+<p>But a recent version of Netscape gets rather more verbose:</p>
+
+<blockquote><pre class="code">User-Agent: Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-US;
+   rv:0.9.4) Gecko/20011126 Netscape6/6.2.1
+Accept: text/xml, application/xml, application/xhtml+xml, text/html;q=0.9,
+   image/png, image/jpeg, image/gif;q=0.2, text/plain;q=0.8,
+   text/css, */*;q=0.1
+Accept-Charset: ISO-8859-1, utf-8;q=0.66, *;q=0.66
+Accept-Encoding: gzip, deflate, compress;q=0.9
+Accept-Language: en-us</pre></blockquote>
+
+<p>Internet Explorer 5.12, in true Microsoft fashion, emits a few
+nonstandard headers:
+</p>
+
+<blockquote><pre class="code">Accept: */*
+Accept-Language: en
+Extension: Security/Remote-Passphrase
+UA-CPU: PPC
+UA-OS: MacOS
+User-Agent: Mozilla/4.0 (compatible; MSIE 5.12; Mac_PowerPC)</pre></blockquote>
+
+<p>Lynx can be verbose in reporting what MIME types my
+system's <em class="filename">/etc/mailcap</em> tells it
+that it can handle:
+</p>
+
+<blockquote><pre class="code">Accept: text/html, text/plain, audio/mod, image/*, video/*, video/mpeg,
+  application/pgp, application/pgp, application/pdf, message/partial,
+  message/external-body, application/postscript, x-be2,
+  application/andrew-inset, text/richtext, text/enriched
+Accept: x-sun-attachment, audio-file, postscript-file, default,
+  mail-file, sun-deskset-message, application/x-metamail-patch,
+  text/sgml, */*;q=0.01
+Accept-Encoding: gzip, compress
+Accept-Language: en, es
+User-Agent: Lynx/2.8.3dev.18 libwww-FM/2.14</pre></blockquote>
+
+<p>This information can come in handy when trying to make your LWP
+program seem as much like a well-known interactive browser as
+possible
+</p>
+
+<a name="perllwp-CHP-11-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">11.2.1. Pretending to Be Netscape</h3>
+
+<p>For example, suppose <a name="INDEX-633" /><a name="INDEX-634" /> <a name="INDEX-635" />you're looking at
+<a href="http://www.expreszo.nl/home.php">http://www.expreszo.nl/home.php</a>
+and you see that it has interesting headlines. You'd
+like to write a headline detector for this site to go with the other
+headline detectors we've been producing throughout
+the book. You look at the source in Netscape and see that each
+headline link looks like this:
+</p>
+
+<blockquote><pre class="code">&lt;A class=pink href="headlines.php?id=749"&gt;<em class="replaceable"><tt>...text...</tt></em>&lt;/A&gt;</pre></blockquote>
+
+<p>So you write something quite simple to capture those links:</p>
+
+<blockquote><pre class="code">use strict;
+use warnings;
+use LWP;
+my $browser = LWP::UserAgent-&gt;new;
+ 
+my $url = 'http://www.expreszo.nl/home.php';
+my $response = $browser-&gt;get($url);
+die "Can't get $url: ", $response-&gt;status_line
+ unless $response-&gt;is_success;
+$_ = $response-&gt;content;
+my %seen;
+while( m{href="(headlines.php[^"]+)"&gt;(.*?)&lt;/A&gt;}sg ) {
+  my $this = URI-&gt;new_abs($1,$response-&gt;base);
+  print "$this\n  $2\n" unless $seen{$this}++;
+}
+print "NO HEADLINES?!  Source:\n", $response-&gt;content unless keys %seen;</pre></blockquote>
+
+<p>And you run it, and it quite stubbornly says:</p>
+
+<blockquote><pre class="code">NO HEADLINES?!  Source:
+&lt;html&gt;&lt;body&gt;
+...
+Je hebt minimaal Microsoft Internet Explorer versie 4 of hoger, of
+Netscape Navigator versie 4 of hoger nodig om deze site te bekijken.
+...
+&lt;/body&gt;&lt;/html&gt;</pre></blockquote>
+
+<p>That is, "you need MSIE 4 or higher, or Netscape 4
+or higher, to view this site." It seems to be
+checking the <tt class="literal">User-Agent</tt> string of whatever browser
+visits the site and throwing a fit unless it's MSIE
+or Netscape! This is easily simulated, by adding this line right
+after <tt class="literal">$browser</tt> is created:
+</p>
+
+<blockquote><pre class="code">$browser-&gt;agent('Mozilla/4.76 [en] (Win98; U)');</pre></blockquote>
+
+<p>With that one small change, the server sends the same page you saw in
+Netscape, and the headline extractor happily sees the headlines, and
+everything works:
+</p>
+
+<p><tt class="literal">http://www.expreszo.nl/headlines.php?id=752
+  Meer syfilis en HIV bij homo's
+http://www.expreszo.nl/headlines.php?id=751
+  Imam hangt geldboete van <img src="figs/euro.gif" alt="Figure 11.2.1" /> 1200 boven het hoofd
+http://www.expreszo.nl/headlines.php?id=740
+  SGP wil homohuwelijk terugdraaien
+http://www.expreszo.nl/headlines.php?id=750
+  Gays en moslims worden vaak gediscrimineerd
+http://www.expreszo.nl/headlines.php?id=749
+  Elton's gaydar rinkelt bij bruidegom Minnelli
+http://www.expreszo.nl/headlines.php?id=746
+  Lekkertje Drew Barrymore liever met een vrouw?</tt></p>
+
+<p>This approach works fine when the web site is looking only at the
+<tt class="literal">User-Agent</tt> line, as you can most easily control it
+with <tt class="literal">$browser-&gt;agent(...)</tt>. If you were dealing
+with some other site that insisted on seeing even more Netscape-like
+headers, that could be done, too:
+</p>
+
+<blockquote><pre class="code">my @netscape_like_headers = (
+  'User-Agent' =&gt; 'Mozilla/4.76 [en] (Win98; U)',
+  'Accept-Language' =&gt; 'en-US',
+  'Accept-Charset' =&gt; 'iso-8859-1,*,utf-8',
+  'Accept-Encoding' =&gt; 'gzip',
+  'Accept' =&gt;
+   "image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, image/png, */*",
+);
+my $response = $browser-&gt;get($url, @netscape_like_headers);</pre></blockquote>
+
+</div>
+<a name="perllwp-CHP-11-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">11.2.2. Referer</h3>
+
+<p>For some sites, that's not enough: they want to see
+that <a name="INDEX-636" />
+<a name="INDEX-637" />your <tt class="literal">Referer</tt> header
+value is something they consider appropriate. A
+<tt class="literal">Referer</tt> header line signals the URL of a page that
+either linked to the item you're requesting (as with
+<tt class="literal">&lt;a</tt> <tt class="literal">href="url"&gt;</tt>) or
+inlines that image item (as with <tt class="literal">&lt;img
+src="url"&gt;</tt>).
+</p>
+
+<p>For example, I am a big fan of the comic strip <em class="emphasis">Dennis The
+Menace</em>. I find it to be the truest realization of deep
+satire, and I admire how its quality has kept up over the past 50
+years, quite undeterred by the retirement and eventual death of its
+<em class="emphasis">auteur</em>, the comic genius Hank Ketcham. And
+nothing brightens my day more than laughing over the
+day's <em class="emphasis">Dennis The Menace</em> strip
+and hardcopying a really good one now and then, so I can pin it up on
+my office door to amuse my colleagues and to encourage them to visit
+the DTM web site. However, the server for the
+strip's image files doesn't want it
+to be inlined on pages that aren't authorized to do
+so, so they check the <tt class="literal">Referer</tt> line. Unfortunately,
+they have forgotten to allow for when there is no
+<tt class="literal">Referer</tt> line at all, such as happens when I try to
+hardcopy the day's image file using my browser. But
+LWP comes to the rescue:
+</p>
+
+<blockquote><pre class="code">my $response = $browser-&gt;get(
+  # The URL of the image:
+  'http://pst.rbma.com/content/Dennis_The_Menace',
+
+  'Referer' =&gt;   # The URL where I see the strip:
+
+  'http://www.sfgate.com/cgi-bin/article.cgi?file=/comics/Dennis_The_Menace.dtl',
+);
+open(OUT, "&gt;today_dennis.gif") || die $!;
+binmode(OUT);
+print OUT $response-&gt;content;
+close(OUT);</pre></blockquote>
+
+<p>By giving a <tt class="literal">Referer</tt> value that passes the image
+server's test for a good URL, I get to make a local
+copy of the image, which I can then print out and put on my office
+door.
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch11_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">11. Cookies, Authentication,and Advanced Requests</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">11.3. Authentication</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+</map>
+
+</body></html>

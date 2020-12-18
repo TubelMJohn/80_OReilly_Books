@@ -1,0 +1,321 @@
+<html><head><title>XML::Parser (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch05_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">4.6. XML::Parser</h2>
+
+<p>Another early parser is <tt class="literal">XML::Parser</tt><a name="INDEX-356" />
+<a name="INDEX-357" />, the first fast and efficient parser to
+hit CPAN. We detailed its many-faceted interface in <a href="ch03_01.htm">Chapter 3, "XML Basics: Reading and Writing"</a>. Its built-in stream mode is worth a closer
+look, though. Let's return to it now with a solid
+stream example.
+</p>
+
+<p>We'll use <tt class="literal">XML::Parser</tt> to read a
+list of records encoded as an XML document. The records contain
+contact information for people, including their names, street
+addresses, and phone numbers. As the parser reads the file, our
+handler will store the information in its own data structure for
+later processing. Finally, when the parser is done, the program sorts
+the records by the person's name and outputs them as
+an HTML table.
+</p>
+
+<p>The source document is listed in <a href="ch04_06.htm#perlxml-CHP-4-EX-3">Example 4-3</a>. It has
+a <tt class="literal">&lt;list&gt;</tt> element as the root, with four
+<tt class="literal">&lt;entry&gt;</tt> elements inside it, each with an
+address, a name, and a phone number.
+</p>
+
+<a name="perlxml-CHP-4-EX-3" /><div class="example">
+<h4 class="objtitle">Example 4-3. Address book file </h4>
+<blockquote><pre class="code">&lt;list&gt;
+  &lt;entry&gt;
+    &lt;name&gt;&lt;first&gt;Thadeus&lt;/first&gt;&lt;last&gt;Wrigley&lt;/last&gt;&lt;/name&gt;
+    &lt;phone&gt;716-505-9910&lt;/phone&gt;
+    &lt;address&gt;
+      &lt;street&gt;105 Marsupial Court&lt;/street&gt;
+      &lt;city&gt;Fairport&lt;/city&gt;&lt;state&gt;NY&lt;/state&gt;&lt;zip&gt;14450&lt;/zip&gt;
+    &lt;/address&gt;
+  &lt;/entry&gt;
+  &lt;entry&gt;
+    &lt;name&gt;&lt;first&gt;Jill&lt;/first&gt;&lt;last&gt;Baxter&lt;/last&gt;&lt;/name&gt;
+    &lt;address&gt;
+      &lt;street&gt;818 S. Rengstorff Avenue&lt;/street&gt;
+      &lt;zip&gt;94040&lt;/zip&gt;
+      &lt;city&gt;Mountainview&lt;/city&gt;&lt;state&gt;CA&lt;/state&gt;
+    &lt;/address&gt;
+    &lt;phone&gt;217-302-5455&lt;/phone&gt;
+  &lt;/entry&gt;
+  &lt;entry&gt;
+    &lt;name&gt;&lt;last&gt;Riccardo&lt;/last&gt;
+    &lt;first&gt;Preston&lt;/first&gt;&lt;/name&gt;
+    &lt;address&gt;
+      &lt;street&gt;707 Foobah Drive&lt;/street&gt;
+      &lt;city&gt;Mudhut&lt;/city&gt;&lt;state&gt;OR&lt;/state&gt;&lt;zip&gt;32777&lt;/zip&gt;
+    &lt;/address&gt;
+    &lt;phone&gt;111-222-333&lt;/phone&gt;
+  &lt;/entry&gt;
+  &lt;entry&gt;
+    &lt;address&gt;
+      &lt;street&gt;10 Jiminy Lane&lt;/street&gt;
+      &lt;city&gt;Scrapheep&lt;/city&gt;&lt;state&gt;PA&lt;/state&gt;&lt;zip&gt;99001&lt;/zip&gt;
+    &lt;/address&gt;
+    &lt;name&gt;&lt;first&gt;Benn&lt;/first&gt;&lt;last&gt;Salter&lt;/last&gt;&lt;/name&gt;
+    &lt;phone&gt;611-328-7578&lt;/phone&gt;
+  &lt;/entry&gt;
+&lt;/list&gt;</pre></blockquote>
+</div>
+
+<p>This simple structure lends itself naturally to event processing.
+Each <tt class="literal">&lt;entry&gt;</tt> start tag signals the
+preparation of a new part of the data structure for storing data. An
+<tt class="literal">&lt;/entry&gt;</tt> end tag indicates that all data for
+the record has been collected and can be saved. Similarly, start and
+end tags for <tt class="literal">&lt;entry&gt;</tt> subelements are cues
+that tell the handler when and where to save information. Each
+<tt class="literal">&lt;entry&gt;</tt> is self-contained, with no links to
+the outside, making it easy to process.
+</p>
+
+<p>The program is listed in <a href="ch04_06.htm#perlxml-CHP-4-EX-4">Example 4-4</a>. At the top is
+code used to initialize the parser object with references to
+subroutines, each of which will serve as the handler for a single
+event. This style of event handling is called a
+<em class="emphasis">callback</em> because you write the subroutine
+first, and the parser then calls it back when it needs it to handle
+an event.
+</p>
+
+<p>After the initialization, we declare some global variables to store
+information from XML elements for later processing. These variables
+give the handlers a memory, as mentioned earlier. Storing information
+for later retrieval is often called <em class="emphasis">saving
+state</em> because it helps the handlers preserve the state of
+the parsing up to the current point in the document.
+</p>
+
+<p>After reading in the data and applying the parser to it, the rest of
+the program defines the handler subroutines. We handle five events:
+the start and end of the document, the start and end of elements, and
+character data. Other events, such as comments, processing
+instructions, and document type declarations, will all be ignored.
+</p>
+
+<a name="perlxml-CHP-4-EX-4" /><div class="example">
+<h4 class="objtitle">Example 4-4. Code for the address program </h4>
+<blockquote><pre class="code"># initialize the parser with references to handler routines
+#
+use XML::Parser;
+my $parser = XML::Parser-&gt;new( Handlers =&gt; {
+    Init =&gt;    \&amp;handle_doc_start,
+    Final =&gt;   \&amp;handle_doc_end,
+    Start =&gt;   \&amp;handle_elem_start,
+    End =&gt;     \&amp;handle_elem_end,
+    Char =&gt;    \&amp;handle_char_data,
+});
+
+#
+# globals
+#
+my $record;       # points to a hash of element contents
+my $context;      # name of current element
+my %records;      # set of address entries
+
+#
+# read in the data and run the parser on it
+#
+my $file = shift @ARGV;
+if( $file ) {
+    $parser-&gt;parsefile( $file );
+} else {
+    my $input = "";
+    while( &lt;STDIN&gt; ) { $input .= $_; }
+    $parser-&gt;parse( $input );
+}
+exit;
+
+###
+### Handlers
+###
+
+#
+# As processing starts, output the beginning of an HTML file.
+# 
+sub handle_doc_start {
+    print "&lt;html&gt;&lt;head&gt;&lt;title&gt;addresses&lt;/title&gt;&lt;/head&gt;\n";
+    print "&lt;body&gt;&lt;h1&gt;addresses&lt;/h1&gt;\n";
+}
+
+#
+# save element name and attributes
+#
+sub handle_elem_start {
+    my( $expat, $name, %atts ) = @_;
+    $context = $name;
+    $record = {} if( $name eq 'entry' );
+} 
+
+# collect character data into the recent element's buffer
+#
+sub handle_char_data {
+    my( $expat, $text ) = @_;
+
+    # Perform some minimal entitizing of naughty characters
+    $text =~ s/&amp;/&amp;/g;
+    $text =~ s/&lt;/&amp;lt;/g;
+
+    $record-&gt;{ $context } .= $text;
+}
+
+#
+# if this is an &lt;entry&gt;, collect all the data into a record
+#
+sub handle_elem_end {
+    my( $expat, $name ) = @_;
+    return unless( $name eq 'entry' );
+    my $fullname = $record-&gt;{'last'} . $record-&gt;{'first'};
+    $records{ $fullname } = $record;
+}
+
+#
+# Output the close of the file at the end of processing.
+#
+sub handle_doc_end {
+    print "&lt;table border='1'&gt;\n";
+    print "&lt;tr&gt;&lt;th&gt;name&lt;/th&gt;&lt;th&gt;phone&lt;/th&gt;&lt;th&gt;address&lt;/th&gt;&lt;/tr&gt;\n";
+    foreach my $key ( sort( keys( %records ))) {
+        print "&lt;tr&gt;&lt;td&gt;" . $records{ $key }-&gt;{ 'first' } . ' ';
+        print $records{ $key }-&gt;{ 'last' } . "&lt;/td&gt;&lt;td&gt;";
+        print $records{ $key }-&gt;{ 'phone' } . "&lt;/td&gt;&lt;td&gt;";
+        print $records{ $key }-&gt;{ 'street' } . ', ';
+        print $records{ $key }-&gt;{ 'city' } . ', ';
+        print $records{ $key }-&gt;{ 'state' } . ' ';
+        print $records{ $key }-&gt;{ 'zip' } . "&lt;/td&gt;&lt;/tr&gt;\n";
+    }
+    print "&lt;/table&gt;\n&lt;/div&gt;\n&lt;/body&gt;&lt;/html&gt;\n";
+}</pre></blockquote>
+</div>
+
+<p>To understand how this program works, we need to study the handlers.
+All handlers called by <tt class="literal">XML::Parser</tt> receive a
+reference to the <tt class="literal">expat</tt> parser object as their
+first argument, a courtesy to developers in case they want to access
+its data (for example, to check the input file's
+current line number). Other arguments may be passed, depending on the
+kind of event. For example, the start-element event handler gets the
+name of the element as the second argument, and then gets a list of
+attribute names and values.
+</p>
+
+<p>Our handlers use global variables to store information. If you
+don't like global variables (in larger programs,
+they can be a headache to debug), you can create an object that
+stores the information internally. You would then give the parser
+your object's methods as handlers.
+We'll stick with globals for now because they are
+easier to read in our example.
+</p>
+
+<p>The first
+<a name="INDEX-358" />handler is
+<tt class="literal">handle_doc_start</tt>, called at the start of parsing.
+This handler is a convenient way to do some work before processing
+the document. In our case, it just outputs HTML code to begin the
+HTML page in which the sorted address entries will be formatted. This
+subroutine has no special arguments.
+</p>
+
+<p>The next handler, <tt class="literal">handle_elem_start</tt>, is called
+whenever the parser encounters the start of a new element. After the
+obligatory <tt class="literal">expat</tt> reference, the routine gets two
+arguments: <tt class="literal">$name</tt>, which is the element name, and
+<tt class="literal">%atts</tt>, a hash of attribute names and values. (Note
+that using a hash will not preserve the order of attributes, so if
+order is important to you, you should use an <tt class="literal">@atts</tt>
+array instead.) For this simple example, we don't
+use attributes, but we leave open the possibility of using them
+later.
+</p>
+
+<p>This routine sets up processing of an element by saving the name of
+the element in a variable called <tt class="literal">$context</tt>. Saving
+the element's name ensures that we will know what to
+do with character data events the parser will send later. The routine
+also initializes a hash called <tt class="literal">%record</tt>, which will
+contain the data for each of
+<tt class="literal">&lt;entry&gt;</tt>'s subelements in a
+convenient look-up table.
+</p>
+
+<p>The handler <tt class="literal">handle_char_data</tt> takes care of
+nonmarkup data -- basically all the character data in elements.
+This text is stored in the second argument, here called
+<tt class="literal">$text</tt>. The handler only needs to save the content
+in the buffer <tt class="literal">$record-&gt;{ $context }</tt>. Notice
+that we append the character data to the buffer, rather than assign
+it outright. <tt class="literal">XML::Parser</tt> has a funny quirk in
+which it calls the character handler after each line or
+newline-separated string of text.<a href="#FOOTNOTE-23">[23]</a> Thus, if the content of an element includes a newline
+character, this will result in two separate calls to the handler. If
+you didn't append the data, then the last call would
+overwrite the one before it.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-23" /><p>[23]This way of reading
+text is uniquely Perlish. XML purists might be confused about this
+handling of character data. XML doesn't care about
+newlines, or any whitespace for that matter; it's
+all just character data and is treated the same way. </p>
+</blockquote>
+
+<p>Not surprisingly, <tt class="literal">handle_elem_end</tt> handles the end
+of element events. The second argument is the
+element's name, as with the start-element event
+handler. For most elements, there's not much to do
+here, but for <tt class="literal">&lt;entry&gt;</tt>, we have a final
+housekeeping task. At this point, all the information for a record
+has been collected, so the record is complete. We only have to store
+it in a hash, indexed by the person's full name so
+that we can easily sort the records later. The sorting can be done
+only after all the records are in, so we need to store the record for
+later processing. If we weren't interested in
+sorting, we could just output the record as HTML.
+</p>
+
+<p>Finally, the <tt class="literal">handle_doc_end</tt> handler completes our
+set, performing any final tasks that remain after reading the
+document. It so happens that we do have something to do. We need to
+print out the records, sorted alphabetically by contact name. The
+subroutine generates an HTML table to format the entries nicely.
+</p>
+
+<p>This example, which involved a flat sequence of records, was pretty
+simple, but not all XML is like that. In some complex document
+formats, you have to consider the parent, grandparent, and even
+distant ancestors of the current element to decide what to do with an
+event. Remembering an element's ancestry requires a
+more sophisticated state-saving structure, which<a name="INDEX-359" /> <a name="INDEX-360" /> we will
+show<a name="INDEX-361" />
+<a name="INDEX-362" /> in a
+later example.
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch05_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4.5. XML::PYX</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">5. SAX</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

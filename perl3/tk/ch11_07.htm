@@ -1,0 +1,217 @@
+<html><head><title>Putting Two MainWindows to Work (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch12_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">11.7. Putting Two MainWindows to Work</h2>
+
+<p>Here's a trickier dual-display program that has been slightly
+obfuscated by removing comments and disguising subroutine names.
+Before we discuss it, try to figure out what it does. To orient
+yourself, realize that variables beginning with "l" mean
+"local," and those beginning with "r" mean
+"remote." You have 60 seconds. Okay, GO!
+</p>
+
+<blockquote><pre class="code">my $lmw = MainWindow-&gt;new;
+my $rmw = MainWindow-&gt;new(-screen =&gt; $ARGV[0] ||= $ENV{DISPLAY});
+my($le, $lt) = &amp;create_widgets($lmw);
+my($re, $rt) = &amp;create_widgets($rmw);
+&amp;config_widgets($le, $lt, $re, $rt);
+&amp;config_widgets($re, $rt, $le, $lt); $rmw-&gt;bell;
+MainLoop;
+
+sub create_widgets {
+    my $screen = shift;
+    my $e = $screen-&gt;Entry-&gt;pack(qw/-fill x -expand 1/);
+    $e-&gt;focus;
+    my $t = $screen-&gt;Text(qw/-height 10/)-&gt;pack;
+    ($e, $t);
+}
+
+sub config_widgets {
+    my($le, $lt, $re, $rt) = @_;
+    $le-&gt;bind('&lt;Return&gt;' =&gt; [sub {
+        my($le, $lt, $re, $rt) = @_;
+        $rt-&gt;tagConfigure(qw/blue -underline 1/);
+        my $input = $le-&gt;get . "\n";
+        $le-&gt;delete(0, 'end');
+        $lt-&gt;insert('end' =&gt; $input);
+        $rt-&gt;insert('end' =&gt; $input, 'blue');
+    }, $lt, $re, $rt]);
+}</pre></blockquote>
+
+<p>...5, 4, 3, 2, 1...time's up. Obviously, the key to
+understanding this program is the binding that
+<tt class="literal">config_widgets</tt> creates. (See <a href="ch15_01.htm">Chapter 15, "Anatomy of the MainLoop"</a> for more about bindings.)
+</p>
+
+<p>Suppose Gromit is sitting in front of his Win32 computer and it
+happens to run an X server. In another part of the house, Wallace, an
+ever cheerful and willing-to-chat chap, runs our mystery program on
+his Linux box and specifies Gromit's display on the command
+line.
+</p>
+
+<p><a href="ch11_06.htm#mastperltk-CHP-11-FIG-3">Figure 11-3</a> and <a href="ch11_07.htm#mastperltk-CHP-11-FIG-4">Figure 11-4</a> show
+what might transpire and confirm that the mystery program is a Tk
+phone-clone.
+</p>
+
+<a name="mastperltk-CHP-11-FIG-4" /><div class="figure"><img src="figs/mptk.1104.gif" alt="Figure 11-4" /></div><h4 class="objtitle">Figure 11-4. Gromit replying to a phone call from Wallace</h4>
+
+<p>There are several items worthy of note in the following code. First,
+here's the code:
+</p>
+
+<blockquote><pre class="code"> 1  #!/usr/local/bin/perl -w
+ 2  #
+ 3  # tkphone - Phone another X Display and have a line-mode conversation.
+ 4  #
+ 5  # Usage: see POD for details.
+ 6  
+ 7  use Tk;
+ 8  use subs qw/beep phone pconfig/;
+ 9  use strict;
+10  
+11  $ENV{DISPLAY} ||= ':0'; $ARGV[0] ||= $ENV{DISPLAY};
+12  
+13  my $title = "$ENV{DISPLAY}   phoning   $ARGV[0]";
+14  my $lmw = MainWindow-&gt;new(-title =&gt; $title);
+15  my $rmw = MainWindow-&gt;new(-title =&gt; $title, -screen =&gt; $ARGV[0]);
+16  
+17  my($le, $lt) = phone $lmw;
+18  my($re, $rt) = phone $rmw;
+19  pconfig $le, $lt, $re, $rt;
+20  pconfig $re, $rt, $le, $lt; $rmw-&gt;bell;
+21  
+22  MainLoop;
+23  
+24  sub phone {
+25  
+26      # Create the menubar and the phone Text Entry/display area.
+27  
+28      my($screen) = @_;
+29  
+30      my $menubar = $screen-&gt;Menu;
+31      $screen-&gt;configure(-menu =&gt; $menubar); 
+32      my $file = $menubar-&gt;cascade(-label =&gt; '~File');
+33      $file-&gt;command(-label =&gt; "Close", -command =&gt; [$screen =&gt; 'destroy']);
+34      $file-&gt;command(-label =&gt; "Exit",  -command =&gt; \&amp;exit);
+35  
+36     my $e = $screen-&gt;Entry-&gt;pack(qw/-fill x -expand 1/);
+37      $e-&gt;focus;
+38      my $t = $screen-&gt;Text(qw/-height 10/)-&gt;pack;
+39      ($e, $t);
+40    
+41  }
+42  
+43  sub pconfig {
+44  
+45      # Configure local callbacks to talk to the remote party.
+46  
+47      my($le, $lt, $re, $rt) = @_;
+48  
+49      $le-&gt;bind('&lt;Return&gt;' =&gt; [sub {
+50          my($le, $lt, $re, $rt) = @_;
+51          $rt-&gt;tagConfigure(qw/blue -underline 1/);
+52          my $input = $le-&gt;get . "\n";
+53          $le-&gt;delete(0, 'end');
+54          $lt-&gt;insert('end' =&gt; $input);
+55          $rt-&gt;insert('end' =&gt; $input, 'blue');
+56      },  $lt, $re, $rt]);
+57  
+58  }
+59  __END__
+60  
+61  =head1 NAME
+62  
+63  tkphone - Phone another X Display and have a line-mode conversation.
+64  
+65  =head1 SYNOPSIS
+66  
+67  B&lt;tkphone&gt; [I&lt;display&gt;]
+68  
+69  =head1 DESCRIPTION
+70  
+71  This program opens two MainWindows and arranges callbacks so they can
+72  talk to each other.  It expects a single command line argument, the
+73  remote
+74  DISPLAY
+75  specification
+76  (defaults to :0 so you can phone yourself).
+77  
+78  =head1 COPYRIGHT
+79  
+80  Copyright (C) 1999 - 2000 ACME Rocket Supply, Inc. All rights reserved.
+81    
+82  This program is free software; you can redistribute it and/or modify it under
+83  the same terms as Perl itself.
+84  
+85  =cut</pre></blockquote>
+
+<p>On Win32, <tt class="literal">$ENV{DISPLAY}</tt> is undefined, so line 11
+initializes it to quiet <tt class="literal">-w</tt>.
+</p>
+
+<p>Lines 30 through 34 create a File menubutton with Close and Exit menu
+items. Examine them closely; destroying a MainWindow is not always
+sufficient to terminate the program, because Tk's MainLoop only
+ends when <em class="emphasis">all</em> MainWindows are destroyed (see
+<a href="ch15_01.htm">Chapter 15, "Anatomy of the MainLoop"</a>). So, we provide Exit to really exit the
+application and Close, which destroys the local MainWindow, but only
+exits if the other MainWindow is already gone.
+</p>
+
+<p>Lines 36 through 39 create and return an Entry widget for typing text
+and a Text widget that displays a transcript of the conversation
+between the phoner and phonee.
+</p>
+
+<p>Lines 49 through 56 create the crucial
+<tt class="literal">&lt;Return&gt;</tt> binding that makes the application
+work.
+</p>
+
+<p>Lines 51 through 55 get the data from the local Entry widget and
+insert it in the local and remote Text widgets, underlining the
+remote text. (The underline tag name is <tt class="literal">"blue"</tt>,
+because it originally colored the remote text in blue, but colors
+won't show up well in this book. The Perl virtue of laziness
+took control, and the tag definition was changed rather than all
+occurrences of the tag name!) Which widgets are local and which are
+remote is relative to the particular MainWindow we are in front of.
+The fact that the binding works from either point of view is due to
+symmetry. Seek out symmetrical situations; they often simplify code.
+</p>
+
+<p>Finally, lines 60 through 85 are the program's documentation,
+in the form of Plain Old Documentation (POD). We'll include POD
+examples throughout the book. Check out the
+<em class="filename">perlpod</em> and <em class="filename">perldoc</em>
+documentation for detailed information. On Unix, typing
+<tt class="userinput"><b>perldoc</b></tt> <tt class="userinput"><b>tkphone</b></tt>
+produces an output similar to <a href="ch11_07.htm#mastperltk-CHP-11-FIG-5">Figure 11-5</a>.
+</p>
+
+<a name="mastperltk-CHP-11-FIG-5" /><div class="figure"><img src="figs/mptk.1105.gif" alt="Figure 11-5" /></div><h4 class="objtitle">Figure 11-5. How perldoc might render tkphone's POD</h4>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch12_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">11.6. Creating Multiple MainWindows</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">12. The Menu System</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

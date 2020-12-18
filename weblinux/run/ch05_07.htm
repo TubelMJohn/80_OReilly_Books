@@ -1,0 +1,730 @@
+<?label 5.7. Managing User Accounts?><html><head><title>Managing User Accounts (Running Linux)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Running Linux" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm" /></td><td width="172" valign="top" align="right"><a href="ch06_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">5.7. Managing User Accounts</h2>
+
+<p><a name="INDEX-1357" />
+<a name="INDEX-1358" />
+Even if you're the only actual human being who uses your Linux system,
+understanding how to manage user accounts is important--even more so
+if your system hosts multiple users.</p>
+
+<p>
+
+User accounts serve a number of purposes on Unix systems. Most prominently,
+they give the system a way to distinguish between different people who
+use the system for reasons of identification and security. Each user has
+a personal account with a separate username and password. As discussed
+
+in the section "<a href="ch04_13.htm#x-100-3-basic-permission-intro">Section 4.13, "File Ownership and Permissions"</a>"
+in <a href="ch04_01.htm">Chapter 4, "Basic Unix
+ Commands
+ and Concepts"</a>, users may set permissions on their
+files, allowing or restricting access to them by other users. Each file on
+the system is "owned" by a particular user, who may set the permissions
+for that file. User accounts are used to authenticate access to the
+system; only those people with accounts may access the machine. Also,
+accounts are used to identify users, keep system
+logs, tag electronic mail messages with the name of the sender, and so
+forth.</p>
+
+<p>Apart from personal accounts, there are users on the system that provide
+administrative functions. As we've seen, the system administrator uses
+the root account to perform
+maintenance--but usually not
+for personal system use. Such accounts are accessed using the
+<tt class="command">su</tt>
+command, allowing another account to be accessed after logging in through
+a personal account.</p>
+
+<p>
+Other accounts on the system may not be set aside for human interaction
+at all. These accounts are generally used by system daemons, which must
+access files on the system through a specific user ID other than root
+or one of the personal user accounts. For example, if you configure your
+system to receive a newsfeed from another site, the news daemon must store
+news articles in a spool directory that anyone can access, but only one
+user (the news daemon) can write to. No human being
+is associated with the news
+account; it is an "imaginary" user
+set aside for the news daemon only.</p>
+
+<p><a name="INDEX-1359" />
+<a name="INDEX-1360" />
+One of the permissions bits that can be set on executables is the
+<em class="emphasis">setuid</em> bit, which causes the program to be executed with the
+permissions of the owner of that file. For example, if the news
+daemon were owned by the user news, and the setuid bit set on
+the executable, it would run as if by the user news. news
+would have write access to the news spool directory, and all other
+users would have read access to the articles stored there. This is a
+security feature. News programs can give users just the right amount
+of access to the news spool directory, but no one can just play around
+there.</p>
+
+<p>As the system administrator, it is your job to create and manage
+accounts for all users (real and virtual) on your machine.
+This is actually a painless, hands-off task in most cases, but it's
+important to understand how it works.</p>
+
+<div class="sect2">
+<h3 class="sect2">5.7.1. The passwd File</h3>
+
+<p><a name="INDEX-1361" />
+<a name="INDEX-1362" />
+Every account on the system has an entry in the file <em class="filename">/etc/passwd</em>.
+This file contains entries, one line per user, that specify several
+attributes for each account, such as the username, real name,
+and so forth.</p>
+
+<p>
+Each entry in this file is of the format:
+<blockquote><pre class="code"><em class="replaceable">username</em>:<em class="replaceable">password</em>:<em class="replaceable">uid</em>:<em class="replaceable">gid</em>:<em class="replaceable">gecos</em>:<em class="replaceable">homedir</em>:<em class="replaceable">shell</em></pre></blockquote>
+
+The following list explains each of these fields:</p>
+
+<dl>
+<dt><b><em class="replaceable">username</em></b></dt><dd><p><a name="INDEX-1363" />
+A unique character string, identifying the account.
+For personal accounts, this is the name the user logs in with.
+On most systems it is limited to eight alphanumeric
+characters--for example,
+larry or kirsten.</p></dd>
+
+
+<dt><b><em class="replaceable">password</em></b></dt><dd><p><a name="INDEX-1364" />
+<a name="INDEX-1365" />
+<a name="INDEX-1366" />
+An encrypted representation of the user's
+password. This field is set using the <tt class="command">passwd</tt> program to set the
+account's password; it uses a one-way encryption scheme that is
+difficult (but not impossible) to break. You don't set this by hand;
+the <tt class="command">passwd</tt> program does it for you. Note, however, that if the
+first character of the <em class="replaceable">passwd</em> field is <tt class="literal">*</tt> (an asterisk),
+the account is "disabled"; the system will not allow logins as this
+user. See the section "<a href="ch05_07.htm#x-100-3-sec-sysadm-user-create">Section 5.7.5, "Creating Accounts"</a>" later
+in this chapter.</p></dd>
+
+
+<dt><b><em class="replaceable">uid</em></b></dt><dd><p><a name="INDEX-1367" />
+The user ID, a unique integer the system uses to
+identify the account. The system uses the <em class="replaceable">uid</em> field internally
+when dealing with process and file permissions; it's easier and more
+compact to deal with integers than byte strings. Therefore, both the
+<em class="replaceable">uid</em> and the <em class="replaceable">username</em> identify a particular account:
+the <em class="replaceable">uid</em> is more important to the system, while <em class="replaceable">username</em>
+is more convenient for humans.</p></dd>
+
+
+<dt><b><em class="replaceable">gid</em></b></dt><dd><p><a name="INDEX-1368" />
+The group ID, an integer referring to the user's
+default group, found in the file <em class="filename">/etc/group</em>. See the section
+"<a href="ch05_07.htm#x-100-3-sec-sysadm-group">Section 5.7.4, "The Group File"</a>" that follows.</p></dd>
+
+
+<dt><b><em class="replaceable">gecos</em></b></dt><dd><p>Miscellaneous information about the user,
+such as the user's real name, and optional "location information"
+such as the user's office address or phone number. Such programs as
+<tt class="command">mail</tt> and <tt class="command">finger</tt> use this
+information to
+identify users on the system; we'll talk more about it later.
+By the way, <em class="replaceable">gecos</em> is a historical name dating back to the 1970s;
+it stands for <em class="emphasis">General Electric Comprehensive Operating System</em>.
+<span class="acronym">GECOS</span> has nothing to do with Unix, except that this field was originally
+added to <em class="filename">/etc/passwd</em> to provide compatibility with some of its
+services.</p></dd>
+
+
+<dt><b><em class="replaceable">homedir</em></b></dt><dd><p><a name="INDEX-1369" />
+<a name="INDEX-1370" />
+The user's home directory, for
+his personal
+use; more on this
+later. When the user first logs in, her shell finds its current
+working directory in the named <em class="replaceable">homedir</em>.</p></dd>
+
+
+<dt><b><em class="replaceable">shell</em></b></dt><dd><p>The name of the program to run when the user
+logs in; in most cases, this is the full pathname of a shell, such as
+<em class="filename">/bin/bash</em> or <em class="filename">/bin/tcsh</em>.</p></dd>
+
+</dl>
+
+<p>Many of these fields are optional; the only required fields are
+<em class="replaceable">username</em>, <em class="replaceable">uid</em>, <em class="replaceable">gid</em>, and <em class="replaceable">homedir</em>.
+Most user accounts have all fields filled in, but "imaginary"
+or administrative accounts may use only a few.</p>
+
+<p>
+Here are two sample entries you might find in
+<em class="filename">/etc/passwd</em>:
+
+<blockquote><pre class="code">root:ZxPsI9ZjiVd9Y:0:0:The root of all evil:/root:/bin/bash
+aclark:BjDf5hBysDsii:104:50:Anna Clark:/home/aclark:/bin/bash</pre></blockquote>
+
+
+<a name="INDEX-1371" />
+<a name="INDEX-1372" />
+The first entry is for the root account. First of all, notice
+that the uid of root is zero. This is what
+makes root root: the system knows that uid 0 is
+"special" and that it does not have the usual security restrictions.
+The gid of root is also zip, which is mostly a convention.
+Many of the files on the system are owned by root and the
+
+root group, which have a uid and gid of zero,
+respectively. More on groups in a minute.</p>
+
+<p>On many systems, root uses the
+home directory <em class="filename">/root</em>, or
+just <em class="filename">/</em>. This is not usually relevant, because you
+most often use
+<tt class="command">su</tt> to access root from your own account. Also, it is
+
+tradition to use a Bourne-shell variant (in this case <em class="filename">/bin/bash</em>)
+for the root account, although you can use C shell if you like.
+
+(Shells are discussed in the section "<a href="ch04_05.htm#x-100-3-basic-shells">Section 4.5, "Shells"</a>" in
+<a href="ch04_01.htm">Chapter 4, "Basic Unix
+ Commands
+ and Concepts"</a>.)
+Be careful, though: Bourne shells and C shells have differing syntax,
+and switching between them when using root can be confusing and
+lead to mistakes.</p>
+
+<p>The second entry is for an actual human being, username aclark.
+In this case, the <em class="replaceable">uid</em> is 104. The <em class="replaceable">uid</em> field can
+technically be any unique integer; on many systems, it's customary
+to have user accounts numbered 100 and above and administrative accounts
+in the sub-100 range. The gid is 50, which just means that
+aclark is in whatever group is numbered 50 in the <em class="filename">/etc/group</em>
+file. Hang on to your horses; groups are covered in section
+"<a href="ch05_07.htm#x-100-3-sec-sysadm-group">Section 5.7.4, "The Group File"</a>" later in this chapter.</p>
+
+<p>Home directories are often found in <em class="filename">/home</em>, and
+named for the username
+of their owner. This is, for the most part, a useful convention that
+avoids
+confusion when finding a particular user's home directory, but you can
+technically place a home directory anywhere. You should, however, observe the
+directory layout used on your system.</p>
+
+<p>Note that as the system administrator, it's not usually necessary to
+modify the <em class="filename">/etc/passwd</em> file directly. There are several programs
+available that can help you create and maintain user accounts; see the
+section "<a href="ch05_07.htm#x-100-3-sec-sysadm-user-create">Section 5.7.5, "Creating Accounts"</a>"
+that follows.</p>
+
+<a name="INDEX-1373" />
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">5.7.2. Shadow Passwords</h3>
+
+<p>To some extent, it is a security risk to let
+<a name="INDEX-1374" />
+<a name="INDEX-1375" />
+<a name="INDEX-1376" />
+		everybody with access to the system view the encrypted
+		passwords in <em class="filename">/etc/passwd</em>. Special crack
+		programs are available that try a huge number of possible
+		passwords and check whether the encrypted version of those
+		passwords is equal to a specified one.</p>
+
+<p>To overcome this potential security risk,
+		<em class="firstterm">shadow passwords</em> have been
+		invented. When shadow passwords are used, the password field
+		in <em class="filename">/etc/passwd</em> contains only an
+		<tt class="literal">x</tt> or a <tt class="literal">*</tt>, which can never
+		occur in the encrypted version of a password. Instead, a
+<a name="INDEX-1377" />
+<a name="INDEX-1378" />
+		second file called <em class="filename">/etc/shadow</em> is
+		used. This file contains entries that look very similar to
+		those in <em class="filename">/etc/passwd</em>, but contain the
+		real encrypted password in the password
+		field. <em class="filename">/etc/shadow</em> is readable only by
+		root, so that normal
+		users do not have access to the encrypted passwords. The other
+		fields in <em class="filename">/etc/shadow</em>, except the username and the password are present as well, but normally
+		contain bogus values or are empty.</p>
+
+<p>Note that in order to use shadow passwords, you
+		need special versions of the programs that access or modify user
+		information like <tt class="command">passwd</tt> or
+		<tt class="command">login</tt>. Nowadays, most distributions come
+		with shadow passwords already set up so that this should not
+		be a problem for you.</p>
+
+<p>There are two tools for converting "normal"
+		user entries to shadow entries and
+<a name="INDEX-1379" />
+		back. <tt class="command">pwconv</tt> takes the
+		<em class="filename">/etc/passwd</em> file, looks for entries that
+		are not yet present in <em class="filename">/etc/shadow</em>,
+		generates shadow entries for those and merges them with the
+		entries already present in
+		<em class="filename">/etc/shadow</em>.</p>
+
+<p>Debian users should use "shadowconfig on" instead to
+ensure that shadow passwords are enabled on their systems.</p>
+
+<p><tt class="command">pwunconv</tt> is rarely used, because it
+<a name="INDEX-1380" />
+		gives you less security instead of more. It works like
+		<tt class="command">pwconv</tt>, but generates traditional
+		<em class="filename">/etc/passwd</em> entries that work without
+		<em class="filename">/etc/shadow</em> counterparts.</p>
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">5.7.3. PAM and Other Authentication Methods</h3>
+
+<p>You might think that having two means of user
+<a name="INDEX-1381" />
+<a name="INDEX-1382" />
+		authentication, <em class="filename">/etc/passwd</em> and
+		<em class="filename">/etc/shadow</em>, is already enough choice, but
+		you are wrong in this case. There are a number of other
+		authentification methods with strange names like Kerberos
+		authentication (so named after the dog from Greek mythology
+		that guards the entrance to Hell). While we think that shadow
+		passwords provide enough security for almost all cases, it
+		all depends on how much security you really need and how
+		paranoid you want to be.</p>
+
+<p>The problem with all those authentication methods is
+		that you cannot simply switch from one to another, because you
+		always need a set of programs like <tt class="command">login</tt>
+		and <tt class="command">passwd</tt> that go with those tools. To
+<a name="INDEX-1383" />
+<a name="INDEX-1384" />
+<a name="INDEX-1385" />
+		overcome this problem, the <em class="firstterm">Pluggable
+		Authentification Methods</em>
+		(<em class="application">PAM</em>) system has been invented. Once you
+		have a <em class="application">PAM</em>-enabled set of tools,
+		you can change the authentification method of your system by
+		reconfiguring <span class="acronym">PAM</span>. The tools will
+		automatically get the code necessary to perform the required
+		authentication procedures from dynamically loaded shared
+		libraries.</p>
+
+<p>Setting up and using <span class="acronym">PAM</span> is beyond
+		the scope of this book, but you can get all the information
+		you need from <a href="http://www.de.kernel.org/pub/linux/libs/pam/">http://www.de.kernel.org/pub/linux/libs/pam/</a>.</p>
+</div>
+
+
+
+
+<a name="x-100-3-sec-sysadm-group" /><div class="sect2">
+<h3 class="sect2">5.7.4. The Group File</h3>
+
+<p><a name="INDEX-1386" />
+<a name="INDEX-1387" />
+<a name="INDEX-1388" />
+User groups are a convenient way to logically organize sets of user accounts
+and allow users to share files within their group or groups. Each file on the
+system has both a user and a group owner associated with it. Using
+<tt class="command">ls -l</tt>, you can see the owner and group for a particular file,
+as in:
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>ls -l boiler.tex</b></tt>
+-rwxrw-r--   1 mdw      megabozo    10316 Oct  6 20:19 boiler.tex
+rutabaga%</pre></blockquote>
+
+This file is owned by the user mdw and belongs to the megabozo
+group. We can see from the file permissions that mdw has read,
+write, and execute access to the file; that anyone in the megabozo
+group has read and write access; and that all other users have read
+access only.</p>
+
+<p>This doesn't mean that mdw is in
+the megabozo group; it
+simply means the file may be accessed, as shown by the permissions
+bits, by anyone in the megabozo group (which may or may not
+include mdw).</p>
+
+<p>This way files can be shared among groups of users, and
+permissions can be specified separately for the owner of the file,
+
+the group to which the file belongs, and everyone else. An
+introduction to permissions appears in the section
+"<a href="ch04_13.htm#x-100-3-basic-permission-intro">Section 4.13, "File Ownership and Permissions"</a>" in <a href="ch04_01.htm">Chapter 4, "Basic Unix
+ Commands
+ and Concepts"</a>.</p>
+
+<p><a name="INDEX-1389" />
+<a name="INDEX-1390" />
+Every user is assigned to at least one group, which you specify in the
+<em class="replaceable">gid</em> field of the <em class="filename">/etc/passwd</em> file. However, a user can be
+a member of multiple groups. The file <em class="filename">/etc/group</em> contains a one-line
+entry for each group on the system, very similar in nature to
+<em class="filename">/etc/passwd</em>. The format of this file is:
+
+
+<blockquote><pre class="code"><em class="replaceable">groupname</em>:<em class="replaceable">password</em>:<em class="replaceable">gid</em>:<em class="replaceable">members</em></pre></blockquote></p>
+
+<p>Here,
+<em class="replaceable">groupname</em> is a character string identifying the group;
+it is the group name printed when using commands such as <tt class="command">ls -l</tt>.</p>
+
+<p><em class="replaceable">password</em> is an optional password associated with the
+group, which allows users not in this group to access the group
+with the <tt class="command">newgrp</tt> command. Read on for information on this.</p>
+
+<p><a name="INDEX-1391" />
+<em class="replaceable">gid</em> is the group ID used by the system to refer to the
+group; it is the number used in the <em class="replaceable">gid</em> field of <em class="filename">/etc/passwd</em>
+to specify a user's default group.</p>
+
+<p><em class="replaceable">members</em> is a comma-separated list of
+usernames (with no whitespace in between), identifying
+those users who are members of this group, but who have a different
+<em class="replaceable">gid</em> in <em class="filename">/etc/passwd</em>. That is, this list need not contain
+those users who have this group set as their "default" group in
+<em class="filename">/etc/passwd</em>; it's only for users who are additional members of
+the group.</p>
+
+<p>
+
+For example, <em class="filename">/etc/group</em> might contain the following entries:
+<blockquote><pre class="code">root:*:0:
+bin:*:1:root,daemon
+users:*:50:
+bozo:*:51:linus,mdw
+megabozo:*:52:kibo</pre></blockquote>
+
+The first entries, for the groups root and bin, are
+administrative groups, similar in nature to the "imaginary" accounts
+used on the system. Many files are owned by groups such as root
+and bin. The other groups are for user accounts.
+Like user IDs, the
+group ID values for user groups are often placed in ranges above 50 or 100.</p>
+
+<p><a name="INDEX-1392" />
+<a name="INDEX-1393" />
+The <em class="replaceable">password</em> field of the <em class="filename">group</em> file is something of a
+curiosity. It isn't used much, but in conjunction with the <em class="filename">newgrp</em>
+program it allows users who aren't members of a particular group to
+assume that group ID if they have the password. For example, using
+the command:
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>newgrp bozo</b></tt>
+Password: <tt class="userinput"><b>password for group bozo</b></tt>
+rutabaga%</pre></blockquote>
+
+
+
+starts a new shell with the group ID of bozo. If the
+<em class="replaceable">password</em> field is blank, or the first character is an
+asterisk, you receive a <tt class="literal">permission denied</tt> error if you
+attempt to <em class="filename">newgrp</em> to that group.</p>
+
+<p>However, the <em class="replaceable">password</em> field of the <em class="filename">group</em> file is seldom
+used and is really not necessary. (In fact, most systems don't provide tools
+to set the password for a group; you could use <tt class="command">passwd</tt> to set the
+password for a dummy user with the same name as the group in <em class="filename">/etc/passwd</em> and copy the encrypted
+<em class="replaceable">password</em> field to <em class="filename">/etc/group</em>.) Instead, you can make a user a member
+of multiple groups simply by including the username in the
+<em class="replaceable">members</em> field for each additional group.
+
+In the previous example, the users linus and mdw are
+members of the bozo group, as well as whatever group they are
+assigned to in the <em class="filename">/etc/passwd</em> file. If we wanted to add linus
+to the megabozo group as well,
+we'd change the last line of the previous
+example to:
+<blockquote><pre class="code">megabozo:*:52:kibo,linus</pre></blockquote></p>
+
+<p><a name="INDEX-1394" />
+The command <tt class="command">groups</tt> tells you which groups you belong to, as
+in:
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>groups</b></tt>
+users bozo</pre></blockquote>
+
+Giving a list of usernames to <tt class="command">groups</tt> lists the groups
+each user in the list belongs to.</p>
+
+<p>When you log in, you are automatically assigned to the group ID given
+in <em class="filename">/etc/passwd</em>, as well as any additional groups for which you're
+listed in <em class="filename">/etc/group</em>. This means you have "group access" to
+any files on the system with a group ID contained in your list of groups.
+In this case, the group permission bits (set with <tt class="command">chmod g+&#133;</tt>)
+for those files apply to you. (Unless you're the owner, in which case the owner
+permission bits apply, instead.)</p>
+
+<p>
+Now that you know the ins and outs of groups, how should you assign groups
+on your system? This is really a matter of style and depends on how
+your system will be used. For systems with just one or a handful of
+users, it's easiest to have a single group (called, say, users)
+to which all personal user accounts belong. Note that all the system
+groups--those groups contained within <em class="filename">/etc/group </em> when the
+system is first installed--should probably be left alone. Various daemons
+and programs may depend upon them.</p>
+
+<p>If you have a number of users on your machine, there are several ways to
+organize groups. For example, an educational institution may have separate
+groups for students, faculty, and staff. A software
+company might have different groups for each design team.
+On other systems, each user is placed into a separate group,
+named identically to the username. This keeps each pigeon in its own
+hole, so to speak, and allows users to share files with a particular group.
+However, adding a user to an additional group usually requires the system
+administrator to intervene (by editing
+<em class="filename">/etc/group</em> ; Debian has the utility
+<tt class="command">gpasswd</tt> ). It's really up to you.</p>
+
+<p>Another situation where groups are often used is
+<a name="INDEX-1395" />
+		special hardware groups. Let's say that you have a scanner
+		that is accessed via <em class="filename">/dev/scanner</em>. If you
+		do not want to give everybody access to the scanner, you could
+		create a special group called scanner, assign
+		<em class="filename">/dev/scanner</em> to this group, make this
+		special file readable for the group and nonreadable for
+		everybody else, and add everybody who is allowed to use the
+		scanner to the scanner group in the
+		<em class="filename">/etc/groups</em> file.</p>
+
+<a name="INDEX-1396" />
+</div>
+
+
+
+
+<a name="x-100-3-sec-sysadm-user-create" /><div class="sect2">
+<h3 class="sect2">5.7.5. Creating Accounts</h3>
+
+<p><a name="INDEX-1397" />
+<a name="INDEX-1398" />
+<a name="INDEX-1399" />
+Creating a user account requires several steps: adding an entry to
+<em class="filename">/etc/passwd</em>, creating the user's home directory, and
+setting up
+the user's default configuration files (such as <em class="filename">.bashrc</em>)
+in her home directory. Luckily, you don't have to perform these steps manually;
+nearly all Linux systems include a program called <tt class="command">adduser</tt> to
+do this for you.<a href="#FOOTNOTE-26">[26]</a></p><blockquote>
+
+<a name="FOOTNOTE-26" /><p>[26]Note that some Linux systems, such as
+Red Hat or SuSE, use a different set of tools for account creation and
+deletion. If the sequence of inputs in this section does not work for
+you, check the documentation for your distribution. (Red Hat allows
+accounts to be managed through the <tt class="command">control-panel</tt>
+tool, and SuSE does it via <tt class="command">YaST</tt>; Debian includes a
+non-interactive "adduser" script that automatically sets
+up users based on the configuration file
+<em class="filename">/etc/adduser.conf</em> ). In addition,
+there are graphical user management programs like
+<tt class="command">kuser</tt> from KDE (see <a href="ch11_03.htm#x-100-3-sec-kde">Section 11.3, "The K Desktop Environment"</a> in <a href="ch11_01.htm">Chapter 11, "Customizing Your X Environment"</a>).</p>
+
+</blockquote>
+
+<p>Running <tt class="command">adduser</tt> as root should work as follows.
+Just enter the requested information at the prompts; many of the
+prompts have reasonable defaults you can select by pressing
+Enter:
+<blockquote><pre class="code">Adding a new user. The username should not exceed 8 characters
+in length, or you many run into problems later.
+
+Enter login name for new account (^C to quit): <tt class="userinput"><b>norbert</b></tt>
+
+Editing information for new user [norbert]
+
+Full Name: <tt class="userinput"><b>Norbert Ebersol</b></tt>
+GID [100]: <tt class="userinput"><b>117</b></tt>
+
+Checking for an available UID after 500
+First unused uid is 501
+
+UID [501]: <tt class="userinput"><b>(enter)</b></tt>
+Home Directory [/home/norbert]: <tt class="userinput"><b>(enter)</b></tt>
+Shell [/bin/bash]: <tt class="userinput"><b>(enter)</b></tt>
+Password [norbert]: <tt class="userinput"><b>(norbert's password)</b></tt>
+
+Information for new user [norbert]:
+Home directory: [/home/norbert] Shell: [/bin/bash]
+Password: [<tt class="userinput"><b>(norbert's password)</b></tt>] uid: [501] gid: [117]
+
+Is this correct? [y/N]: <tt class="userinput"><b>y</b></tt>
+
+Adding login [norbert] and making directory [/home/norbert]
+Adding the files from the /etc/skel directory:
+./.emacs -&gt; /home/norbert/./.emacs
+./.kermrc -&gt; /home/norbert/./.kermrc
+./.bashrc -&gt; /home/norbert/./.bashrc</pre></blockquote>
+
+There should be no surprises here; just enter the information as
+requested or choose the defaults. Note that <tt class="command">adduser</tt>
+uses 100 as the default group ID, and looks for the first unused
+user ID after 500 (500 is used as the minimum on SuSE and Red Hat,
+Debian uses 1000). It should be safe to go along with these defaults;
+in the previous example we used a group ID of 117 and the default
+user ID of 501.</p>
+
+<p><a name="INDEX-1400" />
+<a name="INDEX-1401" />
+After the account is created, the files from <em class="filename">/etc/skel</em> are copied
+to the user's home directory. <em class="filename">/etc/skel</em> contains the "skeleton"
+files for a new account; they are the default configuration files
+
+(such as <em class="filename">.emacs</em> and <em class="filename">.bashrc</em>) for the new user. Feel free to
+place other files here if your new user accounts should have them.</p>
+
+<p>After this is done, the new account is ready to roll; norbert
+can log in, using the password set using
+<tt class="command">adduser</tt>. To guarantee security, new users
+should always change their own passwords, using <tt class="command">passwd</tt>, immediately
+after logging in for the first time.</p>
+
+<p><a name="INDEX-1402" />
+root can set the password for any user on the system. For example,
+the command:
+<blockquote><pre class="code">passwd norbert</pre></blockquote>
+
+prompts for a new password for norbert, without asking for the
+original password. Note, however, that you must know the root password
+in order to change it. If you forget the root password entirely, you
+can boot Linux into a root shell, in single-user mode, or from an
+"emergency floppy,"
+
+and clear the <em class="replaceable">password</em> field
+of the <em class="filename">/etc/passwd</em> entry for root. See the section
+"<a href="ch08_06.htm#x-100-3-sec-sysadm-emergency">Section 8.6, "What to Do in an Emergency"</a>"
+in <a href="ch08_01.htm">Chapter 8, "Other
+ Administrative
+ Tasks"</a>.</p>
+
+<p><a name="INDEX-1403" />
+Some Linux systems provide the command-line-driven <tt class="command">useradd</tt>
+instead of <tt class="command">adduser</tt>. This program requires you to provide all
+relevant information as command-line arguments. If you can't
+locate <tt class="command">adduser</tt> and are stuck with <tt class="command">useradd</tt>, see the manual
+pages, which should help you out.</p>
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">5.7.6. Deleting and Disabling Accounts</h3>
+
+<p><a name="INDEX-1404" />
+<a name="INDEX-1405" />
+Deleting a user account is much easier than creating one; this is the
+well-known concept of entropy at work. To delete an account, you must
+remove the user's entry in <em class="filename">/etc/passwd</em>, remove any references to
+the user in <em class="filename">/etc/group</em>, and delete the user's home directory,
+as well as any additional files created or owned by the user.
+For example, if the user has an incoming mailbox in <em class="filename">/var/spool/mail</em>,
+it must be deleted as well.</p>
+
+<p><a name="INDEX-1406" />
+The command <tt class="command">userdel</tt> (the yin to
+<tt class="command">useradd</tt>'s yang)
+deletes an account and the account's home directory. For example:
+<blockquote><pre class="code">userdel -r norbert</pre></blockquote>
+
+will remove the recently created account for norbert. The
+<span class="option">-r</span> option forces the home directory to be removed as well.
+Other files associated with the user--for example, the incoming
+mailbox, <em class="filename">crontab</em> files, and so forth--must be removed by hand.
+Usually these are quite insignificant and can be left around.
+By the end of this chapter, 
+<?troff .ne 10?>
+you should know where these files are,
+if they exist. A quick way to find the files associated with a
+particular user is through the command:
+
+<blockquote><pre class="code">find / -user <em class="replaceable">username</em> -ls</pre></blockquote>
+
+This will give an <tt class="command">ls -l</tt> listing of each file owned by
+<em class="replaceable">username</em>. Of course, to use this, the account associated with
+<em class="replaceable">username</em> must still have an entry in <em class="filename">/etc/passwd</em>.
+If you deleted the account, use the <span class="option">-uid</span> <em class="replaceable">num</em> argument
+instead, where <em class="replaceable">num</em> is the numeric user ID of the
+dearly departed user.</p>
+
+<p>Temporarily (or not-so-temporarily) disabling a user account, for
+whatever reason, is even simpler. You can either remove the
+user's entry in <em class="filename">/etc/passwd</em> (leaving the home directory and
+other files intact), or add an asterisk to the first character of
+the <em class="replaceable">password</em> field of the <em class="filename">/etc/passwd</em> entry, as so:
+
+<blockquote><pre class="code">aclark:*BjDf5hBysDsii:104:50:Anna Clark:/home/aclark:/bin/bash</pre></blockquote>
+
+This will disallow logins to the account in question.</p>
+
+<a name="INDEX-1407" /><a name="INDEX-1408" />
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">5.7.7. Modifying User Accounts</h3>
+
+<p><a name="INDEX-1409" />
+<a name="INDEX-1410" />
+Modifying attributes of user accounts and groups is usually a simple
+matter of editing <em class="filename">/etc/passwd</em> and
+<em class="filename">/etc/group</em>. Many systems provide commands such as
+<tt class="command">usermod</tt> and <tt class="command">groupmod</tt> to do just
+this; it's often easier to edit the files by hand.</p>
+
+<p><a name="INDEX-1411" />
+To change a user's password, use the <tt class="command">passwd</tt> command, which
+will prompt for a password, encrypt it, and store the encrypted password
+in the <em class="filename">/etc/passwd</em> file.</p>
+
+<p><a name="INDEX-1412" />
+<a name="INDEX-1413" />
+If you need to change the user ID of an existing account, you can do
+this by editing the <em class="replaceable">uid</em> field of
+<em class="filename">/etc/passwd</em> directly. However, you should also
+<tt class="command">chown</tt> the files owned by the user to that of the
+new uid. For example:
+
+<blockquote><pre class="code">chown -R aclark /home/aclark</pre></blockquote>
+
+
+will set the ownership for all files in the home directory used by
+aclark back to aclark, if you changed the
+uid for this account. If <tt class="command">ls
+-l</tt> prints a numeric user ID, instead of a username,
+this means there is no username associated with the
+uid owning the files. Use
+<tt class="command">chown</tt> to fix this.</p>
+
+<a name="INDEX-1414" /><a name="INDEX-1415" /><a name="INDEX-1416" /><a name="INDEX-1417" />
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch06_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">5.6. The /proc filesystem</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">6. Managing
+ Filesystems, Swap,
+ and Devices</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

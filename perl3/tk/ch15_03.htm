@@ -1,0 +1,444 @@
+<html><head><title>The bindtags Command (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch15_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">15.3. The bindtags Command</h2>
+
+<p><a name="INDEX-2426" />So, we know that a Button has a
+predefined binding for a <tt class="literal">&lt;ButtonRelease-1&gt;</tt>
+event. What do you suppose will happen if we make an instance binding
+to <tt class="literal">&lt;ButtonRelease-1&gt;</tt> as well? Which callback
+gets invoked, the class or the instance? Or are both invoked? If both
+callbacks are invoked, in what order do they occur?
+</p>
+
+<p>Both callbacks are invoked: first the class, then the instance. To
+understand why, we need to study the <tt class="literal">bindtags</tt>
+command. Whenever a binding is created, it is always associated with
+an identifying tag. Thus far, each of our Button binding examples has
+used two tags, a class name and a widget instance, which represent
+the Button's class tag and the instance tag, respectively.
+Except for Toplevels, every widget has two additional binding tags:
+the widget's Toplevel window and the global string
+<tt class="literal">all</tt>. Toplevels are their own instances, so they
+have only three binding tags.
+</p>
+
+<p>When an event occurs, it's compared against all the event
+descriptors for every tag that a widget owns, and if the event
+matches one of the tag's list of event descriptors, the
+associated callback is executed. The search continues through the
+<tt class="literal">bindtags</tt> list until all the tags have been
+examined and every possible callback executed.
+</p>
+
+<p>A widget's <tt class="literal">bindtags</tt> list is ordered. It is
+always searched from left to right (starting at array index 0). The
+<tt class="literal">bindtags</tt> command queries, adds, deletes, or
+rearranges a widget's binding tags list.
+</p>
+
+<p>Let's do a <tt class="literal">bindtags</tt> query command on our
+<tt class="literal">$twice</tt> button from the previous section:
+</p>
+
+<blockquote><pre class="code">my $twice = $mw-&gt;Button(qw/-text Beep -command/ =&gt;  sub {$mw-&gt;bell});
+$twice-&gt;pack;
+$twice-&gt;bind('&lt;ButtonRelease-1&gt;' =&gt; \&amp;twice);
+
+my (@bindtags) = $twice-&gt;bindtags;
+print "\$twice's bindtags:\n\n", join("\n", @bindtags), "\n";
+Which yields:
+$twice's bindtags:
+
+Tk::Button
+.button
+.
+all</pre></blockquote>
+
+<p>Ignoring the fact that the <tt class="literal">$twice</tt> instance tag is
+represented by the string ".<tt class="literal">button</tt>",
+and the Toplevel tag by the string
+"<tt class="literal">.</tt>", a vestige of Perl/Tk's Tcl
+origins, the tag list order is class, instance, Toplevel,
+<tt class="literal">all</tt>.
+</p>
+
+<p>As an aside, these string names are internal widget identifiers that
+you should never intentionally use; always use the real Perl/Tk
+reference. They are actually Tcl/Tk pathnames and are created by
+Perl/Tk when a widget is instantiated.
+"<tt class="literal">.</tt>" Is the Tcl/Tk name for the
+MainWindow and <tt class="literal">.frame2.text.radiobutton10</tt> is the
+name of a Radiobutton deep inside the widget hierarchy. The
+<tt class="literal">PathName</tt> method shows a widget's internal
+pathname.
+</p>
+
+<p>Now let's iterate through the binding tags and print the event
+descriptors for each tag:
+</p>
+
+<blockquote><pre class="code">print "\nHere are \$twice's binding tags, and each tag's bindings:\n\n";
+foreach my $tag ($twice-&gt;bindtags) {
+    print "  bindtag tag '$tag' has these bindings:\n";
+    print "    ", $twice-&gt;bind($tag), "\n";
+}
+print "\n";</pre></blockquote>
+
+<p>Here's the output:</p>
+
+<blockquote><pre class="code">Here are $twice's binding tags, and each tag's bindings:
+
+  bindtag tag 'Tk::Button' has these bindings:
+    &lt;Key-Return&gt;&lt;Key-space&gt;&lt;ButtonRelease-1&gt;&lt;Button-1&gt;&lt;Leave&gt;&lt;Enter&gt;
+  bindtag tag '.button' has these bindings:
+    &lt;ButtonRelease-1&gt;
+  bindtag tag '.' has these bindings:
+    
+  bindtag tag 'all' has these bindings:
+    &lt;Key-F10&gt;&lt;Alt-Key&gt;&lt;&lt;LeftTab&gt;&gt;&lt;Key-Tab&gt;
+  </pre></blockquote>
+
+<p>Now we can see exactly what happens when a button 1 release event
+occurs. First the class binding is executed, and we hear a beep.
+Perl/Tk then looks at the next tag in the binding tag list, finds a
+matching event descriptor, and executes its callback, which beeps the
+bell twice. The search continues through the Toplevel and
+<tt class="literal">all</tt> bindings, but no other matching event
+descriptor is found.
+</p>
+
+<a name="mastperltk-CHP-15-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">15.3.1. How Might We Use bindtags?</h3>
+
+<p><a name="INDEX-2427" />One way to use
+<tt class="literal">bindtags</tt> is to completely remove every binding tag
+belonging to a widget. If you want a "view only" Text
+widget that displays some fancy instructions but can't be
+modified by the user, remove all binding tags and render the widget
+inert.
+</p>
+
+<blockquote><pre class="code">my $mw = MainWindow-&gt;new;
+my $b = $mw-&gt;Button(qw/-text Quit -command/ =&gt; \&amp;exit)-&gt;grid;
+my $t = $mw-&gt;Text-&gt;grid;
+$t-&gt;insert(qw/end HelloWorld/);
+$t-&gt;bindtags(undef);</pre></blockquote>
+
+<p><a name="INDEX-2428" /><a name="INDEX-2429" />A second use allows us to override a
+class binding for a widget instance. The idiom is to create the
+instance binding, reorder the widget's
+<tt class="literal">bindtags</tt> list, placing the instance tag before the
+class tag, then use <tt class="literal">break</tt> in the instance callback
+to short-circuit the <tt class="literal">bindtags</tt> search so the class
+callback can never be invoked.
+</p>
+
+<p>In the following example, pretend we want to override the
+<tt class="literal">&lt;Enter&gt;</tt> binding for one Button instance
+only. When the cursor moves over that oddball Button, the bell sounds
+rather than the background color changing.
+</p>
+
+<p><a name="INDEX-2430" /><a name="INDEX-2431" />We
+also show how to override a binding for an entire class. The idiom is
+to derive a subclass that establishes the new bindings in
+<tt class="literal">ClassInit</tt>. Refer to <a href="ch14_01.htm">Chapter 14, "Creating Custom Widgets in Pure Perl/Tk"</a>
+for mega-widget details.
+</p>
+
+<p>This is how it's done:</p>
+
+<blockquote><pre class="code">package MyButton;</pre></blockquote>
+
+<p>MyButton is a subclass of the standard Button widget. A MyButton
+behaves just like a normal Button except that it prints a message
+when the cursor moves over it instead of changing color.
+<tt class="literal">ClassInit</tt> first establishes normal Button bindings
+and then overrides the <tt class="literal">&lt;Enter&gt;</tt> event
+descriptor.
+</p>
+
+<p>If there is no <tt class="literal">SUPER::ClassInit</tt> call, MyButton
+widgets would have no default behavior at all.
+</p>
+
+<blockquote><pre class="code">use base qw/Tk::Button/;
+Construct Tk::Widget 'MyButton';
+
+sub ClassInit {
+    my ($class, $mw) = @_;
+    $class-&gt;SUPER::ClassInit($mw);
+    $mw-&gt;bind($class, '&lt;Enter&gt;', sub{print "Entered a MyButton\n"});
+}</pre></blockquote>
+
+<p>Make a Button and a MyButton:</p>
+
+<blockquote><pre class="code">package main;
+
+my $mw = MainWindow-&gt;new;
+$mw-&gt;Button(-text =&gt; 'NormalButton')-&gt;pack;
+$mw-&gt;MyButton(-text =&gt; 'MyButton')-&gt;pack;</pre></blockquote>
+
+<p>Although MyButton has overridden <tt class="literal">&lt;Enter&gt;</tt> on
+a class-wide basis, both Button and MyButton widgets have the same
+<tt class="literal">bindtags</tt> order: class, instance, Toplevel,
+<tt class="literal">all</tt>.
+</p>
+
+<p>Now create a Button, <tt class="literal">$swap</tt>, and print its
+<tt class="literal">bindtags</tt> list to prove that, by default, the order
+remains class, instance, Toplevel, <tt class="literal">all</tt>.
+</p>
+
+<blockquote><pre class="code">my $swap = $mw-&gt;Button(-text =&gt; 'SwapButton')-&gt;pack;
+my (@swap_bindtags) = $swap-&gt;bindtags;
+print "\$swap's original bindtags list is : @swap_bindtags\n";</pre></blockquote>
+
+<p>Reorder <tt class="literal">$swap</tt>'s <tt class="literal">bindtags</tt>
+by swapping the class and instance order, yielding instance, class,
+Toplevel, <tt class="literal">all</tt>. <tt class="literal">bindtags</tt> expects
+a reference to an array of tags, which we provide after slicing the
+original array.
+</p>
+
+<blockquote><pre class="code">$swap-&gt;bindtags( [ @swap_bindtags[1, 0, 2, 3] ] );
+@swap_bindtags = $swap-&gt;bindtags;
+print "\$swap's new      bindtags list is : @swap_bindtags\n";</pre></blockquote>
+
+<p>Override <tt class="literal">&lt;Enter&gt;</tt> for the instance
+<tt class="literal">$swap</tt> only. Now, when the cursor enters
+<tt class="literal">$swap</tt>, first the instance callback is executed,
+then <tt class="literal">break</tt> halts further searching of the
+<tt class="literal">bindtags</tt> list. <tt class="literal">$_[0]</tt> is
+<tt class="literal">$swap</tt>, the implicit callback argument provided by
+Perl/Tk.
+</p>
+
+<blockquote><pre class="code">$swap-&gt;bind('&lt;Enter&gt;' =&gt; sub {
+    $_[0]-&gt;bell;
+    $_[0]-&gt;break;
+});
+
+MainLoop;</pre></blockquote>
+
+<p>In summary, to alter class bindings for many widgets, it's best
+to subclass them. For a single instance, <tt class="literal">break</tt>
+with a reordered <tt class="literal">bindtags</tt> list might be easiest.
+</p>
+
+<p>This is why the <tt class="literal">bindtags</tt> order differs from
+Tcl/Tk's order of instance, class, Toplevel,
+<tt class="literal">all</tt>. Under object-oriented Perl/Tk, we are
+expected to use subclassing.<a name="INDEX-2432" />
+</p>
+
+</div>
+<a name="mastperltk-CHP-15-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">15.3.2. bindDump&#x2014;Dump Lots of Binding Information</h3>
+
+<p><tt class="literal">bindtags</tt><a name="INDEX-2433" /><a name="INDEX-2434" /><a name="INDEX-2435" />, in conjunction with
+<tt class="literal">bind</tt>, is a powerful debugging tool, since it can
+display tons of useful widget binding data. We've encapsulated
+it into a module that exports one symbol: the subroutine
+<tt class="literal">bindDump</tt>. Here's what it has to say about
+our <tt class="literal">$twice</tt> Button widget. For this example,
+we're using the "fake method" binding syntax:
+</p>
+
+<blockquote><pre class="code">my $twice = $mw-&gt;Button(qw/-text Beep -command/ =&gt;  sub {$mw-&gt;bell});
+$twice-&gt;bind('&lt;ButtonRelease-2&gt;' =&gt; __PACKAGE__ . '::twice');
+&amp;bindDump($twice);</pre></blockquote>
+
+<p>The <tt class="literal">bindDump</tt> output follows. For each binding tag,
+it lists the event descriptor, the event descriptor's callback,
+plus all the callback arguments. Notice that without exception, the
+callback is a method name and not a code reference.
+</p>
+
+<p><tt class="literal">bindDump</tt> also lists the arguments passed to the
+callback, expanding <tt class="literal">Ev</tt> calls. Notice that the
+<tt class="literal">all</tt> tag's <tt class="literal">&lt;Alt-Key&gt;</tt>
+event uses <tt class="literal">Ev('K')</tt>, the event's keysym. The
+<tt class="literal">all</tt> binding tag affects menu and focus traversal.
+</p>
+
+<blockquote><pre class="code">## Binding information for '.button', Tk::Button=HASH(0x81803f0) ##
+
+1. Binding tag 'Tk::Button' has these bindings:
+                  &lt;Key-Return&gt; : Tk::Callback=SCALAR(0x818024c)          
+                                   'Invoke'
+                   &lt;Key-space&gt; : Tk::Callback=SCALAR(0x8180234)          
+                                   'Invoke'
+             &lt;ButtonRelease-1&gt; : Tk::Callback=SCALAR(0x818021c)          
+                                   'butUp'
+                    &lt;Button-1&gt; : Tk::Callback=SCALAR(0x8180204)          
+                                   'butDown'
+                       &lt;Leave&gt; : Tk::Callback=SCALAR(0x81801d4)          
+                                   'Leave'
+                       &lt;Enter&gt; : Tk::Callback=SCALAR(0x81801e0)          
+                                   'Enter'
+
+2. Binding tag '.button' has these bindings:
+             &lt;ButtonRelease-2&gt; : Tk::Callback=ARRAY(0x81808d0)           
+                                   'main::twice'
+
+3. Binding tag '.' has no bindings.
+
+4. Binding tag 'all' has these bindings:
+                     &lt;Key-F10&gt; : Tk::Callback=SCALAR(0x82910a8)          
+                                   'FirstMenu'
+                     &lt;Alt-Key&gt; : Tk::Callback=ARRAY(0x829103c)           
+                                   'TraverseToMenu'
+                                     Tk::Ev=SCALAR(0x8164f3c)      : 'K'
+                   &lt;&lt;LeftTab&gt;&gt; : Tk::Callback=SCALAR(0x829100c)          
+                                   'focusPrev'
+                     &lt;Key-Tab&gt; : Tk::Callback=SCALAR(0x8290f10)          
+                                   'focusNext'</pre></blockquote>
+
+<p>You should try <tt class="literal">bindDump</tt> on a Text widget;
+there's information there that will be quite surprising.
+</p>
+
+<p><a name="INDEX-2436" />The actual
+<em class="filename">bindDump.pm </em>file isn't particularly
+pretty, but it illustrates an Exporter module with POD documentation.
+In any case, with reservations, here it is:
+</p>
+
+<a name="INDEX-2437" /><a name="INDEX-2438" /><blockquote><pre class="code">$Tk::bindDump::VERSION = '1.0';
+
+package Tk::bindDump;
+
+use Exporter;
+
+use base qw/Exporter/;
+@EXPORT = qw/bindDump/;
+use strict;
+
+sub bindDump {
+
+     # Dump lots of good binding information.  This pretty-print subroutine
+     # is, essentially, the following code in disguise:
+     #
+     # print "Binding information for $w\n";
+     # foreach my $tag ($w-&gt;bindtags) {
+     #     printf "\n Binding tag '$tag' has these bindings:\n";
+     #     foreach my $binding ($w-&gt;bind($tag)) {
+     #         printf "  $binding\n";
+     #     }
+     # }
+
+     my ($w) = @_;
+
+     my (@bindtags) = $w-&gt;bindtags;
+     my $digits = length( scalar @bindtags );
+     my ($spc1, $spc2) = ($digits + 33, $digits + 35);
+     my $format1 = "%${digits}d.";
+     my $format2 = ' ' x ($digits + 2);
+     my $n = 0;
+
+     print "\n## Binding information for '", $w-&gt;PathName, "', $w ##\n";
+
+     foreach my $tag (@bindtags) {
+         my (@bindings) = $w-&gt;bind($tag);
+         $n++;                   # count this bindtag
+
+         if ($#bindings == -1) {
+             printf "\n$format1 Binding tag '$tag' has no bindings.\n", $n;
+         } else {
+             printf "\n$format1 Binding tag '$tag' has these bindings:\n", $n;
+
+             foreach my $binding ( @bindings ) {
+                 my $callback = $w-&gt;bind($tag, $binding);
+                 printf "$format2%27s : %-40s\n", $binding, $callback;
+
+                 if ($callback =~ /SCALAR/) {
+                     if (ref $$callback) {
+                         printf "%s %s\n", ' ' x $spc1, $$callback;
+                     } else {
+                         printf "%s '%s'\n", ' ' x $spc1, $$callback;
+                     }
+                 } elsif ($callback =~ /ARRAY/) {
+                     if (ref $callback-&gt;[0]) {
+                         printf "%s %s\n", ' ' x $spc1, $callback-&gt;[0], "\n";
+                     } else {
+                         printf "%s '%s'\n", ' ' x $spc1, $callback-&gt;[0], "\n";
+                     }
+                     foreach my $arg (@$callback[1 .. $#{@$callback}]) {
+                         if (ref $arg) {
+                             printf "%s %-40s", ' ' x $spc2, $arg;
+                         } else {
+                             printf "%s '%s'", ' ' x $spc2, $arg;
+                         }
+
+                         if (ref $arg eq 'Tk::Ev') {
+                             if ($arg =~ /SCALAR/) {
+                                 print ": '$$arg'";
+                             } else {
+                                 print ": '", join("' '", @$arg), "'";
+                             }
+                         }
+
+                         print "\n";
+                     } # forend callback arguments
+                 } # ifend callback
+
+             } # forend all bindings for one tag
+
+         } # ifend have bindings
+
+     } # forend all tags
+     print "\n";
+
+} # end bindDump
+
+1;
+__END__
+
+=head1 NAME
+
+Tk::bindDump - dump detailed binding information for a widget.
+
+=head1 SYNOPSIS
+
+  use Tk::bindDump;
+
+  $splash-&gt;bindDump;
+
+=head1 DESCRIPTION
+
+This subroutine prints a widget's bindtags.  For each binding tag it
+prints all the bindings, comprised of the event descriptor and the
+callback.  Callback arguments are printed, and Tk::Ev objects are
+expanded.
+
+=head1 COPYRIGHT
+
+Copyright (C) 2000 - 2001 Stephen O. Lidie. All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.</pre></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch15_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">15.2. Binding to Events</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">15.4. Executing Nonblocking System Commands</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

@@ -1,0 +1,339 @@
+<html><head><title>Error Handlers (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch03_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">3.4. Error Handlers</h2>
+
+<p><a name="INDEX-325" /> <a name="INDEX-326" />In
+addition to providing the <tt class="literal">ContentHandler</tt> interface
+for handling parsing events, SAX provides an
+<tt class="literal">ErrorHandler</tt> interface that can be implemented to
+treat various error conditions that may arise during parsing. This
+class works in the same manner as the document handler already
+constructed, but defines only three callback methods. Through these
+three methods, all possible error conditions are handled and reported
+by SAX parsers. Here's a look at the
+<tt class="literal">ErrorHandler</tt> interface:
+</p>
+
+<blockquote><pre class="code">public interface ErrorHandler {
+    public abstract void warning (SAXParseException exception)
+		throws SAXException;
+    public abstract void error (SAXParseException exception)
+		throws SAXException;
+    public abstract void fatalError (SAXParseException exception)
+		throws SAXException;
+}</pre></blockquote>
+
+<p>Each method receives information about the error or warning that has
+occurred through a
+<a name="INDEX-327" /><tt class="literal">SAXParseException</tt>.
+This object holds the line number where the trouble was encountered,
+the URI of the document being treated (which could be the parsed
+document or an external reference within that document), and normal
+exception details such as a message and a printable stack trace. In
+addition, each method can throw a <tt class="literal">SAXException</tt>.
+This may seem a bit odd at first; an exception handler that throws an
+exception? Keep in mind that each handler receives a parsing
+exception. This can be a warning that should not cause the parsing
+process to stop or an error that needs to be resolved for parsing to
+continue; however, the callback may need to perform system I/O or
+another operation that can throw an exception, and it needs to be
+able to send any problems resulting from these actions up the
+application chain. It can do this through the
+<tt class="literal">SAXException</tt> the error handler callback is allowed
+to throw.
+</p>
+
+<p>As an example, consider an error handler that receives error
+notifications and writes those errors to an error log. This callback
+method needs to be able to either append to or create an error log on
+the local filesystem. If a warning were to occur within the process
+of parsing an XML document, the warning would be reported to this
+method. The intent of the warning is to give information to the
+callback and then continue parsing the document. However, if the
+error handler could not write to the log file, it might need to
+notify the parser and application that all parsing should stop. This
+can be done by catching any I/O exceptions and rethrowing these to
+the calling application, thus causing any further document parsing to
+stop. This common scenario is why error handlers must be able to
+throw exceptions (see <a href="ch03_04.htm#javaxml2-CHP-3-EX-2">Example 3-2</a>).
+</p>
+
+<a name="javaxml2-CHP-3-EX-2" /><div class="example">
+<h4 class="objtitle">Example 3-2. Error handler that may throw a SAXException </h4>
+<blockquote><pre class="code">public void warning(SAXParseException exception)
+    throws SAXException {
+
+    try {
+        FileWriter fw = new FileWriter("error.log");
+        BufferedWriter bw = new BufferedWriter(fw);
+        bw.write("Warning: " + exception.getMessage( ) + "\n");
+        bw.flush( );
+        bw.close( );
+        fw.close( );
+    } catch (IOException e) {
+        throw new SAXException("Could not write to log file", e);
+    }
+}</pre></blockquote>
+</div>
+
+<p>With this in mind, it's possible to define the skeleton of an
+<tt class="literal">ErrorHandler</tt> implementation and register it with
+the reader implementation in the same way that the content handler
+was registered. In the interests of keeping this book from becoming a
+treatise on Swing, these methods will just stop parsing and report
+warnings and errors through the command line. First, add another
+nonpublic class to the end of the <em class="emphasis">SAXTreeViewer.java</em> source file:
+</p>
+
+<blockquote><pre class="code">class JTreeErrorHandler implements ErrorHandler {
+
+    // Method implementations
+
+}</pre></blockquote>
+
+<p>Next, in order to actually use the custom error handler, you need to
+register this error handler with your SAX reader. This is done with
+the <a name="INDEX-328" /><tt class="literal">setErrorHandler( )</tt> method
+on the <tt class="literal">XMLReader</tt> instance, and needs to occur in
+the example's <tt class="literal">buildTree( )</tt> method:
+</p>
+
+<blockquote><pre class="code">    public void buildTree(DefaultTreeModel treeModel, 
+                          DefaultMutableTreeNode base, String xmlURI) 
+        throws IOException, SAXException {
+
+        // Create instances needed for parsing
+        XMLReader reader = 
+            XMLReaderFactory.createXMLReader(vendorParserClass);
+        ContentHandler jTreeContentHandler = 
+            new JTreeContentHandler(treeModel, base);
+        <tt class="userinput"><b>ErrorHandler jTreeErrorHandler = new JTreeErrorHandler( );</b></tt>
+
+        // Register content handler
+        reader.setContentHandler(jTreeContentHandler);
+
+        <tt class="userinput"><b>// Register error handler
+        reader.setErrorHandler(jTreeErrorHandler);</b></tt>
+
+        // Parse
+        InputSource inputSource = 
+            new InputSource(xmlURI);
+        reader.parse(inputSource);
+    }</pre></blockquote>
+
+<p>Finally, let's take a look at coding the three methods required
+by the <tt class="literal">ErrorHandler</tt> interface.
+</p>
+
+<a name="javaxml2-CHP-3-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">3.4.1. Warnings</h3>
+
+<p>Any time a <a name="INDEX-329" />warning
+(as defined by the XML 1.0 specification) occurs, this method is
+invoked in the registered error handler. There are several conditions
+that can generate a warning; however, all of them are related to the
+DTD and validity of a document, and I will discuss them in the next
+chapter. For now, you just need to define a simple method that prints
+out the line number, URI, and warning message when a warning occurs.
+Because (for demonstration purposes) I want any warnings to stop
+parsing, this code throws a <tt class="literal">SAXException</tt> and lets
+the wrapping application exit gracefully, cleaning up any used
+resources:
+</p>
+
+<blockquote><pre class="code">    public void warning(SAXParseException exception)
+        throws SAXException {
+            
+        System.out.println("**Parsing Warning**\n" +
+                           "  Line:    " + 
+                              exception.getLineNumber( ) + "\n" +
+                           "  URI:     " + 
+                              exception.getSystemId( ) + "\n" +
+                           "  Message: " + 
+                              exception.getMessage( ));        
+        throw new SAXException("Warning encountered");
+    }</pre></blockquote>
+
+</div>
+<a name="javaxml2-CHP-3-SECT-4.2" /><div class="sect2">
+<h3 class="sect2">3.4.2. Nonfatal Errors</h3>
+
+<p><a name="INDEX-330" /> <a name="INDEX-331" />Errors that occur within parsing that can
+be recovered from, but constitute a violation of some portion of the
+XML specification, are considered nonfatal errors. An error handler
+should always at least log these, as they are typically serious
+enough to merit informing the user or administrator of the
+application, if not so critical as to cause parsing to cease. Like
+warnings, most nonfatal errors are concerned with validation, and
+will be covered in the next chapter in more detail. Also like
+warnings, in the example this error handler just reports the
+information sent to the callback method and exits the parsing
+process:
+</p>
+
+<blockquote><pre class="code">    public void error(SAXParseException exception)
+        throws SAXException {
+        
+        System.out.println("**Parsing Error**\n" +
+                           "  Line:    " + 
+                              exception.getLineNumber( ) + "\n" +
+                           "  URI:     " + 
+                              exception.getSystemId( ) + "\n" +
+                           "  Message: " + 
+                              exception.getMessage( ));
+        throw new SAXException("Error encountered");
+    }</pre></blockquote>
+
+</div>
+<a name="javaxml2-CHP-3-SECT-4.3" /><div class="sect2">
+<h3 class="sect2">3.4.3. Fatal Errors</h3>
+
+<p>Fatal <a name="INDEX-332" />errors
+are those that necessitate stopping the parser. These are typically
+related to a document not being well-formed, and make further parsing
+either a complete waste of time or technically impossible. An error
+handler should almost always notify the user or application
+administrator when a fatal error occurs; without intervention, these
+can bring an application to a shuddering halt. For the example,
+I'll just emulate the behavior of the other two callback
+methods, stopping the parsing and writing an error message to the
+screen when a fatal error is encountered:
+</p>
+
+<blockquote><pre class="code">    public void fatalError(SAXParseException exception)
+        throws SAXException {
+    
+        System.out.println("**Parsing Fatal Error**\n" +
+                           "  Line:    " + 
+                              exception.getLineNumber( ) + "\n" +
+                           "  URI:     " + 
+                              exception.getSystemId( ) + "\n" +
+                           "  Message: " + 
+                              exception.getMessage( ));        
+        throw new SAXException("Fatal Error encountered");
+    }</pre></blockquote>
+
+<p>With this third error handler coded, you should be able to compile
+the example source file successfully and run it on the XML document
+again. Your output should not be any different than it was earlier,
+as there are no reportable errors in the XML. Next, I'll show
+you how to make some of these errors occur (for testing purposes, of
+course!).
+</p>
+
+</div>
+<a name="javaxml2-CHP-3-SECT-4.4" /><div class="sect2">
+<h3 class="sect2">3.4.4. Breaking the Data</h3>
+
+<p>Now that some <a name="INDEX-333" /> <a name="INDEX-334" />error handlers are in place, it is
+worthwhile to generate some problems and see these handlers in
+action. Most warnings and nonfatal errors are associated with
+document validity issues, which I will address in the next chapter
+(when turning on validation is covered in detail). However, there is
+one nonfatal error that results from a nonvalidated XML document,
+involving the version of XML that a document reports. To view this
+error, make the following change to the first line of the XML table
+of contents example:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.2"?&gt;</pre></blockquote>
+
+<p>Now run the Java SAX viewer program on the modified XML document.
+Your output should be similar to that shown here:
+</p>
+
+<blockquote><pre class="code">C:\javaxml2\build&gt;java javaxml2.SAXTreeViewer ..\ch03\xml\contents.xml
+**Parsing Error**
+  Line:    1
+  URI:     file:///C:/javaxml2/ch03/xml/contents.xml
+  Message: XML version "1.2" is not supported.
+org.xml.sax.SAXException: Error encountered</pre></blockquote>
+
+<p>When an XML parser is operating upon a document that reports a
+version of XML greater than that supported by the parser, a nonfatal
+error is reported, in accordance with the XML 1.0 specification. This
+tells an application that newer features expected to be utilized by
+the document may not be available within the parser and the version
+that it supports. Because parsing continues, this is a nonfatal
+error. However, because it signifies a major impact on the document
+(such as newer syntax possibly generating subsequent errors), it is
+considered more important than a warning. This is why the
+<tt class="literal">error( )</tt> method is invoked and triggers the error
+message and parsing halt in the example program.
+</p>
+
+<p>All other meaningful warnings and nonfatal
+<a name="INDEX-335" />errors will be discussed in the
+next chapter; still, there is a variety of fatal errors that a
+nonvalidated XML document may have. These are related to an XML
+document not being well-formed. There is no logic built into XML
+parsers to try to resolve or estimate fixes to malformed XML, so an
+error in syntax results in the parsing process halting. The easiest
+way to demonstrate one of these errors is to introduce problems
+within your XML document. Reset the XML declaration to specify an XML
+version of 1.0, and make the following change to the XML document:
+</p>
+
+<blockquote><pre class="code">
+<tt class="userinput"><b>&lt;?xml version="1.0"?&gt;</b></tt>
+&lt;!DOCTYPE Book SYSTEM "DTD/JavaXML.dtd"&gt;
+
+&lt;!-- Java and XML Contents --&gt;
+&lt;book xmlns="http://www.oreilly.com/javaxml2"
+      xmlns:ora="http://www.oreilly.com"
+&gt;
+  <tt class="userinput"><b>&lt;!-- Note the missing end slash on the title element --&gt;
+  &lt;title ora:series="Java"&gt;Java and XML&lt;title&gt;</b></tt>
+
+  &lt;!-- Rest of content --&gt;
+&lt;/book&gt;</pre></blockquote>
+
+<p>This is no longer a well-formed document. To see the fatal error that
+parsing this document generates, run the
+<tt class="literal">SAXVTreeViewer</tt> program on this modified file to
+get the following the output:
+</p>
+
+<blockquote><pre class="code">C:\javaxml2\build&gt;java javaxml2.SAXTreeViewer ..\ch03\xml\contents.xml
+**Parsing Fatal Error**
+  Line:    23
+  URI:     file:///C:/javaxml2/ch03/xml/contents.xml
+  Message: The element type "title" must be terminated by the matching 
+           end-tag "&lt;/title&gt;".
+org.xml.sax.SAXException: Fatal Error encountered</pre></blockquote>
+
+<p>The parser reports an incorrect ending to the
+<tt class="literal">title</tt> element. This fatal error is exactly as
+expected; parsing could not continue beyond this error. With this
+error handler, you begin to see what can go wrong within the parsing
+process, as well as how to handle those events. In <a href="ch04_01.htm">Chapter 4, "Advanced SAX "</a> I will revisit the error handler and its
+methods and look at the problems that can be reported by a validating
+parser.<a name="INDEX-336" />
+<a name="INDEX-337" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch03_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">3.3. Content Handlers</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">3.5. Gotcha!</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

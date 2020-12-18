@@ -1,0 +1,1190 @@
+<?label 13.6. Secure Sockets Layer: How to Do It?><html><head><title>Secure Sockets Layer: How to Do It (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch13_07.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">13.6. Secure Sockets Layer: How to Do It</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-1156" /> <a name="INDEX-1157" />The object of what
+follows is to make a version of Apache that handles the HTTPS (HTTP
+over SSL) protocol. Currently this is only available in Unix
+versions, and given the many concerns that exist over the security of
+Win32, there seems little point in trying to implement SSL in the
+Win32 version of Apache.</p>
+
+
+
+
+
+<p>The first step is to get hold of the appropriate version of Apache;
+see <a href="ch01_01.htm">Chapter 1, "Getting Started"</a>, and the Apache-SSL home page at
+<a href="http://www.apache-ssl.org/">http://www.apache-ssl.org/</a> for
+current information. Download the source code, or copy it from the
+demonstration CD-ROM, and expand the files in some suitable
+directory. An <em class="filename">src </em>subdirectory will appear. So
+far, so good.</p>
+
+
+
+
+
+<p>The next, and easiest step of all, is to decide whether you are in
+the United States and Canada or the rest of the world. Then follow
+these guidelines:</p>
+
+
+
+
+
+<dl>
+<dt><b><em class="emphasis">In the United States and Canada</em></b></dt>
+<dd><p>You have two choices. You can get a commercial SSL-enabled web
+server, or you can do what the rest of the world does (see below),
+noting only that you need to get a license to use RSA's patents
+if you want to make money out of your SSL-enabled Apache (see
+<em class="emphasis">www.rsa.com</em>).</p></dd>
+
+
+
+
+
+<dt><b><em class="emphasis">In the rest of the world</em></b></dt>
+<dd><p>If your deliberations lead you to believe that you live in the rest
+of the world, proceed as described in the following sections.</p></dd>
+
+</dl>
+
+
+
+
+
+<a name="ch13-8-fm2xml" /><div class="sect2">
+<h3 class="sect2">13.6.1. Get SSLeay</h3>
+
+
+
+
+
+<p>The first thing to do is to get <a name="INDEX-1158" /> <a name="INDEX-1159" />SSLeay. SSLeay is a a freely
+available library, written by the Australian Eric Young, which does
+pretty much everything cryptological that the most secretive heart
+could desire. We went to
+ftp://ftp.psy.uq.oz.au/pub/Crypto/SSL/ (which
+seems to belong to the psychology department of the University of
+Queensland, Australia, and why should we quibble?), downloaded
+<em class="emphasis">SSLeay-0_9_0b_tar.gz</em> since it looked the
+freshest, and put it into
+<em class="emphasis">/usr/local/etc/SSL</em>. We
+uncompressed it with:</p>
+
+
+
+
+
+<blockquote><pre class="code">% <b class="emphasis-bold">gzip -d SSLeay-0_9_0b_tar.gz</b>
+% <b class="emphasis-bold">tar xvf SSLeay-0_9_0b_tar</b></pre></blockquote>
+
+
+
+
+
+<p>producing a surprising amount of stuff in a subdirectory<em class="filename">
+</em><em class="emphasis">SSLeay-0.9.0b</em><em class="filename">.
+</em>Go there. First, read <em class="filename">
+INSTALL</em>, which describes a
+configuration process not unlike that for Apache, but somewhat
+rougher. Things will go more smoothly if you have already
+liberated<tt class="literal"> </tt>Perl and it is in
+<em class="emphasis">/usr/local/bin</em>. The script will put SSL in
+<em class="emphasis">/usr/local/bin</em>; if you don't like this,
+you can change its home. You are told to run
+<tt class="literal">./Configure</tt> <em class="replaceable">system</em>
+<em class="replaceable">type</em> but, slightly alarmingly,
+<em class="emphasis">INSTALL</em> doesn't tell you what the possible
+system types are. However, we remember that if anything goes wrong,
+we can just go back to the top directory, run
+<em class="emphasis">tar</em> again to start over, and boldly type:</p>
+
+
+
+
+
+
+<blockquote><pre class="code"><tt class="userinput"><b>% ./Configure</b></tt></pre></blockquote>
+
+
+
+
+
+<p>A list of systems appears, among which is FreeBSD and, we hope,
+yours. We ran<em class="filename"> </em><tt class="literal">./Configure</tt>
+again:</p>
+
+
+
+
+
+<blockquote><pre class="code"><tt class="userinput"><b>% ./Configure</b></tt> FreeBSD</pre></blockquote>
+
+
+
+
+
+<p>This sets up a number of system variables and reports them to the
+screen. As long as there is not an obvious error, we don't
+really care what it says. <em class="emphasis">INSTALL</em> then tells us
+to tidy up the place, make SSL, make the test certificate, and test
+the result by using these four commands:</p>
+
+
+
+
+
+<blockquote><pre class="code"><tt class="userinput"><b>% make clean</b></tt>
+<tt class="userinput"><b>% make</b></tt>
+<tt class="userinput"><b>% make rehash</b></tt>
+<tt class="userinput"><b>% make test</b></tt></pre></blockquote>
+
+
+
+
+
+<p>Again, a lot of prattle outputs to the screen that is probably really
+interesting if you are Eric Young, and less fascinating otherwise.
+The output ends with a printout of your signed certificate,
+<em class="emphasis">newcert.pem.</em></p>
+
+
+
+
+
+<p>And then we perform the final step recommended in <em class="filename">INSTALL
+</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code"><tt class="userinput"><b>% make install</b></tt></pre></blockquote>
+
+
+
+
+
+<p>It turned out that <em class="emphasis">ssleay</em> hadn't been
+installed in <em class="emphasis">/usr/local/bin</em> as promised, but was
+in <em class="emphasis">/usr/local/ssl/bin</em>. This may have been fixed
+by the time you do all this, but if not, add the new directory to
+your path. Just how you do this depends on the shell you are running,
+so we won't confuse you with advice that may be inappropriate.
+See your administrator in case of difficulty.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch13-33986" /><div class="sect2">
+<a name="INDEX-1160" /><a name="INDEX-1161" /><a name="INDEX-1162" /><h3 class="sect2">13.6.2. Get the 
+
+Apache-SSL Patch</h3>
+
+
+
+
+
+<p>It is important that if you have already made Apache you should
+delete the whole directory with:</p>
+
+
+
+
+
+<blockquote><pre class="code"><tt class="userinput"><b>% rm -R</b></tt> <em class="replaceable">apache directory</em></pre></blockquote>
+
+
+
+
+
+<p>Reexpand the original Apache <em class="emphasis">.tar</em> file to create
+a complete directory (see <a href="ch01_08.htm#ch01-22592">Section 1.8, "Making Apache Under Unix"</a>, in <a href="ch01_01.htm">Chapter 1, "Getting Started"</a> ) and
+download the Apache-SSL patch file from Oxford University:
+ftp://ftp.ox.ac.uk/pub/crypto/SSL/ or one of the
+mirror sites. It is important that the file you download is as new as
+you can get and matches the Apache version you have just expanded.
+The reason you should reexpand Apache is that Apache-SSL has to patch
+the source of Apache, so it must be "as-new."<a href="#FOOTNOTE-69">[69]</a>
+In our case we got <em class="emphasis">apache_1_3_1+ssl_1_22_tar.gz,</em>
+copied it into the <em class="filename">... /apache/apache_1.3.1</em>
+subdirectory (not the ...<em class="emphasis">/src</em> subdirectory, as
+in the previous edition), and expanded it with:</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-69" /><p>[69]To answer a FAQ: No, Apache-SSL cannot be a pure module; the
+Apache API is not powerful enough to permit that.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<blockquote><pre class="code">% <b class="emphasis-bold">gzip -d apache_1_3_1+ssl_1_22_tar.gz</b>
+% <b class="emphasis-bold">tar xvf apache_1_3_1+ssl_1_22_tar</b></pre></blockquote>
+
+
+
+
+
+<p>You find a number of <em class="filename">*.SSL</em> files. The
+immediately interesting one is <em class="filename">README.SSL</em>,
+written by one of the authors of this book (BL), which you should, of
+course, read.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch13-9-fm2xml" /><div class="sect2">
+<h3 class="sect2">13.6.3. Make the Patch</h3>
+
+
+
+
+
+<p>The next step is to do as instructed in <em class="filename">README.SSL
+</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code"><tt class="userinput"><b>% ./FixPatch</b></tt></pre></blockquote>
+
+
+
+
+
+<p>You will be asked if you want the patch applied, to which you reply
+<tt class="literal">y</tt>. A good deal of chat ensues on the screen, but
+as long as it does not stop with an error, all is well.<a href="#FOOTNOTE-70">[70]</a></p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-70" /><p>[70]Note that some operating systems (notably Solaris) come with an
+exceedingly out-of-date version of <em class="emphasis">patch</em>, which
+doesn't work properly with Apache-SSL's patch files. The
+current version of <em class="filename">patch</em> at the time of writing
+is 2.5.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<p><em class="emphasis">patch</em> is a Unix utility. If you get the message:</p>
+
+
+
+
+
+<blockquote><pre class="code">Looks like a new style context diff
+File to patch:</pre></blockquote>
+
+
+
+
+
+<p>and not much else, you may have an out-of-date version of
+<em class="emphasis">patch</em>. You can get the version number by typing:</p>
+
+
+
+
+
+<blockquote><pre class="code"><tt class="userinput"><b>% patch -version</b></tt></pre></blockquote>
+
+
+
+
+
+<p>If you have a version earlier than 2.1, you need to upgrade. If you
+have 2.5 and you still have problems, you may find that:</p>
+
+
+
+
+
+<blockquote><pre class="code"><tt class="userinput"><b>% patch -pl &lt; SSLpatch</b></tt></pre></blockquote>
+
+
+
+
+
+<p>will work.</p>
+
+
+
+
+
+<p>A useful site, which has FAQs about Apache-SSL, is
+<em class="emphasis">www.apache-ssl.org.</em></p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch13-10-fm2xml" /><div class="sect2">
+<h3 class="sect2">13.6.4. Rebuild Apache</h3>
+
+
+
+
+
+<p>You then have to rebuild Apache. Since you have replaced all the
+files, including the original <em class="emphasis">Configuration,</em> you
+may want to copy the version you saved in the top directory (see
+<a href="ch01_08.htm#ch01-16004">Section 1.8.4, "Configuration Settings and Rules"</a>, in <a href="ch01_01.htm">Chapter 1, "Getting Started"</a>)
+back down. Check that this line in this file has been correctly
+altered:</p>
+
+
+
+
+
+<blockquote><pre class="code">SSL_BASE=&lt;current location of SSL&gt;</pre></blockquote>
+
+
+
+
+
+<p>This should be the directory where SSLeay has unpacked
+itself -- in our case
+<em class="emphasis">/usr/local/etc/SSL/SSLeay-0.9.0b</em>.</p>
+
+
+
+
+
+<p>Run <tt class="literal">./Configure</tt> to remake the
+<em class="filename">Makefile</em>, and then <tt class="literal">make</tt> to
+compile the code. The end result, if all has gone well, is an
+executable: <em class="filename">httpsd</em>. Copy it into
+<em class="filename">/usr/local/bin </em>next to<em class="filename">
+httpd.</em>
+<a name="INDEX-1163" /></p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch13-31056" /><div class="sect2">
+<h3 class="sect2">13.6.5. Make a Test Certificate</h3>
+
+
+
+
+
+<p>We now need a test <a name="INDEX-1164" />
+<a name="INDEX-1165" />
+<a name="INDEX-1166" />certificate.
+..<em class="emphasis">./apache_1.3.1/src/</em><em class="filename">Makefile</em>
+has the necessary commands in the section headed
+"certificate":</p>
+
+
+
+
+
+<blockquote><pre class="code">certificate:
+    $(SSL_APP_DIR)/ssleay req -config ../SSLconf/conf/ssleay.cnf \
+    -new -x509 -nodes -out ../SSLconf/conf/httpsd.pem \
+    -keyout ../SSLconf/conf/httpsd.pem; \
+    ln -sf ../SSLconf/conf/httpsd.pem ../SSLconf/conf/`$(SSL_APP_DIR)/ssleay \
+    x509 -noout -hash &lt; ../SSLconf/conf/httpsd.pem`.0</pre></blockquote>
+
+
+
+
+
+<p>Now type:</p>
+
+
+
+
+
+<blockquote><pre class="code">%<b class="emphasis-bold"> make certificate</b></pre></blockquote>
+
+
+
+
+
+<p>A number of questions appear about who and where you are:</p>
+
+
+
+
+
+<blockquote><pre class="code">/usr/local/etc/SSL/SSLeay-0.9.0b/apps/ssleay req -config ../SSLconf/conf/
+    ssleay.cnf  -new -x509 -nodes -out ../SSLconf/conf/httpsd.pem  -keyout ../
+SSLconf/conf/httpsd.pem;  ln -sf ../SSLconf/conf/httpsd.pem ../SSLconf/conf/
+    `/usr/local/etc/SSL/SSLeay-0.9.0b/apps/ssleay  x509 -noout -hash &lt; ../SSLconf/conf/httpsd.pem`.0
+Generating a 1024  bit RSA private key
+...........+++++
+...........+++++
+writing new private key to '../SSLconf/conf/httpsd.pem'
+-----
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank.
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [GB]:<b class="emphasis-bold">US</b>
+State or Province Name (full name) [Some-State]:<b class="emphasis-bold">Nevada</b>
+Locality Name (eg, city) []:<b class="emphasis-bold">Hopeful City</b>
+Organization Name (eg, company; recommended) []:<b class="emphasis-bold">Butterthlies Inc</b>
+Organizational Unit Name (eg, section) []:<b class="emphasis-bold">Sales</b>
+Common Name (eg, ssl.domain.tld; required!!!) []:<b class="emphasis-bold">www.butterthlies.com</b>
+Email Address []:<b class="emphasis-bold">sales@butterthlies.com</b></pre></blockquote>
+
+
+
+
+
+<p>Your inputs are shown in bold type in the usual way. The only one
+that really matters is "Common Name," which must be the
+fully qualified domain name (FQDN) of your server. This has to be
+correct because your client's Netscapes (and presumably other
+security-conscious browsers) will check to see that this address is
+the same as that being accessed. The result is the file <em class="filename">...
+/conf/httpsd.pem</em> (yours should not be identical to this,
+of course):</p>
+
+
+
+
+
+<blockquote><pre class="code">-----BEGIN RSA PRIVATE KEY-----
+MIICXAIBAAKBgQDBpDjpJQxvcPRdhNOflTOCyQp1Dhg0kBruGAHiwxYYHdlM/z6k
+pi8EJFvvkoYdesTVzM+6iABQbk9fzvnG5apxy8aB+byoKZ575ce2Rg43i3KNTXY+
+RXUzy/5HIiL0JtX/oCESGKt5W/xd8G/xoKR5Qe0P+1hgjASF2p97NUhtOQIDAQAB
+AoGALIh4DiZXFcoEaP2DLdBCaHGT1hfHuU7q4pbi2CPFkQZMU0jgPz140psKCa7I
+6T6yxfi0TVG5wMWdu4r+Jp/q8ppQ94MUB5oOKSb/Kv2vsZ+T0ZCBnpzt1eia9ypX
+ELTZhngFGkuq7mHNGlMyviIcq6Qct+gxd9omPsd53W0th4ECQQDmyHpqrrtaVlw8
+aGXbTzlXp14Bq5RG9Ro1eibhXId3sHkIKFKDAUEjzkMGzUm7Y7DLbCOD/hdFV6V+
+pjwCvNgDAkEA1szPPD4eB/tuqCTZ+2nxcR6YqpUkT9FPBAV9Gwe7Svbct0yu/nny
+bpv2fcurWJGI23UIpWScyBEBR/z34El3EwJBALdw8YVtIHT9IlHN9fCt93mKCrov
+JSyF1PBfCRqnTvK/bmUij/ub+qg4YqS8dvghlL0NVumrBdpTgbO69QaEDvsCQDVe
+P6MNH/MFwnGeblZr9SQQ4QeI9LOsIoCySGod2qf+e8pDEDuD2vsmXvDUWKcxyZoV
+Eufc/qMqrnHPZVrhhecCQCsP6nb5Aku2dbhX+TdYQZZDoRE2mkykjWdK+B22C2/4
+C5VTb4CUF7d6ukDVMT2d0/SiAVHBEI2dR8Vw0G7hJPY=
+-----END RSA PRIVATE KEY-----
+-----BEGIN CERTIFICATE-----
+MIICvTCCAiYCAQAwDQYJKoZIhvcNAQEEBQAwgaYxCzAJBgNVBAYTAlVTMQ8wDQYD
+VQQIEwZOZXZhZGExFTATBgNVBAcTDEhvcGVmdWwgQ2l0eTEZMBcGA1UEChMQQnV0
+dGVydGhsaWVzIEluYzEOMAwGA1UECxMFU2FsZXMxHTAbBgNVBAMTFHd3dy5idXR0
+ZXJ0aGxpZXMuY29tMSUwIwYJKoZIhvcNAQkBFhZzYWxlc0BidXR0ZXJ0aGxpZXMu
+Y29tMB4XDTk4MDgyNjExNDUwNFoXDTk4MDkyNTExNDUwNFowgaYxCzAJBgNVBAYT
+AlVTMQ8wDQYDVQQIEwZOZXZhZGExFTATBgNVBAcTDEhvcGVmdWwgQ2l0eTEZMBcG
+A1UEChMQQnV0dGVydGhsaWVzIEluYzEOMAwGA1UECxMFU2FsZXMxHTAbBgNVBAMT
+FHd3dy5idXR0ZXJ0aGxpZXMuY29tMSUwIwYJKoZIhvcNAQkBFhZzYWxlc0BidXR0
+ZXJ0aGxpZXMuY29tMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDBpDjpJQxv
+cPRdhNOflTOCyQp1Dhg0kBruGAHiwxYYHdlM/z6kpi8EJFvvkoYdesTVzM+6iABQ
+bk9fzvnG5apxy8aB+byoKZ575ce2Rg43i3KNTXY+RXUzy/5HIiL0JtX/oCESGKt5
+W/xd8G/xoKR5Qe0P+1hgjASF2p97NUhtOQIDAQABMA0GCSqGSIb3DQEBBAUAA4GB
+AIrQjOfQTeOHXBS+zcXy9OWpgcfyxI5GQBg6VWlRlhthEtYDSdyNq9hrAT/TGUwd
+Jm/whjGLtD7wPx6c0mR/xsoWWoEVa2hIQJhDlwmnXk1F3M55ZA3Cfg0/qb8smeTx
+7kM1LoxQjZL0bg61Av3WG/TtuGqYshpE09eu77ANLngp
+-----END CERTIFICATE-----</pre></blockquote>
+
+
+
+
+
+<p>This is, in fact, rather an atypical certificate, because it combines
+our private key with the certificate, whereas you would probably want
+to apply more stringent security to the private key than to the
+certificate. Also, it is signed by ourselves, making it a root
+certification authority certificate; this is just a convenience for
+test purposes. In the real world, root CAs are likely to be somewhat
+more impressive organizations than little old us.</p>
+
+
+
+
+
+<p>This certificate also is without a passphrase, which
+<em class="filename">httpsd</em> would otherwise ask for at startup. We
+think a passphrase is a bad idea because it prevents automatic server
+restarts, but if you want to make yourself a certificate that
+incorporates one, edit <em class="emphasis">Makefile</em> (remembering to
+reedit if you run <em class="filename">Configuration</em> again), find the
+"certificate:" section, remove the
+<tt class="literal">-nodes</tt> flag and proceed as before. Or, follow this
+procedure, which will also be useful when we ask Thawte for a demo
+certificate. Go to wherever you need the
+results -- <em class="emphasis">.../site.ssl/conf</em> would be good.
+Type:</p>
+
+
+
+
+
+<blockquote><pre class="code">% <b class="emphasis-bold">ssleay req -new -outform PEM&gt; new3.cert.csr</b>
+
+...
+writing new private key to 'privkey.pem'
+enter PEM pass phrase:</pre></blockquote>
+
+
+
+
+
+<p>Type in your passphrase and then answer the questions as before. This
+generates a Certificate Signing Request (CSR) with your passphrase
+encrypted into it. You will need this if you want to get a server
+certificate, together with the key file
+<em class="emphasis">privkey.pem</em>.</p>
+
+
+
+
+
+<p>However, if you then decide you don't want a passphrase after
+all, you can remove it with:</p>
+
+
+
+
+
+<blockquote><pre class="code">% <b class="emphasis-bold">ssleay -in  privkey.pem -out new3.cert.key</b></pre></blockquote>
+
+
+
+
+
+<p>Either way, you then convert the request into a signed certificate:</p>
+
+
+
+
+
+<blockquote><pre class="code">% <b class="emphasis-bold">ssleay c509 -in new3cert.csr -out new3.cert.cert -req -signkey</b>
+<b class="emphasis-bold">      privkey.pem</b></pre></blockquote>
+
+
+
+
+
+<p>You now have a secure version of Apache, <em class="filename">httpsd</em>;
+a site to use it on, <em class="filename">site.ssl</em>; a certificate,
+<em class="emphasis">new3.cert.cert;</em> and a signed key,
+<em class="emphasis">privkey.pem</em>.<a name="INDEX-1167" /> <a name="INDEX-1168" /> <a name="INDEX-1169" /></p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch13-11-fm2xml" /><div class="sect2">
+<h3 class="sect2">13.6.6. The Global Session Cache</h3>
+
+
+
+
+
+<p>SSL uses a session key to secure each connection. When the connection
+starts, certificates are checked and a new session key is agreed
+between the client and server (note that because of the joys of
+public key encryption, this new key is only known to the client and
+server). This is a time-consuming process, so Apache-SSL and the
+client can conspire to improve the situation by reusing session keys.
+Unfortunately, since Apache uses a multiprocess execution model,
+there's no guarantee that the next connection from the client
+will use the same instance of the server. In fact, it is rather
+unlikely. Thus, it is necessary to store session information in a
+cache that is accessible to all the instances of Apache-SSL. This is
+the function of the
+<em class="filename">gcache</em>
+<a name="INDEX-1170" />
+<a name="INDEX-1171" />
+<a name="INDEX-1172" /> program. It is controlled by
+the <tt class="literal">SSLCacheServerPath</tt>,
+<tt class="literal">SSLCacheServerPort</tt>, and
+<tt class="literal">SSLSessionCacheTimeout</tt> directives described later
+in this chapter.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch13-12-fm2xml" /><div class="sect2">
+<h3 class="sect2">13.6.7. Site.SSL</h3>
+
+
+
+
+
+<p>
+<a name="INDEX-1173" />You now have to
+think about the Config files for the site. A sample Config file will
+be found at .../<em class="emphasis">apache_1.3.1/SSLconf/conf</em>. After
+we edit it to fit our site, the Config file is as follows:</p>
+
+
+
+
+
+<blockquote><pre class="code"># This is an example configuration file for Apache-SSL.
+# Copyright (C) 1995,6,7 Ben Laurie
+# By popular demand, this file now illustrates the way to create two 
+# websites, one secured (on port 8888), the other not (on port 8887).
+# You may need one of these.
+User webuser
+Group webgroup
+LogLevel debug
+
+# SSL servers MUST be standalone, currently.
+ServerType standalone
+
+# The default port for SSL is 443... but we use 8888 here so we don't have
+# to be root.
+Port 8887
+Listen 8887
+Listen 8888
+
+# My test document root
+DocumentRoot /usr/www/site.ssl/htdocs
+
+&lt;Directory /usr/www/site.ssl/htdocs/manual&gt;
+SSLRequireSSL
+# This directive protects a directory by forbidding access except when SSL is # in use. Very handy for defending against configuration errors that expose
+# stuff that should be protected.
+&lt;/Directory&gt;
+
+# Watch what's going on.
+TransferLog logs/transfer_log
+
+# Note that all SSL options can apply to virtual hosts.
+# Disable SSL. Useful in combination with virtual hosts. Note that
+# SSLEnable is now also supported.
+SSLDisable
+# Set the path for the global cache server executable.
+# If this facility gives you trouble, you can disable it by setting
+# CACHE_SESSIONS to FALSE in apache_ssl.c
+SSLCacheServerPath /usr/local/etc/apache/apache_1.3.1/src/modules/ssl/gcache
+# Set the global cache server port number or path. If it is a path, a Unix
+# domain socket is used. If a number, a TCP socket.
+SSLCacheServerPort logs/gcache_port
+# The number should either refer to a path consisting of a directory that 
+# exists and a file that doesn't, or an unused TCP/IP port.
+
+# Set the session cache timeout, in seconds (set to 15 for testing, use a
+# higher value in real life).
+SSLSessionCacheTimeout 15
+
+# Set the CA certificate verification path (must be PEM encoded).
+# (in addition to getenv("SSL_CERT_DIR"), I think).
+# (Not used in this example)
+#SSLCACertificatePath /usr/local/etc/apache/apache_1.3.1/SSLconf/conf
+
+# Set the CA certificate verification file (must be PEM encoded).
+# (in addition to getenv("SSL_CERT_FILE"), I think).
+SSLCACertificateFile /usr/www/site.ssl/conf/thawte.cert
+
+# Point SSLCertificateFile at a PEM-encoded certificate.
+# If the certificate is encrypted, then you will be prompted for a 
+# passphrase. Note that a kill -1 will prompt again.
+# A test certificate can be generated with "make certificate".
+
+# If the key is not combined with the certificate, use this directive to
+# point at the key file. If this starts with a '/' it specifies an absolute
+# path; otherwise, it is relative to the default certificate area. That is, 
+# it means "&lt;default&gt;/private/&lt;keyfile&gt;".
+#SSLCertificateKeyFile /some/place/with/your.key
+
+# Set SSLVerifyClient to:
+# 0 if no certicate is required.
+# 1 if the client may present a valid certificate.
+# 2 if the client must present a valid certificate.
+# 3 if the client may present a valid certificate but it is not required to
+#   have a valid CA.
+SSLVerifyClient 0
+
+# How deeply to verify before deciding they don't have a valid certificate.
+SSLVerifyDepth 10
+
+# Translate the client X509 into a Basic authorization. This means that the
+# standard Auth/DBMAuth methods can be used for access control. The username
+# is the "one-line" version of the client's X509 certificate. Note that no
+# password is obtained from the user. Every entry in the user file needs this
+# password: xxj31ZMTZzkVA. See the code for further explanation.
+SSLFakeBasicAuth
+# List the ciphers that the client is permitted to negotiate. See the source
+# for a definitive list. For example:
+#SSLRequiredCiphers RC4-MD5:RC4-SHA:IDEA-CBC-MD5:DES-CBC3-SHA
+
+# These two can be used per-directory to require or ban ciphers. Note that 
+# (at least in the current version) Apache-SSL will not attempt to 
+# renegotiate if a cipher is banned (or not required).
+#SSLRequireCipher
+#SSLBanCipher
+
+# Custom logging
+CustomLog logs/ssl_log "%t %{version}c %{cipher}c %{clientcert}c"
+
+&lt;VirtualHost www.butterthlies.com:8888&gt;
+SSLEnable
+&lt;/VirtualHost&gt;
+
+ScriptAlias /scripts/usr/www/cgi-bin</pre></blockquote>
+
+
+
+
+
+<p>We have changed the <em class="emphasis">user</em> and<em class="emphasis">
+group</em> to <em class="emphasis">webuser</em> and
+<em class="emphasis">webgroup</em> in line with practice throughout the
+book. The default port for SSL is 443, but here we get a replay of
+port-based virtual hosting (see <a href="ch03_01.htm">Chapter 3, "Toward a Real Web Site"</a>) so that
+it is easy to contrast the behavior of Apache with (port 8888) and
+without (port 8887) SSL. <a name="INDEX-1174" /></p>
+
+
+
+
+
+<p>Remember to edit <em class="emphasis">go</em> so it invokes
+<em class="emphasis">httpsd</em> (the secure version); otherwise, Apache
+will rather puzzlingly object to all the nice new SSL directives. Run
+<tt class="literal">./go</tt> in the usual way. Apache starts up and
+produces a message:</p>
+
+
+
+
+
+<blockquote><pre class="code">Reading certificate and key for server www.butterthlies.com:8888</pre></blockquote>
+
+
+
+
+
+<p>This message shows that the right sort of thing is happening. If you
+had opted for a passphrase, Apache would halt for you to type it in,
+and the message would remind you which passphrase to use. However, in
+this case there isn't one, so Apache starts up.<a href="#FOOTNOTE-71">[71]</a> On the client side,
+log on to:</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-71" /><p>[71]Later versions of Apache may not show this message if a
+passphrase is not required.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<blockquote><pre class="code">https://www.butterthlies.com:8888</pre></blockquote>
+
+
+
+
+
+<p>remembering the "s" in <tt class="literal">https</tt>.
+It's rather bizarre that the <em class="emphasis">client</em> is
+expected to know in advance that it is going to meet an SSL server
+and has to log on securely, but that's the way the Web is.
+However, in practice you would usually log on to an unsecured site
+with <tt class="literal">http</tt> and then choose or be steered to a link
+that would set you up automatically for a secure transaction. If you
+forget the "s", various things can
+happen:<a name="INDEX-1175" /></p>
+
+
+
+
+
+<ul><li><p>You are mystifyingly told that the page contains no data.</p></li><li><p>Your browser hangs.</p></li><li><p>..<em class="emphasis">./site.ssl/logs/error_log</em> contains the
+following line:</p></li></ul>
+<blockquote><pre class="code">SSL_Accept failed error:140760EB:SSL routines:SSL23_GET_CLIENT_HELLO:unknown
+    protocol</pre></blockquote>
+
+
+
+
+
+<p>If you pass these perils, you find that Netscape's product
+liability team has been at work, and you are taken through a
+rigmarole of legal safeguards and "are you absolutely
+sure?" queries before you are finally permitted to view the
+secure page.</p>
+
+
+
+
+
+<p>We were running with <tt class="literal">SSLVerifyClient</tt>
+<tt class="literal">0</tt>, so Apache made no inquiry concerning our
+credibility as a client. Change it to <tt class="literal">2</tt>, to force
+the client to present a valid certificate. Netscape now says:</p>
+
+
+
+
+
+<blockquote><pre class="code">No User Certificate
+The site 'www.butterthlies.com' has requested client authentication, but you
+do not have a Personal Certificate to authenticate yourself. The site may
+choose not to give you access without one.</pre></blockquote>
+
+
+
+
+
+<p>Oh, the shame of it. The simple way to fix this smirch is to get a
+beta certificate from one of the following companies:</p>
+
+
+
+
+
+<dl>
+<dt><b><b class="emphasis-bold">Thawte Consulting</b></b></dt>
+<dd><p><a href="http://www.thawte.com/certs/server/request.html">http://www.thawte.com/certs/server/request.html</a></p></dd>
+
+
+
+
+
+<dt><b><b class="emphasis-bold">CertiSign Certificadora Digital Ltda.</b></b></dt>
+<dd><p><a href="http://www.certisign.com.br">http://www.certisign.com.br</a></p></dd>
+
+
+
+
+
+<dt><b><b class="emphasis-bold">IKS GmbH</b></b></dt>
+<dd><p><a href="http://www.iks-jena.de/produkte/ca/">http://www.iks-jena.de/produkte/ca/</a></p></dd>
+
+
+
+
+
+<dt><b><b class="emphasis-bold">Uptime Commerce Ltd.</b></b></dt>
+<dd><p><a href="http://www.uptimecommerce.com">http://www.uptimecommerce.com</a></p></dd>
+
+
+
+
+
+<dt><b><b class="emphasis-bold">BelSign NV/SA</b></b></dt>
+<dd><p><a href="http://www.belsign.be">http://www.belsign.be</a></p></dd>
+
+</dl>
+
+
+
+
+
+<p>Log on to one of these sites, and follow the instructions.</p>
+
+
+
+
+
+<p>In the interests of European unity we chose BelSign NV/SA first and
+tried to download their Class 1 Demo Certificate, lasting 30 days.
+BelSign's own certificate had expired and the process
+failed -- in our experience, this is quite usual when dealing with
+"secure" sites and is an indicator that secure e-business
+is not yet a reality.</p>
+
+
+
+
+
+<p>Ho hum, try IKS GmbH. They take things more seriously and try to
+explain the whole complicated business in slightly fractured
+Germlish, but don't seem to offer a free demo certificate, so
+that was no good.</p>
+
+
+
+
+
+<p>The attempt to contact Uptime timed out.</p>
+
+
+
+
+
+<p>Certisign lives in Brazil and is lavishly documented in commercial
+Portuguese -- interesting in a way, but it didn't seem to
+offer a demo certificate either.</p>
+
+
+
+
+
+<p>Finally we fell back on Thawte, who do offer a demo certificate;
+however, they use it to test their procedures -- and your
+understanding -- to the limit. You need to paste your CSR
+<em class="emphasis">new2.cert.csr</em> (see <a href="ch13_06.htm#ch13-31056">Section 13.6.5, "Make a Test Certificate"</a>, earlier in this chapter) into their
+form and then choose one of a number of options. In our case, we
+thought we needed the "PEM format" because the
+certificates we generated seemed to be PEMs. But no. We got the
+following error:</p>
+
+
+
+
+
+<blockquote><pre class="code"><a name="INDEX-1176" />Can only generate PEM output from PEM input.</pre></blockquote>
+
+
+
+
+
+<p>Thawte has an Apache-SSL help page, which tells us that what Apache
+and SSL call "PEM" files are actually not. What we should
+have asked for was a base 64 encoded X.509 certificate -- invoked
+by the radio button on Thawte's form labeled "the most
+basic format." This time Thawte did its thing and presented a
+page with the certificate on it:</p>
+
+
+
+
+
+<blockquote><pre class="code">-----BEGIN CERTIFICATE-----
+MIICXTCCAcYCAw9CQDANBgkqhkiG9w0BAQQFADBkMRowGAYDVQQKExFUaGF3dGUg
+Q29uc3VsdGluZzEoMCYGA1UECxMfQ2VydGlmaWNhdGlvbiBTZXJ2aWNlcyBEaXZp
+c2lvbjEcMBoGA1UEAxMTVGVzdCBTZXJ2ZXIgQ0EgUm9vdDAeFw05ODA4MjgwOTM2
+MzFaFw05ODA5MjgwOTM2MzFaMIGHMQswCQYDVQQGEwJHQjEPMA0GA1UECBMGRG9y
+c2V0MSEwHwYDVQQKExhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQxHTAbBgNVBAMT
+FHd3dy5idXR0ZXJ0aGxpZXMuY29tMSUwIwYJKoZIhvcNAQkBFhZwZXRlckBhYmJv
+dHNidXJ5LmNvLnVrMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDT1KRNwOwT
+kCHkYqpJmXj10U9pH4YZ7Koccwe87rAdDJ8NM5WTNa9VR4BEBWzFd34bGt6GPn1P
+qBpZ8fBMgT7x5XQH1wXK32Itf7NZJJvFO0XBuA4i9C8VMVEUefTRFL8mZSFCmO3N
+A1EnXvwjpF85c37pNDyYipAU9iUa+nrKEQIDAQABMA0GCSqGSIb3DQEBBAUAA4GB
+AJeufu9DTQw8l941pnzW8UmTqGATmFxf01IwrN88bWS+I1YzhZZ0ZQQSs8IKVQPG
+to38aaeSMeE7TauGdqs5+xv0QY8WrzrY4rbGliiW/H3kfMukOiRbiJAyXJepXhRJ
+ezE1n2v9E16dlF6T6LI0IXSzwJ2JsCTtD/IDkSgg9Tqo
+-----END CERTIFICATE-----</pre></blockquote>
+
+
+
+
+
+<p>We copied this as <em class="emphasis">thawte.cert</em> to
+...<em class="emphasis">/site.ssl/conf.</em> This triggered changes in the
+Config file:</p>
+
+
+
+
+
+<blockquote><pre class="code">SSLCACertificateFile /usr/www/site.ssl/conf/thawte.cert
+SSLCertificateKeyFile /usr/www/site.ssl/conf/privkey.pem</pre></blockquote>
+
+
+
+
+
+<p>Finally, we had to change the way we ran Apache to cope with the new
+demand for a passphrase. The file <em class="emphasis">go</em> became:</p>
+
+
+
+
+
+<blockquote><pre class="code">% httpsd -d /usr/www/site.ssl ; sleep 10000</pre></blockquote>
+
+
+
+
+
+<p>When we ran it, we got the following message:</p>
+
+
+
+
+
+<blockquote><pre class="code">Reading certificate and key for server www.butterthlies.com:8888
+Enter PEM pass phrase:</pre></blockquote>
+
+
+
+
+
+<p>You type in your passphrase and then hit CTRL-C or Delete, depending
+on the flavor of Unix, to kill <em class="emphasis">sleep</em>.</p>
+
+
+
+
+
+<p>When we finally logged on to
+<em class="emphasis">https://www.butterthlies.com:8888</em> from the
+client, we got the following encouraging message:</p>
+
+
+
+
+
+<blockquote><pre class="code">Certificate Is Expired
+www.butterthlies.com is a site that uses encryption to protect transmitted
+information. However the digital Certificate that identifies this site is not yet valid. This may be because the certificate was installed too soon by the site administrator, or because the date on your computer is wrong.
+The certificate is valid beginning Fri Aug 28, 1998.
+Your computer's date is set to Fri Aug 28, 1998. If this date is incorrect, then you should reset the date on your computer.
+You may continue or cancel this connection.</pre></blockquote>
+
+
+
+
+
+<p>This message suggested, in a perverse way, that we were doing
+something right. Finally, because we had changed
+<tt class="literal">SSLVerifyClient</tt> to 2, the exchange correctly
+expired in a complaint that the client didn't have a
+certificate.</p>
+
+
+
+
+
+<p>If you kill Apache in the time-honored way, make sure that
+<em class="emphasis">gcache</em> disappears too. The version of SSL (1.21)
+that we used to test all this left
+<em class="emphasis">gcache</em> hanging and it had
+to be killed before Apache-SSL would restart properly. The symptom
+was a message in <em class="emphasis">error_log</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">[&lt;date&gt;] gcache started
+bind: address already in use</pre></blockquote>
+
+
+
+
+
+<p>followed by irrelevant complaints about the private key file. If this
+happens with later versions, please report it as a bug.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch13_07.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">13.5. Legal Issues</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">13.7. Apache-SSL's Directives</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

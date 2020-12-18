@@ -1,0 +1,677 @@
+<?label 4.6. Utility Methods and Functions ?><html><head><title>Utility Methods and Functions  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch05_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">4.6. Utility Methods and Functions </h2>
+
+
+
+<p>To <a name="INDEX-462" />
+<a name="INDEX-463" />round
+off our basic introduction to DBI, we'll tell you about some
+useful utility methods and functions that will make your life that
+little bit easier. These include the very useful <em class="emphasis">quote
+escaping</em> method, DBI execution tracing, and various
+functions to tidy up your data.</p>
+
+
+
+<a name="ch04-ch04_database_specific_0" /><div class="sect2">
+<h3 class="sect2">4.6.1. Database-Specific Quote Handling </h3>
+
+
+
+<p>By <a name="INDEX-464" />far <a name="INDEX-465" /> <a name="INDEX-466" />the
+<a name="INDEX-467" />most important utility method is
+<tt class="literal">quote()</tt>
+<a name="INDEX-468" />
+<a name="INDEX-469" />,
+which correctly quotes and escapes SQL statements in a way that is
+suitable for a given database engine. This feature is important if
+you have a
+<a name="INDEX-470" />Perl string that you wish to insert
+into a database, as the data will be required, in most cases, to have
+quotation marks around it.</p>
+
+
+
+<p>To confuse matters, database engines tend to have a different format
+for specifying these surrounding quotation marks. DBI circumvents
+this problem by declaring the <tt class="literal">quote()</tt> method to be
+executed against a database handle, which ensures that the correct
+quotation rules are applied.</p>
+
+
+
+<p>This method, when executed against a database handle, converts the
+string given as an argument according to defined rules, and returns
+the correctly escaped string for use against the database.</p>
+
+
+
+<p>For example:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch04/util/quote1: Demonstrates the use of the $dbh-&gt;quote() method
+
+use DBI;
+
+### The string to quote
+my $string = "Don't view in monochrome (it looks 'fuzzy')!";
+
+### Connect to the database
+my $dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" , {
+    RaiseError =&gt; 1
+} );
+
+### Escape the string quotes ...
+my $quotedString = $dbh-&gt;quote( $string );
+
+### Use quoted string as a string literal in a SQL statement
+my $sth = $dbh-&gt;prepare( "
+    SELECT *
+    FROM media
+    WHERE description = $quotedString
+  " );
+$sth-&gt;execute();
+
+exit;</pre></blockquote>
+
+
+
+<p>For example, if you quoted the Perl string of <tt class="literal">Do</tt>
+<tt class="literal">it!</tt> via an Oracle database handle, you would be
+returned the value of <tt class="literal">'Do</tt> <tt class="literal">it!'</tt>.
+However, the <tt class="literal">quote()</tt> method also takes care of
+cases such as <tt class="literal">Don't</tt> <tt class="literal">do</tt>
+<tt class="literal">it!</tt> which needs to be translated to
+<tt class="literal">'Don''t</tt> <tt class="literal">do</tt>
+<tt class="literal">it!'</tt> for most databases. The simplistic addition
+of surrounding quotes would have produced <tt class="literal">'Don't</tt>
+<tt class="literal">do</tt> <tt class="literal">it!'</tt> which is not a valid
+SQL string literal.</p>
+
+
+
+<p>Some databases require a more complex <tt class="literal">quote()</tt>
+method, and some drivers (though not all) have a
+<tt class="literal">quote()</tt> method that can cope with multiline
+strings and even binary data.</p>
+
+
+
+<p>As a special case, if the argument is <tt class="literal">undef</tt>, the
+<tt class="literal">quote()</tt> method returns the string
+<tt class="literal">NULL</tt>
+<a name="INDEX-471" />, without quotes. This corresponds to the
+DBI's use of <tt class="literal">undef</tt> to represent
+<tt class="literal">NULL</tt> values, and to how <tt class="literal">NULL</tt>
+values are used in SQL.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch04-ch04_tracing_0" /><div class="sect2">
+<h3 class="sect2">4.6.2. Tracing DBI Execution </h3>
+
+
+
+<p>DBI <a name="INDEX-472" />sports <a name="INDEX-473" /> <a name="INDEX-474" />an extremely useful ability to generate
+runtime tracing information of what it's doing, which can be a
+huge time-saver when trying to track down strange problems in your
+DBI programs.</p>
+
+
+
+<p>At the highest level, <a name="INDEX-475" />you
+<a name="INDEX-476" />can call the
+<tt class="literal">DBI-</tt>
+<a name="INDEX-477" />&gt;<tt class="literal">trace()</tt>
+
+<a name="INDEX-478" />
+<a name="INDEX-479" />method,
+which enables tracing on all DBI operations from that point onwards.
+There are several valid tracing levels:</p>
+
+
+
+<dl>
+<dt><b>0</b></dt>
+<dd><p>Disables tracing.</p></dd>
+
+
+
+<dt><b>1</b></dt>
+<dd><p>Traces DBI method execution showing returned values and errors.</p></dd>
+
+
+
+<dt><b>2</b></dt>
+<dd><p>As for 1, but also includes method entry with parameters.</p></dd>
+
+
+
+<dt><b>3</b></dt>
+<dd><p>As for 2, but also includes more internal driver trace information.</p></dd>
+
+
+
+<dt><b>4</b></dt>
+<dd><p>Levels 4, and above can include more detail than is helpful.</p></dd>
+
+</dl>
+
+
+
+<p>The <tt class="literal">trace()</tt> method can be used with two
+<a name="INDEX-480" />argument forms, either specifying only
+the trace level or specifying both the trace level and a file to
+which the trace information is appended. The following example shows
+the use of <tt class="literal">DBI-</tt>&gt;<tt class="literal">trace()</tt>:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch04/util/trace1: Demonstrates the use of DBI tracing.
+
+use DBI;
+
+### Remove any old trace files
+unlink 'dbitrace.log' if -e 'dbitrace.log';
+
+### Connect to a database
+my $dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" );
+
+### Set the tracing level to 1 and prepare()
+DBI-&gt;trace( 1 );
+doPrepare();
+
+### Set trace output to a file at level 2 and prepare()
+DBI-&gt;trace( 2, 'dbitrace.log' );
+doPrepare();
+
+### Set the trace output back to STDERR at level 2 and prepare()
+DBI-&gt;trace( 2, undef );
+doPrepare();
+
+exit;
+
+### prepare a statement (invalid to demonstrate tracing)
+sub doPrepare {
+    print "Preparing and executing statement\n";
+    my $sth = $dbh-&gt;prepare( "
+        SELECT * FROM megalith
+    " );
+    $sth-&gt;execute();
+    return;
+}
+
+exit;</pre></blockquote>
+
+
+
+<p>This program generates quite a bit of trace information, of which
+we'll show just a small fragment:</p>
+
+
+
+<blockquote><pre class="code">-&gt; prepare for DBD::Oracle::db (DBI::db=HASH(0xcd45c)~0xcd4a4 '
+      SELECT * FROM megalith
+  ') thr0
+  &lt;- prepare= DBI::st=HASH(0xcd648) at trace1 line 30.
+  -&gt; execute for DBD::Oracle::st (DBI::st=HASH(0xcd648)~0x16afec) thr0
+  dbd_st_execute SELECT (out0, lob0)...
+  !! ERROR: 942 'ORA-00942: table or view does not exist (DBD ERROR:
+     OCIStmtExecute)'
+  &lt;- execute= undef at trace1 line 33.
+DBD::Oracle::st execute failed: ORA-00942: table or view does not exist (DBD 
+ERROR: OCIStmtExecute) at trace1 line 33.</pre></blockquote>
+
+
+
+<p>This trace information was generated with a setting of level 2, and
+shows the operations that DBI undertook when trying to prepare and
+execute a statement. Lines prepended with <tt class="literal">-</tt>&gt;
+are written when the method is being entered, and lines prepended
+with &lt;<tt class="literal">-</tt> are written when the method is
+returning. These lines also show the information being returned from
+the method call. The DBI trace output is indented by four spaces to
+make it easier to distinguish the trace output from any other program
+output.</p>
+
+
+
+<p>You can see the
+<tt class="literal">prepare()</tt>
+<a name="INDEX-481" />
+<a name="INDEX-482" />
+method being called along with its parameters: a database handle and
+the SQL statement to prepare.<a href="#FOOTNOTE-42">[42]</a> The next line shows the
+<tt class="literal">prepare()</tt> returning a statement handle. It also
+shows the file and line number that <tt class="literal">prepare()</tt> was
+called from. Following that, we see <tt class="literal">execute()</tt>
+being called, a trace line from the driver itself, and the method
+returning after logging an error. Finally we see the warning
+generated by the DBI due to the
+<tt class="literal">PrintError</tt>
+<a name="INDEX-483" /> attribute, which is on by default.</p><blockquote>
+
+
+<a name="FOOTNOTE-42" /><p>[42]If the Perl you are
+using was built with threading enabled, then each method entry line
+also shows the thread number, e.g., <tt class="literal">thr0</tt>. The DBI
+implements a per-driver mutex so that each DBD driver may only be
+entered by one thread at a time. Trace levels 4 and above show this
+in action.</p>
+
+
+</blockquote>
+
+
+
+<p>The trace information generated at level 1 is similar. The main
+difference is that the method entry lines (<tt class="literal">-</tt>&gt;)
+are not shown.</p>
+
+
+
+<p>The one drawback to this form of tracing is that if your program uses
+a lot of handles, then the volume of tracing information could be
+quite vast. Similarly, you might have tracked your problem down to a
+specific database operation that you'd like to trace
+individually.</p>
+
+
+
+<p>The <tt class="literal">trace()</tt> method is also
+<a name="INDEX-484" />available at a handle level, allowing
+you to individually trace any database and statement handle
+operations. Therefore, you could trace operations on a given database
+handle to level 1 and a single statement handle to level 2. For
+example:</p>
+
+
+
+<blockquote><pre class="code">### Connect to a database...
+my $dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" );
+
+### Trace the database handle to level 1 to the screen
+$dbh-&gt;trace( 1 );
+
+### Create a new statement
+my $sth = ...;
+
+### Trace the statement to level 2 to the file 'trace.lis'
+$sth-&gt;trace( 2, 'trace.lis' );</pre></blockquote>
+
+
+
+<p>Note that if a filename is specified when calling
+<tt class="literal">trace()</tt>, then currently, trace output from
+<em class="emphasis">all</em> handles is redirected to that file.</p>
+
+
+
+<p>If your programs are exhibiting odd behavior or are generating errors
+on a regular basis, you should consider using the built-in tracing
+features of DBI to help you resolve your problems. This tool is
+extremely useful, as you will be able to see exactly what data is
+being passed to the database, allowing you to ensure that it's
+in the correct format.</p>
+
+
+
+<p>Finally, tracing can also be controlled via the use of an environment
+variable called
+<tt class="literal">DBI_TRACE</tt>
+<a name="INDEX-485" />, which acts in a similar manner to the
+<tt class="literal">DBI-</tt>&gt;<tt class="literal">trace()</tt> method. That
+is, it traces all handles used within the program. This environment
+variable can be used in three ways that are summarized in the
+following 
+<a name="INDEX-486" /> <a name="INDEX-487" />table.</p>
+
+
+
+<a name="ch04-3-fm2xml" /><table border="1">
+
+
+
+<tr>
+<th>
+<p>DBI_TRACE Value</p></th>
+<th>
+<p>Effect on DBI</p></th>
+</tr>
+
+
+
+
+
+
+<tr>
+<td>
+<blockquote><pre class="code">1</pre></blockquote></td>
+<td>
+<blockquote><pre class="code">DBI-&gt;trace(1);</pre></blockquote></td>
+</tr>
+
+
+<tr>
+<td>
+<blockquote><pre class="code">dbitrace.log</pre></blockquote></td>
+<td>
+<blockquote><pre class="code">DBI-&gt;trace(2, 'dbitrace.log');</pre></blockquote></td>
+</tr>
+
+
+<tr>
+<td>
+<blockquote><pre class="code">4=dbitrace.log</pre></blockquote></td>
+<td>
+<blockquote><pre class="code">DBI-&gt;trace(4, 'dbitrace.log');</pre></blockquote></td>
+</tr>
+
+
+
+</table>
+
+<p>If the trace level isn't specified in the
+<tt class="literal">DBI_TRACE</tt> environment variable, it will default to
+<tt class="literal">2</tt>, as shown <a name="INDEX-488" /> <a name="INDEX-489" />in the <a name="INDEX-490" /> <a name="INDEX-491" />table <a name="INDEX-492" />above.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch04-ch04_neat_0" /><div class="sect2">
+<h3 class="sect2">4.6.3. Neat and Tidy Formatting </h3>
+
+
+
+<p>The <a name="INDEX-493" />DBI <a name="INDEX-494" />features
+<a name="INDEX-495" />a couple of
+utility functions that can be used to tidy up strings into a form
+suitable for easy reading. These two functions are
+<tt class="literal">neat()</tt>
+<a name="INDEX-496" /> and
+<tt class="literal">neat_list()</tt>
+<a name="INDEX-497" />, the former operating on a single
+scalar value, the latter operating on a list of scalar values.</p>
+
+
+
+<p>For example, to use <tt class="literal">neat()</tt> to tidy up some
+strings, you could write:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch04/util/neat1: Tests out the DBI::neat() utility function.
+#
+
+use DBI;
+
+### Declare some strings to neatify
+my $str1 = "Alligator's an extremely neat() and tidy person";
+my $str2 = "Oh no\nhe's not!";
+
+### Neatify this first string to a maxlen of 40
+print "String: " . DBI::neat( $str1, 40 ) . "\n";
+
+### Neatify the second string to a default maxlen of 400
+print "String: " . DBI::neat( $str2 ) . "\n";
+
+### Neatify a number
+print "Number: " . DBI::neat( 42 * 9 ) . "\n";
+
+### Neatify an undef
+print "Undef: " . DBI::neat( undef ) . "\n";
+
+exit;</pre></blockquote>
+
+
+
+<p>which generates the output of:</p>
+
+
+
+<blockquote><pre class="code">String: 'Alligator's an extremely neat() and...'
+String: 'Oh no
+he's not!'
+Number: 378
+Undef:  undef</pre></blockquote>
+
+
+
+<p>demonstrating that string values are quoted,<a href="#FOOTNOTE-43">[43]</a>
+whereas values known to be numeric are not. The first string has been
+truncated to the desired length with <tt class="literal">...</tt> added.
+Undefined values are recognized and returned as the string
+<tt class="literal">undef</tt> without quotes.</p><blockquote>
+
+
+<a name="FOOTNOTE-43" /><p>[43]Note
+that internal quotes are not escaped. That's because
+<tt class="literal">neat()</tt> is designed to produce output for human
+readers, and to do so quickly since it's used by the internal
+trace mechanisms. If you wish quote escaping to occur, you could use
+the <tt class="literal">quote()</tt> method instead.</p>
+
+
+</blockquote>
+
+
+
+<p>While the <tt class="literal">neat()</tt> function is handy for single
+values, the <tt class="literal">neat_list()</tt> function is handy for
+lists. It simply calls <tt class="literal">neat()</tt> on each element of
+the referenced list before joining the list of values together with
+the desired separator string. For example:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch04/util/neat2: Tests out the DBI::neat_list() utility function
+
+use DBI qw( neat_list );
+
+### Declare some strings to neatify
+my @list = ( 'String-a-string-a-string-a-string-a-string', 42, 0, '', undef );
+
+### Neatify the strings into an array
+print neat_list( \@list, 40, ", " ), "\n";
+
+exit;</pre></blockquote>
+
+
+
+<p>which generates the output of:</p>
+
+
+
+<blockquote><pre class="code">'String-a-string-a-string-a-string-a...', 42, 0, '', undef</pre></blockquote>
+
+
+
+<p>This example also shows that the utility functions can be imported
+into your package so you can drop the <tt class="literal">DBI::</tt>
+prefix.</p>
+
+
+
+<p>DBI uses <tt class="literal">neat()</tt> and <tt class="literal">neat_list()</tt>
+internally to format the output generated by tracing. That's
+important to know if you're wondering why the trace output is
+truncating your huge SQL <a name="INDEX-498" />statements
+
+<a name="INDEX-499" />down 
+<a name="INDEX-500" />to <a name="INDEX-501" />400 <a name="INDEX-502" />characters.<a href="#FOOTNOTE-44">[44]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-44" /><p>[44]400
+characters is the default value for the
+<tt class="literal">$DBI::neat_maxlen</tt> variable, which defines the
+default maximum length for the <tt class="literal">neat()</tt>
+function.</p>
+
+
+</blockquote>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch04-ch04_numeric_0" /><div class="sect2">
+<h3 class="sect2">4.6.4. Numeric Testing </h3>
+
+
+
+<p>The <a name="INDEX-503" /> <a name="INDEX-504" />final utility function supplied by DBI
+that we'll look at is quite a curious one called
+<tt class="literal">looks_like_number()</tt>
+<a name="INDEX-505" />. This function quite simply tells you
+whether or not a value looks like a number or not.</p>
+
+
+
+<p><tt class="literal">looks_like_number()</tt> operates by taking a list of
+values as an argument and returns a new array signifying whether or
+not the corresponding value within the original array was a number,
+not a number, or undefined.</p>
+
+
+
+<p>This may seem rather a curious thing to want to do, but in the case
+of handling large quantities of data, it's useful for working
+out which values might need to have their quotes escaped via the
+<tt class="literal">quote()</tt>
+<a name="INDEX-506" />
+<a name="INDEX-507" />
+method.</p>
+
+
+
+<p>The returned array will contain the same number of values as the
+original data array, with the elements containing one of three values
+signifying the following:</p>
+
+
+
+<blockquote><pre class="code">true        The original value is a number.
+false       The original value is not a number.
+undef       The original value is empty or undefined.</pre></blockquote>
+
+
+
+<p>The following example illustrates how this process works:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch04/util/lookslike1: Tests out the DBI::looks_like_number() function.
+#
+
+use DBI;
+
+### Declare a list of values
+my @values = ( 333, 'Choronzon', 'Tim', undef, 'Alligator', 1234.34, 
+               'Linda', 0x0F, '0x0F', 'Larry Wall' );
+
+### Check to see which are numbers!
+my @areNumbers = DBI::looks_like_number( @values );
+
+for (my $i = 0; $i &lt; @values; ++$i ) {
+
+    my $value = (defined $values[$i]) ? $values[$i] : "undef";
+    
+    print "values[$i] -&gt; $value ";
+    
+    if ( defined $areNumbers[$i] ) {
+        if ( $areNumbers[$i] ) {
+            print "is a number!\n";
+        }
+        else {
+            print "is utterly unlike a number and should be quoted!\n";
+        }
+    }
+    else {
+        print "is undefined!\n";
+    }
+}
+
+exit;</pre></blockquote>
+
+
+
+<p>The results from this program illustrate how the values are treated
+and shows that hexadecimal values are not treated as numbers:</p>
+
+
+
+<blockquote><pre class="code">values[0] -&gt; 333 is a number!
+values[1] -&gt; Choronzon is utterly unlike a number and should be quoted!
+values[2] -&gt; Tim is utterly unlike a number and should be quoted!
+values[3] -&gt; undef is undefined!
+values[4] -&gt; Alligator is utterly unlike a number and should be quoted!
+values[5] -&gt; 1234.34 is a number!
+values[6] -&gt; Linda is utterly unlike a number and should be quoted!
+values[7] -&gt; 15 is a number!
+values[8] -&gt; 0x0F is utterly unlike a number and should be quoted!
+values[9] -&gt; Larry Wall is utterly unlike a number and should be quoted!</pre></blockquote>
+
+
+
+<p>The first <tt class="literal">0x0F</tt> in the list of values is reported
+as looking like a number because Perl converted it into one
+(<tt class="literal">15</tt>) when the script was compiled. The second is
+not reported as looking like a number because the
+<tt class="literal">looks_like_number()</tt> function only looks for
+integers and floating-point numbers.</p>
+
+
+
+<p>And that brings us to the end of the introduction to DBI and its
+architecture. We'll be talking more on how to actually
+<em class="emphasis">do</em> stuff with DBI in the next chapter.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch05_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">4.5. Error Handling </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">5. Interacting with the Database </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

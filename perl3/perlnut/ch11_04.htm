@@ -1,0 +1,135 @@
+<html><head><title>Running CGI Scripts with mod_perl (Perl in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Stephen Spainhour" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002416L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch11_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">11.4. Running CGI Scripts with mod_perl</h2>
+
+<p><a name="INDEX-1724" /><a name="INDEX-1725" /><a name="INDEX-1726" />What most people want
+to do with <em class="emphasis">mod_perl</em> is improve CGI performance.
+The <em class="emphasis">mod_perl</em> installation assumes this request
+by enabling the <tt class="literal">PerlHandler</tt> callback hook by
+default and by installing the Apache::Registry module.
+<tt class="literal">PerlHandler</tt> is the handler used for the content
+retrieval stage of the server transaction. Apache::Registry is the
+Perl module that emulates the CGI environment so you can use
+"standard" Perl CGI scripts with
+<em class="emphasis">mod_perl</em> without having to rewrite them (much).
+This is by far the cheapest way to get improved CGI performance.
+</p>
+
+<p>With Apache::Registry, each individual CGI program is compiled and
+cached the first time it is called (or whenever it is changed) and
+remains available for all subsequent instances of that CGI script.
+This process avoids the costs of startup time.
+</p>
+
+<p><a name="INDEX-1727" />Whereas most CGI scripts are kept in
+<em class="emphasis">cgi-bin</em>, scripts that use Apache::Registry are
+placed in a separate directory, e.g., <em class="emphasis">perl-bin</em>.
+The <em class="emphasis">access.conf</em> Apache configuration file needs
+to point to this directory by setting an alias and defining a handler
+for this new location:
+</p>
+
+<blockquote><pre class="code">Alias /perl-bin/ /usr/local/apache/perl-bin/
+
+&lt;Location /perl-bin&gt;
+SetHandler perl-script
+PerlHandler Apache::Registry
+PerlSendHeader On
+Options ExecCGI
+&lt;/Location&gt;</pre></blockquote>
+
+<p><a name="INDEX-1728" />Instead of using the
+<tt class="literal">cgi-script</tt> handler, we use the
+<tt class="literal">perl-script</tt> handler to give control to
+<em class="emphasis">mod_perl</em>. Next, the
+<tt class="literal">PerlHandler</tt> directive tells
+<em class="emphasis">mod_perl</em> that the Apache::Registry module should
+be used for serving all files in that
+directory.<tt class="literal">PerlSendHeader</tt> is another
+<em class="emphasis">mod_perl</em>-specific directive; in this case, it
+tells <em class="emphasis">mod_perl</em> to send response lines and common
+headers&#x2014;by default, none are sent. (For NPH scripts,
+you'll want to turn this feature off again.)
+<tt class="literal">Options ExecCGI</tt> is a standard Apache header that
+is needed to tell Apache to treat the script as a CGI script.
+</p>
+
+<p>If you want to load Perl modules in addition to Apache::Registry, you
+can use the PerlModule directive<a name="INDEX-1729" />:
+</p>
+
+<blockquote><pre class="code">PerlModule CGI</pre></blockquote>
+
+<p>If you include this line, you shouldn't need to
+explicitly <tt class="literal">use CGI</tt> in each Perl CGI script
+anymore, since CGI.pm will be loaded directly from the Apache server.
+Up to ten modules can be listed with the
+<tt class="literal">PerlModule</tt> directive.
+</p>
+
+<p>CGI scripts in the new directory should work now. However, if you
+have problems, the <em class="emphasis">mod_perl</em> manpage offers some
+words of wisdom:
+</p>
+
+<ul><li>
+<p>Always use <tt class="literal">use strict</tt>. Standard CGI scripts start
+with a clean slate every time. When switching to
+<em class="emphasis">mod_perl</em>, CGI programmers are often surprised to
+learn how often they take advantage of this fact. <tt class="literal">use
+strict</tt> tells you when your variables
+haven't been properly declared and might inherit
+values from previous invocations of the script.
+</p>
+</li><li>
+<p><a name="INDEX-1730" />Don't
+call <tt class="literal">exit( )</tt>. Calling <tt class="literal">exit( )</tt>
+at the end of every program is a habit of many programmers. While
+often totally unnecessary, it usually doesn't hurt .
+. . except with <em class="emphasis">mod_perl</em>. If
+you're using <em class="emphasis">mod_perl</em> without
+Apache::Registry, <tt class="literal">exit( )</tt> kills the server
+process. If <tt class="literal">exit( )</tt> is the last function call, you
+can just remove it. If the structure of your program is such that it
+is called from the middle of the script, you can just put a label at
+the end of the script and use <tt class="literal">goto( )</tt>.
+There's also an <tt class="literal">Apache-&gt;exit(
+)</tt> call you can use if you're really
+attached to <tt class="literal">exit( )</tt> s.
+</p>
+
+<p>If you're using Apache::Registry, you
+don't have to worry about this problem.
+Apache::Registry is smart enough to override all <tt class="literal">exit(
+)</tt> calls with <tt class="literal">Apache-&gt;exit( )</tt>.
+</p>
+</li></ul>
+<p>In addition, it is recommended that you should use recent versions of
+Perl and CGI.pm. You should scan the <em class="emphasis">mod_perl</em>
+documentation for the latest compatibility news.<a name="INDEX-1731" /><a name="INDEX-1732" /><a name="INDEX-1733" />
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch11_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">11.3. mod_perl Handlers</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">11.5. Server-Side Includes with mod_perl</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+</map>
+
+</body></html>

@@ -1,0 +1,261 @@
+<html><head><title>Using Backquotes to Capture Output (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch14_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">14.4. Using Backquotes to Capture Output</h2>
+
+<p><a name="INDEX-965" /> <a name="INDEX-966" />
+<a name="INDEX-967" />With
+<a name="INDEX-968" />both <tt class="literal">system</tt> and
+<tt class="literal">exec</tt>, the output of the launched command ends up
+wherever Perl's standard output is going. Sometimes, it's
+interesting to capture that output as a string value to perform
+further processing. And that's done simply by creating a string
+using backquotes instead of single or double quotes:
+</p>
+
+<blockquote><pre class="code">my $now = `date`;             # grab the output of date
+print "The time is now $now"; # newline already present</pre></blockquote>
+
+<p>Normally, this <i class="command">date</i> command spits out a string
+approximately 30 characters long to its standard output, giving the
+current date and time followed by a newline. When we've placed
+<i class="command">date</i> between backquotes, Perl executes the
+<i class="command">date</i> command, arranging for its standard output to
+be captured as a string value, and in this case assigned to the
+<tt class="literal">$now</tt><a name="INDEX-969" /> variable.
+</p>
+
+<p>This is very similar to the Unix shell's meaning for
+backquotes. However, the shell also performs the additional job of
+ripping off the final end-of-line to make it easier to use the value
+as part of other things. Perl is honest; it gives the real output. To
+get the same result in Perl, we can simply add an additional
+<tt class="literal">chomp</tt> operation on the result:
+</p>
+
+<blockquote><pre class="code">chomp(my $no_newline_now = `date`);
+print "A moment ago, it was $no_newline_now, I think.\n";</pre></blockquote>
+
+<p>The value beween backquotes is just like the single-argument form of
+system,<a href="#FOOTNOTE-316">[316]</a> and is
+interpreted as a double-quoted string, meaning that backslash-escapes
+and variables are expanded appropriately.<a href="#FOOTNOTE-317">[317]</a> For
+example, to fetch the Perl documentation on a list of Perl functions,
+we might invoke the <i class="command">perldoc</i> command repeatedly,
+each time with a different argument:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-316" /><p>[316]That is, it's also always interpreted
+by the One True Shell (<em class="emphasis">/bin/sh</em>) or alternative,
+as with <tt class="literal">system</tt>.</p> </blockquote><blockquote class="footnote"> <a name="FOOTNOTE-317" /><p>[317]So, if you
+want to pass a real backslash to the shell, you'll need to use
+two. If you need to pass two (which happens frequently on Windows
+systems), you'll need to use four. </p> </blockquote>
+
+<blockquote><pre class="code">my @functions = qw{ int rand sleep length hex eof not exit sqrt umask };
+my %about;
+
+foreach (@functions) {
+  $about{$_} = `perldoc -t -f $_`;
+}</pre></blockquote>
+
+<p>Note that <tt class="literal">$_</tt> will be a different value for each
+invocation, letting us grab the output of a different command varying
+only in one of its parameters. Also note that if you haven't
+seen some of these functions yet, it might be useful to look them up
+in the documentation to see what they do!
+</p>
+
+<p>There's no easy equivalent of single quotes for
+backquotes<a href="#FOOTNOTE-318">[318]</a> ; variable references and backslash items are always
+expanded. Also, there's no easy equivalent of the
+multiple-argument version of <tt class="literal">system</tt> (where a
+shell is never involved). If the command inside the backquotes is
+complex enough, a Unix Bourne Shell (or whatever your system uses
+instead) is invoked to interpret the command automatically.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-318" /><p>[318]For a couple of harder ways, you can place
+your string inside <tt class="literal">qx'...'</tt>delimiters, or you can
+put it all in a variable using a single-quoted string, then
+interpolate <em class="emphasis">that</em> string into a backquoted
+string, since the interpolation will be only one level.</p>
+</blockquote>
+
+<p>At the risk of actually introducing the behavior by demonstrating how
+<em class="emphasis">not</em> to do it, we'd also like to suggest
+that you avoid using backquotes in a place where the value
+isn't being captured.<a href="#FOOTNOTE-319">[319]</a> For example:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-319" /><p>[319]This is called a
+"void" context.</p> </blockquote>
+
+<blockquote><pre class="code">print "Starting the frobnitzigator:\n";
+`frobnitz -enable`; # please don't do this!
+print "Done!\n";</pre></blockquote>
+
+<p>The problem is that Perl has to work a bit harder to capture the
+output of this command, even when you're just throwing it away,
+and then you also lose the option to use multiple arguments to
+<tt class="literal">system</tt> to precisely control the argument list.
+So from both a security standpoint and an efficiency viewpoint, just
+use <tt class="literal">system</tt> instead, please.
+</p>
+
+<p>Standard error of a backquoted command is inherited from Perl's
+current standard error output. If the command spits out error
+messages to standard error, you'll probably see them on the
+terminal, which could be confusing to the user who hasn't
+personally invoked the <i class="command">frobnitz</i> command. If you
+want to capture <a name="INDEX-970" />error messages with standard output, you
+can use the shell's normal "merge standard error to the
+current standard output," which is spelled
+<tt class="literal">2&gt;&amp;1</tt> in the normal Unix shell:
+</p>
+
+<blockquote><pre class="code">my $output_with_errors = `frobnitz -enable 2&gt;&amp;1`;</pre></blockquote>
+
+<p>Note that this will make the standard error output intermingled with
+the standard output, much as it appears on the terminal (although
+possibly in a slightly different sequence because of buffering). If
+you need the output and the error output separated, there are many
+harder-to-type solutions.<a href="#FOOTNOTE-320">[320]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-320" /><p>[320]Such as
+<tt class="literal">IPC::Open3</tt> in the standard Perl library, or
+writing your own forking code, as we will see later.</p>
+</blockquote>
+
+<p>Similarly, standard input is inherited from Perl's current
+standard input. Most commands we typically use with backquotes do not
+read standard input, so that's rarely a problem. However,
+let's say the <i class="command">date</i> command asked which time
+zone (as we imagined earlier). That'll be a problem, because
+the prompt for "which time zone" will be sent to standard
+output, which is being captured as part of the value, and then the
+<i class="command">date</i> command will start trying to read from
+standard input. But since the user has never seen the prompt, he or
+she doesn't know to be typing anything! Pretty soon, the user
+calls you up and tells you that your program is stuck.
+</p>
+
+<p>So, stay away from commands that read standard input. If you're
+not sure whether something reads from standard input, then add a
+redirection from <em class="filename">/dev/null</em> for input, like this:
+</p>
+
+<blockquote><pre class="code">my $result = `some_questionable_command arg arg argh &lt;/dev/null`;</pre></blockquote>
+
+<p>Then the child shell will redirect input from
+<em class="filename">/dev/null</em>, and the grandchild questionable
+command will at worst try to read and immediately get an end of file.
+</p>
+
+<a name="lperl3-CHP-14-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">14.4.1. Using Backquotes in a List Context</h3>
+
+<p><a name="INDEX-971" />If the output from a command has multiple
+lines, the scalar use of backquotes returns it as a single long
+string containing newline characters. However, using the same
+backquoted string in a list context yields a list containing one line
+of output per element.
+</p>
+
+<p>For example, the Unix <i class="command">who</i><a name="INDEX-972" /> command normally spits out a
+line of text for each current login on the system as follows:
+</p>
+
+<blockquote><pre class="code">merlyn     tty/42     Dec 7  19:41
+rootbeer   console    Dec 2  14:15
+rootbeer   tty/12     Dec 6  23:00</pre></blockquote>
+
+<p>The left column is the username, the middle column is the tty name
+(that is, the name of the user's connection to the machine),
+and the rest of the line is the date and time of login (and possibly
+remote login information, but not in this example). In a scalar
+context, we get all that at once, which we would then need to split
+up:
+</p>
+
+<blockquote><pre class="code">my $who_text = `who`;</pre></blockquote>
+
+<p>But in a list context, we automatically get the data broken up by
+lines:
+</p>
+
+<blockquote><pre class="code">my @who_lines = `who`;</pre></blockquote>
+
+<p>We'll have a number of separate elements in
+<tt class="literal">@who_lines</tt>, each one terminated by a newline. Of
+course, adding a <tt class="literal">chomp</tt> around the outside of
+that will rip off those newlines, but let's go a different
+direction. If we put that as part of the value for a
+<tt class="literal">foreach</tt>, we'll iterate over the lines
+automatically, placing each one in <tt class="literal">$_</tt>:
+</p>
+
+<blockquote><pre class="code">foreach (`who`) {
+  my($user, $tty, $date) = /(\S+)\s+(\S+)\s+(.*)/;
+  $ttys{$user} .= "$tty at $date\n";
+}</pre></blockquote>
+
+<p>This loop will iterate three times for the data above. (Your system
+will probably have more than three active logins at any given time.)
+Notice that we've got a regular expression match, and in the
+absence of the binding operator ("<tt class="literal">=~"</tt>),
+that's matching against <tt class="literal">$_</tt>, which is good
+because that's where the data is.
+</p>
+
+<p>Also notice the regular expression is looking for a nonblank word,
+some whitespace, a nonblank word, some whitespace, and then the rest
+of the line up to, but not including, the newline (since dot
+doesn't match newline by default).<a href="#FOOTNOTE-321">[321]</a> That's also good, because
+that's what the data looks like each time in
+<tt class="literal">$_</tt>. That'll make <tt class="literal">$1</tt> be
+"<tt class="literal">merlyn</tt>", <tt class="literal">$2</tt> be
+"<tt class="literal">tty/42</tt>", and <tt class="literal">$3</tt> be
+"<tt class="literal">Dec 7 19:41</tt>", as a successful match
+on the first time through the loop.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-321" /><p>[321]Now you can
+see <em class="emphasis">why</em> dot doesn't match newline by
+default. It makes it easy to write patterns like this one, in which
+we don't have to worry about a newline at the end of the
+string.</p> </blockquote>
+
+<p>However, this regular expression match is in a list context, so
+instead of returning back a true/false value (as when you have a
+regular expression match in a scalar context), we take the memory
+variables and bundle them up in sequence as a list. In this case, the
+right side of that assignment is thus a three-element list, which
+happens to correspond to the three elements of the literal list on
+the left, and we get those nice corresponding assignments. So,
+<tt class="literal">$user</tt> ends up being <tt class="literal">"merlyn"</tt>,
+and so on.
+</p>
+
+<p>The second statement inside the loop simply stores away the tty and
+date information, appending to a (possibly <tt class="literal">undef</tt>)
+value in the hash, because a user might be logged in more than once,
+as user <tt class="literal">"rootbeer"</tt> was in<a name="INDEX-973" /> our
+example.<a name="INDEX-974" />
+<a name="INDEX-975" />
+<a name="INDEX-976" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch14_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">14.3. The Environment Variables</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">14.5. Processes as Filehandles</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

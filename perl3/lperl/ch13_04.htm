@@ -1,0 +1,155 @@
+<html><head><title>Making and Removing Directories (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch13_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch13_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">13.4. Making and Removing Directories</h2>
+
+<p><a name="INDEX-908" />
+<a name="INDEX-909" />Making
+<a name="INDEX-910" />a
+directory inside an existing directory is easy. Just invoke the
+<tt class="literal">mkdir</tt> function:
+</p>
+
+<blockquote><pre class="code">mkdir "fred", 0755 or warn "Cannot make fred directory: $!";</pre></blockquote>
+
+<p>Again, true means success, and <tt class="literal">$!</tt> is set on
+failure.
+</p>
+
+<p>But what's that second parameter, <tt class="literal">0755</tt>?
+That's the initial permission setting<a href="#FOOTNOTE-295">[295]</a> on the newly created directory (you can always change it
+later). The value here is specified as an octal value because the
+value will be interpreted as a Unix permission value, which has a
+meaning based on groups of three bits each, and octal values
+represent that nicely. Yes, even on Windows or MacPerl, you still
+need to know a little about Unix permissions values to use the
+<tt class="literal">mkdir</tt> function. Mode <tt class="literal">0755</tt> is
+a good one to use, because it gives you full permission, but lets
+everyone else have read access but no permission to change anything.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-295" /><p>[295]The
+permission value is modified by the umask value in the usual way. See
+<tt class="literal">umask(2)</tt> for further information.</p>
+</blockquote>
+
+<p>The <tt class="literal">mkdir</tt> function doesn't require you to
+specify this value in octal -- it's just looking for a
+numeric value (either a literal or a calculation). But unless you can
+quickly can figure that <tt class="literal">0755</tt> octal is
+<tt class="literal">493</tt> decimal in your head, it's probably
+easier to let Perl calculate that. And if you accidentally leave off
+the leading zero, you get <tt class="literal">755</tt> decimal, which is
+<tt class="literal">1363</tt> octal, a strange permission combination
+indeed.
+</p>
+
+<p>As we saw earlier (in <a href="ch02_01.htm">Chapter 2, "Scalar Data"</a>), a string value
+being used as a number is never interpreted as octal, even if it
+starts with a leading 0. So this doesn't work:
+</p>
+
+<blockquote><pre class="code">my $name = "fred";
+my $permissions = "0755";  # danger... this isn't working
+mkdir $name, $permissions;</pre></blockquote>
+
+<p>Oops, we just created a directory with that bizarre
+<tt class="literal">01363</tt> permissions, because <tt class="literal">0755</tt>
+was treated as decimal. To fix that, use the <tt class="literal">oct</tt>
+function, which forces octal interpretation of a string whether or
+not there's a leading zero:
+</p>
+
+<blockquote><pre class="code">mkdir $name, oct($permissions);</pre></blockquote>
+
+<p>Of course, if you are specifying the permission value directly within
+the program, just use a number instead of a string. The need for the
+extra <tt class="literal">oct</tt> function shows up most often when the
+value comes from user input. For example, suppose we take the
+arguments from the command line:
+</p>
+
+<blockquote><pre class="code">my ($name, $perm) = @ARGV;  # first two args are name, permissions
+mkdir $name, oct($perm) or die "cannot create $name: $!";</pre></blockquote>
+
+<p>The value here for <tt class="literal">$perm</tt> is interpreted as a
+string initially, and thus the <tt class="literal">oct</tt> function
+interprets the common octal representation properly.
+</p>
+
+<p>To remove empty directories, use the <tt class="literal">rmdir</tt>
+function in a manner similar to the <tt class="literal">unlink</tt>
+function:
+</p>
+
+<blockquote><pre class="code">rmdir glob "fred/*";  # remove all empty directories below fred/
+
+foreach my $dir (qw(fred barney betty)) {
+  rmdir $dir or warn "cannot rmdir $dir: $!\n";
+}</pre></blockquote>
+
+<p>As with <tt class="literal">unlink</tt>, <tt class="literal">rmdir</tt>
+returns the number of directories removed, and if invoked with a
+single name, sets <tt class="literal">$!</tt> in a reasonable manner on a
+failure.
+</p>
+
+<p>The <tt class="literal">rmdir</tt><a name="INDEX-911" /> operator fails for non-empty
+directories. As a first pass, you can attempt to delete the contents
+of the directory with <tt class="literal">unlink</tt>, then try to remove
+what should now be an empty directory. For example, suppose we need a
+place to write many temporary files during the execution of a
+program:
+</p>
+
+<blockquote><pre class="code">my $temp_dir = "/tmp/scratch_$$";       # based on process ID; see the text
+mkdir $temp_dir, 0700 or die "cannot create $temp_dir: $!";
+...
+# use $temp_dir as location of all temporary files
+...
+unlink glob "$temp_dir/* $temp_dir/.*"; # delete contents of $temp_dir
+rmdir $temp_dir;                        # delete now-empty directory</pre></blockquote>
+
+<p>The initial temporary directory name includes the current process ID,
+which is unique for every running process and is accessed with the
+<tt class="literal">$$</tt> variable (similar to the shell). We do this to
+avoid colliding with any other processes, as long as they also
+include their process ID as part of their pathname as well. (In fact,
+it's common to use the program's name as well as the
+process ID, so if the program is called <tt class="literal">quarry</tt>,
+the directory would probably be something like
+<tt class="literal">/tmp/quarry_$$</tt>.)
+</p>
+
+<p>At the end of the program, that last <tt class="literal">unlink</tt>
+should remove all the files in this temporary directory, and then the
+<tt class="literal">rmdir</tt> function can delete the then-empty
+directory. However, if we've created subdirectories under that
+directory, the <tt class="literal">unlink</tt> operator fails on those,
+and the <tt class="literal">rmdir</tt> also fails. For a more robust
+solution, check out the
+<tt class="literal">rmtree</tt><a name="INDEX-912" /> function provided by the
+<tt class="literal">File::Path</tt> module of the
+standard<a name="INDEX-913" />
+distribution.<a name="INDEX-914" /> <a name="INDEX-915" />
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch13_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch13_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">13.3. Links and Files</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">13.5. Modifying Permissions</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

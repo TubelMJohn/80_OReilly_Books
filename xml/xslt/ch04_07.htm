@@ -1,0 +1,241 @@
+<html><head><title>A Stylesheet That Emulates a for Loop (XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Doug Tidwell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596000537L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XSL" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch04_08.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+    <h2 class="sect1">4.7. A Stylesheet That Emulates a for Loop</h2>
+    <p>
+<a name="INDEX-404" />
+<a name="INDEX-405" />
+<a name="INDEX-406" />
+<a name="INDEX-407" />
+
+We stressed earlier that the <tt class="literal">xsl:for-each</tt> element is not a <tt class="literal">for</tt> loop; it's merely an iterator across a group of nodes. However, if you simply must implement a <tt class="literal">for</tt> loop, there's a way to do it. (Get ready to use recursion, though.)</p>
+    <div class="sect2">
+      <h3 class="sect2">4.7.1. Template Design</h3>
+      <p>Our design here is to create a named template that will take some arguments, then act as a <tt class="literal">for</tt> loop processor. If you think about a traditional <tt class="literal">for</tt> loop, it has several properties:</p>
+      <ul>
+        <li>
+          <p>
+
+<a name="INDEX-408" />
+One or more initialization statements. These statements are processed before the <tt class="literal">for</tt> loop begins. Typically the initialization statements refer to an <em class="emphasis">index variable</em> that is used to determine whether the loop should continue. </p>
+        </li>
+        <li>
+          <p>An increment statement. This statement specifies how the index variable should be updated after each pass through the loop. </p>
+        </li>
+        <li>
+          <p>A boolean expression. If the expression is <tt class="literal">true</tt>, the loop continues; if it is ever <tt class="literal">false</tt>, the loop exits. </p>
+        </li>
+      </ul>
+      <p>Let's take a sample from the world of Java and C++:</p>
+      <blockquote><pre class="code">
+for (int i=0; i&lt;length; i++)</pre></blockquote>
+      <p>In this scintillating example, the initialization statement is <tt class="literal">i=0</tt>, the index variable (the variable whose value determines whether we're done or not) is <tt class="literal">i</tt>, the boolean expression we use to test whether the loop should continue is <tt class="literal">i&lt;length</tt>, and the increment statement is <tt class="literal">i++</tt>. </p>
+      <p>For our purposes here, we're going to make several simplifying assumptions. (Feel free, dear reader, to make the example as complicated as you wish.)  Here are the shortcuts we'll take:</p>
+      <ul>
+        <li>
+          <p>Rather than use an initialization statement, we'll require the caller to set the value of the local variable <tt class="literal">i</tt> when it invokes our <tt class="literal">for</tt> loop processor. </p>
+        </li>
+        <li>
+          <p>Rather than specify an increment statement such as <tt class="literal">i++</tt>, we'll require the caller to set the value of the local variable <tt class="literal">increment</tt>. The default value for this variable is <tt class="literal">1</tt>; it can be any negative or positive integer, however. The value of this variable will be added to the current value of <tt class="literal">i</tt> after each iteration through our loop.</p>
+        </li>
+        
+<li>
+          <p>Rather than allow any conceivable boolean expression, we'll require the caller to pass in two parameters; <tt class="literal">operator</tt> and <tt class="literal">testValue</tt>. The allowable values for the <tt class="literal">operator</tt> variable are <tt class="literal">=</tt>, <tt class="literal">&lt;</tt> (coded as <tt class="literal">&amp;lt;</tt>), <tt class="literal">&gt;</tt> (coded as <tt class="literal">&amp;gt;</tt>), <tt class="literal">&lt;&gt;</tt> (coded as <tt class="literal">&amp;lt;&amp;gt;</tt>), <tt class="literal">&lt;=</tt> (coded as <tt class="literal">&amp;lt;=</tt>), and <tt class="literal">&gt;=</tt> (coded as <tt class="literal">&amp;gt;=</tt>). We're doing things this way because there isn't a way to ask the XSLT processor to evaluate a literal (such as <tt class="literal">i&lt;length</tt>) as if it were part of the stylesheet. </p>
+        </li>
+      </ul>
+    </div>
+    <div class="sect2">
+      <h3 class="sect2">4.7.2. Implementation</h3>
+      <p>Let's look at the parameters for our <tt class="literal">for</tt> loop template:</p>
+      <blockquote><pre class="code">
+&lt;xsl:param name="i"         select="1"/&gt;
+&lt;xsl:param name="increment" select="1"/&gt;
+&lt;xsl:param name="operator"  select="="/&gt;
+&lt;xsl:param name="testValue" select="1"/&gt;</pre></blockquote>
+      <p>Our <tt class="literal">for</tt> template uses four parameters: the index variable, the increment, the comparison operator, and the test value. To emulate this C++ statement:</p>
+      <blockquote><pre class="code">
+for (int i=1; i&lt;=10; i++)</pre></blockquote>
+      <p>You'd use this markup:</p>
+      <blockquote><pre class="code">
+&lt;xsl:call-template name="for-loop"&gt;
+  &lt;xsl:with-param name="i"         select="1"/&gt;
+  &lt;xsl:with-param name="increment" select="1"/&gt;
+  &lt;xsl:with-param name="operator"  select="&amp;lt;="/&gt;
+  &lt;xsl:with-param name="testValue" select="10"/&gt;
+&lt;/xsl:call-template&gt;</pre></blockquote>
+      <p>To demonstrate our stylesheet, our first version simply prints out the value of our index variable each time through the loop:</p>
+      <blockquote><pre class="code">
+Transforming...
+Iteration 1: i=1
+Iteration 2: i=2
+Iteration 3: i=3
+Iteration 4: i=4
+Iteration 5: i=5
+Iteration 6: i=6
+Iteration 7: i=7
+Iteration 8: i=8
+Iteration 9: i=9
+Iteration 10: i=10
+transform took 260 milliseconds
+XSLProcessor: done</pre></blockquote>
+
+      <p>Here's the markup you'd use to emulate the Java statement <tt class="literal">for (int i=10; i&gt;0; i-=2)</tt>:</p>
+      <blockquote><pre class="code">
+&lt;xsl:call-template name="for-loop"&gt;
+  &lt;xsl:with-param name="i"         select="10"/&gt;
+  &lt;xsl:with-param name="increment" select="-2"/&gt;
+  &lt;xsl:with-param name="operator"  select="&amp;gt;"/&gt;
+  &lt;xsl:with-param name="testValue" select="0"/&gt;
+&lt;/xsl:call-template&gt;</pre></blockquote>
+      <p>In this case, the values of <tt class="literal">i</tt> decrease from <tt class="literal">10</tt> to <tt class="literal">0</tt>:</p>
+      <blockquote><pre class="code">
+Transforming...
+Iteration 1: i=10
+Iteration 2: i=8
+Iteration 3: i=6
+Iteration 4: i=4
+Iteration 5: i=2
+transform took 110 milliseconds
+XSLProcessor: done</pre></blockquote>
+    </div>
+    <div class="sect2">
+      <h3 class="sect2">4.7.3. The Complete Example</h3>
+      <p>Here's our complete stylesheet:</p>
+      <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0"&gt;
+
+  &lt;xsl:output method="text"/&gt;
+
+  &lt;xsl:variable name="newline"&gt;
+&lt;xsl:text&gt;
+&lt;/xsl:text&gt;
+  &lt;/xsl:variable&gt;
+
+  &lt;xsl:template name="for-loop"&gt;
+    &lt;xsl:param name="i"         select="1"/&gt;
+    &lt;xsl:param name="increment" select="1"/&gt;
+    &lt;xsl:param name="operator"  select="="/&gt;
+    &lt;xsl:param name="testValue" select="1"/&gt;
+    &lt;xsl:param name="iteration" select="1"/&gt;
+
+    &lt;xsl:variable name="testPassed"&gt;
+      &lt;xsl:choose&gt;
+        &lt;xsl:when test="starts-with($operator, '!=')"&gt;
+          &lt;xsl:if test="$i != $testValue"&gt;
+            &lt;xsl:text&gt;true&lt;/xsl:text&gt;
+          &lt;/xsl:if&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:when test="starts-with($operator, '&lt;=')"&gt;
+          &lt;xsl:if test="$i &lt;= $testValue"&gt;
+            &lt;xsl:text&gt;true&lt;/xsl:text&gt;
+          &lt;/xsl:if&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:when test="starts-with($operator, '&gt;=')"&gt;
+          &lt;xsl:if test="$i &gt;= $testValue"&gt;
+            &lt;xsl:text&gt;true&lt;/xsl:text&gt;
+          &lt;/xsl:if&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:when test="starts-with($operator, '=')"&gt;
+          &lt;xsl:if test="$i = $testValue"&gt;
+            &lt;xsl:text&gt;true&lt;/xsl:text&gt;
+          &lt;/xsl:if&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:when test="starts-with($operator, '&lt;')"&gt;
+          &lt;xsl:if test="$i &lt; $testValue"&gt;
+            &lt;xsl:text&gt;true&lt;/xsl:text&gt;
+          &lt;/xsl:if&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:when test="starts-with($operator, '&gt;')"&gt;
+          &lt;xsl:if test="$i &gt; $testValue"&gt;
+            &lt;xsl:text&gt;true&lt;/xsl:text&gt;
+          &lt;/xsl:if&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:otherwise&gt;
+          &lt;xsl:message terminate="yes"&gt;
+            &lt;xsl:text&gt;Sorry, the for-loop emulator only &lt;/xsl:text&gt;
+            &lt;xsl:text&gt;handles six operators &lt;/xsl:text&gt;
+            &lt;xsl:value-of select="$newline"/&gt;
+            &lt;xsl:text&gt;(&lt; | &gt; | = | &lt;= | &gt;= | !=). &lt;/xsl:text&gt;
+            &lt;xsl:text&gt;The value &lt;/xsl:text&gt;
+            &lt;xsl:value-of select="$operator"/&gt;
+            &lt;xsl:text&gt; is not allowed.&lt;/xsl:text&gt;
+            &lt;xsl:value-of select="$newline"/&gt;
+          &lt;/xsl:message&gt;
+        &lt;/xsl:otherwise&gt;
+      &lt;/xsl:choose&gt;
+    &lt;/xsl:variable&gt;
+
+    &lt;xsl:if test="$testPassed='true'"&gt;
+      &lt;!-- Put your logic here, whatever it might be. For the purpose      --&gt;
+      &lt;!-- of our example, we'll just write some text to the output stream. --&gt;
+
+      &lt;xsl:text&gt;Iteration &lt;/xsl:text&gt;&lt;xsl:value-of select="$iteration"/&gt;
+      &lt;xsl:text&gt;: i=&lt;/xsl:text&gt;
+      &lt;xsl:value-of select="$i"/&gt;&lt;xsl:value-of select="$newline"/&gt;
+
+      &lt;!-- Your logic should end here; don't change the rest of this        --&gt;
+      &lt;!-- template!                                                        --&gt;
+
+      &lt;!-- Now for the important part: we increment the index variable and  --&gt;
+      &lt;!-- loop. Notice that we're passing the incremented value, not      --&gt;
+      &lt;!-- changing the variable itself.                                   --&gt;
+
+      &lt;xsl:call-template name="for-loop"&gt;
+        &lt;xsl:with-param name="i"         select="$i + $increment"/&gt;
+        &lt;xsl:with-param name="increment" select="$increment"/&gt;
+        &lt;xsl:with-param name="operator"  select="$operator"/&gt;
+        &lt;xsl:with-param name="testValue" select="$testValue"/&gt;
+        &lt;xsl:with-param name="iteration" select="$iteration + 1"/&gt;
+      &lt;/xsl:call-template&gt;
+    &lt;/xsl:if&gt; 
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="/"&gt;
+    &lt;xsl:call-template name="for-loop"&gt;
+      &lt;xsl:with-param name="i"         select="'10'"/&gt;
+      &lt;xsl:with-param name="increment" select="'-2'"/&gt;
+      &lt;xsl:with-param name="operator"  select="'&gt;'"/&gt;
+      &lt;xsl:with-param name="testValue" select="'0'"/&gt;
+    &lt;/xsl:call-template&gt;
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+      <p>
+<a name="INDEX-409" />
+
+If you want to modify the <tt class="literal">for</tt> loop to do something useful, put your code between these comments:</p>
+      <blockquote><pre class="code">
+&lt;!-- Put your logic here, whatever it might be. For the purpose      --&gt;
+&lt;!-- of our example, we'll just write some text to the output stream. --&gt;
+      
+&lt;xsl:text&gt;Iteration &lt;/xsl:text&gt;&lt;xsl:value-of select="$iteration"/&gt;
+&lt;xsl:text&gt;: i=&lt;/xsl:text&gt;
+&lt;xsl:value-of select="$i"/&gt;&lt;xsl:value-of select="$newline"/&gt;
+     
+&lt;!-- Your logic should end here; don't change the rest of this        --&gt;
+&lt;!-- template!                                                        --&gt;</pre></blockquote>
+    </div>
+  
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch04_08.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4.6. Using Recursion to Do Most Anything</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">4.8. A Stylesheet That Generates a Stylesheet That Emulates a for Loop</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

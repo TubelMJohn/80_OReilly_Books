@@ -1,0 +1,261 @@
+<html><head><title>Coding Strategies (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch09_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch10_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h1 class="chapter">Chapter 10. Coding Strategies</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#perlxml-CHP-10-SECT-1">Perl and XML Namespaces </a><br />
+<a href="ch10_02.htm">Subclassing</a><br />
+<a href="ch10_03.htm">Converting XML to HTML with XSLT </a><br />
+<a href="ch10_04.htm">A Comics Index</a><br /></p></div>
+
+
+
+<p>This chapter sends you off by bringing this book's
+topics full circle. We return to many of the themes about XML
+processing in Perl that we introduced in <a href="ch03_01.htm">Chapter 3, "XML Basics: Reading and Writing"</a>, but in the context of all the detailed
+material that we've covered in the interceding
+chapters. Our intent is to take you on one concluding tour through
+the world of Perl and XML, with its strategies and its gotchas,
+before sending you on your way.
+</p>
+
+
+<div class="sect1"><a name="perlxml-CHP-10-SECT-1" /></a>
+<h2 class="sect1">10.1. Perl and XML Namespaces </h2>
+
+<p>You<a name="INDEX-764" /></a>'ve
+seen XML <a name="INDEX-765" /></a>namespaces
+used since we first mentioned this concept back in <a href="ch02_01.htm">Chapter 2, "An XML Recap"</a>. Many XML applications, such as XSLT, insist
+that all their elements claim fealty to a certain namespace. The
+deciding factor here usually involves how symbiotic the application
+is in its usual use: does it usually work on its own, with a
+one-document-per-application style, or does it tend to mix with other
+sorts of XML?
+</p>
+
+<p>DocBook XML, for example, is not very symbiotic. An instance of
+<a name="INDEX-766" /></a>DocBook is almost
+always a whole XML document, defining a book or an article, and all
+the elements within such a document that aren't
+explicitly tied to some other namespace are found in the official
+DocBook documentation.<a href="#FOOTNOTE-37">[37]</a> However, within a
+DocBook document, you might encounter a clump of
+<a name="INDEX-767" /></a>MathML
+elements making their home in a rather parasitic fashion, nestled in
+among the folds of the DocBook elements, from which it derives
+nourishing context.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-37" /></a><p>[37]See <a href="http://www.docbook.org">http://www.docbook.org</a> or
+O'Reilly's <em class="citetitle">DocBook: The
+Definitive Guide.</em></p> </blockquote>
+
+<p>This sort of thing is useful for two reasons: first, DocBook, while
+its element spread tries to cover all kinds of things you might find
+in a piece of technical documentation,<a href="#FOOTNOTE-38">[38]</a>
+doesn't have the capacity to richly describe
+everything that might go into a mathematical equation. (It does have
+<tt class="literal">&lt;equation&gt;</tt> elements, but they are often used
+to describe the nature of the graphic contained within them.) By
+adding MathML into the mix, you can use all the tags defined by that
+markup language's specification inside of a DocBook
+document, tucked away safely in their own namespace. (Since MathML
+and DocBook work so well together, the DocBook DTD allows a user to
+plug in a "MathML module," which
+adds a <tt class="literal">&lt;mml:math&gt;</tt><a name="INDEX-768" /></a> element to the mix. Within this mix,
+everything is handled by MathML's own DTD, which the
+module imports (along with DocBook's main DTD) into
+the whole DTD-space when validating.)
+</p><blockquote class="footnote"> <a name="FOOTNOTE-38" /></a><p>[38]Some would
+say, in fact, that it tries a little too hard; hence the existence of
+trimmed-down variants such as Simplified DocBook.</p> </blockquote>
+
+<p>Second, and perhaps more interesting from the
+parser's point of view, tags existing in a given
+namespace work like embassies; while you stand on its soil (or in its
+scope), all that country's rules and regulations
+apply to you, despite the embassy's location in a
+foreign land. XML namespaces are also similar to Perl namespaces,
+which let you invoke variables, subroutines, and other symbols that
+live inside <tt class="literal">Some::Other::Package</tt>, though you may
+not have defined them within the default <tt class="literal">main</tt>
+package (or whatever package you are working in).
+</p>
+
+<p>In other words, the presence of a namespace often indicates that
+another, separate XML application is invoked within the current one.
+Thus, if you are writing a processor to handle a type of XML
+application and you know that a certain namespace will probably pop
+up within it, you can save yourself a lot of work by passing off the
+work to another Perl module that knows how to handle things in that
+other application.
+</p>
+
+<a name="perlxml-CHP-10-SIDEBAR-1" /></a><blockquote><table border="1" cellpadding="6"><tr><td>
+<h4 class="objtitle">URI Identifiers</h4>
+
+<p>Many<a name="INDEX-769" /></a> <a name="INDEX-770" /></a> XML technologies,
+such as XML namespaces, SAX2, and SOAP, rely on URIs as unique
+identifiers -- strings that differentiate features or properties
+to prevent ideological conflicts. Any processor that reads it can be
+absolutely sure that it's referring to the
+technology intended by the author. URIs used in this way often look
+like URLs, usually of the <em class="emphasis">http://</em> variety, which
+implies that typing them into a web browser will cause something to
+happen. However, sometimes the only result is a disappointing HTTP
+404 response. URIs, unlike URLs, don't have to point
+to an actual resource; they only have to be globally unique.
+</p>
+
+<p>Developers who need to assign a new URI to something often base them
+on URLs leading to web sites they have some control over. For
+example, if you have exclusive control over
+<em class="emphasis">http://www.greenmonkey-markup.com/~jmac</em>, then
+you can assign URIs based on it, such as
+<em class="emphasis">http://www.greenmonkey-markup/~jmac/monkeyml/</em>.
+Even without a response, you are still guaranteed that nobody else
+will ever use that URI. However, polite developers tend to put
+something at these URIs -- preferably documentation about the
+technology that uses them.
+</p>
+
+<p>Another popular solution involves using a service such as
+<a href="http://purl.org">http://purl.org</a> (no relation to Perl), which can
+put a layer of indirection between a URI you use as a namespace and
+the location that houses its documentation, letting you change the
+latter at will while keeping the former constant.
+</p>
+
+<p>Sometimes a URI does convey information besides mere uniqueness. For
+example, many XML application processors are sticklers about URIs
+used to declare XML namespaces, with good reason. XSLT processors,
+for example, usually don't care that all stylesheet
+XSLT elements have the usual <tt class="literal">xsl:</tt> prefix, as much
+as they care what URI that prefix is bound to, in the appropriate
+<tt class="literal">xmlns:</tt>-prefixed attribute. Knowing what URI the
+prefix is bound to assures the processor that you're
+using, for example, the <a name="INDEX-771" /></a> <a name="INDEX-772" /></a>W3C's most recent
+version of XSLT, and not a pre-1.0 version that some bleeding-edge
+processor adopted (that has its own namespace).
+</p>
+
+<p>Robin Berjon's
+<tt class="literal">XML::NamespaceSupport</tt> module, available on CPAN,
+can help you process XML documents that use namespaces and manage
+their prefix-to-URI mappings.
+</p>
+</td></tr></table><p></blockquote>
+
+<p>For example, let's say that on your machine you have
+an XML file whose document keeps a list of the monkeys living in your
+house. Much of this file contains elements of your own design, but
+because you are both crafty and lazy, your document also uses the
+Monkey Markup Language, a standard way to describe monkeys with XML.
+Because it's designed for use in larger documents,
+it defines its own namespace:
+</p>
+
+<blockquote><pre class="code"> &lt;?xml version="1.0"&gt;
+&lt;monkey-list&gt;
+ &lt;monkey&gt;
+  &lt;description xmlns:mm="http://www.jmac.org/projects/monkeys/mm/"&gt;
+   &lt;mm:monkey&gt; &lt;!-- start of monkey section --&gt;
+    &lt;mm:name&gt;Virtram&lt;/mm:name&gt;
+    &lt;mm:color&gt;teal&lt;/mm:color&gt;
+    &lt;mm:favorite-foods&gt;
+     &lt;mm:food&gt;Banana&lt;/mm:food&gt; &lt;mm:food&gt;Walnut&lt;/mm:food&gt;
+    &lt;/mm:favorite-foods&gt;
+    &lt;mm:personality-matrix&gt;
+     F6 30 00 0A 1B E7 9C 20
+    &lt;/mm:personality-matrix&gt;
+   &lt;/mm:monkey&gt;
+  &lt;/description&gt;
+  &lt;location&gt;Living Room&lt;/location&gt;
+  &lt;job&gt;Scarecrow&lt;/job&gt;
+ &lt;/monkey&gt;
+ &lt;!-- Put more monkeys here later --&gt;
+&lt;/monkey-list&gt;</pre></blockquote>
+
+<p>Luckily, we have a Perl module on our system,
+<tt class="literal">XML::MonkeyML</tt>, that can parse a MonkeyML document
+into an object. This module is useful because the
+<tt class="literal">XML::MonkeyML</tt> class contains code for handling
+MonkeyML's <tt class="literal">personality-matrix</tt>
+element, which condenses a monkey's entire
+personality down to a short hexadecimal code. Let's
+write a program that predicts how all our monkeys will react in a
+given situation:
+</p>
+
+<blockquote><pre class="code">#!/usr/bin/perl
+
+# This program takes an action specified on the command line, and
+# applies it to every monkey listed in a monkey-list XML document
+# (whose filename is also supplied on the command line)
+
+use warnings;
+use strict;
+
+use XML::LibXML;
+use XML::MonkeyML;
+
+my ($filename, $action) = @ARGV;
+
+unless (defined ($filename) and defined ($action)) {
+  die "Usage: $0 monkey-list-file action\n";
+}
+
+my $parser = XML::LibXML-&gt;new;
+my $doc = $parser-&gt;parse_file($filename);
+
+# Get all of the monkey elements
+my @monkey_nodes = $parser-&gt;documentElement-&gt;findNodes("//monkey/description/mm:monkey");
+
+foreach (@monkey_nodes) {
+  my $monkeyml = XML::MonkeyML-&gt;parse_string($_-&gt;toString);
+  my $name = $monkeyml-&gt;name . " the " . $monkeyml-&gt;color . " monkey";
+  print "$name would react in the following fashion:\n";
+  # The magic MonkeyML 'action' object method takes an English
+  # description of an action performed on this monkey, and returns a
+  # phrase describing the monkey's reaction.
+  print $monkeyml-&gt;action($action); print "\n";
+}</pre></blockquote>
+
+<p>Here is the output:</p>
+
+<blockquote><pre class="code">$ <tt class="userinput"><b>./money_action.pl monkeys.xml "Give it a banana"</b></tt>
+
+Virtram the teal monkey would react in the following fashion:
+Take the banana. Eat it. Say "Ook".</pre></blockquote>
+
+<p>Speaking of laziness, let's look<a name="INDEX-773" /></a> at how a
+programmer might create a helper module like<a name="INDEX-774" /></a>
+<tt class="literal">XML::MonkeyML</tt>.
+</p>
+
+</div>
+
+
+
+
+
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch09_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch10_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">9.4. SOAP::Lite </td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">10.2. Subclassing</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

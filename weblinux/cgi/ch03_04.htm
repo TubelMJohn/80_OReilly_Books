@@ -1,0 +1,324 @@
+<?label 3.4. Examples?><html><head><title>Examples (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch03_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch04_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">3.4. Examples</h2>
+
+
+<p>At this point, we have covered the fundamentals of how <a name="INDEX-684" />CGI scripts
+work, but the concepts may still seem a little abstract. The
+following sections present examples that demonstrate how to implement
+what we've discussed.</p>
+
+
+<a name="ch03-11-fm2xml" /><div class="sect2">
+<h3 class="sect2">3.4.1. Check the Client Browser</h3>
+
+
+<p>CGI scripts <a name="INDEX-685" />are not
+restricted to generating HTML. <a name="INDEX-686" /> <a name="INDEX-687" /><a href="ch03_04.htm#ch03-84716">Example 3-4</a> produces an image after choosing an image
+format that the browser supports. Recall that the browser sends the
+<em class="emphasis">Accept</em>
+<a name="INDEX-688" /> <a name="INDEX-689" /> HTTP header listing the media types
+it supports. Actually, browsers generally specify only the newer
+media types they support and pass a wildcard to match everything
+else. In this example, we'll send an image in the new
+<a name="INDEX-690" />PNG format if the
+browser specifies that it supports PNG, and a
+<a name="INDEX-691" />JPEG otherwise.</p>
+
+
+<p>You may ask why we would want to do this. Well, JPEG images use a
+lossy form of
+<a name="INDEX-692" />compression. Although they are ideal
+for natural images like photographs, images with sharp lines and
+details (such as screenshots or text) can become blurred. PNG images,
+like <a name="INDEX-693" />GIF images,
+do not use lossy compression. They are typically larger than JPEG
+images (it depends on the image), but they provide sharp detail. And
+unlike GIFs, which are limited to 256 colors, PNGs can support
+millions of colors and even eight-bit transparency. So we will
+provide a high-color, high-detail PNG if possible, or a JPEG
+otherwise.</p>
+
+
+<p>If a user calls this with <em class="emphasis">http://localhost/cgi/image_fetch.cgi/new_screenshot.png</em>,
+he or she will actually get <em class="filename">new_screenshot.png</em>
+or <em class="filename">new_screenshot.jpeg</em> depending on what the
+browser supports. This allows you to include a single link in your
+<a name="INDEX-694" /> <a name="INDEX-695" /> <a name="INDEX-696" />HTML pages that works for everyone.
+<a href="ch03_04.htm#ch03-84716">Example 3-4</a> shows the source to our CGI script.</p>
+
+
+
+<a name="ch03-84716" /><div class="example">
+<h4 class="objtitle">Example 3-4. image_fetch.cgi </h4>
+<a name="INDEX-697" />
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+
+my $image_type = $ENV{HTTP_ACCEPT} =~ m|image/png| ? "png" : "jpeg";
+my( $basename ) = $ENV{PATH_INFO} =~ /^(\w+)/;
+my $image_path = "$ENV{DOCUMENT_ROOT}/images/$basename.$image_type";
+
+unless ( $basename and -B $image_path and open IMAGE, $image_path ) {
+    print "Location: /errors/not_found.html\n\n";
+    exit;
+}
+
+my $buffer;
+print "Content-type: image/$image_type\n\n";
+binmode;
+
+while ( read( IMAGE, $buffer, 16_384 ) ) {
+    print $buffer;
+}</pre></blockquote>
+</div>
+
+
+<p>We set <tt class="literal">$image_type</tt> to "png" or
+"jpeg" depending on whether the browser sent
+<tt class="literal">image/png</tt> as part of its
+<em class="emphasis">Accept</em> header. Then we set
+<tt class="literal">$basename</tt> to the first word of the additional path
+information, which is "new_screenshot" in our previous
+example. We only care about the base name because we add our own
+extension when we actually fetch the file.</p>
+
+
+<p>Our images are in the <em class="filename">images</em> directory at the
+root of the web server's document tree, so we build a path to
+the image and assign it to <tt class="literal">$image_path</tt>. Note that
+we build this path before we validate that the URL we received
+actually contains additional path information. If
+<tt class="literal">$ENV{PATH_INFO}</tt> is empty or starts with a
+nonalphanumeric character, then obviously this path is invalid.
+That's okay though; we will validate this in the next step.</p>
+
+
+<p>We delayed the validation so we can perform all of our tests at once.
+We test that the additional path information contains a name, that
+the full path to the file we constructed points to a binary file, and
+that we are able to open the file. If any of these tests fail, then
+we simply report that the file is not found. We do this by forwarding
+to a static page that contains our error message. Creating a single,
+static document for <a name="INDEX-698" />
+<a name="INDEX-699" /> <a name="INDEX-700" />general errors like <em class="emphasis">404 Not
+Found</em> is an easy way to produce error pages that are
+customized to match your site design and are easy to maintain.</p>
+
+
+<p>If we opened the file successfully, we read and print the file in
+16KB <a name="INDEX-701" />
+<a name="INDEX-702" />increments. Calling
+<tt class="function">binmode</tt>
+<a name="INDEX-703" /> <a name="INDEX-704" />
+<a name="INDEX-705" /> is necessary for systems
+like Win32 or MacOS that do not use newlines as the
+<a name="INDEX-706" />
+<a name="INDEX-707" />end-of-line character; it
+doesn't hurt on Unix systems.</p>
+</div>
+
+
+
+
+<a name="ch03-12-fm2xml" /><div class="sect2">
+<h3 class="sect2">3.4.2. User Authentication and Identification</h3>
+
+
+<p>In <a name="INDEX-708" />
+<a name="INDEX-709" />addition to
+<a name="INDEX-710" /> <a name="INDEX-711" />domain-based security, most HTTP
+<a name="INDEX-712" />
+<a name="INDEX-713" />servers also support
+another method of security, known as user authentication. We
+discussed user authentication briefly in the last chapter. When
+configured for user authentication, specified files or directories
+within a given realm are set up to allow access only by certain
+users. A user attempting to open the URLs associated with these files
+is prompted for a name and password.</p>
+
+
+<p>The username and password is checked by the server, and if
+legitimate, the user is allowed access. In addition to allowing the
+user access to the protected file, the server also maintains the
+user's name and passes it to any subsequent CGI programs that
+are called. The server passes the username in the
+<tt class="literal">$ENV{REMOTE_USER}</tt> environment variable.</p>
+
+
+<p>A CGI script can therefore use server authentication information to
+identify users. Here is a snippet of code that illustrates what you
+can do with the <tt class="literal">$ENV{REMOTE_USER}</tt> environment
+variable:</p>
+
+
+<blockquote><pre class="code">$remote_user = $ENV{REMOTE_USER};
+
+if ( $remote_user eq "mary" ) {
+    print "Welcome Mary, how is your company doing these days?\n";
+} elsif ( $remote_user eq "bob" ) {
+    print "Hey Bob, how are you doing? I heard you were sick.\n";
+}</pre></blockquote>
+</div>
+
+
+
+
+<a name="ch03-13-fm2xml" /><div class="sect2">
+<h3 class="sect2">3.4.3. Restricting Image Hijacking</h3>
+
+
+<p>One of the <a name="INDEX-714" /> <a name="INDEX-715" />great benefits of
+the Web is its flexibility. One person can create a page on their
+server and include links to others' pages on other servers.
+These links can even include links to images on other servers.
+Unfortunately, if you have popular images, you may not appreciate
+this last feature. Say, for example, you are an artist and you
+display your images on your web site. You may not want other sites to
+include your artwork in their web pages simply by including image
+links pointing to your server. One solution, shown in <a href="ch03_04.htm#ch03-12649">Example 3-5</a>, is to check the URL that referred the user to
+the image via the
+<em class="emphasis">Referer</em>
+<a name="INDEX-716" /> HTTP header field.<a href="#FOOTNOTE-5">[5]</a></p><blockquote>
+
+<a name="FOOTNOTE-5" /><p>[5]The <em class="emphasis">Referer</em> header is not as reliable as
+you might hope. Not all browsers provide it, and as we will see in
+<a href="ch08_01.htm">Chapter 8, "Security"</a>, it's possible for clients to
+provide a false <em class="emphasis">Referer</em> header. However, in this
+scenario, the culprits are other servers, not the users themselves,
+and it is not possible for other servers to cause clients to provide
+false headers.</p>
+
+</blockquote>
+
+
+
+<a name="ch03-12649" /><div class="example">
+<h4 class="objtitle">Example 3-5. check_referer.cgi </h4>
+<a name="INDEX-717" />
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+
+# The directory where images are stored; this shouldn't be in the 
+# server's doc tree so users can't browse images except via this script.
+my $image_dir = "/usr/local/apache/data/images";
+
+my $referer  = $ENV{HTTP_REFERER};
+my $hostname = quotemeta( $ENV{HTTP_HOST} || $ENV{SERVER_NAME} );
+
+if ( $referer and $referer !~ m|^http://$hostname/| ) {
+    display_image( "copyright.gif" );
+}
+else {
+    # Verify that the image name doesn't contain any unsafe characters.
+    my( $image_file ) = $ENV{PATH_INFO} =~ /^([\w+.]+)$/ or
+        not_found(  );
+    display_image( $image_file );
+}
+sub display_image {
+    my $file = shift;
+    my $full_path = "$image_dir/$file";
+    
+    # We'll simply report that the file isn't found if we can't open it.
+    open IMAGE, $full_path or not_found(  );
+    
+    print "Pragma: no-cache\n";
+    print "Content-type: image/gif\n\n";
+    
+    binmode;
+    my $buffer = "";
+    while ( read( IMAGE, $buffer, 16_384 ) ) {
+        print $buffer;
+    }
+    close IMAGE;
+}
+
+sub not_found {
+    print &lt;&lt;END_OF_ERROR;
+Status: 404 Not Found
+Content-type: text/html
+
+&lt;html&gt;
+&lt;head&gt;
+  &lt;title&gt;File Not Found&lt;/title&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+  &lt;h1&gt;File Not Found&lt;/h1&gt;
+  
+  &lt;p&gt;Sorry, but you requested an image that could not be found. 
+    Please check the URL you entered and try again.&lt;/p&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+END_OF_ERROR
+    
+    exit;
+}</pre></blockquote>
+</div>
+
+
+<p>This script displays an image with a <a name="INDEX-718" />copyright notice
+if the user came from a different web site. For the copyright notice,
+the script assumes that there is a file called
+<em class="filename">copyright.gif</em> in the same directory as the other
+images. Not all browsers implement the <em class="emphasis">Referer</em>
+HTTP header, and we don't want visitors using these browsers to
+get the wrong image in error. So we only display the copyright image
+if the user both presents a <em class="emphasis">Referer</em> header and
+it is from a different server.
+<a name="INDEX-719" />Also, we have to be conscious of
+<a name="INDEX-720" />caching on the Web. Browsers might cache
+images, and they may be behind any number of proxy servers that also
+implement their own caches. Thus, we output an additional
+<a name="INDEX-721" />header to request that this message not
+be cached. This should avoid the user getting a cached copyright
+notice image when they visit the real site. If you are especially
+paranoid (and do not mind the extra traffic it causes), then you
+could also output a <em class="emphasis">Pragma:
+no-cache</em>
+<a name="INDEX-722" /> header for the real images too.</p>
+
+
+<p>If the image is not found, it sends a response with a 404 status. You
+may wonder why it would send an HTML message when it was likely the
+request was the result of an image tag and the browser is planning on
+displaying the response as an image in an HTML page. Actually,
+neither web servers nor CGI scripts have any way of determining the
+context of any request. Web servers always display 404 errors when
+they cannot locate a resource. In this case the browser will likely
+display an icon, such as a broken image, to indicate that there was
+an error. If the user chooses to view the image separately by
+directly referencing it, he or she will see the error message.</p>
+
+
+<p>This solution should stop casual hijackers. It won't stop
+thieves. It's always possible for someone to visit your site,
+download your images, <a name="INDEX-723" /> <a name="INDEX-724" />and put copies of them up on their
+<a name="INDEX-725" />own
+<a name="INDEX-726" />site.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch03_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch04_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">3.3. CGI Output</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">4. Forms and CGI</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

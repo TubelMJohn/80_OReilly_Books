@@ -1,0 +1,398 @@
+<html><head><title>Including Subdocuments (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="appa_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+	<h2 class="sect1">6.3. Including Subdocuments</h2>
+
+	<p>
+<a name="INDEX-756" />
+        In XML, external parsed entities are used to merge
+	one file into another.
+	This mechanism is used to partition larger XML documents
+	(such as this book) into smaller ones (such as this chapter).
+	Such external entities aren't quite the
+	same as actual XML documents.
+	They do not have DTDs;
+	they have zero or more top-level elements instead of exactly one;
+	and they have text declarations at the top instead of
+	XML declarations.<a href="#FOOTNOTE-27">[27]</a></p><blockquote class="footnote"><a name="FOOTNOTE-27" /><p>[27]These might show only the text encoding <tt class="literal">&lt;?xml encoding='Big5'?&gt;</tt> is a legal text declaration. To be an XML declaration, it would need to include a version first, like <tt class="literal">version='1.0'</tt>; it's good practice is to include both. Documents that use encoding declarations with no version number cannot be opened as XML directly. They can only be included in XML documents by way of an entity.</p></blockquote>
+
+	<p>
+<a name="INDEX-757" />
+        Those entities are in some ways awkward to use.
+	Some people don't like to use DTDs, and their tools
+	might not let them declare and create references to such
+	entities. In any case, DTDs add the requirement that
+	such entities be declared in advance.
+	When you're building big documents out of little ones,
+	widely spreading such knowledge can be undesirable.
+	It's often easier to keep a local reference accurate than
+	to update the remote declarations it depends on.
+	Also, documents nest inside others, and small changes
+	nested inside one document could force updates to many DTDs
+	if the document is included in several others.
+	In short, external parsed entities aren't as easy or natural
+	to use as the <tt class="literal">#include "filename"</tt> syntax
+	widely known to C/C++ developers.
+	This is often viewed as a problem.
+	</p>
+
+	<p>
+<a name="INDEX-758" />
+<a name="INDEX-759" />
+<a name="INDEX-760" />
+        The response is obvious: use some other part of
+	XML syntax to define a more natural inclusion construct.
+	There's a W3C draft called <em class="emphasis">XInclude</em>,
+	which doesn't quite do this (in the most current draft).
+	XInclude uses element syntax, which is fine, but it doesn't
+	just define a simple and familiar inclusion mechanism.
+	<?troff .ne 10?>XInclude supports the XPointer superset of
+	XPath to embed almost arbitrary fragments 
+	of XML text. In effect, W3C's XInclude is a generalized linking
+	model, and one which depends on significant infrastructure.
+	The model hasn't met with widespread acceptance, and in
+	any case is too complex to use for an example here.
+	That's really too bad; normal inclusion is a strict
+	streaming model, ideal for implementing with SAX, and
+	the model of including fragments is exotic pretty much
+	everywhere except within the linking community.
+	</p>
+
+	<p>Here we show how to implement a variant of XInclude,
+	which can replace many uses of external entities because it
+	doesn't use XPointer.
+	To emphasize the difference, we'll use a different syntax:
+	</p>
+
+	<blockquote><pre class="code">
+&lt;?XInclude http://www.example.com/data/included.xml?&gt;
+    &lt;!-- instead of what XInclude uses: --&gt;
+&lt;xi:include
+	xmlns:xi="http://www.w3.org/2001/XInclude"
+	href="http://www.example.com/data/included.xml"
+	parse='xml'
+	encoding='euc-jp'
+	&gt;
+    content of xi:include is ignored,
+    the whole element gets replaced
+&lt;/xi:include&gt;</pre></blockquote>
+
+	<p>This example highlights several different SAX2 mechanisms.
+	It uses the <em class="emphasis">XMLFilterImpl</em> class in two
+	different modes and pays careful attention to the data it
+	passes through. The different modes are as follows: </p>
+
+	<ul>
+
+	    <li><p>
+<a name="INDEX-761" />
+<a name="INDEX-762" />
+            The outer filter must be used as a mixed
+	    event producer and consumer, with access to the full stream
+	    of event data as well as any <em class="emphasis">ErrorHandler</em>
+	    and <em class="emphasis">EntityResolver</em> objects in use.
+	    If it's not used this way, it won't be correct; it's hard to
+	    know such things about a SAX Filter unless they are discussed in
+the class documentation.
+	    </p>
+
+	    <p>The outer filter proxies the <em class="emphasis">Locator</em> so that
+	    applications see the right event locations and base URIs.
+	    It usually forwards the events to the
+	    true recipient of the event stream, but it will also handle
+	    nested inclusions when they are sent from the inner filter.
+	    </p></li>
+
+	    <li><p>
+	    The inner filter is used as a pure event consumer.
+	    It cooperates with the outer filter to keep the
+	    proxy working correctly, and is set up to strip out DTD-related
+	    events and forward the rest to the outer filter.
+	    </p></li>
+
+	</ul>
+
+	<p>The code in <a href="ch06_03.htm#sax2-CHP-6-EX-9">Example 6-9</a>
+	takes a few shortcuts but implements the essential
+	inclusion functionality.
+	</p>
+
+	<a name="sax2-CHP-6-EX-9" /><div class="example">
+	    <h4 class="objtitle">Example 6-9. XInclude processing instruction</h4>
+
+	    <blockquote><pre class="code">
+import java.io.IOException;
+import java.net.URL;
+import java.util.Vector;
+import org.xml.sax.*;
+import org.xml.sax.ext.*;
+import org.xml.sax.helpers.XMLFilterImpl;
+import org.xml.sax.helpers.XMLReaderFactory;
+
+public final class XI extends XMLFilterImpl
+implements LexicalHandler, Locator
+{
+    // Act as a proxy for whatever the current locator is.
+    private Locator		locator;
+
+    // to avoid circular inclusion
+    private Vector		pending = new Vector (5, 5);
+
+    private LexicalHandler	lexicalHandler;
+
+    private static String	lexicalID =
+	    "http://xml.org/sax/properties/lexical-handler";
+
+    public void setDocumentLocator (Locator l)
+    {
+	locator = l;
+	super.setDocumentLocator (this);
+    }
+
+    public String getSystemId ()
+	{ return (locator == null) ? null : locator.getSystemId (); }
+    public String getPublicId ()
+	{ return (locator == null) ? null : locator.getPublicId (); }
+    public int getLineNumber ()
+	{ return (locator == null) ? -1 : locator.getLineNumber (); }
+    public int getColumnNumber ()
+	{ return (locator == null) ? -1 : locator.getColumnNumber (); }
+
+    // Inner Filter Class: manage the current locator,
+    // and filter out events that would be incorrect to report
+    private class Scrubber extends XMLFilterImpl implements LexicalHandler
+    {
+	Locator		savedLocator;
+	LexicalHandler	next;
+
+	Scrubber (Locator l, LexicalHandler n)
+	    { savedLocator = l; next = n; }
+
+	// maintain proxy locator
+	// only one startDocument()/endDocument() pair per event stream
+	public void setDocumentLocator (Locator l)
+	    { locator = l; }
+	public void startDocument ()
+	    { }
+	public void endDocument ()
+	    { locator = savedLocator; }
+	
+	private void reject (String message) throws SAXException
+	    { throw new SAXParseException (message, locator); }
+
+	// only the DTD from the base document gets reported
+	public void startDTD (String root, String publicId, String systemId)
+	throws SAXException
+	    { reject ("DTD: " + systemId); }
+	public void endDTD ()
+	throws SAXException
+	    { reject ("DTD"); }
+	// ... so this should never happen
+	public void skippedEntity (String name) throws SAXException
+	    { reject ("entity: " + name); }
+
+	// since we rejected DTDs, only built-in entities can be reported
+	public void startEntity (String name)
+	throws SAXException
+	    { next.startEntity (name); }
+	public void endEntity (String name)
+	throws SAXException
+	    { next.endEntity (name); }
+
+	// other lexical events cause no worries
+	public void startCDATA () throws SAXException
+	    { next.startCDATA (); }
+	public void endCDATA () throws SAXException
+	    { next.endCDATA (); }
+	public void comment (char buf[], int off, int len) 
+		throws SAXException
+	    { next.comment (buf, off, len); }
+    }
+
+    // count is zero in the document prologue and epilogue
+    private int		count;
+
+    public void startElement (String u, String l, String q, Attributes a)
+    throws SAXException
+	{ count++; super.startElement (u, l, q, a); }
+
+    public void endElement (String u, String l, String q)
+    throws SAXException
+	{ --count; super.endElement (u, l, q); }
+    
+    public void startDocument () throws SAXException
+	{ pending.addElement (locator.getSystemId ()); 
+		 super.startDocument (); }
+
+    
+    public void endDocument () throws SAXException
+	{ pending.clear (); super.endDocument (); }
+
+    // handle <?XInclude URI?> processing instructions
+    public void processingInstruction (String target, String data)
+    throws SAXException
+    {
+	if ("XInclude".equals (target)) {
+	    // this should do full XML base processing
+	    // instead we just handle relative and absolute URLs
+	    try {
+		URL		url = new URL (getSystemId ());
+
+		url = new URL (url, data.trim ());
+		data = url.toString ();
+	    } catch (Exception e) {
+		throw new SAXParseException (
+		    "XInclude, can't use URI: " + data, locator, e);
+	    }
+	    xinclude (data);
+	} else
+	    super.processingInstruction (target, data);
+    }
+
+    // this might be called from startElement too
+    private void xinclude (String uri)
+    throws SAXException
+    {
+	XMLReader	helper;
+	Scrubber	scrubber;
+
+	if (count == 0)
+	    throw new SAXParseException (
+		    "XInclude, illegal location", locator);
+	if (pending.contains (uri))
+	    throw new SAXParseException (
+		    "XInclude, circular inclusion", locator);
+
+	// start with another parser acting just like us
+	helper = XMLReaderFactory.createXMLReader ();
+	helper.setEntityResolver (this);
+	helper.setErrorHandler (this);
+
+	// Set up the proxy locator and inner filter.
+	scrubber = new Scrubber (locator, this);
+	locator = null;
+	scrubber.setContentHandler (this);
+	helper.setContentHandler (scrubber);
+	helper.setProperty (lexicalID, scrubber);
+
+	// we INTEND to discard DTDHandler and DeclHandler events
+
+	// Merge the included document, except its DTD
+	try {
+	    pending.addElement (uri);
+	    helper.parse (uri);
+	} catch (java.io.IOException e) {
+	    SAXParseException	err;
+	    ErrorHandler	handler;
+	    
+	    err = new SAXParseException (uri, locator, e);
+	    handler = getErrorHandler ();
+	    if (handler != null)
+		handler.fatalError (err);
+	    throw err;
+	} finally {
+	    pending.removeElement (uri);
+	}
+    }
+
+    // LexicalHandler interface
+    public void startEntity (String name)
+    throws SAXException
+	{ if (lexicalHandler != null) lexicalHandler.startEntity (name); }
+
+    public void endEntity (String name)
+    throws SAXException
+	{ if (lexicalHandler != null) lexicalHandler.endEntity (name); }
+    
+    public void startDTD (String root, String publicId, String systemId)
+    throws SAXException
+	{ if (lexicalHandler != null) lexicalHandler.startDTD (root, publicId, 
+              systemId); }
+
+    public void endDTD () throws SAXException
+	{ if (lexicalHandler != null) lexicalHandler.endDTD (); }
+    public void startCDATA () throws SAXException
+	{ if (lexicalHandler != null) lexicalHandler.startCDATA (); }
+    public void endCDATA () throws SAXException
+	{ if (lexicalHandler != null) lexicalHandler.endCDATA (); }
+    public void comment (char buf[], int off, int len) throws SAXException
+	{ if (lexicalHandler != null) lexicalHandler.comment (buf, off, len); }
+
+    // so this works as a "consumer"
+    public void setProperty (String uri, Object handler)
+    throws SAXNotRecognizedException, SAXNotSupportedException
+    {
+	if (lexicalID.equals (uri))
+	    lexicalHandler = (LexicalHandler) handler;
+	else
+	    super.setProperty (uri, handler);
+    }
+
+    // so this works as a "producer"
+    public void parse (InputSource in)
+    throws SAXException, IOException
+    {
+	XMLReader	parent = getParent ();
+
+	if (parent != null)
+	    parent.setProperty (lexicalID, this);
+	super.parse (in);
+    }
+}</pre></blockquote>
+
+		</div>
+
+	<p>The most significant shortcut in this code is that,
+	to simplify the example, XML Base isn't supported.
+	That's easily fixed using the technique shown earlier,
+	in <a href="ch05_01.htm#sax2-CHP-5-EX-1">Example 5-1</a>.
+	Similarly, the namespace reporting and validation modes of the
+	default parser are assumed to be OK; they should be copied or
+	specified as part of this event consumer's API.
+	</p>
+
+	<p>Merging SAX event streams from two different sources
+	is quite simple, except for DTD-related information.
+	One basic problem is structural: DTD events may be reported
+	only at the beginning of a SAX event stream, and the chance
+	to do that has been lost by the time an included document
+	is processed.
+	Another basic problem is semantic: the events from the
+	two sources could easily conflict with each other.
+	Neither of those problems can be solved with a pure
+	stream processing model, unless the included documents
+	use the same DTD as the base document.
+	Accordingly, this example treats
+	DTD events from included streams as errors.
+	</p>
+
+	<p>The best way to use XML inclusions is with XML text that
+	doesn't use DTDs, perhaps using "XML 1.0 plus Namespaces" rules
+	to help assign meaning to individual elements and attributes. Eliminating DTDs means some important bits of the XML Infoset will be unavailable, such as the attribute-typing information that tells you which elements are used as IDs. If all the files in question are themselves well-formed XML documents 
+with both version and encoding in any XML declarations (and without a DTD), they can easily be included without significant restrictions. Such an inclusion facility can be convenient in a variety of application contexts, such as template-driven document processing and other cases where it's important to build larger documents from smaller ones.
+<a name="INDEX-763" />
+</p>
+
+	
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="appa_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">6.2. XML and Messaging </td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">A. SAX2 API Summary</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

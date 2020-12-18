@@ -1,0 +1,746 @@
+<html><head><title>XML Pipelines  (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch05_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+	<h2 class="sect1">4.5. XML Pipelines </h2>
+
+	<p>
+<a name="INDEX-620" />
+<a name="INDEX-621" />
+         In <a href="ch02_01.htm">Chapter 2, "Introducing SAX2"</a>, <a href="ch02_02.htm#sax2-CHP-2-SECT-2.3">Section 2.2.3, "XMLWriter: an Event Consumer"</a> briefly discussed the concept of an XML pipeline. In that simple case, it involved reading, transforming, and then writing XML text. This concept is a powerful model for working with SAX; it is the natural framework for developing SAX components. These components won't usually be JavaBeans-style components, intended for use with graphical code builder tools, but they will still be specialized and easily reusable.</p>
+
+	<p>
+<a name="INDEX-622" />
+<a name="INDEX-623" />
+<a name="INDEX-624" />
+<a name="INDEX-625" />
+<a name="INDEX-626" />
+        Exactly what is a SAX event pipeline?
+	It's a series of components, each a <em class="emphasis">pipeline stage</em>
+	connected so consumers act as producers for the next stage,
+	as shown in <a href="ch04_05.htm#sax2-CHP-4-FIG-1">Figure 4-1</a>.
+	The components pass events through, perhaps changing
+	them on the fly to filter, reorganize, augment, or
+	otherwise transform the data as it streams through.
+	(The term <em class="emphasis">filter</em> is sometimes 
+	used to mean the same thing
+	as a <em class="emphasis">stage</em>, though it's only one 
+	type of role for a stage.)
+	The first producer could be a parser, or some other
+	program component.
+	The last consumer will probably have some defined output,
+	such as XML text (<em class="emphasis">XMLWriter</em>),
+	a DOM document (using the classes shown earlier),
+	or an application-specific data structure.
+	Intermediate stages in the pipeline have at least one
+	pipeline stage as output, and they might produce other outputs
+	such as data structures.
+	Or they might only be used to analyze or condition the inputs
+	to later stages.
+	</p>
+
+	<a name="sax2-CHP-4-FIG-1" /><div class="figure"><img height="67" alt="Figure 4-1" src="figs/sax_0401.gif" width="328" /></div><h4 class="objtitle">Figure 4-1. SAX2 event pipeline</h4>
+	
+	<p>Pipeline stages can be used to create functional layers,
+	or they can simply be used to define clean module boundaries.
+	Some stages may work well with fragments of XML, while others
+	may expect to process entire documents.
+	The order in which processing tasks occur could be critically
+	important or largely incidental.
+	Stages can be application specific or general purpose.
+	In addition to reading and writing XML, examples of such 
+	general-purpose stages include:
+	</p>
+
+	<ul>
+
+	    <li><p>Cleaning up namespace information
+	    to re-create prefix declarations and references,
+	    replace old URIs with current ones, or
+	    give unqualified names a namespace.
+	    </p></li>
+	
+	    <li><p>Performing XSLT transformations.
+	    </p></li>
+	
+	    <li><p>Validating against an appropriate DTD
+	    or schema.
+	    </p></li>
+	
+	    <li><p>Transforming input text to eliminate
+	    problematic character representations.
+	    (Several recent W3C specifications require using Unicode
+	    Normalization Format C.)
+	    </p></li>
+	
+	    <li><p>Supporting the <tt class="literal">xml:base</tt>
+	    model for determining base URIs.
+	    </p></li>
+	
+	    <li><p>Passing data through pipeline
+	    stages on remote servers.
+	    </p></li>
+
+	    <li><p>Implementing XInclude or similar
+	    replacements for DTD-based external entity processing.
+	    </p></li>
+
+	    <li><p>Performing well-formedness tests to
+	    guard against sloppy producers (parsers won't need this).
+	    </p></li>
+
+	</ul>
+
+	<p>More application-specific pipeline stages
+	might include: </p>
+
+	<ul>
+	
+	    <li><p>Performing validation using procedural
+	    logic with access to system state.
+	    </p></li>
+	
+	    <li><p>Collecting links, to support tasks
+	    such as verifying they all work.
+	    </p></li>
+
+	    <li><p>Unmarshaling application-specific data
+	    structures.
+	    </p></li>
+	
+	    <li><p>Stripping out data that later processing
+	    must never see. For example, SOAP 1.1 messages must never
+	    include processing instructions or DTDs, and some kinds
+	    of XHTML rendering engines must not see
+	    <tt class="sgmltag-element">&lt;font&gt;</tt> tweaks.
+	    </p></li>
+
+	</ul>
+
+	<p>This process is different from how a work flow is managed
+	in a data structure API such as DOM.
+	In both cases you can assemble work-flow components, with
+	intermediate work products represented as data structures.
+	With SAX, those work-flow components would be pipelines;
+	pipeline stages wouldn't necessarily correspond to individual
+	work-flow components, although they might.
+	With a data structure API,
+	the intermediate work products must always use that API;
+	with SAX they can use whatever representation is convenient,
+	including XML text or a specialized application data structure.
+
+	</p>
+
+	<p>Beyond defining the event consumer interfaces and
+	how to hook them up to XML parsers, SAX includes only
+	limited support for pipelines. That is primarily
+	through the <em class="emphasis">XMLFilterImpl</em> class.
+	The support is limited in part because 
+	<em class="emphasis">XMLFilterImpl</em> doesn't provide
+	full support for the two extension handlers so that by
+	default it won't pass enough of the XML Infoset to support
+	some interesting tasks (including several in the previous lists).
+	</p>
+
+	<p>In the rest of this section we talk about that class,
+	XSLT and the <em class="emphasis">javax.xml.transform</em> package,
+	and about a more complete framework (the <em class="emphasis">gnu.xml.pipeline</em> package), to illustrate one alternative approach.
+	</p>
+
+	<p>
+<a name="INDEX-627" />
+<a name="INDEX-628" />
+<a name="INDEX-629" />
+        You might also be interested in the pipeline framework
+	used in the Apache Cocoon v2 project.
+	Cocoon is designed for managing large web sites based on XML.
+	One difference between the current Cocoon pipeline framework
+	and the GNU pipeline framework is that Cocoon excludes the two
+	SAX DTD-handling interfaces, making Cocoon pipelines unsuitable
+	for tasks that need such DTD information.
+	(Examples include DTD-based validation and parts
+	of the XML Base URI specification that require detection of
+	external entity boundaries.)
+	At this writing, Cocoon 2.0 has just shipped its first stable release, ending its beta cycle.
+	</p>
+
+	<a name="sax2-CHP-4-SECT-5.1" /><div class="sect2">
+	    <h3 class="sect2">4.5.1. The XMLFilterImpl Class </h3>
+
+	    <p>
+<a name="INDEX-630" />
+The <em class="emphasis">XMLFilterImpl</em> 
+	    class is new in SAX2, though a similar
+	    layer was in use on top of SAX1 parsers.
+	    Think of this class as a hybrid between an event
+	    consumer and an event producer, which can be used
+	    in either mode:
+	    </p>
+	    
+	    <ul>
+		<li><p>
+<a name="INDEX-631" />
+                In its event consumer role, it's a
+		base class that forwards events to another consumer.
+		Callers push events through the filter,
+		which postprocesses them.
+		Subclasses would normally override methods for
+		those events and invoke the superclass methods
+		when they choose to pass them on (after
+		postprocessing the data to be reported).
+		</p></li>
+
+		<li><p>In its event producer role, it's a
+		specialized <em class="emphasis">XMLReader</em> that
+		registers itself as the consumer for a parent
+		reader and delegates parsing to that parent.
+		Callers pull data through the filter by calling
+		<tt class="literal">parse()</tt>; it looks like a SAX
+		parser that preprocesses Infoset data before reporting it.
+		</p></li>
+
+	    </ul>
+
+	    <p>
+
+<a name="INDEX-632" />
+            When you subclass <em class="emphasis">XMLFilterImpl</em>,
+	    you'll primarily be concerned with its role as an event consumer
+	    because you'll be writing event handler code.
+	    The bulk of the work in a filter is event handling.
+	    When you need to filter <em class="emphasis">DeclHandler</em>
+	    or <em class="emphasis">LexicalHandler</em> events, it won't
+	    know how to handle them.
+	    You'll have to add code to handle those events;
+	    get the code to that SAX class, and follow the model
+	    used for <em class="emphasis">ContentHandler</em> support.
+	    The following code snippet shows how this is set up. It supports
+	    the producer side (parsing a document and automatically
+	    filtering its events). It also shows the consumer-side
+	    infrastructure, meaning events are normally passed through untouched,
+	    but subclasses will override methods to intercept events and
+	    change how they get handled:
+	    </p>
+
+	    <blockquote><pre class="code">
+public class ExtendedFilter extends XMLFilterImpl
+    implements LexicalHandler, DeclHandler
+{
+    DeclHandler		declHandler;
+    LexicalHandler	lexicalHandler;
+
+    private static String	declID =
+	    "http://xml.org/sax/properties/declaration-handler";
+    private static String	lexicalID =
+	    "http://xml.org/sax/properties/lexical-handler";
+
+    public void setProperty (String uri, Object handler)
+    throws SAXNotRecognizedException, SAXNotSupportedException
+    {
+	if (declID.equals (uri))
+	    declHandler = (DeclHandler) handler;
+	else if (lexicalID.equals (uri))
+	    lexicalHandler = (LexicalHandler) handler;
+	else
+	    super.setProperty (uri, handler);
+    }
+
+    // support producer mode operations
+    public void parse (InputSource in)
+    throws SAXException, IOException
+    {
+	XMLReader	parent = getParent ();
+
+	if (parent != null) {
+	    parent.setProperty (declID, this);
+	    parent.setProperty (lexicalID, this);
+	}
+	super.parse (in);
+    }
+
+    // support consumer mode operations
+    public void comment (char buf [], int offset, int length)
+    throws SAXException
+    {
+	if (lexicalHandler != null)
+	    lexicalHandler.comment (buf, offset, length);
+    }
+
+    // ... likewise for other LexicalHandler and DeclHandler methods
+}</pre></blockquote>
+
+	    <p>When you're using such a filter just as a consumer,
+	    you'll have to register it as a handler for the event classes
+	    you're interested in, using methods like
+	    <tt class="literal">setContentHandler()</tt> as you would for any
+	    other event consumer.
+	    In such a case there's never any confusion about which
+	    <em class="emphasis">XMLReader</em> to use to parse since any filter component is only postprocessing.
+	    </p>
+
+	    <p>When you use an <em class="emphasis">XMLFilterImpl</em>
+	    to produce events, you need to provide a parent parser,
+	    probably by using <tt class="literal">XMLFilter.setParent()</tt>.
+	    When you invoke <tt class="literal">parse()</tt>,
+	    the filter sets itself up to proxy all of the SAX
+	    core event handler methods (as shown earlier for one of the
+	    extension methods) as well as
+	    <em class="emphasis">EntityResolver</em>
+	    and <em class="emphasis">ErrorHandler</em>.
+
+	    You'll need to pay particular attention that you invoke
+	    the filter, instead of that "real" parser. It's easy to
+	    run into bugs that way, particularly if you're chaining
+	    multiple filters together. Although every filter stage has
+	    a <tt class="literal">parse()</tt> method, you only want
+	    to invoke it on the last postprocessing stage.
+	    It's easy to get confused about that.
+	    </p>
+
+	    <p>Some <em class="emphasis">XMLFilter</em> implementations
+	    only operate in producer mode.
+	    That is unfortunate since it means that they only accept input
+	    like a parser; they can't be used to postprocess SAX events.
+<a name="INDEX-633" />
+	    
+</p>
+
+	    </div>
+
+	<a name="sax2-CHP-4-SECT-5.2" /><div class="sect2">
+	    <h3 class="sect2">4.5.2. XMLFilter Examples </h3>
+
+	    <p>
+<a name="INDEX-634" />
+            This book includes some examples that use
+	    <em class="emphasis">XMLFilterImpl</em> as a base class, supporting both filter modes:
+	    </p>
+
+	    <ul>
+	    
+		<li><p><a href="ch06_01.htm#sax2-CHP-6-EX-3">Example 6-3</a>
+		shows a custom handler interface, delivering
+		application-specific unmarshaled data. This interface can be used either to postprocess or to preprocess SAX events, without additional setup.
+		</p></li>
+
+		<li><p><a href="ch06_03.htm#sax2-CHP-6-EX-9">Example 6-9</a>
+		replaces processing instructions with the content of an
+		included document so that downstream stages won't know
+		about the substitution.
+		When used to postprocess events, the handler 
+		may need to be set up
+		with appropriate <em class="emphasis">EntityHandler</em> and <em class="emphasis">ErrorHandler</em> objects.
+		</p></li>
+
+	    </ul>
+
+	    <p>Sun is developing a "Multi-Schema Validator"
+	    engine, which uses SAX filters to implement validators for
+	    schema systems including RELAX (also called ISO RELAX),
+	    TREX, RELAX-NG (combining the best of RELAX and TREX),
+	    and W3C XML schemas.
+	    This work ties in to the
+	    <em class="emphasis">org.iso_relax.verifier</em>
+	    framework for validator APIs (at <a href="http://iso-relax.sourceforge.net">http://iso-relax.sourceforge.net</a>), which
+	    also supports using SAX objects (such as filters and 
+	    content handlers) that validate schemas.
+	    </p>
+
+	    <p>If you're using RDDL
+	    (<a href="http://www.rddl.org">http://www.rddl.org</a>)
+	    as a convention for associating resources with XML namespaces,
+	    you may find the
+	    <em class="emphasis">org.rddl.sax.RDDLFilter</em>
+	    class to be useful. It parses RDDL documents
+	    and lets you determine the various resources
+	    associated with namespaces, such as a
+	    DTD, a preferred CSS or XSLT stylesheet,
+	    or the schema using any of several schema languages.
+	    This is another "producer-mode only" filter.
+	    </p>
+
+	    </div>
+
+	<div class="sect2">
+	    <h3 class="sect2">4.5.3. The javax.xml.transform.sax Package</h3>
+
+	    <p>
+<a name="INDEX-635" />
+<a name="INDEX-636" />
+<a name="INDEX-637" />
+            The <em class="emphasis">javax.xml.transform</em> APIs
+	    provide ways to apply XSLT transforms to XML data.
+	    The top level APIs work with the "pull" model,
+	    and map one XML representation into another one with a
+	    <tt class="literal">Transformer.transform(source,result)</tt> call.
+	    Those representations can include XML text, DOM trees,
+	    or some kinds of SAX event streams.
+	    Except for that SAX support,
+	    you can look at the package as supporting three-stage pipelines,
+	    with the middle stage always XSLT (or else a null transform).
+	    The <em class="emphasis">javax.xml.transform.sax</em> APIs let
+	    you <?troff .ne 10?>integrate XSLT into longer SAX pipelines in several ways,
+	    including one flexible pure "push" mode.
+	    </p>
+
+	    <p>
+<a name="INDEX-638" />
+            The <em class="emphasis">SAXTransformerFactory</em>
+	    class is important for most such pipeline usage.
+	    You could use code like this to set up to get a factory
+	    matching the code fragments shown later:
+	    </p>
+
+	    <blockquote><pre class="code">
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.sax.*;
+
+String			stylesheetURI = ...;
+String			documentURI = ...;
+ContentHandler		contentHandler = ...;
+LexicalHandler		lexicalHandler = ...;
+TransformerFactory	tf
+SAXTransformerFactory	stf;
+SAXSource		stylesheet;
+
+tf = TransformerFactory.newInstance ();
+if (!tf.getFeature (SAXTransformerFactory.FEATURE)
+	|| !tf.getFeature (SAXSource.FEATURE))
+    throw new Exception ("not enough API support");
+stylesheet = new SAXSource (new InputSource (stylesheetURI));
+stf = (SAXTransformerFactory) tf;
+</pre></blockquote>
+
+	    <p>
+<a name="INDEX-639" />
+        Most Java XSLT engines, such as SAXON (available at
+	<a href="http://saxon.sourceforge.net">http://saxon.sourceforge.net</a>)
+	    and Xalan (available at
+	<a href="http://xml.apache.org/xalan-j">http://xml.apache.org/xalan-j</a>)
+	    fully support the additional SAX-oriented APIs, although
+	    that is not required.
+	    </p>
+
+	    <div class="sect3">
+		<h3 class="sect3">4.5.3.1. SAX in Push-Mode with XSLT</h3>
+
+		<p>
+<a name="INDEX-640" />
+<a name="INDEX-641" />
+<a name="INDEX-642" />
+<a name="INDEX-643" />
+<a name="INDEX-644" />
+<a name="INDEX-645" />
+<a name="INDEX-646" />
+<a name="INDEX-647" />
+                The approach that's most flexible involves a
+		<em class="emphasis">TransformerHandler</em> initialized
+		to apply a specific XSLT transform.
+		These are event consumer stages, set up to push their
+		results through to other stages.
+		They support only the <em class="emphasis">ContentHandler</em>,
+		<em class="emphasis">LexicalHandler</em> and
+		<em class="emphasis">DTDHandler</em> interfaces, but not
+		<em class="emphasis">DeclHandler</em>.
+		This is best used in conjunction with the
+		<em class="emphasis">SAXResult</em> class, which
+		packages both non-DTD SAX handlers so they can
+		collect the output of a transform.
+		After getting the factory as shown in the preceding code,
+		make sure it supports <em class="emphasis">SAXResult</em>,
+		then get and use the handler in a manner such as the following:
+		</p>
+
+		<blockquote><pre class="code">
+XMLReader		producer;
+SAXResult		out;
+TransformerHandler	handler;
+
+if (!tf.getFeature (SAXResult.FEATURE))
+    throw new Exception ("not enough API support");
+
+handler = stf.newTransformerHandler (stylesheet);
+out = new SAXResult ();
+out.setContentHandler (contentHandler);
+out.setLexicalHandler (lexicalHandler);
+// no DTD support from the SAXResult class!!
+handler.setResult (out);
+
+producer = XMLReaderFactory.createXMLREader ();
+producer.setContentHandler (handler);
+producer.setDTDHandler (handler);
+producer.setProperty ("http://xml.org/sax/properties/lexical-handler",
+	handler);
+
+producer.parse (inputURI);
+</pre></blockquote>
+
+		<p>This style of usage is particularly well suited to
+		XML pipelines. It's just a DTD-deprived pipeline stage,
+		except that the output setup needs a non-SAX class.
+		The reason that approach is particularly useful
+		for pipeline processing is that both the input and
+		output to the XSLT transform use SAX event streams,
+		so it can easily be spliced between any two parts of an
+		event pipeline.
+		It also means you can use "push" mode
+		event producers, which invoke SAX callbacks directly.
+		</p>
+
+		</div>
+
+	    <div class="sect3">
+		<h3 class="sect3">4.5.3.2. SAX in Pull-Mode with XSLT</h3>
+
+		<p>
+<a name="INDEX-648" />
+<a name="INDEX-649" />
+                You can also get an pull-style API, using an
+		<em class="emphasis">XMLFilter</em> that is initialized to
+		apply a specific XSLT tran form.
+		Such filters may be used as event producers,
+		only at one end of a SAX pipeline.
+		After getting the factory as shown in the previous code listing, you would make sure it supports this functionality, then get and use the filter like this.</p>
+	    
+	    <blockquote><pre class="code">
+XMLFilter    producer;
+
+if (!tf.getFeature (SAXTransformerFactory.FEATURE_XMLFILTER))
+    throw new Exception ("not enough API support");
+
+producer = stf.newXMLFilter (stylesheet);
+producer.setContentHandler (contentHandler);
+producer.setProperty ("http://xml.org/sax/properties/lexical-handler",
+	lexicalHandler);
+
+producer.parse (inputURI);
+</pre></blockquote>
+
+		<p>
+<a name="INDEX-650" />
+                Such a call would use the XSLT stylesheet
+		to preprocess input to the handlers you provide.
+		The <em class="emphasis">SAXResult</em> class, shown here,
+		supports a similar processing model.
+		If your transformer can accept one of those, a pull-mode
+		<tt class="literal">Transformer.transform()</tt> call pushes
+		preprocessed results into a
+		<em class="emphasis">ContentHandler</em> and
+		<em class="emphasis">LexicalHandler</em>, like the
+		<tt class="literal">XMLFilter.parse()</tt> call.</p>
+
+		<p>You can also use SAX in a pull-mode
+		<tt class="literal">Transformer.transform()</tt> call
+		by using a <em class="emphasis">SAXSource</em> object.
+		That lets you provide an <em class="emphasis">InputSource</em>
+		(as shown earlier) as well as
+		an <em class="emphasis">XMLReader</em>,
+		which may be set up with a particular
+		<em class="emphasis">ErrorHandler</em> and
+		<em class="emphasis">EntityResolver</em>
+		(not shown).
+		To use that in a SAX event pipeline,
+		you can make that reader be an
+		<em class="emphasis">XMLFilter</em> that preprocesses the input to the XSLT transform.</p>
+
+		<p>
+<a name="INDEX-651" />
+                You can combine both <em class="emphasis">SAXSource</em>
+		and <em class="emphasis">SAXResult</em> objects to get a
+		kind of "pull" mode pipeline including
+		one XSLT transform stage, without even needing to use
+		the <em class="emphasis">SAXTransformerFactory</em> class.
+		To get multiple XSLT transform stages without needing
+		intermediate storage (XML text, a DOM tree, or so on),
+		use the <em class="emphasis">TransformerHandler</em> class as
+		shown earlier, postprocessing results 
+		through in a <em class="emphasis">SAXResult</em>.
+		Or if you prefer, package an <em class="emphasis">XMLFilter</em> 
+		from a <em class="emphasis">SAXTransformerFactory</em>
+		to preprocess data through a
+		<em class="emphasis">SAXSource</em> that you provide to the
+		<tt class="literal">Transformer.transform()</tt> call.
+		(I recommend sticking to the pure
+		<em class="emphasis">TransformerHandler</em> approach,
+		since it's not as confusing.)
+<a name="INDEX-652" />
+		
+</p>
+
+		</div>
+
+	    </div>
+
+	<a name="sax2-CHP-4-SECT-5.4" /><div class="sect2">
+	    <h3 class="sect2">4.5.4. The gnu.xml.pipeline Framework </h3>
+
+	    <p>
+<a name="INDEX-653" />
+<a name="INDEX-654" />
+            This framework takes a different approach to building
+	    pipelines than <em class="emphasis">XMLFilterImpl</em>
+	    or <em class="emphasis">XMLFilter</em>. Two key characteristics are its built-in support for all the SAX2 handlers, including the extension handlers, and its exclusive focus on the postprocessing model. In addition, it has several utility filters and some factory methods that can automate construction and initialization of pipelines. The core interface is <em class="emphasis">EventConsumer</em>:
+	    </p>
+
+	    <blockquote><pre class="code">
+public interface EventConsumer
+{
+    public ContentHandler getContentHandler ();
+    public DTDHandler getDTDHandler ();
+
+    public Object getProperty (String id)
+    throws SAXNotRecognizedException;
+
+    public void setErrorHandler (ErrorHandler handler);
+} </pre></blockquote>
+	    
+	    <p>With that interface, pipelines are normally set up
+	    beginning with the last consumer and then working toward
+	    the first consumer.
+	    There is a formal convention that states pipeline stages have a
+	    constructor that takes an <em class="emphasis">EventConsumer</em>
+	    parameter, which is used to construct pipelines from simple
+	    textual descriptions (which look like Unix-style command
+	    pipelines). That convention makes it easy to construct
+	    a pipeline by hand, as shown in the following code.
+	    Stages are strongly expected to share the <?troff .ne 10?>same error handling;
+	    the error handler is normally established after the pipeline
+	    is set up, when a pipeline is bound to an event producer.
+	    </p>
+
+	    <p>There is a class that corresponds to the pure consumer
+	    mode <em class="emphasis">XMLFilterImpl</em>, except that it
+	    implements all the SAX2 event consumer interfaces, not
+	    just the ones in the core API. <em class="emphasis">LexicalHandler</em> and <em class="emphasis">DeclHandler</em> are fully supported. This class also adds convenience methods such as the following:
+	    </p>
+
+	    <blockquote><pre class="code">
+public class EventFilter
+    implements EventConsumer, ContentHandler, DTDHandler,
+	    LexicalHandler, DeclHandler
+{
+    ... lots omitted ...
+
+    // hook up all event consumer interfaces to the producer
+    // map some known EventFilters into XMLReader feature settings
+    public static void bind (XMLReader producer, EventConsumer consumer)
+	{ /* code omitted */ }
+    
+    // wrap a "consumer mode" XMLFilterImpl
+    public void chainTo (XMLFilterImpl next)
+	{ /* code omitted */ }
+
+    ... lots omitted ...
+}
+</pre></blockquote>
+
+	    <p><a href="ch04_05.htm#sax2-CHP-4-EX-4">Example 4-4</a> shows
+	    how one simple event pipeline works using
+	    the GNU pipeline framework. It looks like it has
+	    three pipeline components (in addition to the parser),
+	    but in this case it's likely that two of them will be
+	    optimized away into parser feature flag settings:
+	    <em class="emphasis">NSFilter</em> restores namespace-related
+	    information that is discarded by SAX2 parser defaults
+	    (<tt class="literal">bind()</tt> sets
+	    <em class="emphasis">namespace-prefixes</em> to true and
+	    discards that filter),
+	    and <em class="emphasis">ValidationFilter</em> is a layered
+	    validator that may not be necessary if the underlying
+	    parser can support validation (in which case the
+	    <em class="emphasis">validation</em> flag is set to true and
+	    the filter is discarded).
+	    Apart from arranging that validation errors are reported
+	    and using the GNU DOM implementation instead of Crimson's,
+	    this code does exactly what the first
+	    SAX-to-DOM example above does.<a href="#FOOTNOTE-22">[22]</a>
+	    </p><blockquote class="footnote"><a name="FOOTNOTE-22" /><p>[22]There is a generic
+		<em class="emphasis">DomConsumer</em> class that bootstraps
+		using whatever JAXP sets up as the default DOM. Such a generic consumer can't know the implementation-specific back doors needed to implement all the bells and whistles DOM demands.
+		</p></blockquote>
+
+	    <a name="sax2-CHP-4-EX-4" /><div class="example">
+		<h4 class="objtitle">Example 4-4. SAX events to DOM document (using GNU DOM)</h4>
+
+		<blockquote><pre class="code">
+import gnu.xml.pipeline.*;
+
+public Document SAX2DOM (String uri)
+throws SAXException, IOException
+{
+    DomConsumer	consumer;
+    XMLReader	producer;
+
+    consumer = new gnu.xml.dom.Consumer ();
+    consumer = new ValidationConsumer (consumer);
+    consumer = new NSFilter (consumer);
+
+    producer = XMLReaderFactory.createXMLReader ();
+    producer.setErrorHandler (new DefaultHandler () {
+	public void error (SAXParseException e)
+	throws SAXException
+	    { throw e; }
+	});
+    EventFilter.bind (producer, consumer);
+
+    producer.parse (uri);
+    return consumer.getDocument ();
+}</pre></blockquote>
+		</div>
+
+	    <p>There are some interesting notions lurking in this
+	    example. For instance, when validation is a postprocessing
+	    stage, it can be initialized with a particular DTD and
+	    hooked up to an <em class="emphasis">XMLReader</em> that walks DOM nodes. That way, that DOM content can be incrementally validated as applications change it. Similarly, application code can produce a SAX event stream and validate content without saving it to a file. This same postprocessing approach could be taken with validators based on any of the various schema systems.
+	    </p>
+
+	    <p>There are a variety of other utility pipeline
+	    stages and support classes in the
+	    <em class="emphasis">gnu.xml.pipeline</em> package. 
+	    One is briefly shown  later
+	    (in <a href="ch06_02.htm#sax2-CHP-6-EX-7">Example 6-7</a>).
+	    Others include XInclude and XSLT support,
+	    as well as a <em class="emphasis">TeeConsumer</em>
+	    to send events down two pipelines
+	    (like a tee joint used in plumbing).
+	    This can be useful to save output for debugging;
+	    you can write XML text to a file, or save it
+	    as a DOM tree, and watch the events that come out
+	    of a particular pipeline stage to find problematic areas.
+	    </p>
+
+	    <p>Even if you don't use that GNU framework, you should
+	    keep in mind that SAX pipeline stages can be used to package
+	    significant and reusable XML processing components.
+<a name="INDEX-655" />
+<a name="INDEX-656" />
+<a name="INDEX-657" />
+<a name="INDEX-658" />
+<a name="INDEX-659" />
+	    
+</p>
+
+	    </div>
+
+	
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch05_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4.4. Turning SAX Events into Data Structures </td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">5. Other SAX Classes</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

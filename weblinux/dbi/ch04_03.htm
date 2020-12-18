@@ -1,0 +1,313 @@
+<?label 4.3. Data Source Names ?><html><head><title>Data Source Names  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch04_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">4.3. Data Source Names </h2>
+
+
+
+<p>When <a name="INDEX-370" />connecting
+<a name="INDEX-371" />to <a name="INDEX-372" />a database via the DBI, you need to tell
+the DBI where to find the database to connect to. For example, the
+database driver might require a database name, or a physical machine
+name upon which the database resides. This information is termed a
+<em class="emphasis">data source name,</em> and of all the aspects of DBI,
+this is possibly the most difficult to standardize due to the sheer
+number and diversity of connection syntaxes.</p>
+
+
+
+<p>The DBI requires the data source name to start with the characters
+<tt class="literal">dbi:</tt>, much like a URL begins with
+<tt class="literal">http:</tt>, and then the name of the driver, followed
+by another colon -- for example, <tt class="literal">dbi:Oracle:</tt>.
+Any text that follows is passed to the driver's own
+<tt class="literal">connect()</tt>
+<a name="INDEX-373" />
+<a name="INDEX-374" />
+<a name="INDEX-375" />
+method to interpret as it sees fit. Most drivers expect either a
+simple database name or, more often, a set of one or more
+
+<a name="INDEX-376" />name/value pairs separated with
+semicolons. Some common examples are listed later in this section.</p>
+
+
+
+<p>For example, mSQL requires the hostname, database name, and
+potentially, the TCP/IP port number for connecting to the database
+server. However, Oracle may require only a single word that is an
+alias to a more complicated connection identifier that is stored in
+separate Oracle configuration files.</p>
+
+
+
+<p>DBI offers two useful methods for querying which data sources are
+available to you for each driver you have installed on your system.</p>
+
+
+
+<p>Firstly, you can get a list of all the available drivers installed on
+your machine by using the
+<tt class="literal">DBI-&gt;available_drivers()</tt>
+<a name="INDEX-377" />
+
+<a name="INDEX-378" />
+<a name="INDEX-379" />
+<a name="INDEX-380" />method.
+This returns a list with each element containing the data source
+prefix of an installed driver,<a href="#FOOTNOTE-36">[36]</a> such as
+<tt class="literal">dbi:Informix:</tt>.</p><blockquote>
+
+
+<a name="FOOTNOTE-36" /><p>[36]The actual definition
+of ``installed driver'' is a little loose.
+The DBI simply searches the directories in <tt class="literal">@INC</tt>
+looking for any DBD subdirectories that contain
+
+<a name="INDEX-381" /><em class="filename">.pm</em> files. Those are
+assumed to be drivers. It does not verify that the modules are
+completely and correctly installed. In practice, this process is fast
+and works well.</p>
+
+
+</blockquote>
+
+
+
+<p>Secondly, you can invoke the
+<tt class="literal">DBI-&gt;data_sources()</tt>
+<a name="INDEX-382" />
+
+<a name="INDEX-383" />
+<a name="INDEX-384" />
+<a name="INDEX-385" />method
+against one or more of the drivers returned by the
+<tt class="literal">DBI-&gt;available_drivers()</tt> method to enumerate
+which data sources are known to the driver.<a href="#FOOTNOTE-37">[37]</a> Calling the <tt class="literal">data_sources()</tt> method will
+actually load the specified driver and validate that it is completely
+and correctly installed. Because DBI dies if it can't load and
+initialize a driver, this method should be called inside an
+<tt class="literal">eval{}</tt> <tt class="literal">block</tt> if you need to
+catch that error.</p><blockquote>
+
+
+<a name="FOOTNOTE-37" /><p>[37]Note that
+not necessarily every data source that is reachable via the driver is
+returned. Similarly, the inclusion of a data source does not imply
+that it is actually currently available for connection.</p>
+
+
+</blockquote>
+
+
+
+<p>The following script lists all the drivers and data sources for each
+driver on your system:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch04/listdsns: Enumerates all data sources and all installed drivers
+#
+use DBI;
+
+### Probe DBI for the installed drivers
+my @drivers = DBI-&gt;available_drivers();
+
+die "No drivers found!\n" unless @drivers; # should never happen
+
+### Iterate through the drivers and list the data sources for each one
+foreach my $driver ( @drivers ) {
+    print "Driver: $driver\n";
+    my @dataSources = DBI-&gt;data_sources( $driver );
+    foreach my $dataSource ( @dataSources ) {
+        print "\tData Source is $dataSource\n";
+    }
+    print "\n";
+}
+
+exit;</pre></blockquote>
+
+
+
+<p>The output from this script on my machine looks like:</p>
+
+
+
+<blockquote><pre class="code">Driver: ADO
+
+Driver: CSV
+    Data source is DBI:CSV:f_dir=megaliths
+    Data source is DBI:CSV:f_dir=pictish_stones
+
+Driver: ExampleP
+    Data Source is dbi:ExampleP:dir=.
+
+Driver: File
+    Data Source is DBI:File:f_dir=megaliths
+    Data Source is DBI:File:f_dir=pictish_stones
+
+Driver: ODBC
+
+Driver: Proxy
+
+Driver: XBase
+    Data Source is dbi:XBase:.</pre></blockquote>
+
+
+
+<p>which tells us that we have the <a name="INDEX-386" /> <a name="INDEX-387" />standard
+drivers <tt class="literal">DBD::Proxy</tt>, <tt class="literal">DBD::ADO</tt>,
+<tt class="literal">DBD::File</tt>, and <tt class="literal">DBD::ExampleP</tt>
+installed, as well as <tt class="literal">DBD::ODBC</tt>,
+<tt class="literal">DBD::XBase</tt>, and <tt class="literal">DBD::CSV</tt>.</p>
+
+
+
+<p>While this may be interesting in theory, in practice you rarely need
+to use these methods. Most applications are written to use one data
+source name, either hardcoded into the application or passed in as a
+parameter in some way.</p>
+
+
+
+<p>When specifying a data source name for a database, the text following
+the <a name="INDEX-388" />driver
+prefix should be of the form that is appropriate for the particular
+database that you wish to connect to. This is very database-specific,
+but the following table shows some examples.<a href="#FOOTNOTE-38">[38]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-38" /><p>[38]An
+excellent example of an application that figures out data source
+names at runtime is <tt class="literal">dbish</tt>, discussed more fully in
+<a href="ch08_01.htm">Chapter 8, "DBI Shell and Database Proxying "</a>.</p>
+
+
+</blockquote>
+
+
+
+<a name="ch04-1-fm2xml" /><table border="1">
+
+
+
+<tr>
+<th>
+<p>Database</p></th>
+<th>
+<p>Example Connection Syntax</p></th>
+</tr>
+
+
+
+
+
+
+<tr>
+<td>
+<p>
+<a name="INDEX-389" />mSQL</p></td>
+<td>
+<blockquote><pre class="code">dbi:mSQL:hostname:database:port_number</pre></blockquote>
+
+
+
+<p>For example, to connect to a database called archaeo located on a
+machine called <em class="emphasis">fowliswester.arcana.co.uk</em> running on port
+number 1114, the following <tt class="literal">$data_source</tt> argument
+would be used:</p>
+
+
+
+<blockquote><pre class="code">dbi:mSQL:fowliswester.arcana.co.uk:archaeo:1114</pre></blockquote></td>
+</tr>
+
+
+<tr>
+<td>
+<p>
+<a name="INDEX-390" />Oracle</p></td>
+<td>
+<blockquote><pre class="code">dbi:Oracle:connection_descriptor</pre></blockquote>
+
+
+
+<p>Oracle has a slightly less cut-and-dried way of specifying connection
+identifiers due to the many different ways in which the Oracle
+database software can actually handle connections.</p>
+
+
+
+<p>To break this nightmarish topic down into bite-sized chunks, Oracle
+may use two different types of connection. For local connections,
+Oracle uses a single item of information as the connection
+descriptor, either the name of the database or an alias to the
+database as specified in the Oracle configuration files. For a
+network-based connection, Oracle usually needs to know the alias of
+the connection descriptor as specified in the Oracle configuration
+files, or, if you are feeling suitably masochistic, you can specify
+the whole connection descriptor ... but, believe me, it isn't
+pretty.</p>
+
+
+
+
+<p>For example, a simple Oracle <tt class="literal">$data_source</tt> value
+might be:</p>
+
+
+
+<blockquote><pre class="code">dbi:Oracle:archaeo</pre></blockquote></td>
+</tr>
+
+
+<tr>
+<td>
+<p>
+<a name="INDEX-391" />CSV</p></td>
+<td>
+<blockquote><pre class="code">dbi:CSV:f_dir=/datafiles</pre></blockquote>
+
+
+
+<p>The <tt class="literal">DBD::CSV</tt> module treats a group of
+comma-separated value files in a common directory as a database. The
+data source for this driver can contain a parameter
+<tt class="literal">f_dir</tt> that specifies the directory in which the
+files are located.</p></td>
+</tr>
+
+
+
+</table>
+
+<p>In the case of the
+<tt class="literal">$data_source</tt>
+<a name="INDEX-392" /> argument, an empty or undefined value
+will result in the <a name="INDEX-393" />environment variable
+<tt class="literal">DBI_DSN</tt> being checked for a valid value. If this
+environment variable is not defined, or does not contain a valid
+value, the DBI will <a name="INDEX-394" />call <tt class="literal">die()</tt>.</p>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch04_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">4.2. Handles </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">4.4. Connection and Disconnection </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

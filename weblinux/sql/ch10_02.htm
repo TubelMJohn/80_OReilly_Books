@@ -1,0 +1,348 @@
+<?label 10.2. An Example DBI Application?><html><head><title>An Example DBI Application (MySQL &amp; mSQL)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Randy Jay Yarger, George Reese and Tim King" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924347L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="MySQL &amp; mSQL" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="MySQL and mSQL" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch10_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">MySQL &amp; mSQL</a></td><td width="172" valign="top" align="right"><a href="ch10_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<a name="INDEX-685" /><h2 class="sect1">10.2. An Example DBI Application</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-686" />DBI allows for the full range of
+SQL queries supported by MySQL and mSQL. As an example, consider a
+database used by a school to keep track of student records, class
+schedules, test scores, and so on. The database would contain several
+tables, one for class information, one for student information, one
+containing a list of tests, and a table for each test. MySQL and
+mSQL's ability to access data across tables -- such as the
+table-joining feature -- enables all of these tables to be used
+together as a coherent whole to form a teacher's aide
+application.</p>
+
+
+
+
+
+<p>To begin with we are interested in creating tests for the various
+subjects. To do this we need a table that contains names and ID
+numbers for the tests. We also need a separate table for each test.
+This table will contain the scores for all of the students as well as
+a perfect score for comparison. The <tt class="literal">test</tt> table has
+the following structure:</p>
+
+
+
+
+
+<blockquote><pre class="code">CREATE TABLE test (
+  id INT NOT NULL AUTO_INCREMENT,
+  name CHAR(100),
+  subject INT,
+  num INT
+)</pre></blockquote>
+
+
+
+
+
+<p>The individual tests have table structures like this:</p>
+
+
+
+
+
+<blockquote><pre class="code">CREATE TABLE t7 (
+  id INT NOT NULL,
+  q1 INT,
+  q2 INT,
+  q3 INT,
+  q4 INT,
+  total INT
+)</pre></blockquote>
+
+
+
+
+
+<p>The table name is <tt class="literal">t</tt> followed by the test ID number
+from the <tt class="literal">test</tt> table. The user determines the
+number of questions when he or she creates the table. The total field
+is the sum of all of the questions.</p>
+
+
+
+
+
+<p>The program that accesses and manipulates the test information is
+<em class="emphasis">test.cgi</em>. This program, which follows, allows
+only for adding new tests. Viewing tests and changing tests is not
+implemented but is left as an exercise. Using the other scripts in
+this chapter as a reference, completing this script should be only a
+moderate challenge. As it stands, this script effectively
+demonstrates the capabilities of DBI:<a href="#FOOTNOTE-17">[17]</a></p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-17" /><p>[17]This example is
+a MySQL example. Of course, the API is identical for mSQL. The only
+"glitch" is with sequence generation. Remember that where
+MySQL automatically generates the next ID for the
+<tt class="literal">test</tt> table because of the
+<tt class="literal">AUTO_INCREMENT</tt> keyword, mSQL expects you to create
+a sequence on the <tt class="literal">test</tt> table and
+<tt class="literal">SELECT</tt> the <tt class="literal">_seq</tt> value before
+doing your insert.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+
+use strict;
+require my_end;
+
+use CGI qw(:standard);
+my $output = new CGI;
+use_named_parameters(1);
+
+# Use the DBI module.
+use DBI;
+# DBI::connect() uses the format 'DBI:driver:database', in our case we are
+# using the MySQL driver and accessing the 'teach' database.
+my $dbh = DBI-&gt;connect('DBI:mysql:teach');
+# The add action itself is broken up into three separate functions. The first # function, add, prints out the template form for the user to create a new # # test.
+sub add {
+   $subject = param('subject') if (param('subjects'));
+   $subject = "" if $subject eq 'all';
+
+   print header, start_html('title'=&gt;'Create a New Test',
+      'BGCOLOR'=&gt;'white');
+   print &lt;&lt;END_OF_HTML;
+&lt;H1&gt;Create a New Test&lt;/h1&gt;
+&lt;FORM ACTION="test.cgi" METHOD=POST&gt;
+&lt;INPUT TYPE=HIDDEN NAME="action" VALUE="add2"&gt;
+Subject: 
+END_OF_HTML
+   my @ids = ();
+   my %subjects = ();
+   my $out2 = $dbh-&gt;prepare("select id,name from subject order by name");
+   $out2-&gt;execute;
+   # DBI::fetchrow_array() is exactly analogous to Msql::fetchrow()
+   while(my($id,$subject)=$out2-&gt;fetchrow_array) {
+      push(@ids,$id);
+      $subjects{"$id"} = $subject;
+   }
+   print popup_menu('name'=&gt;'subjects',
+      'values'=&gt;[@ids],
+      'default'=&gt;$subject,
+      'labels'=&gt;\%subjects);
+   print &lt;&lt;END_OF_HTML;
+&lt;br&gt;
+Number of Questions: &lt;INPUT NAME="num" SIZE=5&gt;&lt;br&gt;
+A name other identifier (such as a date) for the test: 
+ &lt;INPUT NAME="name" SIZE=20&gt;
+&lt;p&gt;
+&lt;INPUT TYPE=SUBMIT VALUE=" Next Page "&gt;
+ &lt;INPUT TYPE=RESET&gt;
+&lt;/form&gt;&lt;/body&gt;&lt;/html&gt;
+END_OF_HTML
+}</pre></blockquote>
+
+
+
+
+
+<p>This function displays a form allowing the user to choose a subject
+for the test along with the number of questions and a name. In order
+to print out a list of available subjects, the table of subjects is
+queried. When using a <tt class="literal">SELECT</tt> query with DBI, the
+query must first be prepared and then executed. The
+<tt class="literal">DBI::prepare</tt> function is useful with certain
+database servers which allow you to perform operations on prepared
+queries before executing them. With MySQL and mSQL however, it simply
+stores the query until the <tt class="literal">DBI::execute</tt> function
+is called.</p>
+
+
+
+
+
+<p>The output of this function is sent to the <tt class="literal">add2</tt>
+function as shown in the following:</p>
+
+
+
+
+
+<blockquote><pre class="code">sub add2 {
+   my $subject = param('subjects');
+   my $num = param('num');
+   $name = param('name') if param('name');
+
+   my $out = $dbh-&gt;prepare("select name from subject where id=$subject");
+   $out-&gt;execute;
+   my ($subname) = $out-&gt;fetchrow_array;
+
+   print header, start_html('title'=&gt;"Creating test for $subname",
+      'BGCOLOR'=&gt;'white');
+   print &lt;&lt;END_OF_HTML;
+&lt;H1&gt;Creating test for $subname&lt;/h1&gt;
+&lt;h2&gt;$name&lt;/h2&gt;
+&lt;p&gt;
+&lt;FORM ACTION="test.cgi" METHOD=POST&gt;
+&lt;INPUT TYPE=HIDDEN NAME="action" VALUE="add3"&gt;
+&lt;INPUT TYPE=HIDDEN NAME="subjects" VALUE="$subject"&gt;
+&lt;INPUT TYPE=HIDDEN NAME="num" VALUE="$num"&gt;
+&lt;INPUT TYPE=HIDDEN NAME="name" VALUE="$name"&gt;
+Enter the point value for each of the questions. The points need not
+add up to 100.
+&lt;p&gt;
+END_OF_HTML
+   for (1..$num) {
+      print qq%$_: &lt;INPUT NAME="q$_" SIZE=3&gt; %;
+      if (not $_ % 5) { print "&lt;br&gt;\n"; }
+   }
+   print &lt;&lt;END_OF_HTML;
+&lt;p&gt;
+Enter the text of the test:&lt;br&gt;
+&lt;TEXTAREA NAME="test" ROWS=20 COLS=60&gt;
+&lt;/textarea&gt;
+&lt;p&gt;
+&lt;INPUT TYPE=SUBMIT VALUE="Enter Test"&gt;
+ &lt;INPUT TYPE=RESET&gt;
+&lt;/form&gt;&lt;/body&gt;&lt;/html&gt;
+END_OF_HTML
+}</pre></blockquote>
+
+
+
+
+
+<p>In this function, a form for the test is dynamically generated based
+on the parameters entered in the last form. The user can enter the
+point value for each question on the test and the full text of the
+test as well. The output of this function is then sent to the final
+function, <tt class="literal">add3</tt>, as shown in the following:</p>
+
+
+
+
+
+<blockquote><pre class="code">sub add3 {
+   my $subject = param('subjects');
+   my $num = param('num');
+
+   $name = param('name') if param('name');
+        
+   my $qname;
+   ($qname = $name) =~ s/'/\\'/g;
+   my $q1 = "insert into test (id, name, subject, num) values (
+      '', '$qname', $subject, $num)";
+
+   
+
+   my $in = $dbh-&gt;prepare($q1);
+   $in-&gt;execute;
+
+   # Retrieve the ID value MySQL created for us
+   my $id = $in-&gt;insertid;
+
+   my $query = "create table t$id (
+      id INT NOT NULL,
+      ";
+
+   my $def = "insert into t$id values ( 0, ";
+
+   my $total = 0;
+   my @qs = grep(/^q\d+$/,param);
+   foreach (@qs) {
+      $query .= $_ . " INT,\n";
+      my $value = 0;
+      $value = param($_) if param($_);
+      $def .= "$value, ";
+      $total += $value;
+   }
+   $query .= "total INT\n)";
+   $def .= "$total)";
+
+   my $in2 = $dbh-&gt;prepare($query);
+   $in2-&gt;execute;
+   my $in3 = $dbh-&gt;prepare($def);
+   $in3-&gt;execute;
+
+   # Note that we store the tests in separate files. This is 
+   # useful when dealing with mSQL because of its lack of BLOBs. 
+   # (The TEXT type provided with mSQL 2 would work, but
+   # inefficently.)
+   # Since we are using MySQL, we could just as well
+   # stick the entire test into a BLOB.
+   open(TEST,"&gt;teach/tests/$id") or die("A: $id $!");
+   print TEST param('test'), "\n";
+   close TEST;
+
+   print header, start_html('title'=&gt;'Test Created',
+     'BGCOLOR'=&gt;'white');
+   print &lt;&lt;END_OF_HTML;
+&lt;H1&gt;Test Created&lt;/h1&gt;
+&lt;p&gt;
+The test has been created.
+&lt;p&gt;
+&lt;A HREF="."&gt;Go&lt;/a&gt; to the Teacher's Aide home page.&lt;br&gt;
+&lt;A HREF="test.cgi"&gt;Go&lt;/a&gt; to the Test main page.&lt;br&gt;
+&lt;A HREF="test.cgi?action=add"&gt;Add&lt;/a&gt; another test.
+&lt;/body&gt;&lt;/html&gt;
+END_OF_HTML
+}</pre></blockquote>
+
+
+
+
+
+<p>Here we enter the information about the test into the database. In
+doing so we take a step beyond the usual data insertion that we have
+seen so far. The information about the test is so complex that each
+test is best kept in a table of its own. Therefore, instead of adding
+data to an existing table, we have to create a whole new table for
+each test. First we create an ID for the new test using MySQL auto
+increment feature and enter the name and ID of the test into a table
+called <tt class="literal">test</tt>. This table is simply an index of
+tests so that the ID number of any test can be quickly obtained. Then
+we simultaneously create two new queries. The first is a
+<tt class="literal">CREATE TABLE</tt>
+<a name="INDEX-687" /> query which defines our new test. The
+second is an <tt class="literal">INSERT</tt>
+<a name="INDEX-688" /> query that populates our table with the
+maximum score for each question. These queries are then sent to the
+database server, completing the process (after sending a success page
+to the user). Later, after the students have taken the test, each
+student will get an entry in the test table. Then entries can then be
+compared to the maximum values to determine the student's
+score.<a name="INDEX-689" /></p>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch10_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch10_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">10. Perl</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">10.3. Msql.pm</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

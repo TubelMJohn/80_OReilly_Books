@@ -1,0 +1,306 @@
+<?label 8.4. Perl's Taint Mode?><html><head><title>Perl's Taint Mode (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch08_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">8.4. Perl's Taint Mode</h2>
+
+
+<p>
+<a name="INDEX-1751" /> <a name="INDEX-1,752" />
+<a name="INDEX-1753" />If you have been paying close
+attention, you may have noticed that the example scripts in this
+chapter are all a little different from previous examples. The
+difference appears at the end of the first line. All of our prior
+examples have had this as the first line:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT</pre></blockquote>
+
+
+<p>In this chapter, they have started like this:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w</pre></blockquote>
+
+
+<p>The difference is the <em class="emphasis">-T</em> option, which enables
+Perl's taint mode. Taint mode tells Perl to keep track of data
+that comes from the user and avoid doing anything insecure with it.
+Because our examples this chapter intentionally showed insecure ways
+of doing things, they wouldn't have worked with the
+<em class="emphasis">-T</em> flag, thus we omitted it. From this it should
+be clear, however, that taint mode is generally a very good thing.</p>
+
+
+<p>The purpose of taint mode is to not allow any data from outside your
+application from affecting anything else external to your
+application. Thus, Perl will not allow user-inputted values to be
+used in an eval, passed through a shell, or used in any of the Perl
+commands that affect external files and processes. It was created for
+situations when security is important, such as writing Perl programs
+that run as <em class="emphasis">root</em> or CGI scripts. You should
+always use taint mode in your CGI scripts.</p>
+
+
+<a name="ch08-7-fm2xml" /><div class="sect2">
+<h3 class="sect2">8.4.1. How Taint Works</h3>
+
+
+<p>When <a name="INDEX-1754" /> <a name="INDEX-1,755" />taint mode is enabled, Perl monitors
+every variable to see if it is tainted. Tainted data, according to
+Perl, is
+<a name="INDEX-1756" />
+<a name="INDEX-1757" />any data that comes from outside your code.
+Because this includes anything read from <a name="INDEX-1758" />STDIN (or any other file input) as well as
+all <a name="INDEX-1759" />environment variables, this covers
+everything your CGI script receives from the user.</p>
+
+
+<p>Not only does Perl keep track of whether variables are tainted or
+not, but that taintedness follows the data in the variable around if
+you try to assign it to another variable. For example, because it is
+an environment variable, Perl considers the HTTP request method
+stored in <tt class="literal">$ENV{REQUEST_METHOD}</tt> to be tainted. If
+you then assign this to another variable, that variable also becomes
+tainted.</p>
+
+
+<blockquote><pre class="code">my $method = $ENV{REQUEST_METHOD};</pre></blockquote>
+
+
+<p>Here <tt class="literal">$method</tt> also becomes tainted. It does not
+matter whether the
+<a name="INDEX-1760" />
+<a name="INDEX-1761" />expression simple or
+complex. If a tainted value is used in an expression, then the result
+of that expression is also tainted, and any variable it is assigned
+to will also become tainted.</p>
+
+
+<p>You can use this
+<a name="INDEX-1762" />subroutine to test
+whether a variable is tainted.<a href="#FOOTNOTE-16">[16]</a> It returns a true or false value:</p><blockquote>
+
+<a name="FOOTNOTE-16" /><p>[16]The <em class="citetitle">perlsec
+</em>manpage suggests a subroutine that uses Perl's
+<tt class="function">kill</tt> function to test for taintedness.
+Unfortunately, the <tt class="function">kill</tt> function is not
+supported by many systems. The subroutine provided here should work
+on any platform.</p>
+
+</blockquote>
+
+
+<blockquote><pre class="code">sub is_tainted {
+    my $var = shift;
+    my $blank = substr( $var, 0, 0 );
+    return not eval { eval "1 || $blank" || 1 };
+}</pre></blockquote>
+
+
+<p>We set <tt class="literal">$blank</tt> to a zero-length substring of the
+variable we're testing. If the value is tainted and we are
+running in taint mode, Perl will throw an error when we evaluate this
+in the quoted expression on the following line. This error is caught
+by the outer <tt class="function">eval</tt>, which then returns
+<tt class="literal">undef</tt>. If the variable is not tainted or we are
+not running in taint mode, then the expression within the outer
+<tt class="function">eval</tt> evaluates to <tt class="literal">1</tt>. The
+<tt class="literal">not</tt> reverses the resulting values.</p>
+</div>
+
+
+
+
+<a name="ch08-8-fm2xml" /><div class="sect2">
+<h3 class="sect2">8.4.2. What Is Monitored by Taint Mode</h3>
+
+
+<p>One <a name="INDEX-1763" /> <a name="INDEX-1,764" />of the great benefits of using
+taint mode is that you don't have to try to understand all the
+technical details about how Perl's guts do the work. As we have
+seen, Perl sometimes passes expressions through an external
+<a name="INDEX-1765" />shell to help it interpret arguments
+to system calls. There are even more subtle situations when Perl will
+invoke a shell, but you don't need to worry about mapping all
+of these instances out, because taint mode recognizes them for you.</p>
+
+
+<p>The basic rule, as we have said, is that Perl considers any action
+that could modify resources outside the script subject to
+enforcement. Thus, you may open a file using a tainted filename and
+read from it as long as you did so in read-only mode. However, if you
+try to open the file to write to it, using a tainted filename, Perl
+will abort with an error.</p>
+</div>
+
+
+
+
+<a name="ch08-9-fm2xml" /><div class="sect2">
+<h3 class="sect2">8.4.3. How Taintedness Is Removed</h3>
+
+
+<p>
+<a name="INDEX-1766" /> <a name="INDEX-1,767" />Taint mode would be much too restrictive
+if there was no way to <a name="INDEX-1768" />
+<a name="INDEX-1769" />
+<a name="INDEX-1770" />untaint your data. Of course, you do not
+want to untaint data without checking it to verify that it is safe.
+Fortunately, one command can accomplish both of these tasks. It turns
+out that Perl does allow one expression involving tainted values to
+evaluate to an untainted value. If you match a variable with a
+regular expression, then the pattern match variables that correspond
+to the matched parentheses (e.g., <tt class="literal">$1</tt>,
+<tt class="literal">$2</tt>, etc.) are untainted. If, for example, you
+wanted to get a particular filename for the user while making sure
+that it doesn't include a full path (so the user cannot write
+to a file outside the directory you are intending), you could untaint
+the user input this way:</p>
+
+
+<blockquote><pre class="code">$q-&gt;param( "filename" ) =~ /^([\w+.])$/;
+my $filename = $1;
+
+unless ( $filename ) {
+    .
+    .
+    .</pre></blockquote>
+
+
+<p>You can reduce the first two lines to one line because a regular
+expression match returns a list of matches, and these are also
+untainted:</p>
+
+
+<blockquote><pre class="code">my( $filename ) = $q-&gt;param( "filename" ) =~ /^([\w.])$/;
+
+unless ( $filename ) {
+    .
+    .
+    .</pre></blockquote>
+
+
+<p>You have seen this notation previously in many of our examples. Note
+that because the result of the regular expression is a list, you must
+include parentheses around <tt class="literal">$filename</tt> to evaluate
+it in a list context. Otherwise, <tt class="literal">$filename</tt> will be
+set to the number of successful parenthesized matches
+(<tt class="literal">1</tt> in this case).</p>
+
+
+<a name="ch08-10-fm2xml" /><div class="sect3">
+<h3 class="sect3">8.4.3.1. Allowing versus disallowing</h3>
+
+
+<p>Remember what we said previously. It is generally better to determine
+what characters to allow than to try to determine what not to allow.
+Build your untaint regular expressions with this in mind. In this
+example, we only allowed letters, numbers, underscores, and periods
+in the filename, which is much simpler than scanning against possible
+file path delimiters.</p>
+</div>
+</div>
+
+
+
+
+<a name="ch08-11-fm2xml" /><div class="sect2">
+<h3 class="sect2">8.4.4. Why Use Taint Mode?</h3>
+
+
+<p>Perl's <a name="INDEX-1771" />
+<a name="INDEX-1772" />taint mode doesn't do anything for
+you that you can't do for yourself. It simply monitors the data
+and stops you if you're in danger of shooting yourself in the
+foot. You could be careful on your own, but it certainly helps to
+have Perl do its best to help. In general, the best argument for
+using taint mode is simply turn the question around and ask
+"Why not use taint mode?"</p>
+
+
+<p>Many <a name="INDEX-1773" />CGI developers can
+come up with excuses for not using taint mode, but none of them
+really hold water. Some may find it too difficult or complicated to
+deal with the restrictions that taint mode imposes. This is generally
+because they don't fully understand how taint mode works and
+they find it easier to turn it off than to learn how to fix the
+problems Perl is trying to point out (see the next section for some
+help).</p>
+
+
+<p>Other developers may argue that taint mode slows their scripts down
+more than they can afford. Believe it or not, taint mode does not
+significantly slow down your scripts. If you are concerned about
+performance, don't implicitly assume that taint mode must slow
+down your code. Use the <a name="INDEX-1774" />
+<a name="INDEX-1775" />Benchmark
+module and test the difference; you may be surprised at the results.
+We'll discuss how to use the Benchmark module in <a href="ch17_01.htm">Chapter 17, "Efficiency and Optimization"</a>.</p>
+
+
+<p>The final reason to use taint mode is that CGI scripts rarely remain
+unchanged. Bugs are fixed, new features are added, and even though
+the original code may have been perfectly safe, someone may
+accidentally change all that. You can think of taint mode as an
+ongoing security audit that Perl provides for free.</p>
+</div>
+
+
+
+
+<a name="ch08-12-fm2xml" /><div class="sect2">
+<h3 class="sect2">8.4.5. Common Problems with Taint Mode</h3>
+
+
+<p>When you first start working with <a name="INDEX-1776" />
+<a name="INDEX-1777" />taint mode, it can be annoying because it
+seems to complain about everything. Of course, once you have gained a
+little experience, you learn what to watch out for and begin to write
+safe code without having to think about it.</p>
+
+
+<p>Here are some basic tips to help you with the major problems you will
+first encounter:</p>
+
+
+<ul><li><p>Your PATH must be secure. If you call any external programs, you must
+make sure that <tt class="literal">$ENV{PATH}</tt> does not contain any
+directories that can be modified by anyone other than their owner.
+Perl doesn't care if you provide the full path to the program
+you are calling or not; the PATH must still be secure since the
+program you are invoking may use the inherited PATH.</p></li><li><p><tt class="literal">@INC</tt> will not include the current working
+directory. If your script needs to <tt class="function">require</tt> or
+<tt class="function">use</tt> other Perl code in the current directory,
+you must explicitly add the current directory to
+<tt class="literal">@INC</tt> or include the full or relative path to your
+code in the command.</p></li><li><p>Get rid of risky environment variables you don't need. In
+particular, delete IFS, CDPATH, ENV, and BASH_ENV.</p></li></ul>
+<p>It's common to add something like these two lines to CGI
+scripts running in taint mode (the PATH you choose may vary depending
+on your needs <a name="INDEX-1778" /> <a name="INDEX-1,779" /> <a name="INDEX-1,780" />and your system):</p>
+
+
+<blockquote><pre class="code">$ENV{PATH} = "/bin:/usr/bin";
+delete @ENV{ 'IFS', 'CDPATH', 'ENV', 'BASH_ENV' };</pre></blockquote>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch08_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">8.3. Encryption</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">8.5. Data Storage</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

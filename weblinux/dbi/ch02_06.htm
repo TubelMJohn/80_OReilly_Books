@@ -1,0 +1,185 @@
+<?label 2.6. Concurrent Database Access and Locking ?><html><head><title>Concurrent Database Access and Locking  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch02_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch02_07.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">2.6. Concurrent Database Access and Locking </h2>
+
+
+
+<p>Before <a name="INDEX-100" />we
+<a name="INDEX-101" />
+<a name="INDEX-102" />start looking at DBM file storage
+management, we should discuss the issues that were flagged earlier
+regarding concurrent access to flat-file databases, as these problems
+affect all relatively low-level storage managers.</p>
+
+
+
+<p>The basic problem is that concurrent access to files can result in
+undefined, and generally wrong, data being stored within the data
+files of a database. For example, if two users each decided to delete
+a row from the megalith database using the program shown in the
+previous section, then during the deletion phase, both users would be
+operating on the original copy of the database. However, whichever
+user's deletion finished first would be overwritten as the
+second user's deletion copied <em class="emphasis">their</em>
+version of the database over the first user's deletion. The
+first user's deletion would appear to have been magically
+restored. This problem is known as a <em class="emphasis">race
+condition</em>
+<a name="INDEX-103" /> and can be very tricky to detect as
+the conditions that cause the problem are difficult to reproduce.</p>
+
+
+
+<p>To avoid problems of multiple simultaneous changes, we need to
+somehow enforce exclusive access to the database for potentially
+destructive operations such as the insertion, updating, and deletion
+of records. If every program accessing a database were simply
+read-only, this problem would not appear, since no data would be
+changed. However, if any script were to alter data, the consistency
+of all other processes accessing the data for reading or writing
+could not be guaranteed.</p>
+
+
+
+<p>One
+<a name="INDEX-104" />way in which we can solve this
+problem is to use the operating system's file-locking
+mechanism, accessed by the Perl
+<tt class="literal">flock()</tt>
+<a name="INDEX-105" />
+<a name="INDEX-106" />
+function. <tt class="literal">flock()</tt> implements a cooperative system
+of locking that must be used by all programs attempting to access a
+given file if it is to be effective. This includes read-only scripts,
+such as the query script listed previously, which can use
+<tt class="literal">flock()</tt> to test whether or not it is safe to
+attempt a read on the database.</p>
+
+
+
+<p>The symbolic constants used in the following programs are located
+within the <tt class="literal">Fcntl</tt>
+<a name="INDEX-107" /> package and can be imported into your
+scripts for use with <tt class="literal">flock()</tt> with the following
+line:</p>
+
+
+
+<blockquote><pre class="code">use Fcntl ':flock';</pre></blockquote>
+
+
+
+<p><tt class="literal">flock()</tt> allows locking in two modes:
+<em class="emphasis">exclusive</em> and <em class="emphasis">shared</em> (also
+known as <em class="emphasis">non-exclusive</em>). When a script has an
+exclusive lock, only that script can access the files of the
+database. Any other script wishing access to the database will have
+to wait until the exclusive lock is released before its lock request
+is granted. A shared lock, on the other hand, allows any number of
+scripts to simultaneously access the locked files, but any attempts
+to acquire an exclusive lock will
+<em class="emphasis">block</em>.<a href="#FOOTNOTE-12">[12]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-12" /><p>[12]Users of Perl on Windows
+95 may not be surprised to know that the <tt class="literal">flock()</tt>
+function isn't supported on that system. Sorry. You may be able
+to use a module like <tt class="literal">LockFile::Simple</tt>
+instead.</p>
+
+
+</blockquote>
+
+
+
+<p>For example, the querying script listed in the previous section could
+be enhanced to use <tt class="literal">flock()</tt> to request a shared
+lock on the database files, in order to avoid any read-consistency
+problems if the database was being updated, in the following way:</p>
+
+
+
+<blockquote><pre class="code">### Open the data file for reading, and die upon failure
+open MEGADATA, $ARGV[0] or die "Can't open $ARGV[0]: $!\n";
+
+print "Acquiring a shared lock...";
+flock( MEGADATA, LOCK_SH )
+        or die "Unable to acquire shared lock: $!. Aborting";
+print "Acquired lock. Ready to read database!\n\n";</pre></blockquote>
+
+
+
+<p>This call to <tt class="literal">flock()</tt> will block the script until
+any exclusive locks have been relinquished on the requested file.
+When that occurs, the querying script will acquire a shared lock and
+continue on with its query. The lock will automatically be released
+when the file is closed.</p>
+
+
+
+<p>Similarly, the data insertion script could be enhanced with
+<tt class="literal">flock()</tt> to request an exclusive lock on the data
+file prior to operating on that file. We also need to alter the mode
+in which the file is to be opened. This is because we must open the
+file for writing prior to acquiring an exclusive lock.</p>
+
+
+
+<p>Therefore, the insert script can be altered to read:</p>
+
+
+
+<blockquote><pre class="code">### Open the data file for appending, and die upon failure
+open MEGADATA, "+&gt;&gt;$ARGV[0]"
+    or die "Can't open $ARGV[0] for appending: $!\n";
+
+print "Acquiring an exclusive lock...";
+flock( MEGADATA, LOCK_EX )
+        or die "Unable to acquire exclusive lock: $!. Aborting";
+print "Acquired lock. Ready to update database!\n\n";</pre></blockquote>
+
+
+
+<p>which ensures that no data alteration operations will take place
+until an exclusive lock has been acquired on the data file. Similar
+enhancements should be added to the deletion and update scripts to
+ensure that no scripts will ``cheat'' and
+ignore the locking routines.</p>
+
+
+
+<p>This locking system is effective on all storage management systems
+that require some manipulation of the underlying database files and
+have no explicit locking mechanism of their own. We will be returning
+to locking during our discussion of the Berkeley Database Manager
+system, as it requires a slightly more involved strategy to get a
+filehandle on which to use <tt class="literal">flock()</tt>.</p>
+
+
+
+<p>As a caveat, <tt class="literal">flock()</tt> might not be available on
+your particular operating system. For example, it works on Windows
+NT/2000 systems, but not on Windows 95/98. Most, if not all, Unix
+systems support <tt class="literal">flock()</tt> without any problems.</p>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch02_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch02_07.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">2.5. Putting Complex Data into Flat Files </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">2.7. DBM Files and the BerkeleyDatabase Manager </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

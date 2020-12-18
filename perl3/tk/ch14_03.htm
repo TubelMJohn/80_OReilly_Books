@@ -1,0 +1,853 @@
+<html><head><title>Mega-Widget Implementation Details (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch14_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">14.3. Mega-Widget Implementation Details</h2>
+
+<p><a name="INDEX-2191" />Once again, briefly,
+here's the basic structure of a Perl/Tk mega-widget, but this
+time using a derived NavListbox widget (described in <a href="ch14_05.htm#mastperltk-CHP-14-SECT-5">Section 14.5, "Derived Mega-Widgets"</a>) as the model:
+</p>
+
+<blockquote><pre class="code"> 1   package Tk::NavListbox;
+ 2 
+ 3   use vars qw($VERSION);
+ 4   $VERSION = '1.0';
+ 5 
+ 6   use Tk::widgets qw(Listbox Dialog);
+ 7   use base qw(Tk::Derived Tk::Listbox);
+ 8   use strict;
+ 9 
+10   Construct Tk::Widget 'NavListbox';
+11 
+12   sub ClassInit {}
+13   sub Populate {}
+14 
+15   1;</pre></blockquote>
+
+<p>Line 1 declares the widget's class name.</p>
+
+<p>Lines 3 and 4 show another way of specifying the module's
+version number.
+</p>
+
+<p>Line 6 concisely declares the widgets used by the module.</p>
+
+<p><a name="INDEX-2192" /><a name="INDEX-2193" />Line 7 is the signature line of a derived
+mega-widget, because the base class list starts with Tk::Derived and
+includes another Tk widget class. Tk::Derived provides all the option
+specification and configuration, and method delegation support
+methods. A composite mega-widget would list a single base class,
+either Tk::Toplevel or Tk::Frame. As <a href="ch14_02.htm#mastperltk-CHP-14-FIG-4">Figure 14-4</a>
+shows, composite mega-widgets need not include Tk::Derived in their
+<tt class="literal">@ISA</tt> array, because Tk::Derived is a base class of
+Tk::Frame.
+</p>
+
+<p>Line 10, also written as
+<tt class="literal">Tk::Widget-&gt;Construct('NavListbox')</tt>, creates a
+constructor named <tt class="literal">NavListbox</tt> in the class
+Tk::Widget. When the user types:
+</p>
+
+<blockquote><pre class="code"><tt class="userinput"><b>$nlb = $mw-&gt;NavListbox;</b></tt></pre></blockquote>
+
+<p>Perl eventually finds <tt class="literal">Tk::Widget::NavListbox</tt> via
+MainWindow's <tt class="literal">@ISA</tt> array. This constructor,
+like all Perl/Tk widget constructors, then calls
+<tt class="literal">Tk::Widget::new</tt> (described next) to actually
+create the widget.
+</p>
+
+<p>Lines 12 and 13 are well-known methods invoked by
+<tt class="literal">Tk::Widget::new</tt>. As we are about to see, there are
+several other methods you may occasionally find useful.<a name="INDEX-2194" />
+</p>
+
+<a name="mastperltk-CHP-14-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">14.3.1. Tk::Widget::new, the Real Perl/Tk Widget Constructor</h3>
+
+<p><a name="INDEX-2195" /><a name="INDEX-2196" />In
+chronological order, <tt class="literal">Tk::Widget::new</tt> performs
+these six major steps when creating a Perl/Tk widget:
+</p>
+
+<ol><li>
+<p><a name="INDEX-2197" />Calls
+<tt class="literal">ClassInit</tt> to perform class initialization, such as
+creating class bindings.
+</p>
+</li><li>
+<p><a name="INDEX-2198" />Calls
+<tt class="literal">CreateArgs</tt> to perform argument processing that is
+applicable only at widget creation time (as opposed to later
+configuration). Toplevel's -<tt class="literal">colormap</tt> option
+is an example.
+</p>
+</li><li>
+<p>Puts actual widget creation and blessing into the proper package. The
+only arguments specified at this time are the keyword/value pairs
+returned by <tt class="literal">CreateArgs</tt>.
+</p>
+</li><li>
+<p><a name="INDEX-2199" />Calls
+<tt class="literal">SetBindtags</tt> to initialize the widget's
+<tt class="literal">bindtags</tt> list. See <a href="ch15_01.htm">Chapter 15, "Anatomy of the MainLoop"</a>
+for details.
+</p>
+</li><li>
+<p><a name="INDEX-2200" /><a name="INDEX-2201" />Calls
+<tt class="literal">Populate</tt> to perform widget initialization.
+<tt class="literal">Populate</tt> calls <tt class="literal">ConfigSpecs</tt> to
+generate configuration specifications and
+<tt class="literal">Delegates</tt> to describe how methods are dispatched
+to subwidgets. <tt class="literal">Populate</tt> is called only because
+Tk::Derived is in the widget's <tt class="literal">@ISA</tt>
+hierarchy.
+</p>
+</li><li>
+<p>Actually configures the widget using the configuration specification
+hash generated by the previous call to <tt class="literal">Populate</tt>.
+</p>
+</li></ol>
+<p>As mega-widget writers, we have access to the widget in steps 1, 2,
+4, and 5, detailed in the following sections.
+</p>
+
+</div>
+<a name="mastperltk-CHP-14-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">14.3.2. Subroutine ClassInit</h3>
+
+<p><tt class="literal">ClassInit</tt><a name="INDEX-2202" /> is called once per MainWindow, allowing
+class customization on a MainWindow basis. Initialization typically
+consists of defining class bindings, but it might also initialize
+class variables, images, and/or data structures. It is passed two
+arguments:
+</p>
+
+<ul><li>
+<p>A class name, e.g., Tk::NavListbox</p>
+</li><li>
+<p>A reference to the MainWindow</p>
+</li></ul>
+<p><a name="INDEX-2203" />Where you
+place the call to <tt class="literal">SUPER::ClassInit</tt> can be
+important. If you want to override a superclass binding, place your
+<tt class="literal">bind</tt> command after the call. If, as in ROText, you
+do not want any superclass bindings, don't call
+<tt class="literal">SUPER::ClassInit</tt> at all!
+</p>
+
+<p><tt class="literal">ClassInit</tt> must return a true value.</p>
+
+<blockquote><pre class="code">sub ClassInit {
+    my($class, $mw) = @_;
+    $class-&gt;SUPER::ClassInit($mw);
+    $mw-&gt;bind($class, '&lt;Event&gt;' =&gt; \&amp;callback);
+}</pre></blockquote>
+
+</div>
+<a name="mastperltk-CHP-14-SECT-3.3" /><div class="sect2">
+<h3 class="sect2">14.3.3. Subroutine CreateArgs</h3>
+
+<p><a name="INDEX-2204" />The rarely
+used <tt class="literal">CreateArgs</tt> method is called prior to actual
+mega-widget creation, allowing access to the widget argument hash for
+specialized processing. It is passed three arguments:
+</p>
+
+<ul><li>
+<p>A class name, e.g., Tk::NavListbox</p>
+</li><li>
+<p>A reference to the MainWindow</p>
+</li><li>
+<p>A reference to the argument hash</p>
+</li></ul>
+<p><tt class="literal">CreateArgs</tt> must return a list of keyword/value
+pairs that Perl/Tk supplies during the widget creation in step 3,
+described earlier. These keyword/value pairs are not available in
+step 6, when <tt class="literal">configure</tt> steps through the
+configuration specifications returned by <tt class="literal">Populate</tt>.
+The list of keyword/value pairs must also include any that the
+widget's superclasses might provide; this is very important.
+</p>
+
+<blockquote><pre class="code">sub CreateArgs {
+    my($class, $mw, $args) = @_;
+    my(%args) = (-special_arg =&gt; 'special_val');
+    ($class-&gt;SUPER::CreateArgs($mw, $args), %args);
+}</pre></blockquote>
+
+</div>
+<a name="mastperltk-CHP-14-SECT-3.4" /><div class="sect2">
+<h3 class="sect2">14.3.4. Subroutine SetBindtags</h3>
+
+<p><a name="INDEX-2205" />The
+<tt class="literal">SetBindtags</tt> method is called after mega-widget
+creation, providing a mechanism to alter the widget's
+<tt class="literal">bindtags</tt> list. It is passed one argument: a
+reference to the mega-widget.
+</p>
+
+<p><a name="INDEX-2206" />The
+call to <tt class="literal">SUPER::SetBindtags</tt> initializes the
+<tt class="literal">bindtags</tt> list differently depending on the type of
+mega-widget. For Toplevels, the list is [class, instance,
+<tt class="literal">"all"</tt>], and for all others, it's [class,
+instance, Toplevel, <tt class="literal">"all"</tt>].
+</p>
+
+<p><tt class="literal">SetBindtags</tt> is not expected to return a result.</p>
+
+<blockquote><pre class="code">sub SetBindtags {
+    my($self) = @_;
+    $self-&gt;SUPER::SetBindtags;
+}</pre></blockquote>
+
+</div>
+<a name="mastperltk-CHP-14-SECT-3.5" /><div class="sect2">
+<h3 class="sect2">14.3.5. Subroutine Populate</h3>
+
+<p><a name="INDEX-2207" /><a name="INDEX-2208" />Finally, it's
+<tt class="literal">Populate</tt> time! This method is invoked only because
+Tk::Derived is somewhere in the <tt class="literal">@ISA</tt> method lookup
+hierarchy. Since composite widgets are based on Tk::Frame or
+Tk::Toplevel, they need not include Tk::Derived in their
+<tt class="literal">@ISA</tt> lists, because Tk::Derived is a base class of
+the Frame or Toplevel. Derived mega-widgets, on the other hand, must
+specifically declare Tk::Derived.
+</p>
+
+<p><tt class="literal">Populate</tt><a name="INDEX-2209" />
+is passed two arguments: a reference to the mega-widget and a
+reference to the argument hash. If the argument hash contains options
+that aren't destined for <tt class="literal">configure</tt>, they
+must be removed before calling <tt class="literal">SUPER::Populate</tt>.
+The idiom uses <tt class="literal">delete</tt>, like this:
+</p>
+
+<blockquote><pre class="code">my $frog = delete $args-&gt;{-frog};</pre></blockquote>
+
+<p><tt class="literal">$frog</tt> then contains the value of the
+<tt class="literal">-frog</tt> option.
+</p>
+
+<p><a name="INDEX-2210" />As we learned earlier,
+<tt class="literal">SUPER::Populate</tt> often makes
+<tt class="literal">ConfigSpecs</tt> calls on behalf of the mega-widget, so
+remember to call <tt class="literal">SUPER::Populate</tt>.
+</p>
+
+<p><tt class="literal">Populate</tt> is also the appropriate place to create
+subwidget bindings. Note that if you want the subwidgets of a
+mega-widget to react to the class bindings created by<tt class="literal">ClassInit</tt>, you'll have to add the
+new class to the subwidget's <tt class="literal">bindtags</tt> list
+(see <a href="ch15_01.htm">Chapter 15, "Anatomy of the MainLoop"</a> for more details).
+</p>
+
+<p><tt class="literal">Populate</tt> is not expected to return a result.</p>
+
+<blockquote><pre class="code">sub Populate {
+    my($self, $args) = @_;
+    $self-&gt;SUPER::Populate($args);
+    # Create and advertise subwidgets here.
+    $self-&gt;ConfigSpecs( );
+    $self-&gt;Delegates( );
+}</pre></blockquote>
+
+<p>In general, <tt class="literal">Populate</tt> should never perform any
+explicit mega-widget configuration, for these reasons:
+</p>
+
+<ul><li>
+<p>Doing so prevents the user from customizing the widget to her liking.</p>
+</li><li>
+<p>Often it won't work anyway and only leads to frustration and
+confusion.
+</p>
+</li></ul>
+<p><a name="INDEX-2211" />To see why,
+let's start with this tiny program, <i class="command">el</i>, that
+uses a mythical EntList (Entry and Listbox) composite. Using the
+<tt class="literal">Subwidget</tt> method, the code fetches the widget
+references to the advertised Entry and Listbox widgets and inserts
+some text into each.
+</p>
+
+<blockquote><pre class="code">my $el = $mw-&gt;EntList-&gt;pack;
+$el-&gt;Subwidget('entry')-&gt;insert('end', 'Entry!');
+$el-&gt;Subwidget('listbox')-&gt;insert('end', 'Listbox!');</pre></blockquote>
+
+<p><a name="INDEX-2212" />Suppose the user of this code has
+established some color and font preferences in his
+<em class="filename">.Xdefaults</em> file:
+</p>
+
+<blockquote><pre class="code">el*Foreground: purple
+el*Font: -adobe-courier-bold-r-normal--34-240-100-100-m-200-iso8859-1</pre></blockquote>
+
+<p>When the code is executed, the user expects large, purple text, shown
+in <a href="ch14_03.htm#mastperltk-CHP-14-FIG-6">Figure 14-6</a>.
+</p>
+
+<a name="mastperltk-CHP-14-FIG-6" /><div class="figure"><img src="figs/mptk.1406.gif" alt="Figure 14-6" width="341" height="120" /></div><h4 class="objtitle">Figure 14-6. Large, purple text</h4>
+
+<p>Now, it's okay to provide a default font and color scheme, but
+we can't mandate one. Let's examine
+<em class="filename">EntList.pm</em> to see the right and wrong way to do
+this. First, the incorrect way:
+</p>
+
+<blockquote><pre class="code">$Tk::EntList::VERSION = '1.0';
+
+package Tk::EntList;
+
+use Tk::widgets qw/Entry Listbox/;
+use base qw/Tk::Frame/;
+use strict;
+
+Construct Tk::Widget 'EntList';
+
+sub Populate {
+
+    my($self, $args) = @_;
+
+    $self-&gt;SUPER::Populate($args);
+
+    my $e = $self-&gt;Entry-&gt;pack;
+    my $l = $self-&gt;Listbox(-height =&gt; 2)-&gt;pack;
+    $self-&gt;Advertise('entry'   =&gt; $e);
+    $self-&gt;Advertise('listbox' =&gt; $l);
+
+    # Wrong - hardcoding configurable options leads to 
+    # frustration and confusion.
+
+    $e-&gt;configure(-font =&gt; '9x15', -foreground =&gt; 'red');
+    $l-&gt;configure(-font =&gt; '9x15', -foreground =&gt; 'red');
+
+} # end Populate
+
+1;</pre></blockquote>
+
+<p>When the poor user runs his code, instead of large, purple text, he
+sees small, purple text, as seen in <a href="ch14_03.htm#mastperltk-CHP-14-FIG-7">Figure 14-7</a>.
+</p>
+
+<a name="mastperltk-CHP-14-FIG-7" /><div class="figure"><img src="figs/mptk.1407.gif" alt="Figure 14-7" width="163" height="84" /></div><h4 class="objtitle">Figure 14-7. Small, purple text</h4>
+
+<p>Now two people are confused: the user, because the font size is too
+small, and the programmer, because the foreground color is wrong! So
+replace the two configure lines with this call:
+</p>
+
+<blockquote><pre class="code">    $self-&gt;ConfigSpecs(
+        -font       =&gt; [[$e, $l], qw/font Font 9x15/],
+        -foreground =&gt; [[$e, $l], qw/foreground Foreground red/],
+    );</pre></blockquote>
+
+<p>Each <tt class="literal">ConfigSpecs</tt> entry (explained in the next
+section) is a reference to a list of values, the first of which
+specifies where to apply the option. In this case, it's another
+list of widgets. Now the user can customize the widget either via the
+option database or explicit configure calls, and if he doesn't,
+our default of 9x15, red lettering takes effect (see <a href="ch14_03.htm#mastperltk-CHP-14-FIG-8">Figure 14-8</a>). 
+</p>
+
+<a name="mastperltk-CHP-14-FIG-8" /><div class="figure"><img src="figs/mptk.1408.gif" alt="Figure 14-8" width="163" height="84" /></div><h4 class="objtitle">Figure 14-8. 9x15 red lettering</h4>
+
+<p>The following sections describe other methods often called from
+<tt class="literal">Populate</tt>.<a name="INDEX-2213" /> 
+</p>
+
+</div>
+<a name="mastperltk-CHP-14-SECT-3.6" /><div class="sect2">
+<h3 class="sect2">14.3.6. Subroutine ConfigSpecs</h3>
+
+<p><a name="INDEX-2214" />The
+<tt class="literal">ConfigSpecs</tt> method tells Perl/Tk what to do when a
+<tt class="literal">configure</tt> (or <tt class="literal">cget</tt>) request for
+an option is received. Any number of option/value pairs can be
+specified in the call, and <tt class="literal">ConfigSpecs</tt> can be
+called any number of times. (Indeed, we know that one or more of the
+mega-widget's superclasses may call
+<tt class="literal">ConfigSpecs</tt>.)
+</p>
+
+<p>These are the three major ways of using
+<tt class="literal">ConfigSpecs</tt>:
+</p>
+
+<blockquote><pre class="code">$self-&gt;ConfigSpecs(
+    'DEFAULT' =&gt; [where],
+    -alias    =&gt; '-otherattribute',
+    -option   =&gt; [where, DBname, DBclass, default_value]
+);</pre></blockquote>
+
+<p>If Perl/Tk can't find a <tt class="literal">ConfigSpecs</tt> entry
+for an option, the default <tt class="literal">where</tt> action is used
+(described later).
+</p>
+
+<p>You can use the second flavor of <tt class="literal">ConfigSpecs</tt> to
+make aliases for options. Perl/Tk automatically aliases
+-<tt class="literal">bg</tt> and -<tt class="literal">fg</tt> for
+-<tt class="literal">background</tt> and -<tt class="literal">foreground</tt>,
+respectively.
+</p>
+
+<p><a name="INDEX-2215" />The third
+form is the most common. <tt class="literal">DBname</tt> and
+<tt class="literal">DBclass</tt> are the name and class of the option in
+the X11 resource database, fully described in <a href="ch16_01.htm">Chapter 16, "User Customization"</a>. If the option isn't specified when
+<tt class="literal">Tk::Widget::new</tt> autoconfigures the mega-widget,
+the option is assigned the <tt class="literal">default_value</tt>.
+</p>
+
+<p><tt class="literal">where</tt> specifies how Perl/Tk configures the
+mega-widget and/or its subwidgets. It's a scalar: either a
+single value from the following list or a reference to a list of the
+following values. All these values are strings except the last, which
+is a real widget reference:
+</p>
+
+<dl>
+<dt><tt class="literal">'ADVERTISED'</tt></dt>
+<dd>
+<a name="INDEX-2216" />The
+<tt class="literal">configure</tt> request is sent to all advertised
+subwidgets. A subwidget is advertised explicitly via an
+<tt class="literal">Advertise</tt> call or implicitly via a
+<tt class="literal">Component</tt> call.
+</p>
+</dd>
+
+
+<dt><tt class="literal">'CALLBACK'</tt></dt>
+<dd>
+<a name="INDEX-2217" />Treats the
+value of the option as a standard Perl/Tk callback: a code reference
+or a reference to an array with a code reference and subroutine
+arguments. The proper way to invoke the callback is to use the
+<tt class="literal">Callback</tt> method, e.g.,
+<tt class="literal">$widget-&gt;Callback(-option</tt>
+<tt class="literal">[=&gt;</tt> <tt class="literal">@args])</tt>. Perl/Tk will
+look up the value of <tt class="literal">-option</tt> (the callback) and
+then call it, passing any optional arguments.
+</p>
+</dd>
+
+
+<dt><tt class="literal">'CHILDREN'</tt></dt>
+<dd>
+<a name="INDEX-2218" />The
+<tt class="literal">configure</tt> request is sent to the
+mega-widget's immediate children.
+</p>
+</dd>
+
+
+<dt><tt class="literal">'DESCENDANTS'</tt></dt>
+<dd>
+<a name="INDEX-2219" />The
+<tt class="literal">configure</tt> request is sent to the
+mega-widget's descendants (children, children of children, and
+so on).
+</p>
+</dd>
+
+
+<dt><tt class="literal">'METHOD'</tt></dt>
+<dd>
+<a name="INDEX-2220" />Perl/Tk invokes
+a subroutine having the same name as the option (excluding the
+leading dash). The method is called for <tt class="literal">configure</tt>
+and <tt class="literal">cget</tt> calls. For a <tt class="literal">configure</tt>
+request, it's called with two arguments: the mega-widget
+reference and the option value. For a <tt class="literal">cget</tt>
+request, it's called with only the mega-widget reference, and
+the subroutine should return the option's value.
+</p>
+</dd>
+
+
+<dt><tt class="literal">'PASSIVE'</tt></dt>
+<dd>
+<a name="INDEX-2221" />The
+option/value pair is simply stored in a hash instance variable.
+<tt class="literal">cget</tt> can retrieve the value at any time. See <a href="ch14_03.htm#mastperltk-CHP-14-SECT-3.9">Section 14.3.9, "Mega-Widget Instance Variables"</a> for details you
+really shouldn't know!
+</p>
+</dd>
+
+
+<dt><tt class="literal">'SELF'</tt></dt>
+<dd>
+<a name="INDEX-2222" />The <tt class="literal">configure</tt> request
+is applied only to the mega-widget (the Frame, Toplevel, or derived
+widget).
+</p>
+</dd>
+
+
+<dt><tt class="literal">$widget</tt></dt>
+<dd>
+The <tt class="literal">configure</tt> request is applied only to the
+specified widget.
+</p>
+</dd>
+
+</dl>
+
+<a name="mastperltk-CHP-14-SECT-3.6.1" /><div class="sect3">
+<h3 class="sect3">14.3.6.1. ConfigSpecs Examples</h3>
+
+<p><a name="INDEX-2223" />This example defines a
+<tt class="literal">-validate</tt> option that expects a Perl/Tk callback
+as its value and supplies a default subroutine that always validates
+true:
+</p>
+
+<blockquote><pre class="code">$self-&gt;ConfigSpecs(
+    -validate =&gt; ["CALLBACK", "validate", "Validate", sub { return 1 }],
+);</pre></blockquote>
+
+<p>This is an example from <a href="ch14_04.htm#mastperltk-CHP-14-SECT-4.1">Section 14.4.1, "Tk::Thermometer"</a>, described later in this
+chapter.
+</p>
+
+<blockquote><pre class="code">$self-&gt;ConfigSpecs(
+    -background                   =&gt;
+     [['DESCENDANTS', 'SELF'], 'background', 'Background', 'white'],
+    -from                         =&gt; [$scale, qw/from From 500/],
+    -highlightthickness =&gt; 
+      [[@highlightthickness], qw/highlightThickness HighlightThickness 0/],
+    -length                       =&gt; [$scale, qw/length Length 200/],
+    -tscale                       =&gt; [qw/METHOD tscale Tscale/, $TSCALES[0]],
+    -sliderlength                 =&gt; [$scale, qw/sliderLength SliderLength 10/],
+    -to                           =&gt; [$scale, qw/to To 0/],
+    -width                        =&gt; [$scale, qw/width Width 10/],
+    'DEFAULT'                     =&gt; [$scale],
+);</pre></blockquote>
+
+<p><a name="INDEX-2224" /><a name="INDEX-2225" /><a name="INDEX-2226" /><a name="INDEX-2227" /><a name="INDEX-2228" /><a name="INDEX-2229" /><a name="INDEX-2230" /><a name="INDEX-2231" />The <tt class="literal">-background</tt> option
+is applied to the mega-widget (<tt class="literal">$self</tt>) and all it
+descendants, with a default value of <tt class="literal">white</tt>. The
+<tt class="literal">-from</tt> option is applied to the widget,
+<tt class="literal">$scale</tt> with a default of 500. The
+<tt class="literal">-highlightthickness</tt> option is applied to a list of
+widgets <tt class="literal">@highlightthickness</tt>, with a default of 0.
+The <tt class="literal">-length</tt> option is applied to
+<tt class="literal">$scale</tt> with a default of 200. The
+<tt class="literal">-tscale</tt> option is a method (when the option is
+configured, Tk invokes the subroutine <tt class="literal">tscale</tt>) with
+a default of <tt class="literal">$TSCALE[0]</tt>. The
+<tt class="literal">-sliderlength</tt>, <tt class="literal">-to</tt>, and
+<tt class="literal">-width</tt> options all apply to
+<tt class="literal">$scale</tt>, with the indicated default values. All
+other options default to <tt class="literal">$scale</tt>.
+</p>
+
+<p>Finally, multiple options can be configured across multiple widgets
+simultaneously if <tt class="literal">where</tt> is a hash reference.
+Suppose we have this <tt class="literal">ConfigSpecs</tt> entry:
+</p>
+
+<blockquote><pre class="code">-option =&gt; [{-optionX =&gt; $w1, -optionY =&gt; [$w2, $w3]}, DBname, ... ]</pre></blockquote>
+
+<p>Then:</p>
+
+<blockquote><pre class="code">$cw-&gt;configure(-option =&gt; value);</pre></blockquote>
+
+<p>actually does:<a name="INDEX-2232" />
+</p>
+
+<blockquote><pre class="code">$w1-&gt;configure(-optionX =&gt; value);
+$w2-&gt;configure(-optionY =&gt; value);
+$w3-&gt;configure(-optionY =&gt; value);</pre></blockquote>
+
+</div>
+</div>
+<a name="mastperltk-CHP-14-SECT-3.7" /><div class="sect2">
+<h3 class="sect2">14.3.7. Subroutine Delegates</h3>
+
+<p><a name="INDEX-2233" />This method
+tells Perl/Tk how to dispatch mega-widget methods to the component
+subwidgets. Any number of option/value pairs can be specified in the
+call, and <tt class="literal">Delegates</tt> can be called any number of
+times.
+</p>
+
+<blockquote><pre class="code">$self-&gt;Delegates(
+    'method1'   =&gt; $subwidget1,
+    'method2'   =&gt; 'advertised_name',
+    'Construct' =&gt; $subwidget2,
+    'DEFAULT'   =&gt; $subwidget3,
+);</pre></blockquote>
+
+<p>The <tt class="literal">'Construct'</tt> delegation has a special meaning.
+After <tt class="literal">'Construct'</tt> is delegated, all widget
+constructors are redirected; e.g., after:
+</p>
+
+<blockquote><pre class="code">$self-&gt;Delegates('Construct' =&gt; $subframe);</pre></blockquote>
+
+<p><tt class="literal">$self-&gt;Button</tt> really does a
+<tt class="literal">$subframe-&gt;Button</tt>, so the Button is a child of
+<tt class="literal">$subframe</tt> and not <tt class="literal">$self</tt>.
+<tt class="literal">Delegates</tt> works only with methods that the
+mega-widget does not have itself.
+</p>
+
+</div>
+<a name="mastperltk-CHP-14-SECT-3.8" /><div class="sect2">
+<h3 class="sect2">14.3.8. Other Useful Methods</h3>
+
+<p>The following sections describe various methods that are useful when
+writing mega-widgets.
+</p>
+
+<a name="mastperltk-CHP-14-SECT-3.8.1" /><div class="sect3">
+<h3 class="sect3">14.3.8.1. Subroutine Advertise</h3>
+
+<p><tt class="literal">Advertise</tt><a name="INDEX-2234" /> a subwidget reference so it's
+officially part of the mega-widget's public interface. Use the
+<tt class="literal">Subwidget</tt> method to map an advertised name to a
+widget reference.
+</p>
+
+<blockquote><pre class="code">$self-&gt;Advertise('advertised_name' =&gt; $subwidget);</pre></blockquote>
+
+<p>Any other valid widget options can be appended as well.</p>
+
+</div>
+
+<a name="mastperltk-CHP-14-SECT-3.8.2" /><div class="sect3">
+<h3 class="sect3">14.3.8.2. Subroutine Callback</h3>
+
+<p><a name="INDEX-2235" /><a name="INDEX-2236" />Execute an option's standard
+Perl/Tk callback. <tt class="literal">%args</tt> is an optional argument
+hash passed to the callback. The option <tt class="literal">-option</tt>
+(e.g., -<tt class="literal">command</tt>) is required and should be
+declared in a call to <tt class="literal">ConfigSpecs</tt> as type
+<tt class="literal">'CALLBACK'</tt>. The <tt class="literal">Callback</tt> method
+looks up the actual callback associated with
+<tt class="literal">-option</tt> and invokes it with the optional arguments
+<tt class="literal">%args</tt>.
+</p>
+
+<blockquote><pre class="code">$self-&gt;Callback(-option  =&gt; ?%args?);</pre></blockquote>
+
+</div>
+
+<a name="mastperltk-CHP-14-SECT-3.8.3" /><div class="sect3">
+<h3 class="sect3">14.3.8.3. Subroutine Component</h3>
+
+<p><a name="INDEX-2237" />Create a
+widget of class WidgetClass as a child of <tt class="literal">$self</tt>
+and advertise it with the specified name. Use the
+<tt class="literal">Subwidget</tt> method to map an advertised name to a
+widget reference.
+</p>
+
+<blockquote><pre class="code">$self-&gt;Component('WidgetClass' =&gt; 'advertised_name');</pre></blockquote>
+
+<p>Any other valid widget options can be appended as well.</p>
+
+</div>
+
+<a name="mastperltk-CHP-14-SECT-3.8.4" /><div class="sect3">
+<h3 class="sect3">14.3.8.4. Subroutine Descendants</h3>
+
+<p><a name="INDEX-2238" />Return a
+list of widgets derived from a parent widget and all its descendants
+of a particular class. If <tt class="literal">Class</tt> is not specified,
+it returns the entire widget hierarchy starting at
+<tt class="literal">$self</tt>.
+</p>
+
+<blockquote><pre class="code">$self-&gt;Descendants(? Class ?);</pre></blockquote>
+
+</div>
+
+<a name="mastperltk-CHP-14-SECT-3.8.5" /><div class="sect3">
+<h3 class="sect3">14.3.8.5. Subroutine Subwidget</h3>
+
+<p><a name="INDEX-2239" />Return the
+widget reference corresponding to an advertised name.
+</p>
+
+<blockquote><pre class="code">$subwidget_ref = $self-&gt;Subwidget('advertised_name');</pre></blockquote>
+
+<p>Any Scrolled widget is actually a mega-widget. To get the actual
+widget reference, use the <tt class="literal">Subwidget</tt> command with
+the special advertised name <tt class="literal">scrolled</tt>.
+</p>
+
+</div>
+
+<a name="mastperltk-CHP-14-SECT-3.8.6" /><div class="sect3">
+<h3 class="sect3">14.3.8.6. Subroutine Walk</h3>
+
+<p><a name="INDEX-2240" />Traverse a
+widget hierarchy while executing a subroutine.
+</p>
+
+<blockquote><pre class="code">$self-&gt;Walk($code_ref =&gt; @args);</pre></blockquote>
+
+</div>
+</div>
+<a name="mastperltk-CHP-14-SECT-3.9" /><div class="sect2">
+<h3 class="sect2">14.3.9. Mega-Widget Instance Variables</h3>
+
+<p><a name="INDEX-2241" /><a name="INDEX-2242" /><a name="INDEX-2243" /><a name="INDEX-2244" /><a name="INDEX-2245" />The mega-widget hash is Perl/Tk territory,
+but that hasn't stopped folks from using it as their private
+data structure. Typically, they just swipe a few hash keys to store
+their instance data, but there's always the risk of clobbering
+a key used by Perl/Tk. For the most part, Perl/Tk reserves keys
+beginning with an underscore. Unfortunately, over time, important
+keys not beginning with an underscore have crept into the mega-widget
+support code.
+</p>
+
+<p>Now we're not supposed to peek at object internals, but for the
+record, these important mega-widget related keys are also reserved by
+Perl/Tk:
+</p>
+
+<blockquote class="simplelist">
+
+<p><tt class="literal">ConfigSpecs</tt></p>
+
+<p><tt class="literal">Configure</tt></p>
+
+<p><tt class="literal">Delegates</tt></p>
+
+<p><tt class="literal">SubWidget</tt></p>
+
+</blockquote>
+
+<p>Since we're being bad, let's run this tiny program, named
+<i class="command">xray</i>, and look inside an opaque LabOptionmenu
+widget. Each of the four hash keys is a reference to an anonymous
+hash, and <i class="command">xray</i> just pretty-prints the keys and
+values from these hashes. Notice the <tt class="literal">tkinit</tt>
+convenience command that creates a MainWindow and returns its
+reference, which we use to create a widget of the class specified on
+the command line.
+</p>
+
+<blockquote><pre class="code">#!/usr/local/bin/perl -w
+
+use Tk;
+
+die "Usage:  xray widget" unless @ARGV &gt;= 1;
+my $class = shift;        # get class name from command line
+
+require "Tk/$class.pm";
+my $w = tkinit-&gt;$class(@ARGV)-&gt;pack;
+print "X-ray data for widget $w\n";
+
+
+foreach my $secret (
+                    ["Advertised Subwidgets"      =&gt; 'SubWidget'],
+                    ["Delegated Methods"          =&gt; 'Delegates'],
+                    ["configure( ) Options"      =&gt; 'Configure'],
+                    ["Configure Specifications"   =&gt; 'ConfigSpecs'],
+                   ) {
+    printf "\n%-11s - %s\n", $secret-&gt;[1], $secret-&gt;[0];
+    foreach (keys %{$w-&gt;{$secret-&gt;[1]}}) {
+        printf "%20s: %31s\n", $_, $w-&gt;{$secret-&gt;[1]}-&gt;{$_};
+    }
+}
+
+MainLoop;</pre></blockquote>
+
+<p>We run the program by typing <tt class="literal">xray</tt>
+<tt class="literal">LabOptionmenu</tt> <tt class="userinput"><b>-label</b></tt>
+<tt class="userinput"><b>X-ray</b></tt> (which effectively does
+<tt class="literal">$mw-&gt;LabOptionmenu(-label =&gt; 'X-ray')</tt>, and
+we see this output:
+</p>
+
+<blockquote><pre class="code">X-ray data for widget Tk::LabOptionmenu=HASH(0x814d394)
+
+
+SubWidget   - Advertised Subwidgets
+               label:       Tk::Label=HASH(0x8251070)
+          optionmenu:  Tk::Optionmenu=HASH(0x828884c)
+
+Delegates   - Delegated Methods
+             DEFAULT:  Tk::Optionmenu=HASH(0x828884c)
+
+Configure   - configure( ) Options
+         -background:                         #d9d9d9
+         -foreground:                           Black
+              -label:                           X-ray
+      -labelVariable:               SCALAR(0x814d5c4)
+
+ConfigSpecs - Configure Specifications
+         -background:                ARRAY(0x814d3b4)
+                 -bg:                     -background
+                 -fg:                     -foreground
+         -foreground:                ARRAY(0x814d420)
+              -label:                ARRAY(0x82863b8)
+        -labelAnchor:                ARRAY(0x81e0320)
+    -labelBackground:                ARRAY(0x82a5158)
+        -labelBitmap:                ARRAY(0x82a51dc)
+   -labelBorderwidth:                ARRAY(0x82a5f34)
+        -labelCursor:                ARRAY(0x82a5fb8)
+          -labelFont:                ARRAY(0x82a603c)
+    -labelForeground:                ARRAY(0x82a60c0)
+        -labelHeight:                ARRAY(0x82a6144)
+-labelHighlightbackground:           ARRAY(0x82a61c8)
+-labelHighlightcolor:                ARRAY(0x82a624c)
+-labelHighlightthickness:            ARRAY(0x82a6c04)
+         -labelImage:                ARRAY(0x82a6c88)
+       -labelJustify:                ARRAY(0x82a6d0c)
+          -labelPack:                ARRAY(0x8286304)
+          -labelPadx:                ARRAY(0x82a6d90)
+          -labelPady:                ARRAY(0x82a6e14)
+        -labelRelief:                ARRAY(0x82a6e98)
+     -labelTakefocus:                ARRAY(0x82a6f1c)
+          -labelText:                ARRAY(0x82a6fa0)
+  -labelTextvariable:                ARRAY(0x82a7cd0)
+     -labelUnderline:                ARRAY(0x82a7d54)
+      -labelVariable:                ARRAY(0x8286340)
+         -labelWidth:                ARRAY(0x82a7dd8)
+    -labelWraplength:                ARRAY(0x82a7e5c)
+             DEFAULT:                ARRAY(0x814cd3c)</pre></blockquote>
+
+<p>The first thing to note is that the <tt class="literal">SubWidget</tt> key
+points to a hash of advertised widgets, with their names as keys and
+widget references as values. The <tt class="literal">Delegates</tt> key
+references a hash of <tt class="literal">Delegates</tt> options, and there
+we see our DEFAULT entry, the Optionmenu subwidget. Perl/Tk uses the
+anonymous hash referenced by <tt class="literal">Configure</tt> to store
+all PASSIVE option values and as instance variables for other
+options; notice -<tt class="literal">label</tt> and its value from the
+command line. Finally, the <tt class="literal">ConfigSpecs</tt> key points
+to all the <tt class="literal">ConfigSpecs</tt> entries, all but one
+(DEFAULT) of which Perl/Tk supplied automatically.<a name="INDEX-2246" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch14_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">14.2. The Perl/Tk Class Hierarchy</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">14.4. Composite Mega-Widgets</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

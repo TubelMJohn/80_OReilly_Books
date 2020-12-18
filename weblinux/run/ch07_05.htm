@@ -1,0 +1,286 @@
+<?label 7.5. Loadable Device Drivers?><html><head><title>Loadable Device Drivers (Running Linux)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Running Linux" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch07_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm" /></td><td width="172" valign="top" align="right"><a href="ch07_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">7.5. Loadable Device Drivers</h2>
+
+<p><a name="INDEX-1694" />
+<a name="INDEX-1695" />
+<a name="INDEX-1696" />
+<a name="INDEX-1697" />
+<a name="INDEX-1698" />
+
+Traditionally, device drivers have been included as part of the kernel.
+There are several reasons for this. First of all, nearly all
+device drivers require the special hardware access provided by being
+part of the kernel code. Such hardware access can't be obtained easily
+through a user program. Also, device drivers are much easier to
+implement as part of the kernel; such drivers would have complete access
+to the data structures and other routines in the kernel and could call
+them freely.</p>
+
+<p>There are several problems with a conglomerate kernel containing all
+drivers in this way. First of all, it requires the system administrator
+to rebuild the kernel in order to selectively include device drivers,
+as we saw in the previous section. Also, this mechanism lends itself to
+sloppy programming on the part of the driver writers: there's nothing
+stopping a programmer from writing code that is not completely modular--code 
+which, for example, directly accesses data private to other parts of the
+kernel. The cooperative nature of the Linux kernel development compounds
+this problem, and not all parts of the code are as neatly contained as they
+should be. This can make it more difficult to maintain and debug the code.</p>
+
+<p>In an effort to move away from this paradigm, the Linux kernel supports
+loadable device drivers--device drivers that are added to or removed
+from memory at runtime, with a series of commands. Such drivers are still
+part of the kernel, but they are compiled separately and enabled only
+when loaded. Loadable device drivers, or <em class="emphasis">modules</em>, are generally
+loaded into memory using commands in one of the boot-time <em class="filename">rc</em> scripts.</p>
+
+<p><a name="INDEX-1699" />
+Modules provide a cleaner interface for writing drivers. To some
+extent, they require the code to be somewhat modular and to follow a
+certain coding convention. (Note that this doesn't actually prevent
+a programmer from abusing the convention and writing nonmodular
+code. Once the module has been loaded, it is just as free to wreak
+havoc as if it 
+were compiled directly into the kernel.) Using modules makes drivers 
+easier to debug; you can simply unload a module, recompile it, and 
+reload it without having to reboot the system or rebuild the kernel 
+as a whole. Modules can be used for other parts of the kernel, such as 
+filesystem types, in addition to device drivers.</p>
+
+<p><a name="INDEX-1700" />
+Most device drivers, and a lot of other kernel functionality under
+Linux, are implemented as modules. One of 
+the most popular is the floppy tape driver (or <em class="emphasis">ftape</em> driver), 
+for tape drives that connect to the floppy controller, such as the
+Colorado Memory Jumbo 120/250 models.
+If you plan to use this driver on your system, it is good to know how
+to build, load, and unload modules. While nobody stops you from
+compiling this module statically into your kernel, a tape drive is
+something that you need only rarely (normally once a day or so), and
+its driver shouldn't occupy value RAM during the times it is not needed.
+See the Linux 
+Ftape <span class="acronym">HOWTO</span> for more about these devices and
+supported hardware.</p>
+
+<p><a name="INDEX-1701" />
+The first thing you'll need is the <em class="filename">modules</em> package, which contains
+the commands used to load and unload modules from the kernel. On the
+<span class="acronym">FTP</span> archive sites, this is usually found as <em class="filename">modules.tar.gz</em> in
+the directory where the kernel sources are kept. This package contains
+the sources to the commands <tt class="command">insmod</tt>, <tt class="command">modprobe</tt>, <tt class="command">rmmod</tt>, and <tt class="command">lsmod</tt>.
+Most Linux distributions include these commands (found in <em class="filename">sbin</em>). 
+If you already have these commands installed, you probably don't need 
+to get the <em class="filename">modules</em> package. However, it can't hurt to get the
+package and rebuild these commands, to be sure that you have the most
+up-to-date version.</p>
+
+<p>To rebuild these commands, unpack <em class="filename">modules.tar.gz</em> (say, in a
+subdirectory of <em class="filename">/usr/src</em>). Follow the installation instructions
+contained there; usually all you have to do is execute <tt class="command">make</tt> followed
+by <tt class="command">make install</tt> (as root). The three commands will now
+be installed in <em class="filename">/sbin</em> and ready to use.</p>
+
+<p>A module is simply a single object file containing all of the code
+for the driver. For example, the <em class="filename">ftape</em> module
+might be called 
+<em class="filename">ftape.o</em>. On many systems, the modules themselves
+are stored in a directory tree below
+<em class="filename">/lib/modules/</em><em class="replaceable">kernelversion</em>, 
+where you can find different directories for the various types of
+modules. For example, the modules compiled for the 2.2.2 kernel would
+be below <em class="filename">/lib/modules/2.2.2</em>. You might already
+have a number of modules on your system; check the appropriate directory.</p>
+
+<p><a name="INDEX-1702" />
+Modules can be either in the kernel source or external. The former is
+the case for those device drivers, filesystems, and other functionality 
+that are used most often and that are maintained as part of the
+official kernel sources. Using these modules is very easy: during the
+<tt class="command">make config</tt>, <tt class="command">make menuconfig</tt>, or
+<tt class="command">make xconfig</tt> step, type <tt class="literal">m</tt> to
+build a feature as a module. Repeat this for everything you want to
+compile as a module. Then, after the <tt class="command">make zImage</tt>
+step, execute the commands <tt class="command">make modules</tt> and
+<tt class="command">make modules_install</tt>. This will compile the
+modules and install them in
+<em class="filename">/lib/modules/</em><em class="replaceable">kernelversion</em>.
+It is a good idea (for reasons to be explained later in this section)
+to run the command <tt class="command">depmod -a</tt>
+afterwards to correct module dependencies.</p>
+
+<p>New modules that are not yet integrated into the official
+	  kernel sources, or those that are simply too esoteric to be put
+	  into the kernel sources (e.g., a device driver for some
+	  custom-built hardware that is not publicly available), can be
+	  available as stand-alone, external modules. Unpack the archive
+	  of this module, compile it according to the instructions that
+	  are hopefully included, and copy the resulting module file to the 
+	  appropriate subdirectory of
+	  <em class="filename">/lib/modules/</em><em class="replaceable">kernelversion</em>. Some modules might also have an install script, or allow you to issue the command <tt class="command">make install</tt> to perform the last step.</p>
+
+<p> 
+<a name="INDEX-1703" />
+Once you have a compiled module (either from the kernel sources or
+external), you can load it using the command:
+
+<blockquote><pre class="code">insmod <em class="replaceable">module</em></pre></blockquote>
+
+
+where <em class="replaceable">module</em> is the name of the module
+object file. For example:
+
+<blockquote><pre class="code">insmod /lib/modules/2.2.2/char/ftape.o</pre></blockquote>
+
+
+installs the <em class="filename">ftape</em> driver if it is found in that file.</p>
+
+<p>Once a module is installed, it may display some information to the 
+console (as well as to the system logs), indicating that it
+is initialized. For example, the <em class="filename">ftape</em> driver might
+display the following:
+
+<blockquote><pre class="code">ftape v1.14 29/10/94 (c) 1993, 1994 Bas Laarhoven (bas@vimec.nl)
+  QIC-117 driver for QIC-40 and QIC-80 tape drives
+[000] kernel-interface.c (init_module) - installing QIC-117 ftape\
+driver....
+[001] kernel-interface.c (init_module) - 3 tape_buffers @ 001B8000.
+[002]  calibr.c (time_inb) - inb() duration: 1436 nsec.
+[003]  calibr.c (calibrate) - TC for `udelay()' = 2944 nsec (at 2049\
+counts).
+[004]  calibr.c (calibrate) - TC for `fdc_wait()' = 2857 nsec (at 2049\
+counts).</pre></blockquote>
+
+
+The exact messages printed depend on the module, of course. Each module
+should come with ample documentation describing just what it does and how to
+debug it 
+if there are problems.</p>
+
+<p>It is likely that
+		  <tt class="command">insmod</tt> will tell you it could not
+		  load the module into the kernel because there were
+<a name="INDEX-1704" />
+		  "symbols missing." This means that the module
+		  you want to load needs functionality from another part of
+		  the kernel that is neither compiled into the kernel nor
+		  contained in a module already loaded. You could now try to
+		  find out which module contains those functions, load that
+		  module first with <tt class="command">insmod</tt>, and try
+		  again. You will eventually succeed with this method, but it
+		  can be cumbersome, and this would not be Linux if there
+		  weren't a better way.</p>
+
+<p>You first need a module database in the file
+		  <em class="filename">/lib/modules/</em><em class="replaceable">kernelversion</em><em class="filename">/modules.dep</em>. You can create this database by calling:</p>
+
+<blockquote><pre class="code">depmod -a</pre></blockquote>
+
+<p>This goes through all the modules you have and records
+	  whether they need any other modules. With this database in
+	  place, you can simply replace the <tt class="command">insmod</tt>
+<a name="INDEX-1705" />
+	  command with the <tt class="command">modprobe</tt> command, which 
+	  checks the module database and loads any other modules that
+	  might be needed before loading the requested module. For
+	  example, our <em class="filename">modules.dep</em> file contains--among others--the following line:</p>
+
+<blockquote><pre class="code">/lib/modules/2.0.35/misc/hisax.o:	/lib/modules/2.0.35/misc/isdn.o</pre></blockquote>
+
+<p>This means that in order to load the
+	  <em class="emphasis">hisax</em> module (a device driver for a number of 
+	  <span class="acronym">ISDN</span> boards), the <em class="emphasis">isdn</em>
+	  module must be loaded. If we now load the
+	  <em class="emphasis">hisax</em> module with <tt class="command">modprobe</tt> 
+	  (this example is slightly simplified, because the
+	  <em class="emphasis">hisax</em> module needs additional parameters):</p>
+
+<blockquote><pre class="code">modprobe hisax</pre></blockquote>
+
+<p><tt class="command">modprobe</tt> will detect the dependency and 
+	  load the <em class="emphasis">isdn</em> module.</p>
+
+<p>Some modules need so-called <em class="firstterm">module
+	  parameters</em>. For example, a device driver might need
+	  to be assigned an interrupt request line
+	  (<span class="acronym">IRQ</span>). You can pass those parameters in the
+	  form
+	  <em class="replaceable">parametername</em><tt class="literal">=</tt><em class="replaceable">parametervalue</em> with both the <tt class="command">insmod</tt> and the <tt class="command">modprobe</tt> command. In the following example, several parametes are passed to the <em class="emphasis">hisax</em> module:</p>
+
+<blockquote><pre class="code">tigger # <tt class="userinput"><b>modprobe hisax type=3 protocol=2 io=0x280 irq=10 </b></tt></pre></blockquote>
+
+<p>The documentation for each module should tell you which
+	  parameters the module supports.</p>
+
+<p>One caveat about modules if you use the Debian distribution: Debian
+uses a file <em class="filename">/etc/modules</em> where the modules are
+listed that should be loaded at boot time. If a module that you do not 
+want keeps reappearing, check whether it is listed here.</p>
+
+<p><a name="INDEX-1706" />
+You can list the drivers that are loaded with the command
+<tt class="command">lsmod</tt>, as in:
+
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>lsmod</b></tt> 
+Module:        #pages:		Used by
+ftape             40</pre></blockquote>
+
+
+The memory usage of the module is displayed as well; under Linux, a
+page is 4 KB. The <em class="filename">ftape</em> driver here is using 160
+KB of memory. If the other modules are dependent on this module, they are 
+shown in the third column.</p>
+
+<p><a name="INDEX-1707" />
+A module can be unloaded from memory using the <tt class="command">rmmod</tt>
+command. For example: 
+<blockquote><pre class="code">rmmod ftape</pre></blockquote>
+
+The argument to <tt class="command">rmmod</tt> is the name of the driver as it appears in
+the <tt class="command">lsmod</tt>
+<?troff \p?> listing.</p>
+
+<p>Once you have modules working to your satisfaction, you can include
+the appropriate <tt class="command">insmod</tt> commands in one of the <em class="filename">rc</em> scripts
+executed at boot time.
+One of your <em class="filename">rc</em> scripts might already include a place 
+where <tt class="command">insmod</tt> commands can be added, depending on your distribution.</p>
+
+<p>One feature of the current module support is that you must rebuild 
+a module any time you upgrade your kernel to a new version or 
+patch level. (Rebuilding your kernel, 
+but keeping the same kernel version, doesn't
+require you to do this.) This is done to ensure that the module
+is compatible with the kernel version you're using. If you attempt
+to load a module with a newer or older kernel than it was compiled for,
+<tt class="command">insmod</tt> will complain and not allow the module to be loaded. 
+When rebuilding a module, you must be running the kernel under which it will
+be used. Therefore, when upgrading your kernel, upgrade and reboot
+the new kernel first, then rebuild your modules and load them. There
+is an option that allows you to keep your modules when switching
+kernels, but there are a number of problems associated with it, and we
+recommend against using it.</p>
+
+<a name="INDEX-1708" /><a name="INDEX-1709" /><a name="INDEX-1710" /><a name="INDEX-1711" /><a name="INDEX-1712" />
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch07_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch07_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">7.4. Building a New Kernel</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">7.6. Loading Modules Automatically</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

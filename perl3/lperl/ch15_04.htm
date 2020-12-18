@@ -1,0 +1,442 @@
+<html><head><title>Advanced Sorting (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch15_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">15.4. Advanced Sorting</h2>
+
+<p><a name="INDEX-1018" />Earlier,
+in <a href="ch03_01.htm">Chapter 3, "Lists and Arrays "</a>, we showed that you could sort a list
+in ascending ASCIIbetical order by using the builtin
+<tt class="literal">sort</tt> operator. What if you want a numeric sort?
+Or a case-insensitive sort? Or maybe you want to sort items according
+to information stored in a hash. Well, Perl lets you sort a list in
+whatever order you'd need; we'll see all of those
+examples by the end of the chapter.
+</p>
+
+<p><a name="INDEX-1019" />You'll tell Perl what order
+you want by making a <em class="firstterm">sort-definition
+subroutine</em>, or <em class="firstterm">sort subroutine</em> for
+short. Now, when you first hear the term "sort
+subroutine," if you've been through any computer science
+courses, visions of bubble sort and shell sort and quick sort race
+through your head, and you say, "No, never again!"
+Don't worry; it's not that bad. In fact, it's
+pretty simple. Perl already knows how to sort a list of items; it
+merely doesn't know which order you want. So the
+sort-definition subroutine simply tells it the order.
+</p>
+
+<p>Why is this necessary? Well, if you think about it, sorting is
+putting a bunch of things in order by comparing them all. Since you
+can't compare them all at once, you need to compare two at a
+time, eventually using what you find out about each pair's
+order to put the whole kit'n'caboodle in line. Perl
+already understands all of those steps <em class="emphasis">except</em>
+for the part about how you'd like to compare the items, so
+that's all you have to write.
+</p>
+
+<p>This means that the sort subroutine doesn't need to sort many
+items after all. It merely has to be able to compare two items. If it
+can put two items in the proper order, Perl will be able to tell (by
+repeatedly consulting the sort subroutine) what order you want for
+your data.
+</p>
+
+<p>The sort subroutine is defined like an ordinary subroutine (well,
+almost). This routine will be called repeatedly, each time checking
+on a pair of elements from the list to be sorted.
+</p>
+
+<p>Now, if you were writing a subroutine that's expecting to get
+two parameters that need sorting, you might write something like this
+to start:
+</p>
+
+<blockquote><pre class="code">sub any_sort_sub {  # It doesn't really work this way
+  my($a, $b) = @_;  # Get and name the two parameters
+  # start comparing $a and $b here
+  ...
+}</pre></blockquote>
+
+<p>But the sort subroutine will be called again and again, often
+hundreds or thousands of times. Declaring the variables
+<tt class="literal">$a</tt> and <tt class="literal">$b</tt> and assigning them
+values at the top of the subroutine will take just a little time, but
+multiply that by the thousands of times that the routine will be
+called, and you can see that it contributes significantly to the
+overall execution speed.
+</p>
+
+<p>We don't do it like that. (In fact, if you did it that way, it
+wouldn't work.) Instead, it is as if Perl has done this for us,
+before our subroutine's code has even started.<a href="#FOOTNOTE-340">[340]</a>
+You'll really write a sort subroutine without that first line;
+both <tt class="literal">$a</tt> and <tt class="literal">$b</tt> have been
+assigned for you. When the sort subroutine starts running,
+<tt class="literal">$a</tt> and <tt class="literal">$b</tt> are two elements from
+the original list.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-340" /><p>[340]To be honest, it's closer to being as if Perl has used
+<tt class="literal">local($a, $b) </tt>in a private block around the
+<tt class="literal">sort </tt>invocation, because these variables are
+really globals rather than lexical variables. (Unless you do
+something unusual, though, you can't tell the difference inside
+the sort subroutine; you can pretend these are <tt class="literal">my</tt>
+variables. <tt class="literal">use strict</tt> makes a special
+exception for these two globals, so you don't need to declare
+them in any way.) This means that if your program already has its own
+<tt class="literal">$a</tt> or <tt class="literal">$b</tt>, you won't be
+able to access those while Perl is sorting the list. Also, be sure to
+note that the two items to be sorted are <em class="emphasis">not</em>
+passed in via <tt class="literal">@_</tt> (unless you use a subroutine
+prototype, which we won't cover in this book, but see the
+documentation for the full details). Inside the sort subroutine, just
+use <tt class="literal">$a</tt> and <tt class="literal">$b</tt>, and try not to
+worry too much about where they came from. And as if that
+wasn't enough, if there's a lexical <tt class="literal">$a</tt>
+or <tt class="literal">$b</tt> somewhere in scope, the subroutine
+definition doesn't work either. Whew!</p> </blockquote>
+
+<p>The subroutine returns a coded value describing how the elements
+compare (like C's <tt class="literal">qsort(3)</tt> does, but
+it's Perl's own internal sort implementation). If
+<tt class="literal">$a</tt> should appear before <tt class="literal">$b</tt> in
+the final list, the sort subroutine returns <tt class="literal">-1</tt> to
+say so. If <tt class="literal">$b</tt> should appear before
+<tt class="literal">$a</tt>, it returns <tt class="literal">1</tt>.
+</p>
+
+<p>If the order of <tt class="literal">$a</tt> and <tt class="literal">$b</tt>
+doesn't matter, the subroutine returns <tt class="literal">0</tt>.
+Why would it not matter? Perhaps you're doing a
+case-insensitive sort and the two strings are <tt class="literal">fred</tt>
+and <tt class="literal">Fred</tt>. Or perhaps you're doing a numeric
+sort, and the two numbers are equal.
+</p>
+
+<p>We could now write a numeric sort subroutine like this:</p>
+
+<blockquote><pre class="code">sub by_number {
+  # a sort subroutine, expect $a and $b
+  if ($a &lt; $b) { -1 } elsif ($a &gt; $b) { 1 } else { 0 }
+}</pre></blockquote>
+
+<p>To use the sort subroutine, just put its name (without an ampersand)
+between the keyword <tt class="literal">sort</tt> and the list to be
+sorted. This example puts a numerically sorted list of numbers into
+<tt class="literal">@result</tt>:
+</p>
+
+<blockquote><pre class="code">my @result = sort by_number @some_numbers;</pre></blockquote>
+
+<p>We called the subroutine <tt class="literal">by_number</tt> because that
+describes how it's sorting. But more importantly, you can read
+the line of code that uses it with sort as saying "sort by
+number," as you would in English. Many sort-subroutine names
+begin with <tt class="literal">by_</tt> to describe how they sort. Or we
+could have called this one <tt class="literal">numerically</tt>, for a
+similar reason, but that's more typing and more chance to mess
+something up.
+</p>
+
+<p>Notice that we don't have to do anything in the sort subroutine
+to declare <tt class="literal">$a</tt> and <tt class="literal">$b</tt>, and to
+set their values -- and if we did, the subroutine wouldn't
+work right. We just let Perl set up <tt class="literal">$a</tt> and
+<tt class="literal">$b</tt> for us, and so all we need to write is the
+comparison.
+</p>
+
+<p>In fact, we can make it even simpler (and more efficient). Since this
+kind of three-way comparison is frequent, Perl has a convenient
+shortcut to use to write it. In this case, we use the
+<a name="INDEX-1020" />
+<a name="INDEX-1021" />spaceship operator
+(<tt class="literal">&lt;=&gt;</tt>).<a href="#FOOTNOTE-341">[341]</a> This operator compares two numbers and
+returns <tt class="literal">-1</tt>, <tt class="literal">0</tt>, or
+<tt class="literal">1</tt> as needed to sort them numerically. So we could
+have written that sort subroutine better, like this:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-341" /><p>[341]We call it that
+because it looks like one of the Tie-fighters from <em class="emphasis">Star
+Wars</em><a name="INDEX-1022" />. Well, it looks like that to us,
+anyway.</p> </blockquote>
+
+<blockquote><pre class="code">sub by_number { $a &lt;=&gt; $b }</pre></blockquote>
+
+<p>Since the spaceship compares
+<a name="INDEX-1023" />numbers, you may have guessed
+that there's a corresponding <a name="INDEX-1024" />
+<a name="INDEX-1025" />three-way string-comparison operator:
+<tt class="literal">cmp</tt>. These two are easy to remember and keep
+straight. The spaceship has a family resemblance to the numeric
+<a name="INDEX-1026" />
+<a name="INDEX-1027" />comparison
+operators like <tt class="literal">&gt;=</tt>, but it's three
+characters long instead of two because it has three possible return
+values instead of two. And <tt class="literal">cmp</tt> has a family
+resemblance to the string comparison operators like
+<tt class="literal">ge</tt>, but it's three characters long instead
+of two because it <em class="emphasis">also</em> has three possible return
+values instead of two.<a href="#FOOTNOTE-342">[342]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-342" /><p>[342]This is no accident. Larry
+does things like this on purpose, to make Perl easier to learn and
+remember. Remember, he's a linguist at heart, so he's
+studied how people think of languages.</p> </blockquote>
+
+<p>Of course, <tt class="literal">cmp</tt> by itself provides the same order
+as the default sort. You'd never need to write this subroutine,
+which yields merely the default sort order:<a href="#FOOTNOTE-343">[343]</a>
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-343" /><p>[343]You'd never need to write this unless, of course, you
+were writing an introductory Perl book and needed it for an
+example.</p> </blockquote>
+
+<blockquote><pre class="code">sub ASCIIbetically { $a cmp $b }
+my @strings = sort ASCIIbetically @any_strings;</pre></blockquote>
+
+<p>But you can use <tt class="literal">cmp</tt> to build a more complex sort
+order, like a case-insensitive sort:
+</p>
+
+<blockquote><pre class="code">sub case_insensitive { "\L$a" cmp "\L$b" }</pre></blockquote>
+
+<p>In this case, we're comparing the string from
+<tt class="literal">$a</tt> (forced to lowercase) against the string from
+<tt class="literal">$b</tt> (forced to lowercase), giving a
+case-insensitive sort order.
+</p>
+
+<p>Note that we're not modifying the elements themselves;
+we're merely using their values. That's actually
+important: for efficiency reasons, <tt class="literal">$a</tt> and
+<tt class="literal">$b</tt> aren't copies of the data items.
+They're actually new, temporary aliases for elements of the
+original list, so if we changed them we'd be mangling the
+original data. Don't do that -- it's neither supported
+nor recommended.
+</p>
+
+<p>When your sort subroutine is as simple as the ones we show here (and
+most of the time, it is), you can make the code even simpler yet, by
+replacing the name of the sort routine with the entire sort routine
+"in line," like so:
+</p>
+
+<blockquote><pre class="code">my @numbers = sort { $a &lt;=&gt; $b } @some_numbers;</pre></blockquote>
+
+<p>In fact, in modern Perl, you'll hardly ever see a separate sort
+subroutine; you'll frequently find sort routines written inline
+as we've done here.
+</p>
+
+<p>Suppose you want to sort in descending numeric order. That's
+easy enough to do with the help of
+<tt class="literal">reverse</tt><a name="INDEX-1028" />:
+</p>
+
+<blockquote><pre class="code">my @descending = reverse sort { $a &lt;=&gt; $b } @some_numbers;</pre></blockquote>
+
+<p>But here's a neat trick. The comparison operators
+(<tt class="literal">&lt;=&gt;</tt> and <tt class="literal">cmp</tt>) are very
+nearsighted; that is, they can't see which operand is
+<tt class="literal">$a</tt> and which is <tt class="literal">$b</tt>, but only
+which <em class="emphasis">value</em> is on the left and which is on the
+right. So if <tt class="literal">$a</tt> and <tt class="literal">$b</tt> were to
+swap places, the comparison operator would get the results backwards
+every time. That means that this is another way to get a reversed
+numeric sort:
+</p>
+
+<blockquote><pre class="code">my @descending = sort { $b &lt;=&gt; $a } @some_numbers;</pre></blockquote>
+
+<p>You can (with a little practice) read this at a glance. It's a
+descending-order comparison (because <tt class="literal">$b</tt> comes
+before <tt class="literal">$a</tt>, which is descending order), and
+it's a numeric comparison (because it uses the spaceship
+instead of <tt class="literal">cmp</tt>). So, it's sorting numbers in
+reverse order.
+</p>
+
+<a name="lperl3-CHP-15-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">15.4.1. Sorting a Hash by Value</h3>
+
+<p><a name="INDEX-1029" />Once
+you've been sorting lists happily for a while you'll run
+into a situation where you want to sort a hash by value. For example,
+three of our characters went out bowling last night, and we've
+got their bowling scores in the following hash. We want to be able to
+print out the list in the proper order, with the game winner at the
+top, so we want to sort the hash by <a name="INDEX-1030" />score:
+</p>
+
+<blockquote><pre class="code">my %score = ("barney" =&gt; 195, "fred" =&gt; 205, "dino" =&gt; 30);
+my @winners = sort by_score keys %score;</pre></blockquote>
+
+<p>Of course, we aren't really going to be able to sort the hash
+by score; that's just a verbal shortcut. You can't sort a
+hash! But when we've used <tt class="literal">sort</tt> with hashes
+before now, we've been sorting the keys of the hash (in
+ASCIIbetical order). Now, we're still going to be sorting the
+keys of the hash, but the order is now defined by their corresponding
+values from the hash. In this case, the result should be a list of
+our three characters' names, in order according to their
+bowling scores.
+</p>
+
+<p>Writing this sort subroutine is fairly easy. What we want is to use a
+numeric comparison on the scores, rather than the names. That is,
+instead of comparing <tt class="literal">$a</tt> and <tt class="literal">$b</tt>
+(the players' names), we want to compare
+<tt class="literal">$score{$a}</tt> and <tt class="literal">$score{$b}</tt>
+(their scores). If you think of it that way, it almost writes itself,
+as in:
+</p>
+
+<blockquote><pre class="code">sub by_score { $score{$b} &lt;=&gt; $score{$a} }</pre></blockquote>
+
+<p>Let's step through this and see how it works. Let's
+imagine that the first time it's called, Perl has set
+<tt class="literal">$a</tt> to <tt class="literal">barney</tt> and
+<tt class="literal">$b</tt> to <tt class="literal">fred</tt>. So the comparison
+is <tt class="literal">$score{"fred"} &lt;=&gt;
+$score{"barney</tt>"}, which (as we can see by consulting
+the hash) is <tt class="literal">205 &lt;=&gt; 195</tt>. Remember, now, the
+spaceship is nearsighted, so when it sees <tt class="literal">205</tt>
+before <tt class="literal">195</tt>, it says, in effect: "No,
+that's not the right numeric order; <tt class="literal">$b</tt>
+should come before <tt class="literal">$a</tt>." So it tells Perl
+that <tt class="literal">fred</tt> should come before
+<tt class="literal">barney</tt>.
+</p>
+
+<p>Maybe the next time the routine is called, <tt class="literal">$a</tt> is
+<tt class="literal">barney</tt> again but <tt class="literal">$b</tt> is now
+<tt class="literal">dino</tt>. The nearsighted numeric comparison sees
+<tt class="literal">30 &lt;=&gt; 195</tt> this time, so it reports that
+that they're in the right order; <tt class="literal">$a</tt> does
+indeed sort in front of <tt class="literal">$b</tt>. That is,
+<tt class="literal">barney</tt> comes before <tt class="literal">dino</tt>. At
+this point, Perl has enough information to put the list in order:
+<tt class="literal">fred</tt> is the winner, then <tt class="literal">barney</tt>
+in second place, then <tt class="literal">dino</tt>.
+</p>
+
+<p>Why did the comparison use the <tt class="literal">$score{$b}</tt> before
+the <tt class="literal">$score{$a}</tt>, instead of the other way around?
+That's because we want bowling scores arranged in
+<em class="emphasis">descending</em> order, from the highest score of the
+winner down. So you can (again, after a little practice) read this
+one at sight as well: <tt class="literal">$score{$b} &lt;=&gt;
+$score{$a}</tt> means to sort according to the scores, in
+reversed numeric order.
+</p>
+
+</div>
+<a name="lperl3-CHP-15-SECT-4.2" /><div class="sect2">
+<h3 class="sect2">15.4.2. Sorting by Multiple Keys</h3>
+
+<p>We forgot to mention that there was a fourth player bowling last
+night with the other three, so the hash really looked like this:
+</p>
+
+<blockquote><pre class="code">my %score = (
+  "barney" =&gt; 195, "fred" =&gt; 205,
+  "dino" =&gt; 30, "bamm-bamm" =&gt; 195,
+);</pre></blockquote>
+
+<p>Now, as you can see, <tt class="literal">bamm-bamm</tt> has the same score
+as <tt class="literal">barney</tt>. So which one will be first in the
+sorted list of players? There's no telling, because the
+comparison operator (seeing the same score on both sides) will have
+to return zero when checking those two.
+</p>
+
+<p>Maybe that doesn't matter, but we generally prefer to have a
+well-defined sort. If several players have the same score, we want
+them to be together in the list, of course. But within that group,
+the names should be in ASCIIbetical order. But how can we write the
+sort subroutine to say that? Again, this turns out to be pretty easy:
+</p>
+
+<blockquote><pre class="code">my @winners = sort by_score_and_name keys %score;
+
+sub by_score_and_name {
+  $score{$b} &lt;=&gt; $score{$a}  # by descending numeric score
+    or
+  $a cmp $b                  # ASCIIbetically by name
+}</pre></blockquote>
+
+<p>How does this work? Well, if the spaceship sees two different scores,
+that's the comparison we want to use. It returns
+<tt class="literal">-1</tt> or <tt class="literal">1</tt>, a true value, so the
+low-precedence short-circuit <tt class="literal">or</tt> will mean that the
+rest of the expression will be skipped, and the comparison we want is
+returned. (Remember, the short-circuit <tt class="literal">or</tt> returns
+the last expression evaluated.) But if the spaceship sees two
+identical scores, it returns <tt class="literal">0</tt>, a false value, and
+thus the <tt class="literal">cmp</tt> operator gets its turn at bat,
+returning an appropriate ordering value considering the keys as
+strings. That is, if the scores are the same, the string-order
+comparison breaks the tie.
+</p>
+
+<p>We know that when we use the <tt class="literal">by_score_and_name</tt>
+sort subroutine like this, it will never return <tt class="literal">0</tt>.
+(Do you see why it won't? The answer is in the
+footnote.<a href="#FOOTNOTE-344">[344]</a>) So we know that the
+sort order is always well-defined; that is, we know that the result
+today will be the same as the result with the same data tomorrow.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-344" /><p>[344]The only way it could return
+<tt class="literal">0</tt> would be if the two strings were identical, and
+(since the strings are keys of a hash) we already know that
+they're different. Of course, if you passed a list with
+duplicate (identical) strings to <tt class="literal">sort</tt>, it would
+return <tt class="literal">0</tt> when comparing those, but we're
+passing a list of hash keys.</p> </blockquote>
+
+<p>There's no reason that your sort subroutine has to be limited
+to two levels of sorting, of course. Here the Bedrock library program
+puts a list of patron ID numbers in order according to a five-level
+sort.<a href="#FOOTNOTE-345">[345]</a> This example sorts according to
+the amount of each patron's outstanding fines (as calculated by
+a subroutine <tt class="literal">&amp;fines</tt>, not shown here), the
+number of items they currently have checked out (from
+<tt class="literal">%items</tt>), their name (in order by family name, then
+by personal name, both from hashes), and finally by the
+patron's ID number, in case everything else is the<a name="INDEX-1031" />
+same<a name="INDEX-1032" />: 
+</p><blockquote class="footnote"> <a name="FOOTNOTE-345" /><p>[345]It's not unusual in the modern world to
+need a five-level sort like this, although it was quite infrequent in
+prehistoric times.</p> </blockquote>
+
+<blockquote><pre class="code">@patron_IDs = sort {
+  &amp;fines($b) &lt;=&gt; &amp;fines($a) or
+  $items{$b} &lt;=&gt; $items{$a} or
+  $family_name{$a} cmp $family_name{$a} or
+  $personal_name{$a} cmp $family_name{$b} or
+  $a &lt;=&gt; $b
+} @patron_IDs;</pre></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch15_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">15.3. Formatting Data with sprintf</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">15.5. Exercises</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

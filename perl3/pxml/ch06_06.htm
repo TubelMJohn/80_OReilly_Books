@@ -1,0 +1,137 @@
+<html><head><title>XML::Grove (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch07_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">6.6. XML::Grove</h2>
+
+<p>The <a name="INDEX-512" /> <a name="INDEX-513" />last object model we'll
+examine before jumping into standards-based solutions is Ken
+<a name="INDEX-514" />MacLeod's
+<tt class="literal">XML::Grove</tt>. Like
+<tt class="literal">XML::SimpleObject</tt>, it takes the
+<tt class="literal">XML::Parser</tt> output in tree mode and changes it
+into an object hierarchy. The difference is that each node type is
+represented by a different class. Therefore, an element would be
+mapped to <tt class="literal">XML::Grove::Element</tt>, a processing
+instruction to <tt class="literal">XML::Grove::PI</tt>, and so on. Text
+nodes are still scalar values.
+</p>
+
+<p>Another feature of this module is that the declarations in the
+internal subset are captured in lists accessible through the
+<tt class="literal">XML::Grove</tt> object. Every entity or notation
+declaration is available for your perusal. For example, the following
+program counts the distribution of elements and other nodes, and then
+prints a list of node types and their frequency.
+</p>
+
+<p>First, we initialize the parser with the style
+"grove" (to tell
+<tt class="literal">XML::Parser</tt> that it needs to use
+<tt class="literal">XML::Parser::Grove</tt> to process its output):
+</p>
+
+<blockquote><pre class="code">use XML::Parser;
+use XML::Parser::Grove;
+use XML::Grove;
+
+my $parser = XML::Parser-&gt;new( Style =&gt; 'grove', NoExpand =&gt; '1' );
+my $grove = $parser-&gt;parsefile( shift @ARGV );</pre></blockquote>
+
+<p>Next, we access the contents of the grove by calling the
+<tt class="literal">contents( )</tt> method. This method returns a list
+including the root element and any comments or PIs outside of it. A
+subroutine called <tt class="literal">tabulate( )</tt> counts nodes and
+descends recursively through the tree. Finally, the results are
+printed:
+</p>
+
+<blockquote><pre class="code"># tabulate elements and other nodes
+my %dist;
+foreach( @{$grove-&gt;contents} ) {
+  &amp;tabulate( $_, \%dist );
+}
+print "\nNODES:\n\n";
+foreach( sort keys %dist ) {
+  print "$_: " . $dist{$_} . "\n";
+}</pre></blockquote>
+
+<p>Here is the subroutine that handles each node in the tree. Since each
+node is a different class, we can use <tt class="literal">ref( )</tt> to
+get the type. Attributes are not treated as nodes in this model, but
+are available through the element class's method
+<tt class="literal">attributes( )</tt> as a hash. The call to
+<tt class="literal">contents( )</tt> allows the routine to continue
+processing the element's children:
+</p>
+
+<blockquote><pre class="code"># given a node and a table, find out what the node is, add to the count,
+# and recurse if necessary
+#
+sub tabulate {
+  my( $node, $table ) = @_;
+
+  my $type = ref( $node );
+  if( $type eq 'XML::Grove::Element' ) {
+    $table-&gt;{ 'element' }++;
+    $table-&gt;{ 'element (' . $node-&gt;name . ')' }++;
+    foreach( keys %{$node-&gt;attributes} ) {
+      $table-&gt;{ "attribute ($_)" }++;
+    }
+    foreach( @{$node-&gt;contents} ) {
+      &amp;tabulate( $_, $table );
+    }
+
+  } elsif( $type eq 'XML::Grove::Entity' ) {
+    $table-&gt;{ 'entity-ref (' . $node-&gt;name . ')' }++;
+
+  } elsif( $type eq 'XML::Grove::PI' ) {
+    $table-&gt;{ 'PI (' . $node-&gt;target . ')' }++;
+
+  } elsif( $type eq 'XML::Grove::Comment' ) {
+    $table-&gt;{ 'comment' }++;
+
+  } else {
+    $table-&gt;{ 'text-node' }++
+  }
+}</pre></blockquote>
+
+<p>Here's a typical result, when run<a name="INDEX-515" /> <a name="INDEX-516" /> on an
+XML<a name="INDEX-517" />
+datafile:
+</p>
+
+<blockquote><pre class="code">NODES:
+PI (a): 1
+attribute (date): 1
+attribute (style): 12
+attribute (type): 2
+element: 30
+element (category): 2
+element (inventory): 1
+element (item): 6
+element (location): 6
+element (name): 12
+element (note): 3
+text-node: 100</pre></blockquote>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch07_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">6.5. XML::TreeBuilder</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">7. DOM</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

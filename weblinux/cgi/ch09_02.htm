@@ -1,0 +1,330 @@
+<?label 9.2. Email Addresses?><html><head><title>Email Addresses (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch09_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch09_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">9.2. Email Addresses</h2>
+
+
+<p>Part
+<a name="INDEX-1830" />
+<a name="INDEX-1831" />
+<a name="INDEX-1832" />of handling
+mail includes handling email addresses. Collecting email addresses
+from users seems to be part of almost any
+<a name="INDEX-1833" />registration
+form on the Web.<a href="#FOOTNOTE-17">[17]</a> You may wonder how you can know whether an email address
+entered into a form is
+<a name="INDEX-1834" />valid. The simple answer, of course,
+is that you can't. You can validate that the email address is
+syntactically valid (although this is considerably more difficult
+than you might expect), but you cannot know whether the email address
+actually corresponds to a valid account or not.</p><blockquote>
+
+<a name="FOOTNOTE-17" /><p>[17]This isn't necessarily a good
+thing. Many sites have adopted the common practice of requiring an
+email address for accessing otherwise free services. These sites
+often allow the user to check a checkbox to be exempted from mass
+mailings, but if this is optional, then why is entering an email
+address not optional? If you are asked to create forms like this,
+please ask yourself and your sponsors why you are collecting private
+information. If you have a good reason, then explain it on your
+registration form. If not, then there is no reason to collect more
+than you need; user privacy should not be an afterthought.</p>
+
+</blockquote>
+
+
+<p>You may think you should be able to make a query to an
+<a name="INDEX-1835" />SMTP server to check whether an
+email address is valid or not. In fact, the <a name="INDEX-1836" />SMTP protocol supports a command to
+validate an email address. Unfortunately, this really cannot be used
+in practice. There are two problems.</p>
+
+
+<p>The first problem is that the SMTP server responsible for handling
+the mail for that email address may not always be accessible. There
+may be intermediate network outages, and even when the network is
+fine, mail servers are frequently overloaded and may refuse requests.
+These are not typically a problem for Internet mail because other
+mail servers trying to deliver to them maintain queues of messages
+and retry several times, often for days, before giving up. However,
+if you need immediate verification, the mail server may not be
+available to give it to you.</p>
+
+
+<p>The second problem is that even when the final SMTP server is
+available, it may not provide reliable information. Many SMTP servers
+simply gateway messages to an internal mail system, which may speak
+another protocol and be located on another network. Because of this,
+one of these SMTP gateways may not know which email addresses are
+valid on the other network; it may simply be set up to forward all
+Internet mail. Therefore, when this SMTP server is asked to verify an
+email address, it may state that any email address addressed to its
+domain is deliverable, whether it is or not.</p>
+
+
+<p>The best that you can do if you need to validate an email address is
+send an actual email to that address and ask the user to respond. We
+will look at ways to write scripts to respond to email later in this
+chapter. For now lets look at how to recognize syntactically valid
+email addresses.</p>
+
+
+<a name="ch09-4-fm2xml" /><div class="sect2">
+<h3 class="sect2">9.2.1. Validating Syntax</h3>
+
+
+<p>A
+<a name="INDEX-1837" /> <a name="INDEX-1,838" />
+<a name="INDEX-1839" />common question that new CGI
+developers ask is what the <a name="INDEX-1840" />regular expression for matching
+email addresses looks like. If you ask around, some people will refer
+you to a book called <em class="citetitle">Mastering Regular
+Expressions</em> by Jeffrey Friedl (O'Reilly &amp;
+Associates, Inc.). Others might give you a simple expression that
+checks for "@" and that checks that the domain name ends
+in a dot and two or three letters. In fact, neither of these answers
+is fully accurate.</p>
+
+
+<p>To understand why, let's review a little history. The standard
+document for defining email address names is RFC 822. It was
+published in 1982. Does that seem like a long time ago to you? It
+should. The Internet was radically different then. In fact, it
+wasn't called the Internet then -- it was a collection of
+many different networks, including ARPAnet, Bitnet, and CSNET, each
+with their own naming conventions. TCP/IP was being introduced as a
+new networking protocol and hosts only numbered in the hundreds. It
+wasn't until 1983 that serious work began on implementing
+domain name servers. The hierarchical names that we recognize today
+like <em class="emphasis">www.oreilly.com</em> did not
+exist back then.</p>
+
+
+<p>So that is half of the story. The other half of the story is that
+Jeffrey Friedl, in his book <em class="citetitle">Mastering Regular
+Expressions</em>, tackled creating a regular expression to
+handle the parsing of RFC 822 email addresses. The book is the best
+reference for understanding regular expressions in Perl or any other
+context. Many people cite the regular expression he constructs as the
+only definitive test of whether an Internet email address is valid.
+But unfortunately these people have misunderstood what it does; it
+tests for compliance with RFC 822. According to RFC 822, these are
+all syntactically valid email addresses:</p>
+
+
+<blockquote><pre class="code">Alfred Neuman &lt;Neuman@BBN-TENEXA&gt;
+":sysmail"@  Some-Group. Some-Org
+Muhammed.(I am  the greatest) Ali @(the)Vegas.WBA</pre></blockquote>
+
+
+<p>Do any of them look like the type of email address you'd want
+to capture in an HTML form? It is true that RFC 822 has not been
+superseded by another RFC and is still a standard, but it is equally
+true that the problem we are trying to solve is radically different
+in time and context from the problem that it solved in 1982.</p>
+
+
+<p>We want an expression to recognize a syntactically valid email
+address as required on the Internet today. We are interested only in
+today's standard Internet domain-naming convention. That would
+actually rule out all of the above addresses, since none of them end
+in one of our current top level domains (<em class="emphasis">.com</em>,
+<em class="emphasis">.net</em>, <em class="emphasis">.edu</em>,
+<em class="emphasis">.uk</em>, etc.). There are other important
+distinctions.</p>
+
+
+<p>The first example is a full email address including a name and what
+RFC 822 refers to as the <em class="firstterm">address
+specification</em>
+<a name="INDEX-1841" /> in angled brackets. You may
+have seen this expanded syntax in your email software. We do not
+need, and probably don't want, this additional information in
+an email address captured in a form. In all likelihood, the
+user's name is being captured separately in other fields. When
+we need to validate an email address that a user has entered, we are
+generally only interested in the address specification itself. So
+henceforth when we refer to an email address, we are simply referring
+to this address specification, the <em class="emphasis">user@hostname</em> part.</p>
+
+
+<p>The second example contains a quoted element (any group of characters
+separated by a "." or a "@" we will refer to
+as an <em class="firstterm">element</em> <a href="#FOOTNOTE-18">[18]</a>). Quoted
+<a name="INDEX-1842" />
+<a name="INDEX-1843" />elements are completely acceptable
+and still work fine on today's Internet. If you want to accept
+valid email addresses, you should accept quoted elements. Only
+elements on the left side of the "@" may be quoted, but
+any ASCII character is allowed within quotes (some have to be escaped
+with a backslash). This is why any check in our code for
+"invalid characters" in an email address would be flawed,
+and this is why it is very dangerous to pass email addresses through
+a shell as an argument to a command.</p><blockquote>
+
+<a name="FOOTNOTE-18" /><p>[18]RFC 822 more technically
+refers to this as an "atom."</p>
+
+</blockquote>
+
+
+<p>The second email address also includes
+<a name="INDEX-1844" />spaces. Spaces
+(and tabs) are legal between any element and at the beginning and end
+of the email address. However, it doesn't change the meaning to
+remove them and that is exactly what emailers generally do when you
+send a message to an email address containing spaces. Note, however,
+that you cannot simply remove every space in an email address since
+spaces appearing within quotes do carry meaning and must be left
+intact. Only those appearing outside of quotes can be removed. We
+will strip them in our example. We probably don't have to; it
+is not unreasonable to expect your users to enter the email address
+without extra spaces.</p>
+
+
+<p>The last example contains
+<a name="INDEX-1845" />comments. It is
+perfectly legal to include comments, which are enclosed within
+parentheses, anywhere where spaces are allowed. Comments are only
+intended to pass additional information to humans, and machines can
+ignore them. Thus, it is rather silly to enter them into an automated
+web form. We will simplify our code by not accepting comments in the
+email addresses we are checking.</p>
+
+
+<p>So here is the code that we will use to validate email addresses. It
+is considerably shorter than the example given by Mr. Friedl, but it
+is not nearly so flexible. It does not support comments, it removes
+spaces before validating, and it limits
+<a name="INDEX-1846" />hosts to modern
+domain names and IP addresses. Nonetheless, it is quite complicated,
+and the regular expression to perform the check would be too
+difficult to type out. Instead, we build it through a number of
+intermediate variables. The process of doing this is too involved to
+explain here. If you want to understand how to build complex regular
+expressions like this, we highly recommend <em class="citetitle">Mastering
+Regular Expressions</em>.</p>
+
+
+<p>One note, however: the variable <tt class="literal">$top_level</tt>
+contains the expression that matches valid
+<a name="INDEX-1847" />top-level domains. Our current top
+level domains have two (e.g., <tt class="literal">.us</tt>,
+<tt class="literal">.uk</tt>, <tt class="literal">.au</tt>, etc.) or three
+letters (e.g., <tt class="literal">.com</tt>, <tt class="literal">.org</tt>,
+<tt class="literal">.net</tt>, etc.). The number of top-level domains will
+certainly increase. Some of the proposed new names, such as
+<tt class="literal">.firm</tt>, have more than three characters. Thus, the
+regular expression below will allow anywhere from two to four
+characters:</p>
+
+
+<blockquote><pre class="code">my $top_level   = qq{ (?: $atom_char ){2,4} };</pre></blockquote>
+
+
+<p>If you want to be more restrictive today, you can limit it to three.
+Likewise, if top-level domains with more than four characters are
+someday allowed, you would need to increase it.</p>
+
+
+<p>Finally, here's the
+<a name="INDEX-1848" />
+<a name="INDEX-1849" />
+<a name="INDEX-1850" />code:</p>
+
+
+<blockquote><pre class="code">sub validate_email_address {
+    my $addr_to_check = shift;
+    $addr_to_check =~ s/("(?:[^"\\]|\\.)*"|[^\t "]*)[ \t]*/$1/g;
+    
+    my $esc         = '\\\\';
+    my $space       = '\040';
+    my $ctrl        = '\000-\037';
+    my $dot         = '\.';
+    my $nonASCII    = '\x80-\xff';
+    my $CRlist      = '\012\015';
+    my $letter      = 'a-zA-Z';
+    my $digit       = '\d';
+    
+    my $atom_char   = qq{ [^$space&lt;&gt;\@,;:".\\[\\]$esc$ctrl$nonASCII] };
+    my $atom        = qq{ $atom_char+ };
+    my $byte        = qq{ (?: 1?$digit?$digit | 
+                              2[0-4]$digit    | 
+                              25[0-5]         ) };
+    
+    my $qtext       = qq{ [^$esc$nonASCII$CRlist"] };
+    my $quoted_pair = qq{ $esc [^$nonASCII] };
+    my $quoted_str  = qq{ " (?: $qtext | $quoted_pair )* " };
+    
+    my $word        = qq{ (?: $atom | $quoted_str ) };
+    my $ip_address  = qq{ \\[ $byte (?: $dot $byte ){3} \\] };
+    my $sub_domain  = qq{ [$letter$digit]
+                          [$letter$digit-]{0,61} [$letter$digit]};
+    my $top_level   = qq{ (?: $atom_char ){2,4} };
+    my $domain_name = qq{ (?: $sub_domain $dot )+ $top_level };
+    my $domain      = qq{ (?: $domain_name | $ip_address ) };
+    my $local_part  = qq{ $word (?: $dot $word )* };
+    my $address     = qq{ $local_part \@ $domain };
+    
+    return $addr_to_check =~ /^$address$/ox ? $addr_to_check : "";
+}</pre></blockquote>
+
+
+<p>If you supply an email address to
+<tt class="function">validate_email_address</tt>, it will strip out any
+spaces or tabs that are not within quotes. We're being a little
+lenient here since spaces within elements (as opposed to spaces
+<em class="emphasis">around</em> elements) are actually illegal, but
+we'll just strip them in this step along with the legal spaces.
+We then check the address against our <a name="INDEX-1851" />regular expression. If it matches, the
+email address is valid and is returned (without spaces). Otherwise,
+an empty string is returned, which evaluates to false in Perl. You
+can use the subroutine like so:</p>
+
+
+<blockquote><pre class="code">use strict;
+use CGI;
+use CGIBook::Error;
+
+my $q     = new CGI;
+my $email = validate_email_address( $q-&gt;param( "email" ) );
+
+unless ( $email ) {
+    error( $q, "The email address you entered is invalid. " .
+               "Please use your browser's Back button to " .
+               "return to the form and try again." );
+}
+.
+.</pre></blockquote>
+
+
+<p>If you were planning to check multiple email addresses or intended to
+use this in an environment where your Perl code is precompiled (like
+<em class="emphasis">mod_perl</em> or FastCGI), then you could optimize
+this code by building the regular expression once and caching this
+expression. However, this example is intended more to demonstrate why
+validating email addresses is a challenge than to be used in
+production (it does not resolve the issue that an email address can
+be syntactically valid yet bad).</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch09_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch09_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">9. Sending Email</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">9.3. Structure of Internet Email</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

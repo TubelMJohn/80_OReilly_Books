@@ -1,0 +1,199 @@
+<html><head><title>Filehandles (Perl in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Stephen Spainhour" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002416L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_08.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch04_10.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">4.9. Filehandles</h2>
+
+<p><a name="INDEX-767" />A filehandle is
+the name for an I/O connection between your Perl process and the
+operating system. Filehandle names are like label names but use their
+own namespace. Like label names, the convention is to use all
+uppercase letters for filehandle names.
+</p>
+
+<p><a name="INDEX-768" /><a name="INDEX-769" /><a name="INDEX-770" />Every Perl program has three
+filehandles that are automatically opened: STDIN, STDOUT, and STDERR.
+By default, the <tt class="literal">print</tt> and <tt class="literal">write</tt>
+functions write to STDOUT. Additional filehandles are created using
+the <tt class="literal">open</tt> function:
+</p>
+
+<blockquote><pre class="code">open (DATA, "numbers.txt");</pre></blockquote>
+
+<p>DATA is the new filehandle that is attached to the external file,
+which is now opened for reading. You can open filehandles for
+reading, writing, and appending to external files and devices. To
+open a file for writing, prefix the filename with a greater-than
+sign:
+</p>
+
+<blockquote><pre class="code">open(OUT, "&gt;outfile");</pre></blockquote>
+
+<p><a name="INDEX-771" /><a name="INDEX-772" />To open a file for appending, prefix
+the filename with two greater-than signs:
+</p>
+
+<blockquote><pre class="code">open(LOGFILE, "&gt;&gt;error_log");</pre></blockquote>
+
+<p>The <tt class="literal">open</tt> function returns true if the file is
+successfully opened, and false if it failed to open. Opening a file
+can fail for any number of reasons, e.g., a file does not exist, is
+write-protected, or you don't have permission for a
+file or directory. However, a filehandle that has not been
+successfully opened can still be read from (giving you an immediate
+EOF) or written to with no noticeable effects.
+</p>
+
+<p><a name="INDEX-773" /><a name="INDEX-774" />You should always check the
+result of <tt class="literal">open</tt> immediately and report an error if
+the operation does not succeed. The <tt class="literal">warn</tt> function
+can report an error to standard error if something goes wrong, and
+<tt class="literal">die</tt> can terminate your program and tell you what
+went wrong. For example:
+</p>
+
+<blockquote><pre class="code">open(LOGFILE, "/usr/httpd/error_log") 
+        || warn "Could not open /usr/httpd/error_log.\n";
+open(DATA, "&gt;/tmp/data") || die "Could not create /tmp/data\n.";</pre></blockquote>
+
+<p><a name="INDEX-775" /><a name="INDEX-776" /><a name="INDEX-777" /><a name="INDEX-778" />Once the file is opened,
+you can access the data using the diamond operator,
+<tt class="literal">&lt;</tt><em class="replaceable"><tt>filehandle</tt></em><tt class="literal">&gt;</tt>.
+This is the line-input operator. When used on a filehandle in a
+scalar context, it returns a line from a filehandle as a string. Each
+time it is called, it returns the next line from the filehandle until
+it reaches the end-of-file. The operator keeps track of the line it
+is on in the file, unless the filehandle is closed and reopened,
+which resets the operator to the top-of-file.
+</p>
+
+<p>For example, the following prints any line containing the word
+"secret.html" from the LOGFILE
+filehandle:
+</p>
+
+<blockquote><pre class="code">while (&lt;LOGFILE&gt;) {
+        print "$_\n" if /secret\.html/;
+}</pre></blockquote>
+
+<p><a name="INDEX-779" />In a list
+context, the line-input operator returns a list in which each line is
+an element. The empty <tt class="literal">&lt;&gt;</tt> operator reads from
+the ARGV filehandle, which reads the array of filenames from the Perl
+command line. If <tt class="literal">@ARGV</tt> is empty, the operator
+resorts to standard input.
+</p>
+
+<p>A number of functions send output to a filehandle. The filehandle
+must already be opened for writing, of course. In the previous
+example, <tt class="literal">print</tt> wrote to the STDOUT filehandle,
+even though it wasn't specified. Without a
+filehandle, <tt class="literal">print</tt> defaults to the currently
+selected output filehandle, which will be STDOUT until you open and
+select another one in your program. See the <tt class="literal">select</tt>
+function (filehandle version) for more information.
+</p>
+
+<p>If your program involves more than a couple of open filehandles, you
+should specify the filehandles for all of your I/O functions to be
+safe:
+</p>
+
+<blockquote><pre class="code">print LOGFILE "======= Generated report $date ======="</pre></blockquote>
+
+<p><a name="INDEX-780" />To
+close a filehandle, use the <tt class="literal">close</tt> function.
+Filehandles are also closed when the program exits.
+</p>
+
+<a name="perlnut2-CHP-4-SECT-9.1" /><div class="sect2">
+<h3 class="sect2">4.9.1. Perl 5.8 and PerlIO</h3>
+
+<p>Perl 5.8 does <a name="INDEX-781" /> <a name="INDEX-782" />
+<a name="INDEX-783" />I/O via
+PerlIO instead of through your system's I/O (STDIO).
+By implementing <tt class="literal">open(
+)</tt><a name="INDEX-784" />
+with PerlIO, the default behavior of <tt class="literal">open</tt> is
+changed to support a three-argument format. For example:
+</p>
+
+<blockquote><pre class="code">open($fh, '&gt;:utf-8', $filename)
+	or die("...");   # Open $filename and support utf-8</pre></blockquote>
+
+<p>In this example, the filehandle is marked with
+<tt class="literal">utf-8</tt> (or <tt class="literal">utf8</tt> for EBCDIC
+users) to accept Perl's internal Unicode encoding.
+</p>
+
+<p>The PerlIO layers are:</p>
+
+<dl>
+<dt><i>unix</i></dt>
+<dd>
+Low-level read/write </p>
+</dd>
+
+
+<dt><i>stdio</i></dt>
+<dd>
+Standard I/O</p>
+</dd>
+
+
+<dt><i>perlio</i></dt>
+<dd>
+Portable implementation of buffering</p>
+</dd>
+
+
+<dt><i>crlf</i></dt>
+<dd>
+Win32</p>
+</dd>
+
+</dl>
+
+<p>Also in Perl 5.8, you are no longer required to name a filehandle in
+<tt class="literal">open( )</tt> because Perl will handle the filehandles
+internally:
+</p>
+
+<blockquote><pre class="code">open($fh, ...) or ...</pre></blockquote>
+
+<p>You can also use anonymous temporary files with the new form of
+<tt class="literal">open( )</tt>:
+</p>
+
+<blockquote><pre class="code">open($fh, "&gt;", undef) or ...</pre></blockquote>
+
+<p>Pipes can also be used with a multiple-argument form of
+<tt class="literal">open</tt>. The following code is roughly equivalent to
+the Unix command <tt class="literal">'ls -al'</tt>:
+</p>
+
+<blockquote><pre class="code">open($fh, "-|", 'ls -al', '/users') or ...</pre></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_08.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch04_10.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">4.8. References and Complex Data Structures</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">4.10. Signals</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+</map>
+
+</body></html>

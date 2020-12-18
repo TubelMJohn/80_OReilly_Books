@@ -1,0 +1,168 @@
+<html><head><title>Gotcha! (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch04_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">4.5. Gotcha!</h2>
+
+<p>As you get into the more advanced features of SAX, you certainly
+don't reduce the number of problems you can get yourself into.
+However, these problems often become more subtle, which makes for
+some tricky bugs to track down. I'll point out a few of these
+common problems.
+</p>
+
+<a name="javaxml2-CHP-4-SECT-5.1" /><div class="sect2">
+<h3 class="sect2">4.5.1. Return Values from an EntityResolver</h3>
+
+<p>As I mentioned in the section on <tt class="literal">EntityResolver</tt>s,
+you should always ensure that you return <tt class="literal">null</tt> as a
+starting point for <tt class="literal">resolveEntity(
+)</tt><a name="INDEX-434" /> method implementations. Luckily, Java
+ensures that you return something from the method, but I've
+often seen code like this:
+</p>
+
+<blockquote><pre class="code">    public InputSource resolveEntity(String publicID, String systemID)
+        throws IOException, SAXException {
+
+        InputSource inputSource = new InputSource( );
+
+        // Handle references to online version of copyright.xml   
+        if (systemID.equals(
+            "http://www.newInstance.com/javaxml2/copyright.xml")) {
+            inputSource.setSystemId(
+                "file:///c:/javaxml2/ch04/xml/copyright.xml");
+        }            
+        
+        // In the default case, return null
+        return inputSource;    
+    }</pre></blockquote>
+
+<p>As you can see, an <tt class="literal">InputSource</tt> is created
+initially and then the system ID is set on that source. The problem
+here is that if no <tt class="literal">if</tt> blocks are entered, an
+<tt class="literal">InputSource</tt> with no system or public ID, as well
+as no specified <tt class="literal">Reader</tt> or
+<tt class="literal">InputStream</tt>, is returned. This can lead to
+unpredictable results; in some parsers, things continue with no
+problems. In other parsers, though, returning an empty
+<tt class="literal">InputSource</tt> results in entities being ignored, or
+in exceptions being thrown. In other words, return
+<tt class="literal">null</tt> at the end of every <tt class="literal">resolveEntity(
+)</tt> implementation, and you won't have to worry about
+these details.
+</p>
+
+</div>
+<a name="javaxml2-CHP-4-SECT-5.2" /><div class="sect2">
+<h3 class="sect2">4.5.2. DTDHandler and Validation</h3>
+
+<p>I've described setting properties and features in this chapter,
+their affect on validation, and also the
+<tt class="literal">DTDHandler</tt><a name="INDEX-435" />
+<a name="INDEX-436" />
+interface. In all that discussion of DTDs and validation, it's
+possible you got a few things mixed up; I want to be clear that the
+<tt class="literal">DTDHandler</tt> interface has nothing at all to do with
+validation. I've seen many developers register a
+<tt class="literal">DTDHandler</tt> and wonder why validation isn't
+occurring. However, <tt class="literal">DTDHandler</tt> doesn't do
+anything but provide notification of notation and unparsed entity
+declarations! Probably not what the developer expected. Remember that
+it's a <em class="emphasis">property</em> that sets validation, not
+a handler instance:
+</p>
+
+<blockquote><pre class="code">reader.setFeature("http://xml.org/sax/features/validation", true);</pre></blockquote>
+
+<p>Anything less than this (short of a parser validating by default)
+won't get you validation, and probably won't make you
+very happy.
+</p>
+
+</div>
+<a name="javaxml2-CHP-4-SECT-5.3" /><div class="sect2">
+<h3 class="sect2">4.5.3. Parsing on the Reader Instead of the Filter</h3>
+
+<p>I've talked about
+<a name="INDEX-437" />pipelines in SAX
+in this chapter, and hopefully you got an idea of how useful they
+could be. However, there's an error I see among filter
+beginners time and time again, and it's a frustrating one to
+deal with. The problem is setting up the pipeline chain incorrectly:
+this occurs when each filter does not set the preceding filter as its
+parent, ending in an <tt class="literal">XMLReader</tt> instance. Check out
+this code fragment:
+</p>
+
+<blockquote><pre class="code">    public void buildTree(DefaultTreeModel treeModel, 
+                          DefaultMutableTreeNode base, String xmlURI) 
+        throws IOException, SAXException {
+
+        // Create instances needed for parsing
+        XMLReader reader = 
+            XMLReaderFactory.createXMLReader(vendorParserClass);        
+        XMLWriter writer =
+            new XMLWriter(reader, new FileWriter("snapshot.xml"));            
+        NamespaceFilter filter = 
+            new NamespaceFilter(<tt class="userinput"><b>reader</b></tt>, 
+                "http://www.oreilly.com/javaxml2",
+                "http://www.oreilly.com/catalog/javaxml2");
+        ContentHandler jTreeContentHandler = 
+            new JTreeContentHandler(treeModel, base, reader);
+        ErrorHandler jTreeErrorHandler = new JTreeErrorHandler( );
+
+        // Register content handler
+        <tt class="userinput"><b>reader</b></tt>.setContentHandler(jTreeContentHandler);
+
+        // Register error handler
+        <tt class="userinput"><b>reader</b></tt>.setErrorHandler(jTreeErrorHandler);
+            
+        // Register entity resolver
+        <tt class="userinput"><b>reader</b></tt>.setEntityResolver(new SimpleEntityResolver( ));
+
+        // Parse
+        InputSource inputSource = 
+            new InputSource(xmlURI);
+        <tt class="userinput"><b>reader</b></tt>.parse(inputSource);        
+    }</pre></blockquote>
+
+<p>See anything wrong? Parsing is occurring on the
+<tt class="literal">XMLReader</tt> instance, not at the end of the pipeline
+chain. In addition, the <tt class="literal">NamespaceFilter</tt> instance
+sets its parent to the <tt class="literal">XMLReader</tt>, instead of the
+<tt class="literal">XMLWriter</tt> instance that should precede it in the
+chain. These errors are not obvious, and will throw your intended
+pipeline into chaos. In this example, no filtering will occur at all,
+because parsing occurs on the reader, not the filters. If you correct
+that error, you still won't get output, as the writer is left
+out of the pipeline through improper setting of the
+<tt class="literal">NamespaceFilter</tt>'s parent. Setting the parent
+properly sets you up, though, and you'll finally get the
+behavior you expected in the first place. Be very careful with
+parentage and parsing when handling SAX pipelines.
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch04_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4.4. Even More Handlers</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">4.6. What's Next?</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

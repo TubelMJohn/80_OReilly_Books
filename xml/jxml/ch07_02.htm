@@ -1,0 +1,671 @@
+<html><head><title>PropsToXML (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch07_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">7.2. PropsToXML</h2>
+
+<p>To put some real code to the task of learning JDOM, let me introduce
+the <tt class="literal">PropsToXML</tt><a name="INDEX-660" /> <a name="INDEX-661" />
+<a name="INDEX-662" />
+class. This class is a utility that takes a standard Java properties
+file and converts it to an XML equivalent. Many developers out there
+have requested a means of doing exactly this; it often allows legacy
+applications using properties files to easily convert to using XML
+without the overhead of manually converting the configuration files.
+</p>
+
+<a name="javaxml2-CHP-7-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">7.2.1. Java Properties Files</h3>
+
+<p>If you have never worked with
+<a name="INDEX-663" />Java <a name="INDEX-664" />properties files, they are essentially
+files with name-value pairs that can be read easily with some Java
+classes (for instance, the <tt class="literal">java.util.Properties</tt>
+class). These files often look similar to <a href="ch07_02.htm#javaxml2-CHP-7-EX-1">Example 7-1</a>, and in fact I'll use this example
+properties file throughout the rest of the chapter. Incidentally,
+it's from the Enhydra application server.
+</p>
+
+<a name="javaxml2-CHP-7-EX-1" /><div class="example">
+<h4 class="objtitle">Example 7-1. A typical Java properties file </h4>
+<blockquote><pre class="code">#
+# Properties added to System properties
+#
+
+# sax parser implementing class
+org.xml.sax.parser="org.apache.xerces.parsers.SAXParser"
+
+#
+# Properties used to start the server
+#
+
+# Class used to start the server
+org.enhydra.initialclass=org.enhydra.multiServer.bootstrap.Bootstrap
+
+# initial arguments passed to the server (replace command line args)
+org.enhydra.initialargs="./bootstrap.conf"
+
+# Classpath for the parent top enhydra classloader
+org.enhydra.classpath="."
+
+# separator for the classpath above
+org.enhydra.classpath.separator=":"</pre></blockquote>
+</div>
+
+<p>No big deal here, right? Well, using an instance of the Java
+<tt class="literal">Properties</tt> class, you can load these properties
+into the object (using the <tt class="literal">load(InputStream</tt>
+<tt class="literal">inputStream)</tt> method) and then deal with them like
+a <tt class="literal">Hashtable</tt>. In fact, the
+<tt class="literal">Properties</tt> class extends the
+<tt class="literal">Hashtable</tt><a name="INDEX-665" />
+<a name="INDEX-666" />
+class in Java; nice, huh? The problem is that many people write these
+files like the example with names separated by a period ( .) to form
+a sort of hierarchical structure. In the example, you would have a
+top level (the properties file itself), then the
+<tt class="literal">org</tt> node, and under it the <tt class="literal">xml</tt>
+and <tt class="literal">enhydra</tt> nodes, and under the
+<tt class="literal">enhydra</tt> node several nodes, some with values.
+You'd expect a structure like the one shown in <a href="ch07_02.htm#javaxml2-CHP-7-FIG-3">Figure 7-3</a>, in other words.
+</p>
+
+<a name="javaxml2-CHP-7-FIG-3" /><div class="figure"><img height="207" alt="Figure 7-3" src="figs/javax_0703.gif" width="193" /></div><h4 class="objtitle">Figure 7-3. Expected structure of properties shown in Example 7-1</h4>
+
+<p>While this sounds good, Java provides no means of accessing the
+name-value pairs in this manner; it does not give the period any
+special value, but instead treats it as just another character. So
+while you can do this:
+</p>
+
+<blockquote><pre class="code">String classpathValue = Properties.getProperty("org.enhydra.classpath");</pre></blockquote>
+
+<p>You cannot do this:</p>
+
+<blockquote><pre class="code">List enhydraProperties = Properties.getProperties("org.enhydra");</pre></blockquote>
+
+<p>You would expect (or at least I do!) that the latter would work, and
+provide you all the subproperties with the structure
+<tt class="literal">org.enhydra</tt>
+(<tt class="literal">org.enhydra.classpath</tt>,
+<tt class="literal">org.enhydra.initialargs</tt>, etc.). Unfortunately,
+that's not part of the <tt class="literal">Properties</tt> class. For
+this reason, many developers have had to write their own little
+wrapper methods around this object, which of course is nonstandard
+and a bit of a pain. Wouldn't it be nice if this information
+could be modeled in XML, where operations like the second example are
+simple? That's exactly what I want to write code to do, and
+I'll use JDOM to demonstrate that API.
+</p>
+
+</div>
+<a name="javaxml2-CHP-7-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">7.2.2. Converting to XML</h3>
+
+<p><a name="INDEX-667" />
+<a name="INDEX-668" /> <a name="INDEX-669" />As in previous chapters, it's
+easiest to start with a skeleton for the class and build out. For the
+<tt class="literal">PropsToXML</tt> class, I want to allow a properties
+file to be supplied for input, and the name of a file for the XML
+output. The class reads in the properties file, converts it to an XML
+document using JDOM, and outputs it to the specified filename. <a href="ch07_02.htm#javaxml2-CHP-7-EX-2">Example 7-2</a> starts the ball rolling.
+</p>
+
+<a name="javaxml2-CHP-7-EX-2" /><div class="example">
+<h4 class="objtitle">Example 7-2. The skeleton of the PropsToXML class </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Enumeration;
+import java.util.Properties;
+import org.jdom.Document;
+import org.jdom.Element;
+import org.jdom.output.XMLOutputter;
+
+public class PropsToXML {
+    
+    /**
+     * &lt;p&gt; This will take the supplied properties file, and
+     *   convert that file to an XML representation, which is
+     *   then output to the supplied XML document filename. &lt;/p&gt;
+     *
+     * @param propertiesFilename file to read in as Java properties.
+     * @param xmlFilename file to output XML representation to.
+     * @throws &lt;code&gt;IOException&lt;/code&gt; - when errors occur.
+     */
+    public void convert(String propertiesFilename, String xmlFilename)
+        throws IOException {
+
+        // Get Java Properties object
+        FileInputStream input = new FileInputStream(propertiesFilename);
+        Properties props = new Properties( );
+        props.load(input);
+        
+        // Convert to XML
+        convertToXML(props, xmlFilename);
+    }
+
+    /**
+     * &lt;p&gt; This will handle the detail of conversion from a Java
+     *  &lt;code&gt;Properties&lt;/code&gt; object to an XML document. &lt;/p&gt;
+     *
+     * @param props &lt;code&gt;Properties&lt;/code&gt; object to use as input.
+     * @param xmlFilename file to output XML to.
+     * @throws &lt;code&gt;IOException&lt;/code&gt; - when errors occur.
+     */
+    private void convertToXML(Properties props, String xmlFilename)
+        throws IOException {
+
+        // JDOM conversion code goes here
+    }
+
+    /**
+     * &lt;p&gt; Provide a static entry point for running. &lt;/p&gt;
+     */
+    public static void main(String[] args) {
+        if (args.length != 2) {
+            System.out.println("Usage: java javaxml2.PropsToXML " +
+                "[properties file] [XML file for output]");
+            System.exit(0);
+        }
+        
+        try {
+            PropsToXML propsToXML = new PropsToXML( );
+            propsToXML.convert(args[0], args[1]);
+        } catch (Exception e) {
+            e.printStackTrace( );
+        }        
+    }
+}</pre></blockquote>
+</div>
+
+<p>The only new part of this code is the Java
+<tt class="literal">Properties</tt> object, which I've mentioned
+briefly. The supplied properties filename is used in the
+<tt class="literal">load( )</tt> method, and that object is delegated on to
+a method that will use JDOM, which I'll focus on next.
+</p>
+
+</div>
+<a name="javaxml2-CHP-7-SECT-2.3" /><div class="sect2">
+<h3 class="sect2">7.2.3. Creating XML with JDOM</h3>
+
+<p>Once the code has the properties in a (more) usable form, it's
+time to start using JDOM. The first task is to create a JDOM
+<tt class="literal">Document</tt>. For that to occur, you need to create a
+root element for the document, using JDOM's
+<tt class="literal">Element</tt> class. Since an XML document can't
+exist without a root element, an instance of the
+<tt class="literal">Element</tt> class is required as input for the
+<tt class="literal">Document</tt> class constructor.
+</p>
+
+<p>Creating an
+<tt class="literal">Element</tt><a name="INDEX-670" /> requires only the passing of
+the element's name. There are alternate versions that take in
+namespace information, and I'll discuss those a little later.
+For now, it's easiest to use the root element's name, and
+since this needs to be a top-level, arbitrary name (to contain all
+the property nestings), I use "properties" in the code.
+Once this element is created, it's used to create a new JDOM
+<tt class="literal">Document</tt>.
+</p>
+
+<p>Then, it's on to dealing with the properties in the supplied
+file. The list of property names is obtained as a Java
+<tt class="literal">Enumeration</tt> through the
+<tt class="literal">Properties</tt> object's <tt class="literal">propertyNames(
+)</tt><a name="INDEX-671" />
+<a name="INDEX-672" /> method. Once that name is available, it can
+be used to obtain the property value by using the
+<tt class="literal">getProperty( )</tt><a name="INDEX-673" />
+<a name="INDEX-674" /> method. At this point, you've got the
+root element of the new XML document, the property name to add, and
+the value for that property. And then, like any other good program,
+you iterate through all of the other properties until finished. At
+each step, this information is supplied to a new method,
+<tt class="literal">createXMLRepresentation(
+)</tt><a name="INDEX-675" />
+<a name="INDEX-676" />. This performs the logic for handling
+conversion of a single property into a set of XML elements. Add this
+code, as shown here, to your source file:
+</p>
+
+<blockquote><pre class="code">    private void convertToXML(Properties props, String xmlFilename)
+        throws IOException {
+    
+        <tt class="userinput"><b>// Create a new JDOM Document with a root element "properties"
+        Element root = new Element("properties");
+        Document doc = new Document(root);
+        
+        // Get the property names
+        Enumeration propertyNames = props.propertyNames( );
+        while (propertyNames.hasMoreElements( )) {
+            String propertyName = (String)propertyNames.nextElement( );
+            String propertyValue = props.getProperty(propertyName);
+            createXMLRepresentation(root, propertyName, propertyValue);
+        }        
+        
+        // Output document to supplied filename
+        XMLOutputter outputter = new XMLOutputter("  ", true);
+        FileOutputStream output = new FileOutputStream(xmlFilename);
+        outputter.output(doc, output);</b></tt>
+    }</pre></blockquote>
+
+<p>Don't worry about the last few lines that output the JDOM
+<tt class="literal">Document</tt> yet. I'll deal with this in the
+next section, but first I want to cover the
+<tt class="literal">createXML-Representation(
+)</tt><a name="INDEX-677" />
+<a name="INDEX-678" /> method, which contains the logic for
+dealing with a single property, and creating XML from it.
+</p>
+
+<p>The easiest (and logically, the first) step in moving from a property
+to XML is to take the name of the property and create an
+<tt class="literal">Element</tt> with that name. You've already seen
+how to do this; simply pass the name of the element to its
+constructor. Once the element is created, assign the value of the
+property as the textual content of the element. This can be done
+easily enough through the <tt class="literal">setText( )</tt> method, which
+of course takes a <tt class="literal">String</tt>. Once the element is
+ready for use, it can be added as a child of the root element through
+the <tt class="literal">addContent( )</tt> method. In fact, any legal JDOM
+construct can be passed to an element's <tt class="literal">addContent(
+)</tt> method, as it is overloaded to accept these various
+types. These include instances of a JDOM <tt class="literal">Entity</tt>,
+<tt class="literal">Comment</tt>, <tt class="literal">ProcessingInstruction</tt>,
+and more. But I'll get to those later; for now, add the
+following method into your source file:
+</p>
+
+<blockquote><pre class="code">    /**
+     * &lt;p&gt; This will convert a single property and its value to
+     *  an XML element and textual value. &lt;/p&gt;
+     *
+     * @param root JDOM root &lt;code&gt;Element&lt;/code&gt; to add children to.
+     * @param propertyName name to base element creation on.
+     * @param propertyValue value to use for property.
+     */
+    private void createXMLRepresentation(Element root, 
+                                         String propertyName,
+                                         String propertyValue) {
+        
+        Element element = new Element(propertyName);
+        element.setText(propertyValue);
+        root.addContent(element);
+    }</pre></blockquote>
+
+<p>At this point, you can actually compile the source file, and then use
+the resulting <tt class="literal">PropsToXML</tt> class. Supply a
+properties file (you can type in or download the
+<em class="filename">enhydra.properties</em> file shown earlier in this
+chapter), as well as an output filename, as shown here:<a href="#FOOTNOTE-9">[9]</a>
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-9" /><p>[9]If you're not familiar with *NIX, the backslash at the
+end of each line ( <a name="INDEX-679" />\) simply allows for continuation of the
+command on the next line; Windows users should enter the entire
+command on one line.</p> </blockquote>
+
+<blockquote><pre class="code">/javaxml2/build $ java javaxml2.PropsToXML \
+                  /javaxml2/ch07/properties/enhydra.properties \
+                  enhydraProps.xml</pre></blockquote>
+
+<p>This whirs along for a fraction of a second, and then generates an
+<em class="emphasis">enhydraProps.xml</em> file. Open this
+up; it should look like <a href="ch07_02.htm#javaxml2-CHP-7-EX-3">Example 7-3</a>.<a href="#FOOTNOTE-10">[10]</a>
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-10" /><p>[10]Note that the line wraps in the example are for publishing
+purposes only; in your document, each property with opening tag,
+text, and closing tag should be on its own line.</p> </blockquote>
+
+<a name="javaxml2-CHP-7-EX-3" /><div class="example">
+<h4 class="objtitle">Example 7-3. First version of the enhydraProps.xml document </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;properties&gt;
+  &lt;org.enhydra.classpath.separator&gt;":"&lt;/org.enhydra.classpath.separator&gt;
+  &lt;org.enhydra.initialargs&gt;"./bootstrap.conf"&lt;/org.enhydra.initialargs&gt;
+  &lt;org.enhydra.initialclass&gt;org.enhydra.multiServer.bootstrap.Bootstrap
+&lt;/org.enhydra.initialclass&gt;
+  &lt;org.enhydra.classpath&gt;"."&lt;/org.enhydra.classpath&gt;
+  &lt;org.xml.sax.parser&gt;"org.apache.xerces.parsers.SAXParser"
+&lt;/org.xml.sax.parser&gt;
+&lt;/properties&gt;</pre></blockquote>
+</div>
+
+<p>In about 50 lines of code, you've gone from Java properties to
+XML. However, this XML document isn't much better than the
+properties file; there is still no way to relate the
+<tt class="literal">org.enhydra.initialArgs</tt> property to the
+<tt class="literal">org.enhydra.classpath</tt> property. Our job
+isn't done yet.
+</p>
+
+<p><a name="INDEX-680" /> <a name="INDEX-681" />Instead of using the
+property name as the element name, the code needs to take the
+property name and split it on the period delimiters. For each of
+these "sub-names," an element needs to be created and
+added to the element stack. Then the process can repeat. For the
+property name <tt class="literal">org.xml.sax</tt>, the following XML
+structure should result:
+</p>
+
+<blockquote><pre class="code">&lt;org&gt;
+  &lt;xml&gt;
+    &lt;sax&gt;[property Value]&lt;/sax&gt;
+  &lt;/xml&gt;
+&lt;/org&gt;</pre></blockquote>
+
+<p>At each step, using the
+<tt class="literal">Element</tt><a name="INDEX-682" /> constructor and the
+<tt class="literal">addContent( )</tt><a name="INDEX-683" />
+<a name="INDEX-684" /> method does the trick; and once the name is
+completely deconstructed, the <tt class="literal">setText(
+)</tt><a name="INDEX-685" />
+<a name="INDEX-686" /> method can be used to set the last
+element's textual value. The best way is to create a new
+<tt class="literal">Element</tt>, called <tt class="literal">current</tt>, and
+use it is a "pointer" (there aren't any pointers in
+Java -- it's just a term); it will always point at the
+element that content should be added to. At each step, the code also
+needs to see if the element to be added already exists. For example,
+the first property, <tt class="literal">org.xml.sax</tt>, creates an
+<tt class="literal">org</tt> element. When the next property is added
+(<tt class="literal">org.enhydra.classpath</tt>), the
+<tt class="literal">org</tt> element does not need to be created again.
+</p>
+
+<p>To facilitate this, the <tt class="literal">getChild(
+)</tt><a name="INDEX-687" />
+<a name="INDEX-688" /> method is used. This method takes the name
+of the child element to retrieve, and is available to all instances
+of the <tt class="literal">Element</tt> class. If the child specified
+exists, that element is returned. However, if no child exists, a
+<tt class="literal">null</tt> value is returned, and it is on this
+<tt class="literal">null</tt> value that our code can key. In other words,
+if the return value is an element, that becomes the
+<tt class="literal">current</tt> element, and no new element needs to be
+created (it already exists). However, if the return from the
+<tt class="literal">getChild( )</tt> call is <tt class="literal">null</tt>, a new
+element must be created with the current sub-name, added as content
+to the <tt class="literal">current</tt> element, and then the
+<tt class="literal">current</tt> pointer is moved down the tree. Finally,
+once the iteration is over, the textual value of the property can be
+added to the leaf element, which turns out to be (nicely) the element
+that the <tt class="literal">current</tt> pointer references. Add this code
+to your source file:
+</p>
+
+<blockquote><pre class="code">    private void createXMLRepresentation(Element root, 
+                                         String propertyName,
+                                         String propertyValue) {
+        
+        <tt class="userinput"><b>/*           
+        Element element = new Element(propertyName);
+        element.setText(propertyValue);
+        root.addContent(element);
+        */
+        
+        int split;
+        String name = propertyName;
+        Element current = root;
+        Element test = null;
+              
+        while ((split = name.indexOf(".")) != -1) {
+            String subName = name.substring(0, split);
+            name = name.substring(split+1);
+            
+            // Check for existing element            
+            if ((test = current.getChild(subName)) == null) {
+                Element subElement = new Element(subName);
+                current.addContent(subElement);
+                current = subElement;
+            } else {
+                current = test;
+            }
+        }
+        
+        // When out of loop, what's left is the final element's name
+        Element last = new Element(name);                        
+        last.setText(propertyValue); 
+        current.addContent(last);</b></tt>
+    }</pre></blockquote>
+
+<p>With this addition in place, recompile the program and run it again.
+This time, your output should be a lot nicer, as shown in <a href="ch07_02.htm#javaxml2-CHP-7-EX-4">Example 7-4</a>. 
+</p>
+
+<a name="javaxml2-CHP-7-EX-4" /><div class="example">
+<h4 class="objtitle">Example 7-4. Updated output from PropsToXML </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;properties&gt;
+  &lt;org&gt;
+    &lt;enhydra&gt;
+      &lt;classpath&gt;
+        &lt;separator&gt;":"&lt;/separator&gt;
+      &lt;/classpath&gt;
+      &lt;initialargs&gt;"./bootstrap.conf"&lt;/initialargs&gt;
+      &lt;initialclass&gt;org.enhydra.multiServer.bootstrap.Bootstrap&lt;/initialclass&gt;
+      &lt;classpath&gt;"."&lt;/classpath&gt;
+    &lt;/enhydra&gt;
+    &lt;xml&gt;
+      &lt;sax&gt;
+        &lt;parser&gt;"org.apache.xerces.parsers.SAXParser"&lt;/parser&gt;
+      &lt;/sax&gt;
+    &lt;/xml&gt;
+  &lt;/org&gt;
+&lt;/properties&gt;</pre></blockquote>
+</div>
+
+<p>And, just as quickly as you've started in on JDOM, you've
+got the hang of it. However, you might notice that the XML document
+violates one of the rules of thumb for document design introduced in
+<a href="ch02_01.htm">Chapter 2, "Nuts and Bolts"</a> (in the section detailing usage of
+elements versus usage of attributes). You see, each property value
+has a single textual value. That arguably makes the property values
+suitable as attributes of the last element on the stack, rather than
+content. Proving that rules are meant to be broken, I prefer them as
+content in this case, but that's neither here nor there.
+</p>
+
+<p>For no other reason than demonstration purposes, let's look at
+converting the <a name="INDEX-689" />property values to attributes rather
+than textual content. This turns out to be quite easy, and can be
+done in one of two ways. The first is to create an instance of the
+<a name="INDEX-690" />
+<a name="INDEX-691" />
+<a name="INDEX-692" />JDOM
+<tt class="literal">Attribute</tt> class. The constructor for that class
+takes the name of the attribute and its value. Then, the resulting
+instance can be added to the leaf element with that element's
+<tt class="literal">setAttribute( )</tt><a name="INDEX-693" />
+<a name="INDEX-694" /> method. That approach is shown here:
+</p>
+
+<blockquote><pre class="code">        // When out of loop, what's left is the final element's name
+        Element last = new Element(name);                        
+        <tt class="userinput"><b>/* last.setText(propertyValue);  */
+        Attribute attribute = new Attribute("value", propertyValue);
+        current.setAttribute(attribute);</b></tt>
+        current.addContent(last);</pre></blockquote>
+<blockquote><b>WARNING:</b> 
+If you want to compile the file with these changes, be sure you add
+an import statement for the
+<tt class="literal">Attribute</tt><a name="INDEX-695" />
+<a name="INDEX-696" />
+class:
+</p>
+<blockquote><pre class="code">import org.jdom.Attribute;</pre></blockquote>
+</blockquote>
+
+
+<p>A slightly easier way is to use one of the convenience methods that
+JDOM offers. Since adding attributes is such a common task, the
+<tt class="literal">Element</tt><a name="INDEX-697" />
+<a name="INDEX-698" /> class provides an overloaded version of
+<tt class="literal">setAttribute( )</tt> that takes a name and value, and
+internally creates an <tt class="literal">Attribute</tt> object. In this
+case, that approach is a little clearer:
+</p>
+
+<blockquote><pre class="code">        // When out of loop, what's left is the final element's name        
+        Element last = new Element(name);                        
+        /* last.setText(propertyValue); */
+        <tt class="userinput"><b>last.setAttribute("value", propertyValue);</b></tt>
+        current.addContent(last);</pre></blockquote>
+
+<p>This works just as well, but also avoids having to use an extra
+import statement. You can compile this change in and run the sample
+program. The new output should match <a href="ch07_02.htm#javaxml2-CHP-7-EX-5">Example 7-5</a>.
+</p>
+
+<a name="javaxml2-CHP-7-EX-5" /><div class="example">
+<h4 class="objtitle">Example 7-5. Output of PropsToXML using attributes </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;properties&gt;
+  &lt;org&gt;
+    &lt;enhydra&gt;
+      &lt;classpath&gt;
+        &lt;separator value="&amp;quot;:&amp;quot;" /&gt;
+      &lt;/classpath&gt;
+      &lt;initialargs value="&amp;quot;./bootstrap.conf&amp;quot;" /&gt;
+      &lt;initialclass value="org.enhydra.multiServer.bootstrap.Bootstrap" /&gt;
+      &lt;classpath value="&amp;quot;.&amp;quot;" /&gt;
+    &lt;/enhydra&gt;
+    &lt;xml&gt;
+      &lt;sax&gt;
+        &lt;parser value="&amp;quot;org.apache.xerces.parsers.SAXParser&amp;quot;" /&gt;
+      &lt;/sax&gt;
+    &lt;/xml&gt;
+  &lt;/org&gt;
+&lt;/properties&gt;</pre></blockquote>
+</div>
+
+<p>Each property value is now an attribute of the innermost element.
+Notice that JDOM converts the quotation marks within the attribute
+values, which are disallowed, to entity references so the document as
+output is well-formed. However, this makes the output a little less
+clean, so you may want to switch your code back to using textual data
+within elements, rather than attributes.
+</p>
+
+</div>
+<a name="javaxml2-CHP-7-SECT-2.4" /><div class="sect2">
+<h3 class="sect2">7.2.4. Outputting XML with JDOM</h3>
+
+<p><a name="INDEX-699" />Before we continue, I want to spend
+a little time talking about the output portion of the code that I
+skimmed over earlier in the chapter. It's highlighted again
+here:
+</p>
+
+<blockquote><pre class="code">    private void convertToXML(Properties props, String xmlFilename)
+        throws IOException {
+    
+        // Create a new JDOM Document with a root element "properties"
+        Element root = new Element("properties");
+        Document doc = new Document(root);
+        
+        // Get the property names
+        Enumeration propertyNames = props.propertyNames( );
+        while (propertyNames.hasMoreElements( )) {
+            String propertyName = (String)propertyNames.nextElement( );
+            String propertyValue = props.getProperty(propertyName);
+            createXMLRepresentation(root, propertyName, propertyValue);
+        }        
+        
+        <tt class="userinput"><b>// Output document to supplied filename
+        XMLOutputter outputter = new XMLOutputter("  ", true);
+        FileOutputStream output = new FileOutputStream(xmlFilename);
+        outputter.output(doc, output);</b></tt>
+    }</pre></blockquote>
+
+<p> You already know that
+<tt class="literal">XMLOutputter</tt><a name="INDEX-700" /> <a name="INDEX-701" />
+<a name="INDEX-702" /> is the class to use for handling
+output to a file, stream, or other static representation. However, I
+supplied some arguments to the constructor in the code sample;
+without any arguments, the outputter would perform direct output.
+There would be no change to the XML used as input. When reading in
+XML, this most often results in no line breaks and no indentation.
+The resultant document would have the entire document, except for the
+XML declaration, on a single line. I'd show you this, but it
+wouldn't fit on the page, and tends to cause confusion. The
+outputter has several constructors though:
+</p>
+
+<blockquote><pre class="code">public XMLOutputter( );
+
+public XMLOutputter(String indent);
+
+public XMLOutputter(String indent, boolean newlines);
+
+public XMLOutputter(String indent, boolean newlines, String encoding);
+
+public XMLOutputter(XMLOutputter that);</pre></blockquote>
+
+<p>Most of these are self-explanatory. The <tt class="literal">indent</tt>
+parameter allows specification of how many spaces to use for
+indentation; I used two spaces (" ") in the sample code.
+The boolean value for <tt class="literal">newlines</tt> determines if line
+breaks are used (this was on in the sample). If needed, an encoding
+parameter can be specified, which becomes the value for
+<tt class="literal">encoding</tt> in the XML declaration:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</pre></blockquote>
+
+<p>Additionally, there are <a name="INDEX-703" />
+<a name="INDEX-704" />mutator
+methods for all of these properties (<tt class="literal">setIndent( )</tt>,
+<tt class="literal">setEncoding( )</tt>, etc.) in the class. There are also
+versions of the <tt class="literal">output( )</tt> method (the one used in
+the example code) that take either an <tt class="literal">OutputStream</tt>
+or a <tt class="literal">Writer</tt>. And there are versions that take the
+various JDOM constructs as input, so you could output an entire
+<tt class="literal">Document</tt>, or just an <tt class="literal">Element</tt>,
+<tt class="literal">Comment</tt>, <tt class="literal">ProcessingInstruction</tt>,
+or anything else:
+</p>
+
+<blockquote><pre class="code">// Create an outputter with 4 space indentation and new lines
+XMLOutputter outputter = new XMLOutputter("    ", true);
+
+// Output different JDOM constructs
+outputter.output(myDocument, myOutputStream);
+outputter.output(myElement, myWriter);
+outputter.output(myComment, myOutputStream);
+// etc...</pre></blockquote>
+
+<p>In other words, <tt class="literal">XMLOutputter</tt> serves all of your
+XML output needs. Of course, you can also use
+<tt class="literal">DOMOutputter</tt> and
+<tt class="literal">SAXOutputter</tt><a name="INDEX-705" />,
+which I'll cover in detail in the next chapter. <a name="INDEX-706" /> <a name="INDEX-707" /> <a name="INDEX-708" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch07_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">7. JDOM</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">7.3. XMLProperties</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

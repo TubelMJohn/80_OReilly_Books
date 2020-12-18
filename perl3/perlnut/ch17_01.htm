@@ -1,0 +1,266 @@
+<html><head><title>Usenet News (Perl in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Stephen Spainhour" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002416L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch16_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch17_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 17. Usenet News</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#perlnut2-CHP-17-SECT-1">The NNTP Protocol</a><br />
+<a href="ch17_02.htm">Net::NNTP</a><br />
+<a href="ch17_03.htm">The News::Newsrc Module</a><br /></p></div>
+
+<p>Usenet is a collection of bulletin board-like newsgroups on the
+Internet, covering thousands of topics. Whatever your interest,
+chances are you'll find a newsgroup in which it is
+discussed<a name="INDEX-2189" /></a><a name="INDEX-2190" /></a><a name="INDEX-2191" /></a>. 
+</p>
+
+<p>Usenet has been around since late 1979. The current implementation is
+based on the Network <a name="INDEX-2192" /></a><a name="INDEX-2193" /></a>NewsTransfer Protocol (NNTP), defined in
+RFC 977 and released in March 1986. Information is propagated through
+Usenet by a system of newsfeeds in which one site requests a newsfeed
+from another site, and a third site requests a newsfeed from the
+second site, etc. There is no central Usenet authority&#x2014;like
+Perl, it runs on the spirit of cooperation and sharing. When you run
+a news reader, such as <em class="emphasis">tin</em> or the news reader in
+a web browser, your client software talks to the NNTP server on the
+news host. When you post a message to a newsgroup, this posting is
+received by your NNTP server and passed on to other servers
+throughout the distribution area you specified for the posting. Each
+server periodically receives updated newsgroup information and newly
+posted news articles.
+</p>
+
+<p>This chapter explores NNTP commands and responses. It introduces
+Net::NNTP, which implements NNTP commands and simplifies the process
+of writing a Perl-based NNTP news client. It also describes
+News::Newsrc, a module that provides methods for managing a
+<em class="emphasis">.newsrc</em> file.
+</p>
+
+<p>There are two kinds of NNTP commands: the official set of commands as
+defined in RFC 977 and a number of extensions that have been added
+since the RFC was written. The extensions are described in an
+<a name="INDEX-2194" /></a>IETF Internet
+Draft document, "Common NNTP
+Extensions" by Stan Barber, which can be found at
+ftp://ftp.academ.com/pub/nntp/ietf/nntpext.txt.
+</p>
+<div class="sect1"><a name="perlnut2-CHP-17-SECT-1" /></a>
+<h2 class="sect1">17.1. The NNTP Protocol</h2>
+
+<p><a name="INDEX-2195" /></a>Before you write your own news
+client, you should have some idea of how the NNTP protocol works.
+Like other servers, an NNTP server is bound to a port (usually port
+119). It listens for incoming connections, takes the appropriate
+action, and returns a response to the client. When a news client
+connects with an NNTP server, or to the port on which the NNTP server
+is running, a message such as the following is produced:
+</p>
+
+<blockquote><pre class="code">Trying 0.0.0.0...
+Connected to hostname.mydomain.com.
+Escape character is '^]'.
+200 newshost.mydomain.com InterNetNews NNRP server INN 1.5.1 17-Dec-1996 ready
+(posting ok).</pre></blockquote>
+
+<p>Many NNTP servers understand the <em class="emphasis">help</em> (or
+<em class="emphasis">HELP</em>) command. When a client issues a
+<em class="emphasis">help</em> command, many NNTP servers respond with a
+list of all available commands. For example:
+</p>
+
+<blockquote><pre class="code">200 news.mydomain.com InterNetNews NNRP server INN 1.5.1 17-Dec-1996 ready
+(posting ok).
+HELP
+100 Legal commands
+  authinfo user Name|pass Password|generic &lt;prog&gt; &lt;args&gt;
+  article [MessageID|Number]
+  body [MessageID|Number]
+  date
+  group newsgroup
+  head [MessageID|Number]
+  help
+  ihave
+  last
+  list [active|active.times|newsgroups|distributions|distrib.pats|
+overview.fmt|subscriptions]
+  listgroup newsgroup
+  mode reader
+  newgroups yymmdd hhmmss ["GMT"] [&lt;distributions&gt;]
+  newnews newsgroups yymmdd hhmmss ["GMT"] [&lt;distributions&gt;]
+  next
+  post
+  slave
+  stat [MessageID|Number]
+  xgtitle [<em class="replaceable"><tt>group_pattern</tt></em>]
+  xhdr header [range|MessageID]
+  xover [<em class="replaceable"><tt>range</tt></em>]
+  xpat header range|MessageID pat [morepat...]
+  xpath MessageID
+Report problems to &lt;usenet@news.mydomain.com&gt;
+.</pre></blockquote>
+
+<p>After connecting to the NNTP server, you can get a list of
+<a name="INDEX-2196" /></a><a name="INDEX-2197" /></a>available newsgroups with the
+<em class="emphasis">list active</em> command, and you can then select a
+newsgroup. If you were to connect directly to
+<em class="emphasis">news.mydomain.com</em> and use the
+<em class="emphasis">group</em> command to select the newsgroup
+<em class="emphasis">local.test</em>, your session might look like this:
+</p>
+
+<blockquote><pre class="code">200 news.mydomain.com InterNetNews NNRP server INN 1.5.1 17-Dec-1996 ready
+(posting ok).
+group local.test
+211 4 1 4 local.test
+QUIT
+205 .</pre></blockquote>
+
+<p><a name="INDEX-2198" /></a>The four
+numbers (in this example, <tt class="literal">211 4 1 4</tt>) preceding the
+group name (<em class="emphasis">local.test</em>) represent the success
+code, total number of articles, and the first and last article
+numbers, respectively. So in this example, <tt class="literal">211</tt> is
+the success code. There are four articles in the
+<em class="emphasis">local.test</em> group, starting with article number 1
+and ending with number 4.
+</p>
+
+<p><a name="INDEX-2199" /></a>Every article
+in a newsgroup has two identifiers associated with it. The first is
+the message number, and the second is a message ID. The message
+number is the number of that article on the server to which you are
+connecting. The message ID is an identifier that is always associated
+with the article on every server that receives the article. An
+article that has the message number 4 on your server might be number
+83 on someone else's server. The message ID,
+however, will be the same on both. So, for example, if you want to
+post an article that refers to another article, use the message ID.
+</p>
+
+<p><a name="INDEX-2200" /></a><a name="INDEX-2201" /></a><a name="INDEX-2202" /></a>Once the <em class="emphasis">group</em>
+command has successfully identified a newsgroup, the client can
+request a particular article by sending an
+<em class="emphasis">article</em> request to the server. The
+<em class="emphasis">article</em> command takes either a message ID or a
+message number as an argument. For example:
+</p>
+
+<blockquote><pre class="code">article 4
+Path: newshost.mydomain.com!news-w.ans.net!newsfeeds.ans.net!philabs ...
+From: user@mydomain.com (User Name)
+Newsgroups: local.test
+Subject: Is anybody there?
+Date: 21 Apr 1997
+...</pre></blockquote>
+
+<p>If the <em class="emphasis">article</em> command is successful, the server
+returns the selected message.
+</p>
+
+<p><a name="INDEX-2203" /></a><a name="INDEX-2204" /></a>The <em class="emphasis">xhdr</em> command
+returns the selected headers
+("X-headers") from articles in a
+certain newsgroup. The X-headers contain all the information about
+the news article, including the poster's email
+address, the subject of the message, the date and time the message
+was posted, the newsgroup(s) the message appears in, and the message
+ID. For example, if you want to see the subjects of the articles in
+the <em class="emphasis">local.test</em> newsgroup, you can run
+<tt class="literal">xhdr subject 1-4</tt>, as follows:
+</p>
+
+<blockquote><pre class="code">xhdr subject 1-4
+221 subject fields follow
+1   Is anybody there?
+2   Re: Is anybody there?
+3   Re: Is anybody there?
+4   Get a life!</pre></blockquote>
+
+<p>The <tt class="literal">221</tt> status code indicates that the
+<em class="emphasis">xhdr</em> completed successfully and returned the
+requested headers. A Usenet client might display these headers to the
+user, who can then select the articles to read based on the subject
+lines.
+</p>
+
+<p><a name="INDEX-2205" /></a>A
+command similar to <em class="emphasis">xhdr</em> is
+<em class="emphasis">xpat</em>, which matches X-headers against a pattern
+string you give it. For example, executing <tt class="literal">xpat subject 1-9
+*anybody*</tt> for <em class="emphasis">local.test</em> might look
+like this:
+</p>
+
+<blockquote><pre class="code">xpat subject 1-9 *anybody*
+221 subject matches follow.
+1   Is anybody there?
+2   Re: Is anybody there?
+3   Re: Is anybody there?</pre></blockquote>
+
+<p><a name="INDEX-2206" /></a><a name="INDEX-2207" /></a>You can also post news articles with
+NNTP. When you issue the <em class="emphasis">post</em> command, the
+server returns a code of <tt class="literal">340</tt> if posting is
+permitted. If you get an error, such as <tt class="literal">501</tt>, you
+cannot post articles with this command. Most servers require that you
+include <tt class="literal">Newsgroups</tt>, <tt class="literal">Subject</tt>,
+and <tt class="literal">From</tt> headers. You will receive a
+<tt class="literal">240</tt> reply if your message has been successfully
+posted. Here's an example of posting to
+<em class="emphasis">local.test</em> using NNTP:
+</p>
+
+<blockquote><pre class="code">200 news.mydomain.com InterNetNews NNRP server INN 1.5.1 17-Dec-1996 ready
+(posting ok).
+post
+340 Ok
+Newsgroups: local.test
+Subject: talking NNTP
+From: user@mydomain.com
+This is a test posting.       
+.
+240 Article posted
+QUIT
+205 .</pre></blockquote>
+
+<p>The server returns a code of <tt class="literal">205</tt> upon
+disconnecting. When the article arrives in
+<em class="emphasis">local.test</em>, it looks like this:
+</p>
+
+<blockquote><pre class="code">From news.mydomain.com!not-for-mail Sun Mar  9 19:18:37 1997
+Path: news.mydomain.com!not-for-mail
+From: user@mydomain.com
+Newsgroups: local.test
+Subject: talking NNTP
+Date: 10 Mar 1997 00:09:33 GMT
+Organization: Perl in a Nutshell
+Lines: 2
+Distribution: local
+Message-ID: &lt;5fvjft$k3$2@news.mydomain.com&gt;
+NNTP-Posting-Host: newshost.mydomain.com
+Xref: newshost.mydomain.com local.test:6
+
+This is a test posting.</pre></blockquote>
+
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch16_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch17_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">16.2. The Mail Modules</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">17.2. Net::NNTP</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+      </map>
+
+</body></html>

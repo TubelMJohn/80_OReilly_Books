@@ -1,0 +1,177 @@
+<html><head><title>Manipulating Files and Directories (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch12_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch13_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+
+<h1 class="chapter">Chapter 13. Manipulating Files and Directories</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#lperl3-CHP-13-SECT-1">Removing Files</a><br />
+<a href="ch13_02.htm">Renaming Files</a><br />
+<a href="ch13_03.htm">Links and Files</a><br />
+<a href="ch13_04.htm">Making and Removing Directories</a><br />
+<a href="ch13_05.htm">Modifying Permissions</a><br />
+<a href="ch13_06.htm">Changing Ownership</a><br />
+<a href="ch13_07.htm">Changing Timestamps</a><br />
+<a href="ch13_08.htm">Using Simple Modules</a><br />
+<a href="ch13_09.htm">Exercises</a><br /></p></div>
+
+<p><a name="INDEX-878" /></a>Perl
+is commonly used to wrangle files and directories. Because Perl grew
+up in a Unix environment and still spends most of its time there,
+most of the description in this chapter may seem Unix-centric. But
+the nice thing is that to whatever degree possible, Perl works
+exactly the same way on non-Unix systems.
+</p>
+
+<p>And now a word of warning -- some cultures consider the number
+"13" to be very unlucky. We deliberately placed this
+material as <a href="ch13_01.htm">Chapter 13, "Manipulating Files and Directories"</a> of this book, since
+we're about to do some pretty dangerous things if bugs creep
+into the code (like remove files without a chance of recovery), so be
+very careful when you're playing with the exercises.
+</p>
+
+<div class="sect1"><a name="lperl3-CHP-13-SECT-1" /></a>
+<h2 class="sect1">13.1. Removing Files</h2>
+
+<p>Most of the time, we make
+<a name="INDEX-879" /></a>
+<a name="INDEX-880" /></a>files
+so that the data can stay around for a while. But when the data has
+outlived its life, it's time to make the file go away. At the
+Unix shell level, we'd type an
+<i class="command">rm</i><a name="INDEX-881" /></a> command to remove a file or files:
+</p>
+
+<blockquote><pre class="code">$ <tt class="userinput"><b>rm slate bedrock lava</b></tt></pre></blockquote>
+
+<p>In Perl, we use the
+<tt class="literal">unlink</tt><a name="INDEX-882" /></a> operator:
+</p>
+
+<blockquote><pre class="code">unlink "slate", "bedrock", "lava";</pre></blockquote>
+
+<p>This sends the three named files away to bit heaven, never to be seen
+again.
+</p>
+
+<p>Now, since <tt class="literal">unlink</tt> takes a list, and the
+<tt class="literal">glob</tt><a name="INDEX-883" /></a> function (described in <a href="ch12_01.htm">Chapter 12, "Directory Operations"</a>) returns a list, we can combine the two to
+delete many files at once:
+</p>
+
+<blockquote><pre class="code">unlink glob "*.o";</pre></blockquote>
+
+<p>This is similar to <tt class="literal">rm *.o</tt> at the shell, except
+that we didn't have to fire off a separate
+<i class="command">rm</i> process. So we can make those important files
+go away that much faster!
+</p>
+
+<p>The return value from <tt class="literal">unlink</tt> tells us how many
+files have been successfully deleted. So, back to the first example,
+we can check its success:
+</p>
+
+<blockquote><pre class="code">my $successful = unlink "slate", "bedrock", "lava";
+print "I deleted $successful file(s) just now\n";</pre></blockquote>
+
+<p>Sure, if this number is <tt class="literal">3</tt>, we know it removed all
+of the files, and if it's <tt class="literal">0</tt>, then we removed
+none of them. But what if it's <tt class="literal">1</tt> or
+<tt class="literal">2</tt>? Well, there's no clue which ones were
+removed. If you need to know, do them one at a time in a loop:
+</p>
+
+<blockquote><pre class="code">foreach my $file (qw(slate bedrock lava)) {
+  unlink $file or warn "failed on $file: $!\n";
+}</pre></blockquote>
+
+<p>Here, each file being deleted one at a time means the return value
+will be <tt class="literal">0</tt> (failed) or <tt class="literal">1</tt>
+(succeeded), which happens to look like a nice Boolean value,
+controlling the execution of <tt class="literal">warn</tt>. Using
+<tt class="literal">or warn</tt> is similar to <tt class="literal">or die</tt>,
+except that it's not fatal, of course (as we said back in <a href="ch11_01.htm">Chapter 11, "Filehandles and File Tests"</a>). In this case, we put the newline on the end
+of the message to warn, because it's not a bug in
+<em class="emphasis">our</em> program that causes the message.
+</p>
+
+<p>When a particular <tt class="literal">unlink</tt> fails, the
+<tt class="literal">$!</tt> variable is set to something related to the
+operating system error, which we've included in the message.
+This makes sense to use only when doing one filename at a time,
+because the next operating system failed request resets the variable.
+You can't remove a directory with <tt class="literal">unlink</tt>
+(just like you can't remove a directory with the simple
+<i class="command">rm</i> invocation either). Look for the
+<tt class="literal">rmdir</tt> function coming up shortly for that.
+</p>
+
+<p>Now, here's a little-known Unix fact. It turns out that you can
+have a file that you can't read, you can't write, you
+can't execute, maybe you don't even own the
+file -- that is, it's somebody else's file
+altogether -- but you can still delete the file. That's
+because the <a name="INDEX-884" /></a>permission to unlink a file doesn't
+depend upon the permission bits on the file itself; it's the
+permission bits on the directory that contains the file that matter.
+</p>
+
+<p>We mention this because it's normal for a beginning Perl
+programmer, in the course of trying out <tt class="literal">unlink</tt>,
+to make a file, to <i class="command">chmod</i> it to
+<tt class="literal">0</tt> (so that it's not readable or writable),
+and then to see whether this makes <tt class="literal">unlink</tt> fail.
+But instead it vanishes without so much as a whimper.<a href="#FOOTNOTE-282">[282]</a> If you really want to see a
+failed <tt class="literal">unlink</tt>, though, just try to remove
+<em class="filename">/etc/passwd</em> or a similar system file. Since
+that's a file controlled by the system administrator, you
+won't be able to remove it.<a href="#FOOTNOTE-283">[283]</a>
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-282" /></a><p>[282]Some of these folks know that <i class="command">rm </i>would
+generally ask before deleting such a file. But <i class="command">rm
+</i>is a command, and <tt class="literal">unlink</tt> is a system
+call. System calls never ask permission, and they never say
+they're sorry.</p> </blockquote><blockquote class="footnote"> <a name="FOOTNOTE-283" /></a><p>[283]Of course, if
+you're silly enough to try this kind of thing when you are
+logged in as the system administrator, you deserve what you get.
+</p> </blockquote>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch12_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch13_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">12.6. Exercises</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">13.2. Renaming Files</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

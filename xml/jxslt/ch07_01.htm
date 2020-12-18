@@ -1,0 +1,209 @@
+<html><head><title>Discussion Forum (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch07_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 7. Discussion Forum</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#javaxslt-CHP-7-SECT-1">Overall Process</a><br />
+<a href="ch07_02.htm">Prototyping the XML</a><br />
+<a href="ch07_03.htm">Making the XML Dynamic</a><br />
+<a href="ch07_04.htm">Servlet Implementation</a><br />
+<a href="ch07_05.htm">Finishing Touches</a><br /></p></div><p><a name="INDEX-769" /></a>Up until now, the examples in this
+book have been short and to the point. The goal of this chapter is to
+show how a much more sophisticated web application is designed and
+implemented from the ground up. This is the culmination of everything
+covered so far, combining XML, servlets, XSLT, JDBC, JAXP, and JDOM
+into a fully functioning web-based discussion forum. As with the
+other examples in this book, the full source code is available from
+the companion web site.
+</p>
+
+<p>Walking the line between "textbook quality" and
+"real-world" examples is difficult. First and foremost,
+the goal of this chapter is to demonstrate how to design and
+implement a nontrivial web application using XSLT and Java. The
+second goal is to produce a decent application that can actually be
+used in the real world. Hopefully this has been achieved. Although
+making an example of this size fit into a single chapter involves a
+few tradeoffs, the design is flexible enough to allow new features,
+such as user authentication, to be implemented without too much
+additional effort.
+</p>
+
+<p><a name="INDEX-770" /></a>The discussion forum requires the
+following Java packages:
+</p>
+
+<ul><li>
+<p>Java 2 Standard Edition v1.2 or later</p>
+</li><li>
+<p>JDOM beta 6</p>
+</li><li>
+<p>Any JAXP 1.1 compatible XML parser and XSLT processor</p>
+</li><li>
+<p>Any servlet container that supports Version 2.2 or later of the
+servlet specification
+</p>
+</li><li>
+<p>Either MySQL or Microsoft Access</p>
+</li></ul><div class="sect1"><a name="javaxslt-CHP-7-SECT-1" /></a>
+<h2 class="sect1">7.1. Overall Process</h2>
+
+<p><a name="INDEX-771" /></a>Developing a web application using
+Java and XSLT can be broken down into several key steps. As in any
+software development project, a modular approach that can be
+dispatched to several developers simultaneously is highly desirable.
+This speeds the overall process and allows developers of different
+skill levels to participate.
+</p>
+
+<p>Our process consists of the following high-level steps:</p>
+
+<ul><li>
+<p>Define the requirements.</p>
+</li><li>
+<p>Create prototype XHTML web pages.</p>
+</li><li>
+<p>Create prototype XML datafiles.</p>
+</li><li>
+<p>Create XSLT stylesheets.</p>
+</li><li>
+<p>Design and implement the Java domain classes.</p>
+</li><li>
+<p>Design and implement the database and related code.</p>
+</li><li>
+<p>Create "XML producer" objects.</p>
+</li><li>
+<p>Implement the servlets and related code.</p>
+</li></ul>
+<p>Although the list shown here approximates the order in which these
+steps will be performed, in larger applications it is typical to
+implement a vertical slice of the system first. This slice will
+implement one or two key screens and will require the development
+team to follow all of the previous steps. As more screens are added
+to the system, the process is followed again for each piece of
+functionality that is added. This is very typical of most lightweight
+software development processes in which the system is developed in
+iterative steps rather than trying to implement the entire system in
+one pass.
+</p>
+
+<p>The remainder of this chapter will present the implementation of the
+discussion forum. The requirements, design, and code will be
+presented in roughly the same order as the list shown in this
+section.
+</p>
+
+<a name="javaxslt-CHP-7-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">7.1.1. Requirements</h3>
+
+<p><a name="INDEX-772" /></a>An
+online discussion forum will be developed using Java and XSLT. For
+the reference implementation, all features will be accessible via a
+web browser using XHTML, and no client-side Java or JavaScript will
+be required. The target for deployment is a web-hosting provider that
+supports Java 2, servlet 2.2, and access to a relational database
+such as MySQL. It is assumed that any additional Java JAR files, such
+as those required for JAXP and JDOM, can be installed along with the
+web application.
+</p>
+
+<p>The discussion forum will be divided into message boards, each of
+which covers a different topic such as "Dog Lovers" or
+"Cat Lovers." Each message belongs to one of these boards
+and may be a response to a previous message. This is known as a
+<em class="emphasis">threaded</em><a name="INDEX-773" /></a> discussion forum. Each message will also
+contain a subject, create date, author email, and the actual message
+text.
+</p>
+
+<p>When visiting the web site, users can read existing messages, post
+new messages, or reply to existing messages. Only administrators can
+create new message boards. Although XHTML is specified for the
+reference implementation, every effort will be made to facilitate
+alternatives, such as XHTML Basic or WML. Other than practical
+limitations such as bandwidth and database capacity, no artificial
+constraints shall be placed on the number of boards or messages.
+</p>
+
+<p>A few features will be omitted to keep this example reasonably sized.
+These include a web-based administrative interface, user
+authentication and security, and the ability to search the archive.
+Suggestions for implementing these features are mentioned at the end
+of this chapter.
+</p>
+
+</div>
+<a name="javaxslt-CHP-7-SECT-1.2" /></a><div class="sect2">
+<h3 class="sect2">7.1.2. Screen Flow</h3>
+
+<p><a name="INDEX-774" /></a>The forum user interface consists of four
+primary screens, as shown in <a href="ch07_01.htm#javaxslt-CHP-7-FIG-1">Figure 7-1</a>. Each box
+represents a different web page that visitors encounter, and lines
+indicate screen-to-screen flow as the user clicks on links.
+</p>
+
+<a name="javaxslt-CHP-7-FIG-1" /></a><div class="figure"><img src="figs/jxt_0701.gif" alt="Figure 7-1" width="468" height="211" /></div><h4 class="objtitle">Figure 7-1. Discussion forum screens</h4>
+
+<p>Creating a graphical layout of the web pages as shown here is
+sometimes called
+<em class="emphasis">storyboarding</em><a name="INDEX-775" /></a>,
+a common user interface design technique that has its roots in the
+animation, television, and motion picture industries. Such high-level
+diagrams typically start as hand-drawn sketches on paper, with the
+intent of capturing the overall application flow. This is a good
+place to start because it shows how everything fits together without
+delving too deeply into technical design details.
+</p>
+
+<p>The "<a name="INDEX-776" /></a>Discussion Forum Home" page is the
+starting point and displays the list of all message boards. For each
+message board, a list of months with messages is displayed. From this
+screen, the user can either click on a month to view a list of
+message subjects, or click on a link to post a new message. The user
+can always return to the home page from any other page in the
+application.
+</p>
+
+<p>The "View Month" page shows message subjects for a
+particular month in a given board. These messages are displayed in a
+tree that shows the message subject, author, and create date. The
+structure of the tree represents threads of discussion, with replies
+indented underneath the original messages. From this page, the user
+can either select a message to view or click on a link to visit the
+"Post New Message" page.
+</p>
+
+<p>The "View Message" screen shows details for an individual
+message. From this page, visitors can either return to the month view
+or click on a link to reply to this message.
+</p>
+
+<p>The final page allows users to either post a new message or reply to
+an existing message. Since posting and replying are quite similar,
+much of the Java and XSLT stylesheet code is reused. Although using
+the same code for multiple web pages reduces the size of the
+application, it can add complexity because the code must be capable
+of two modes of operation.
+</p>
+
+</div>
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch07_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">6.5. Servlet Threading Issues</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">7.2. Prototyping the XML</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

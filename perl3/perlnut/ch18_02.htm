@@ -1,0 +1,575 @@
+<html><head><title>Net::FTP (Perl in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Stephen Spainhour" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002416L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch18_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch18_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">18.2. Net::FTP</h2>
+
+<p><a name="INDEX-2285" /><a name="INDEX-2286" />Net::FTP is used to transfer files
+from remote hosts. With Net::FTP, you can write simple FTP clients
+that transfer files from remote servers based on information passed
+on the command line or from hardcoded variables. Here is an example
+of a client that connects to a remote FTP server and gets a file from
+the server:
+</p>
+
+<blockquote><pre class="code">#!/usr/local/bin/perl -w
+
+use Net::FTP;
+
+$hostname = 'remotehost.com';
+$username = 'anonymous';
+$password = 'myname@mydomain.com';
+
+# Hardcode the directory and filename to get
+$home = '/pub';
+$filename = 'TESTFILE';
+
+# Open the connection to the host
+$ftp = Net::FTP-&gt;new($hostname);        # Construct object
+$ftp-&gt;login($username, $password);      # Log in
+
+$ftp-&gt;cwd($home),"\n";                  # Change directory
+print $ftp-&gt;ls($home),"\n";        
+
+# Now get the file and leave
+$ftp-&gt;get($filename); 
+$ftp-&gt;quit;</pre></blockquote>
+
+<p>FTP clients have also been integrated with most World Wide Web
+browsers, using <em class="emphasis">ftp://</em> in place of <em class="emphasis">http://</em>. When the URL points to a directory,
+the browser displays a listing of the directory, in which each
+filename is a link to that file. When the URL points directly to a
+file, the remote file is downloaded.
+</p>
+
+<p>Here's an example that uses Net::FTP to list files
+from a remote FTP server on a web page, with a link from each file to
+the URL of the file on the remote site:
+</p>
+
+<blockquote><pre class="code">#!/usr/local/bin/perl -w
+
+use Net::FTP;
+
+$hostname = 'remotehost.com';        # FTP host
+$username = 'anonymous';             # Username
+$password = 'myname@mydomain.com';   # Password
+$home = '/pub';
+
+$ftp = Net::FTP-&gt;new($hostname);     # Net::FTP constructor
+$ftp-&gt;login($username, $password);  # Log in w/username and password
+
+$pwd = $ftp-&gt;pwd;                   # Get current directory
+
+print &lt;&lt;HTML;                       # Output HTML page
+Content-type: text/html
+&lt;HTML&gt;
+  
+  &lt;HEAD&gt;
+    &lt;TITLE&gt;Download Files&lt;/TITLE&gt;
+  &lt;/HEAD&gt;
+  &lt;BODY&gt;
+      
+      &lt;B&gt;Current working directory:&lt;/B&gt; $pwd&lt;BR&gt;
+      Files to download: &lt;P&gt;
+HTML
+  
+    @entries = $ftp-&gt;ls($home);     # Slurp all entries into an array
+    foreach (@entries) { # Output links for all files in the ftp area
+                         # as links
+        print "&lt;INPUT TYPE=hidden NAME=\"files\" VALUE=\"$_\"&gt;\n";
+        print "&lt;A HREF=\"ftp://$hostname$_\"&gt;",
+        "&lt;IMG SRC=\"http://www/icons/f.gif\" border=0&gt;\n";
+        print " $_&lt;/A&gt;&lt;BR&gt;\n";
+    }
+    print &lt;&lt;HTML;
+  &lt;/BODY&gt;
+&lt;/HTML&gt;
+HTML
+$ftp-&gt;quit;             # end FTP session</pre></blockquote>
+
+<p>The Net::FTP module implements a subset (as shown earlier in this
+chapter) of the FTP protocol as defined in RFC 959. In addition to
+providing the methods shown below, the module inherits from Net::Cmd.
+Some of the Net::FTP methods return an object derived from the
+<em class="emphasis">dataconn</em> class (which is in turn derived from
+the IO::Socket::INET class), as noted in the entries for those
+methods.
+</p>
+
+<p>The following methods are defined by Net::FTP.</p>
+
+<a name="INDEX-2287" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>new</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em> = Net::FTP-&gt;new(<em class="replaceable">host</em>[, <em class="replaceable">options</em>])
+</pre><p><a name="INDEX-2287" />Constructs a new Net::FTP object.
+Arguments are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>host</tt></em></i></dt>
+<dd>
+The name of the remote host</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>options</tt></em></i></dt>
+<dd>
+A hash specifying any of the following information:</p>
+
+<dl>
+<dt><b><tt class="literal">Firewall</tt></b></dt>
+<dd>
+Name of an FTP firewall.</p>
+</dd>
+
+
+<dt><b><tt class="literal">Port</tt></b></dt>
+<dd>
+Port number to use for the FTP connection. Defaults to
+<tt class="literal">21</tt>.
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">Timeout</tt></b></dt>
+<dd>
+Timeout value. Defaults to 120 seconds.</p>
+</dd>
+
+
+<dt><b><tt class="literal">Debug</tt></b></dt>
+<dd>
+Debug level.</p>
+</dd>
+
+
+<dt><b><tt class="literal">Passive</tt></b></dt>
+<dd>
+True or false, specifying whether to perform transfers in passive
+mode.
+</p>
+</dd>
+
+</dl>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-2288" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>abort</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;abort(  )
+</pre><p><a name="INDEX-2288" />Aborts the current transaction.
+</p></div>
+
+<a name="INDEX-2289" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>appe</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;appe(<em class="replaceable">file</em>)
+</pre><p><a name="INDEX-2289" />Appends data to the end of the
+remote file <em class="replaceable"><tt>file</tt></em>, which is created if it
+doesn't exist. If the user calls either
+<tt class="literal">pasv</tt> or <tt class="literal">port</tt>, returns true or
+false. Otherwise, returns a reference to a Net::FTP::dataconn object.
+</p></div>
+
+<a name="INDEX-2290" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>append</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;append(<em class="replaceable">local</em>[, <em class="replaceable">remote</em>])
+</pre><p><a name="INDEX-2290" />Appends the contents of a local file to
+an existing file on the remote system. Arguments are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>local</tt></em></i></dt>
+<dd>
+Either the name of the file on the local system to transfer or a
+filehandle.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>remote</tt></em></i></dt>
+<dd>
+The name of the file on the remote system. If
+<em class="replaceable"><tt>local</tt></em> is a filehandle,
+<em class="replaceable"><tt>remote</tt></em> must be specified.
+</p>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-2291" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>ascii</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;ascii([<em class="replaceable">args</em>])
+</pre><p><a name="INDEX-2291" />Changes the type of data transfer to
+<tt class="literal">ascii</tt>. Like <tt class="literal">type</tt>, without the
+need to specify the first argument.
+</p></div>
+
+<a name="INDEX-2292" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>authorize</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;authorize([<em class="replaceable">auth</em>[, <em class="replaceable">resp</em>]])
+</pre><p><a name="INDEX-2292" />Authorizes the user to send data
+outside the firewall, for use with FTP proxies. If authorization
+<em class="replaceable"><tt>auth</tt></em> and response
+<em class="replaceable"><tt>resp</tt></em> are not specified,
+<tt class="literal">authorize</tt> uses Net::Netrc to do a lookup.
+</p><p>Called with no arguments by <tt class="literal">login</tt> if the
+connection is through a firewall.
+</p></div>
+
+<a name="INDEX-2293" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>binary</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;binary([<em class="replaceable">args</em>])
+</pre><p><a name="INDEX-2293" />Changes the type of data transfer
+to <tt class="literal">binary</tt>. Like <tt class="literal">type</tt>, without
+the need to specify the first argument.
+</p></div>
+
+<a name="INDEX-2294" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>byte</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;byte([<em class="replaceable">args</em>])
+</pre><p><a name="INDEX-2294" />Changes the data transfer type to
+<tt class="literal">byte</tt>. Not supported. If specified, defaults to
+binary. Like <tt class="literal">type</tt>, without the need to specify the
+first argument.
+</p></div>
+
+<a name="INDEX-2295" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>cdup</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;cdup(  )
+</pre><p><a name="INDEX-2295" />Goes up one level in the directory
+hierarchy.
+</p></div>
+
+<a name="INDEX-2296" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>cwd</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;cwd([<em class="replaceable">dir</em>])
+</pre><p><a name="INDEX-2296" />Changes the working directory to
+<em class="replaceable"><tt>dir</tt></em>. With no argument, changes the
+directory to root.
+</p></div>
+
+<a name="INDEX-2297" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>delete</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;delete([<em class="replaceable">filename</em>])
+</pre><p><a name="INDEX-2297" />Deletes the specified file from the
+server.
+</p></div>
+
+<a name="INDEX-2298" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>dir</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;dir([<em class="replaceable">dir</em>])
+</pre><p><a name="INDEX-2298" />Lists the specified server
+directory in long format. Returns a reference to the list.
+<em class="replaceable"><tt>dir</tt></em> defaults to the current working
+directory.
+</p></div>
+
+<a name="INDEX-2299" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>ebcdic</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;ebcdic([<em class="replaceable">args</em>])
+</pre><p><a name="INDEX-2299" />Changes the data transfer type to
+<tt class="literal">ebcdic</tt>. Not supported. If specified, defaults to
+binary. Like <tt class="literal">type</tt>, without the need to specify the
+first argument.
+</p></div>
+
+<a name="INDEX-2300" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>get</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;get(<em class="replaceable">remote</em>[, <em class="replaceable">local</em>])
+</pre><p><a name="INDEX-2300" />Retrieves a file from the server. If
+specified, <em class="replaceable"><tt>local</tt></em> is the name to give the
+file on the local system; otherwise, the name stays the same.
+Arguments are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>remote</tt></em></i></dt>
+<dd>
+Name of the file to retrieve from the remote system.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>local</tt></em></i></dt>
+<dd>
+Either the new filename on the local system or a filehandle. If
+omitted, the same filename is used.
+</p>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-2301" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>list</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;list([<em class="replaceable">dir</em>])
+</pre><p><a name="INDEX-2301" />Lists a directory,
+<em class="replaceable"><tt>dir</tt></em>, for display. If the user calls either
+<tt class="literal">pasv</tt> or <tt class="literal">port</tt>, returns true or
+false. Otherwise, returns a reference to a Net::FTP::dataconn object.
+If directory is omitted, defaults to the current directory.
+</p></div>
+
+<a name="INDEX-2302" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>login</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;([<em class="replaceable">login</em>[, <em class="replaceable">passwd</em>[, <em class="replaceable">account</em>]]])
+</pre><p><a name="INDEX-2302" />Logs user into an FTP server. Arguments
+are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>login</tt></em></i></dt>
+<dd>
+Login name. If not specified, defaults to
+<tt class="literal">anonymous</tt> or to the value in
+<em class="emphasis">$HOME/.netrc</em>.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>passwd</tt></em></i></dt>
+<dd>
+Password. If not specified, defaults to the user's
+email address or to the value in <em class="emphasis">$HOME/.netrc</em>.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>account</tt></em></i></dt>
+<dd>
+Additional account information for files on the FTP server that have
+special access restrictions.
+</p>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-2303" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>ls</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;ls([<em class="replaceable">dir</em>])
+</pre><p><a name="INDEX-2303" />Lists directory,
+<em class="replaceable"><tt>dir</tt></em>, returning a reference to the list.
+Defaults to the current working directory.
+</p></div>
+
+<a name="INDEX-2304" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>mdtm</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;mdtm(<em class="replaceable">file</em>)
+</pre><p><a name="INDEX-2304" />Returns the modification time of
+remote file <em class="replaceable"><tt>file</tt></em>.
+</p></div>
+
+<a name="INDEX-2305" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>mkdir</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;mkdir(<em class="replaceable">dir</em>[, <em class="replaceable">recursive</em>])
+</pre><p><a name="INDEX-2305" />Makes a new directory. Arguments are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>dir</tt></em></i></dt>
+<dd>
+The new directory name</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>recursive</tt></em></i></dt>
+<dd>
+If true, creates all directories in the path as needed</p>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-2306" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>nlst</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;nlst([<em class="replaceable">dir</em>])
+</pre><p><a name="INDEX-2306" />Lists a directory,
+<em class="replaceable"><tt>dir</tt></em>, for further processing. With no
+argument, defaults to the current directory. If the user calls either
+<tt class="literal">pasv</tt> or <tt class="literal">port</tt>, returns true or
+false. Otherwise, returns a reference to a Net::FTP::dataconn object.
+</p></div>
+
+<a name="INDEX-2307" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>pasv</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;pasv(  )
+</pre><p><a name="INDEX-2307" />Puts server in passive mode.
+</p></div>
+
+<a name="INDEX-2308" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>pasv_wait</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;pasv_wait(<em class="replaceable">server</em>)
+</pre><p><a name="INDEX-2308" />Waits for a transfer to complete
+between a passive and a nonpassive server, in which
+<em class="replaceable"><tt>server</tt></em> is the Net::FTP object for the
+nonpassive server.
+</p></div>
+
+<a name="INDEX-2309" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>pasv_xfer</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;pasv_xfer(<em class="replaceable">file1</em>, <em class="replaceable">server</em>, [<em class="replaceable">file2</em>])
+</pre><p><a name="INDEX-2309" />Transfers a file between two remote
+servers. Arguments are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>file1</tt></em></i></dt>
+<dd>
+The file to transfer from the server represented by the Net::FTP
+object.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>server</tt></em></i></dt>
+<dd>
+Destination server.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>file2</tt></em></i></dt>
+<dd>
+New name of the file on the destination server. If omitted, the
+original name is used.
+</p>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-2310" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>pasv_xfer_unique</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;pasv_xfer_unique(<em class="replaceable">file1</em>, <em class="replaceable">server</em>[, <em class="replaceable">file2</em>])
+</pre><p><a name="INDEX-2310" />Like <tt class="literal">pasv_xfer</tt>,
+but stores the file on the remote server with a new (unique) name.
+</p></div>
+
+<a name="INDEX-2311" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>port</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;port([<em class="replaceable">port</em>])
+</pre><p><a name="INDEX-2311" />Sends a PORT command telling the server
+to use port <em class="replaceable"><tt>port</tt></em>. With no argument, a
+socket is created, and its information is sent.
+</p></div>
+
+<a name="INDEX-2312" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>put</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;put(<em class="replaceable">local</em>[, <em class="replaceable">remote</em>])
+</pre><p><a name="INDEX-2312" />Puts a file onto
+the server. Arguments are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>local</tt></em></i></dt>
+<dd>
+The name of the file to transfer from the local system, or a
+filehandle.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>remote</tt></em></i></dt>
+<dd>
+The new filename on the remote system. If omitted, the same filename
+is used. If <em class="replaceable"><tt>local</tt></em> is a filehandle, the
+remote filename must be specified.
+</p>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-2313" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>put_unique</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;put_unique(<em class="replaceable">local</em>[, <em class="replaceable">remote</em>])
+</pre><p><a name="INDEX-2313" />Puts a file with a unique name onto
+the server. Arguments are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>local</tt></em></i></dt>
+<dd>
+The name of the file to transfer from the local system, or a
+filehandle.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>remote</tt></em></i></dt>
+<dd>
+The new filename on the remote system. If a file exists by that name,
+a new unique filename is created.
+</p>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-2314" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>pwd</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;pwd(  )
+</pre><p><a name="INDEX-2314" />Returns the current directory path.
+</p></div>
+
+<a name="INDEX-2315" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>quit</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;quit(  )
+</pre><p><a name="INDEX-2315" />Closes the connection.
+</p></div>
+
+<a name="INDEX-2316" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>quot</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;quot(<em class="replaceable">cmd</em>[, <em class="replaceable">args</em>])
+</pre><p><a name="INDEX-2316" />Sends a literal FTP protocol
+command to the server and waits for a response. Returns the most
+significant digit of the response code.
+</p></div>
+
+<a name="INDEX-2317" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>rename</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;rename(<em class="replaceable">file1</em>, <em class="replaceable">file2</em>)
+</pre><p><a name="INDEX-2317" />Renames a file on the server. Arguments
+are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>file1</tt></em></i></dt>
+<dd>
+The old name of the file</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>file2</tt></em></i></dt>
+<dd>
+The new name of the file</p>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-2318" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>retr</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;retr(<em class="replaceable">file</em>)
+</pre><p><a name="INDEX-2318" />Retrieves file
+<em class="replaceable"><tt>file</tt></em> from the remote server. If the user
+calls either <tt class="literal">pasv</tt> or <tt class="literal">port</tt>,
+returns true or false. Otherwise, returns a reference to a
+Net::FTP::dataconn object.
+</p></div>
+
+<a name="INDEX-2319" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>rmdir</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;rmdir(<em class="replaceable">dir</em>)
+</pre><p><a name="INDEX-2319" />Removes directory
+<em class="replaceable"><tt>dir</tt></em>.
+</p></div>
+
+<a name="INDEX-2320" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>size</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;size(<em class="replaceable">file</em>)
+</pre><p><a name="INDEX-2320" />Returns the size of file
+<em class="replaceable"><tt>file</tt></em> in bytes.
+</p></div>
+
+<a name="INDEX-2321" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>stor</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;stor(<em class="replaceable">file</em>)
+</pre><p><a name="INDEX-2321" />Tells the server to store a new
+file under the name <em class="replaceable"><tt>file</tt></em>. If the user
+calls either <tt class="literal">pasv</tt> or <tt class="literal">port</tt>,
+returns true or false. Otherwise, returns a reference to a
+Net::FTP::dataconn object.
+</p></div>
+
+<a name="INDEX-2322" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>stou</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;stou(<em class="replaceable">file</em>)
+</pre><p><a name="INDEX-2322" />Like <tt class="literal">stor</tt>, but
+stores file on the remote server with a unique name,
+<em class="replaceable"><tt>file</tt></em>. If the user calls either
+<tt class="literal">pasv</tt> or <tt class="literal">port</tt>, returns true or
+false. Otherwise, returns a reference to a Net::FTP::dataconn object.
+</p></div>
+
+<a name="INDEX-2323" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>supported</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;supported(<em class="replaceable">cmd</em>)
+</pre><p><a name="INDEX-2323" />Returns true if the server supports
+the command <em class="replaceable"><tt>cmd</tt></em>.
+</p></div>
+
+<a name="INDEX-2324" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>type</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;type(<em class="replaceable">type</em>[, <em class="replaceable">args</em>])
+</pre><p><a name="INDEX-2324" />Changes the type of data transfer.
+Possible types are <tt class="literal">ascii</tt>,
+<tt class="literal">ebcdic</tt>, <tt class="literal">byte</tt>, and
+<tt class="literal">binary</tt>. The value of
+<em class="replaceable"><tt>args</tt></em> depends on the type.
+</p></div>
+
+<a name="INDEX-2325" /><a name="INDEX-2326" /><a name="INDEX-2327" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>unique_name</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">ftp</em>-&gt;unique_name(  )
+</pre><p><a name="INDEX-2325" />Returns the name of the last file
+stored with a unique name.<a name="INDEX-2326" /><a name="INDEX-2327" /> 
+</p></div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch18_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch18_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">18. FTP</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">18.3. FTP Configuration with Net::Netrc</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+</map>
+
+</body></html>

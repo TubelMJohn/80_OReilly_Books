@@ -1,0 +1,787 @@
+<html><head><title>Introduction to JAXP 1.1 (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch05_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">5.2. Introduction to JAXP 1.1</h2>
+
+<p><a name="INDEX-497" />TrAX was a great idea, and the original
+work and concepts behind it were absorbed into JAXP Version 1.1. If
+you search for TrAX on the Web and get the feeling that the effort is
+waning, this is only because focus has shifted from TrAX to JAXP.
+Although the name has changed, the concept has not: JAXP provides a
+standard Java interface to many XSLT processors, allowing you to
+choose your favorite underlying implementation while retaining
+portability.
+</p>
+
+<p>First released in March 2000, Sun's JAXP 1.0 utilized XML 1.0,
+XML Namespaces 1.0, SAX 1.0, and DOM Level 1. JAXP is a standard
+extension to Java, meaning that Sun provides a specification through
+its Java Community Process (JCP) as well as a reference
+implementation. JAXP 1.1 follows the same basic design philosophies
+of JAXP 1.0, adding support for DOM Level 2, SAX 2, and XSLT 1.0. A
+tool like JAXP is necessary because the XSLT specification defines
+only a transformation language; it says nothing about how to write a
+Java XSLT processor. Although they all perform the same basic tasks,
+every processor uses a different API and has its own set of
+programming conventions.
+</p>
+
+<p>JAXP is not an XML parser, nor is it an XSLT processor. Instead, it
+provides a common Java interface that masks differences between
+various implementations of the supported standards. When using JAXP,
+your code can avoid dependencies on specific vendor tools, allowing
+flexibility to upgrade to newer tools when they become available.
+</p>
+
+<p>The key to JAXP's design is the concept of
+<em class="emphasis">plugability
+layers</em><a name="INDEX-498" />. These layers provide consistent Java
+interfaces to the underlying SAX, DOM, and XSLT implementations. In
+order to utilize one of these APIs, you must obtain a factory class
+without hardcoding Xalan or SAXON code into your application. This is
+accomplished via a lookup mechanism that relies on Java system
+properties. Since three separate plugability layers are used, you can
+use a DOM parser from one vendor, a SAX parser from another vendor,
+and yet another XSLT processor from someone else. In reality, you
+will probably need to use a DOM parser compatible with your XSLT
+processor if you try to transform the DOM tree directly. <a href="ch05_02.htm#javaxslt-CHP-5-FIG-1">Figure 5-1</a> illustrates the high-level architecture of
+JAXP 1.1.
+</p>
+
+<a name="javaxslt-CHP-5-FIG-1" /><div class="figure"><img src="figs/jxt_0501.gif" alt="Figure 5-1" width="430" height="225" /></div><h4 class="objtitle">Figure 5-1. JAXP 1.1 architecture</h4>
+
+<p>As shown, application code does not deal directly with specific
+parser or processor implementations, such as SAXON or Xalan. Instead,
+you write code against abstract classes that JAXP provides. This
+level of indirection allows you to pick and choose among different
+implementations without even recompiling your application.
+</p>
+
+<p>The main drawback to an API such as JAXP is the "least common
+denominator" effect, which is all too familiar to AWT
+programmers. In order to maximize portability, JAXP mostly provides
+functionality that all XSLT processors support. This means, for
+instance, that Xalan's custom XPath APIs are not included in
+JAXP. In order to use value-added features of a particular processor,
+you must revert to nonportable code, negating the benefits of a
+plugability layer. Fortunately, most common tasks are supported by
+JAXP, so reverting to implementation-specific code is the exception,
+not the rule.
+</p>
+
+<p>Although the JAXP specification does not define an XML parser or XSLT
+processor, reference implementations do include these tools. These
+reference implementations are open source Apache XML tools,<a href="#FOOTNOTE-18">[18]</a> so complete source code
+is available.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-18" /><p> [18] Crimson and Xalan.</p> </blockquote>
+
+<a name="javaxslt-CHP-5-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">5.2.1. JAXP 1.1 Implementation</h3>
+
+<p><a name="INDEX-499" />You
+guessed it -- we will now reimplement the simple example using
+Sun's JAXP 1.1. Behind the scenes, this could use any JAXP
+1.1-compliant XSLT processor; this code was developed and tested
+using Apache's Xalan 2 processor. <a href="ch05_02.htm#javaxslt-CHP-5-EX-3">Example 5-3</a>
+contains the complete source code.
+</p>
+
+<a name="javaxslt-CHP-5-EX-3" /><div class="example">
+<h4 class="objtitle">Example 5-3. SimpleJaxp.java </h4>
+<blockquote><pre class="code">package chap5;
+
+import java.io.*;
+
+/**
+ * A simple demo of JAXP 1.1
+ */
+public class SimpleJaxp {
+
+    /**
+     * Accept two command line arguments: the name of an XML file, and
+     * the name of an XSLT stylesheet. The result of the transformation
+     * is written to stdout.
+     */
+    public static void main(String[] args)
+            throws javax.xml.transform.TransformerException {
+        if (args.length != 2) {
+            System.err.println("Usage:");
+            System.err.println("  java " + SimpleJaxp.class.getName( )
+                    + " xmlFileName xsltFileName");
+            System.exit(1);
+        }
+
+        File xmlFile = new File(args[0]);
+        File xsltFile = new File(args[1]);
+
+        javax.xml.transform.Source xmlSource =
+                new javax.xml.transform.stream.StreamSource(xmlFile);
+        javax.xml.transform.Source xsltSource =
+                new javax.xml.transform.stream.StreamSource(xsltFile);
+        javax.xml.transform.Result result =
+                new javax.xml.transform.stream.StreamResult(System.out);
+
+        // create an instance of TransformerFactory
+        javax.xml.transform.TransformerFactory transFact =
+                javax.xml.transform.TransformerFactory.newInstance( );
+
+        javax.xml.transform.Transformer trans =
+                transFact.newTransformer(xsltSource);
+
+        trans.transform(xmlSource, result);
+    }
+}</pre></blockquote>
+</div>
+
+<p>As in the earlier examples, explicit package names are used in the
+code to point out which classes are parts of JAXP. In future
+examples, <tt class="literal">import</tt> statements will be favored
+because they result in less typing and more readable code. Our new
+program begins by declaring that it may throw
+<tt class="literal">TransformerException</tt><a name="INDEX-500" />:
+</p>
+
+<blockquote><pre class="code">public static void main(String[] args)
+        throws javax.xml.transform.TransformerException {</pre></blockquote>
+
+<p>This is a general-purpose exception representing anything that might
+go wrong during the transformation process. In other processors,
+SAX-specific exceptions are typically propagated to the caller. In
+JAXP, <tt class="literal">TransformerException</tt> can be wrapped around
+any type of <tt class="literal">Exception</tt> object that various XSLT
+processors may throw.
+</p>
+
+<p>Next, the command-line arguments are converted into
+<tt class="literal">File</tt> objects. In the SAXON and Xalan examples, we
+created a system ID for each of these files. Since JAXP can read
+directly from a <tt class="literal">File</tt> object, the extra conversion
+to a URI is not needed:
+</p>
+
+<blockquote><pre class="code">File xmlFile = new File(args[0]);
+File xsltFile = new File(args[1]);
+
+javax.xml.transform.Source xmlSource =
+        new javax.xml.transform.stream.StreamSource(xmlFile);
+javax.xml.transform.Source xsltSource =
+        new javax.xml.transform.stream.StreamSource(xsltFile);</pre></blockquote>
+
+<p>The <tt class="literal">Source</tt><a name="INDEX-501" /> interface is used to read both the
+XML file and the XSLT file. Unlike the SAX
+<tt class="literal">InputSource</tt> class or Xalan's
+<tt class="literal">XSLTInputSource</tt> class, <tt class="literal">Source</tt>
+is an interface that can have many implementations. In this simple
+example we are using
+<tt class="literal">StreamSource</tt><a name="INDEX-502" />, which has the ability to read from a
+<tt class="literal">File</tt> object, an <tt class="literal">InputStream</tt>, a
+<tt class="literal">Reader</tt>, or a system ID. Later we will examine
+additional <tt class="literal">Source</tt> implementations that use SAX and
+DOM as input. Just like <tt class="literal">Source</tt>,
+<tt class="literal">Result</tt><a name="INDEX-503" /> is an interface that can have several
+implementations. In this example, a <tt class="literal">StreamResult</tt>
+sends the output of the transformations to
+<tt class="literal">System.out</tt>:
+</p>
+
+<blockquote><pre class="code">javax.xml.transform.Result result =
+        new javax.xml.transform.stream.StreamResult(System.out);</pre></blockquote>
+
+<p>Next, an instance of
+<tt class="literal">TransformerFactory</tt><a name="INDEX-504" /> is created:
+</p>
+
+<blockquote><pre class="code">javax.xml.transform.TransformerFactory transFact =
+        javax.xml.transform.TransformerFactory.newInstance( );</pre></blockquote>
+
+<p>The <tt class="literal">TransformerFactory</tt> is responsible for creating
+<tt class="literal">Transformer</tt> and <tt class="literal">Template</tt>
+objects. In our simple example, we create a
+<tt class="literal">Transformer</tt> object:
+</p>
+
+<blockquote><pre class="code">javax.xml.transform.Transformer trans =
+        transFact.newTransformer(xsltSource);</pre></blockquote>
+
+<p><tt class="literal">Transformer</tt> objects are not thread-safe, although
+they can be used multiple times. For a simple example like this, we
+will not encounter any problems. In a threaded servlet environment,
+however, multiple users cannot concurrently access the same
+<tt class="literal">Transformer</tt> instance. JAXP also provides a
+<tt class="literal">Templates</tt><a name="INDEX-505" /> interface, which represents a
+stylesheet that can be accessed by many concurrent threads.
+</p>
+
+<p>The transformer instance is then used to perform the actual
+transformation:
+</p>
+
+<blockquote><pre class="code">trans.transform(xmlSource, result);</pre></blockquote>
+
+<p>This applies the XSLT stylesheet to the XML data, sending the result
+to <tt class="literal">System.out</tt>.
+</p>
+
+</div>
+<a name="javaxslt-CHP-5-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">5.2.2. XSLT Plugability Layer</h3>
+
+<p>JAXP 1.1 defines a specific lookup procedure to locate an appropriate
+XSLT processor. This must be accomplished without hardcoding
+vendor-specific code into applications, so Java system properties and
+JAR file service providers are used. Within your code, first locate
+an instance of the <tt class="literal">TransformerFactory</tt> class as
+follows:
+</p>
+
+<blockquote><pre class="code">javax.xml.transform.TransformerFactory transFact =
+        javax.xml.transform.TransformerFactory.newInstance( );</pre></blockquote>
+
+<p>Since <tt class="literal">TransformerFactory</tt> is abstract, its
+<tt class="literal">newInstance( )</tt> factory method is used to
+instantiate an instance of a specific subclass. The algorithm for
+locating this subclass begins by looking at the
+<tt class="literal">javax.xml.transform.TransformerFactory</tt> system
+property. Let us suppose that
+<tt class="literal">com.foobar.AcmeTransformer</tt> is a new XSLT processor
+compliant with JAXP 1.1. To utilize this processor instead of
+JAXP's default processor, you can specify the system property
+on the command line<a href="#FOOTNOTE-19">[19]</a> when you start your
+Java application:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-19" /><p> [19] System properties can also be
+specified in Ant build files.</p> </blockquote>
+
+<blockquote><pre class="code">java -Djavax.xml.transform.TransformerFactory=com.foobar.AcmeTransformer MyApp</pre></blockquote>
+
+<p>Provided that JAXP is able to instantiate an instance of
+<tt class="literal">AcmeTransformer</tt>, this is the XSLT processor that
+will be used. Of course, <tt class="literal">AcmeTransformer</tt> must be a
+subclass of <tt class="literal">TransformerFactory</tt> for this to work,
+so it is up to vendors to offer support for JAXP.
+</p>
+
+<p>If the system property is not specified, JAXP next looks for a
+property file named <em class="filename">lib/jaxp.properties</em> in the
+JRE directory. A property file consists of
+<tt class="literal">name=value</tt> pairs, and JAXP looks for a line like
+this:
+</p>
+
+<blockquote><pre class="code">javax.xml.transform.TransformerFactory=com.foobar.AcmeTransformer</pre></blockquote>
+
+<p>You can obtain the location of the JRE with the following code:</p>
+
+<blockquote><pre class="code">String javaHomeDir = System.getProperty("java.home");</pre></blockquote>
+
+<a name="ch05-12-fm2xml" /><blockquote><b>NOTE:</b> 
+Some popular development tools change the value of
+<em class="filename">java.home</em> when they are installed, which could
+prevent JAXP from locating <em class="filename">jaxp.properties</em>.
+JBuilder, for instance, installs its own version of Java 2 that it
+uses by default.
+</p>
+</blockquote>
+
+<p>The advantage of creating <em class="filename">jaxp.properties</em> in
+this directory is that you can use your preferred processor for all
+of your applications that use JAXP without having to specify the
+system property on the command line. You can still override this file
+with the <tt class="userinput"><b>-D</b></tt> command-line syntax, however.
+</p>
+
+<p>If <em class="filename">jaxp.properties</em> is not found, JAXP uses the
+JAR file <em class="emphasis">service provider</em> mechanism to locate an
+appropriate subclass of <tt class="literal">TransformerFactory</tt>. The
+service provider mechanism is outlined in the JAR file specification
+from Sun and simply means that you must create a file in the
+<em class="filename">META-INF/services</em> directory of a JAR file. In
+JAXP, this file is called
+<em class="filename">javax.xml.transform.TransformerFactory</em>. It
+contains a single line that specifies the implementation of
+<tt class="literal">TransformerFactory</tt>:
+<tt class="literal">com.foobar.AcmeTransformer</tt> in our fictitious
+example. If you look inside of <em class="filename">xalan.jar</em> in JAXP
+1.1, you will find this file. In order to utilize a different parser
+that follows the JAXP 1.1 convention, simply make sure its JAR file
+is located first on your CLASSPATH.
+</p>
+
+<p>Finally, if JAXP cannot find an implementation class from any of the
+three locations, it uses its default implementation of
+<tt class="literal">TransformerFactory</tt>. To summarize, here are the
+steps that <a name="INDEX-506" />JAXP performs when attempting to
+locate a factory:
+</p>
+
+<ol><li>
+<p>Use the value of the
+<tt class="literal">javax.xml.transform.TransformerFactory</tt> system
+property if it exists.
+</p>
+</li><li>
+<p>If <em class="filename">JRE/lib/jaxp.properties</em> exists, then look for
+a
+<tt class="literal">javax.xml.transform.TransformerFactory=ImplementationClass</tt>
+entry in that file.
+</p>
+</li><li>
+<p>Use a JAR file service provider to look for a file called
+<em class="filename">META-INF/services/javax.xml.transform.TransformerFactory</em>
+in any JAR file on the CLASSPATH.
+</p>
+</li><li>
+<p>Use the default <tt class="literal">TransformerFactory</tt> instance.</p>
+</li></ol>
+<p>The JAXP 1.1 plugability layers for SAX and DOM follow the exact same
+process as the XSLT layer, only they use the
+<tt class="literal">javax.xml.parsers.SAXParserFactory</tt> and
+<tt class="literal">javax.xml.parsers.DocumentBuilderFactory</tt> system
+properties respectively. It should be noted that JAXP 1.0 uses a much
+simpler algorithm where it checks only for the existence of the
+system property. If that property is not set, the default
+implementation is used.
+</p>
+
+</div>
+<a name="javaxslt-CHP-5-SECT-2.3" /><div class="sect2">
+<h3 class="sect2">5.2.3. The Transformer Class</h3>
+
+<p><a name="INDEX-507" />As shown
+in <a href="ch05_02.htm#javaxslt-CHP-5-EX-3">Example 5-3</a>, a <tt class="literal">Transformer</tt>
+object can be obtained from the <tt class="literal">TransformerFactory</tt>
+as follows:
+</p>
+
+<blockquote><pre class="code">javax.xml.transform.TransformerFactory transFact =
+        javax.xml.transform.TransformerFactory.newInstance( );
+javax.xml.transform.Transformer trans =
+        transFact.newTransformer(xsltSource);</pre></blockquote>
+
+<p>The <a name="INDEX-508" /><tt class="literal">Transformer</tt>
+instance is wrapped around an XSLT stylesheet and allows you to
+perform as many transformations as you wish. The main caveat is
+thread safety, because many threads cannot use a single
+<tt class="literal">Transformer</tt> instance concurrently. For each
+transformation, invoke the <tt class="literal">transform</tt> method:
+</p>
+
+<blockquote><pre class="code">abstract void transform(Source xmlSource, Result outputTarget)
+    throws TransformerException</pre></blockquote>
+
+<p>This method is abstract because the
+<tt class="literal">TransformerFactory</tt> returns a subclass of
+<tt class="literal">Transformer</tt> that does the actual work. The
+<tt class="literal">Source</tt> interface defines where the XML data comes
+from and the <tt class="literal">Result</tt> interface specifies where the
+transformation result is sent. The
+<tt class="literal">TransformerException</tt> will be thrown if anything
+goes wrong during the transformation process and may contain the
+location of the error and a reference to the original exception. The
+ability to properly report the location of the error is entirely
+dependent upon the quality of the underlying XSLT transformer
+implementation's error reporting. We will talk about specific
+classes that implement the <tt class="literal">Source</tt> and
+<tt class="literal">Result</tt> interfaces later in this chapter.
+</p>
+
+<p>Aside from actually performing the transformation, the
+<tt class="literal">Transformer</tt> implementation allows you to set
+output properties and stylesheet parameters. In
+<a name="INDEX-509" />XSLT, a stylesheet parameter is
+declared and used as follows:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+  &lt;xsl:output method="html"/&gt;<tt class="userinput"><b>
+  &lt;xsl:param name="image_dir" select="'images'"/&gt;</b></tt>
+  
+  &lt;xsl:template match="/"&gt;
+    &lt;html&gt;
+      &lt;body&gt;
+        &lt;h1&gt;Stylesheet Parameter Example&lt;/h1&gt;<tt class="userinput"><b>
+        &lt;img src="{$image_dir}/sample.gif"/&gt;</b></tt>
+      &lt;/body&gt;
+    &lt;/html&gt;
+  &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+
+<p>The <tt class="literal">&lt;xsl:param&gt;</tt><a name="INDEX-510" />
+<a name="INDEX-511" /> element declares
+the parameter name and an optional <tt class="literal">select</tt>
+attribute. This attribute specifies the default value if the
+stylesheet parameter is not provided. In this case, the string
+<tt class="literal">'images'</tt> is the default value and is enclosed in
+apostrophes so it is treated as a string instead of an XPath
+expression. Later, the <tt class="literal">image_dir</tt> variable is
+referred to with the attribute value template syntax:
+<tt class="literal">{$image_dir}</tt>.
+</p>
+
+<p>Passing a variable for the location of your images is a common
+technique because your development environment might use a different
+directory name than your production web server. Another common use
+for a stylesheet parameter is to pass in data that a servlet
+generates dynamically, such as a unique ID for session tracking.
+</p>
+
+<p>From JAXP, pass this parameter via the <tt class="literal">Transformer</tt>
+instance. The code is simple enough:
+</p>
+
+<blockquote><pre class="code">javax.xml.transform.Transformer trans =
+        transFact.newTransformer(xsltSource);<tt class="userinput"><b>
+trans.setParameter("image_dir", "graphics");</b></tt></pre></blockquote>
+<p>You can set as many parameters as you like, and these parameters will
+be saved and reused for every transformation you make with this
+Transformer instance. If you wish to remove a parameter, you must
+call clearParameters( ), which clears all parameters for this
+Transformer instance. Parameters work similarly to a java.util.Map;
+if you set the same parameter twice, the second value overwrites the
+first value.
+</p>
+
+<p>Another use for the Transformer class is to get and set output
+properties through one of the following methods:
+</p>
+<blockquote><pre class="code">
+void setOutputProperties(java.util.Properties props)
+void setOutputProperty(String name, String value)
+java.util.Properties getOutputProperties( )
+String getOutputProperty(String name)</pre></blockquote>
+
+<p>As you can see, properties are specified as name/value pairs of
+Strings and can be set and retrieved individually or as a group.
+Unlike stylesheet parameters, you can un-set an individual property
+by simply passing in <tt class="literal">null</tt> for the value.
+<a name="INDEX-512" />The permitted property names are
+defined in the
+<tt class="literal">javax.xml.transform.OutputKeys</tt><a name="INDEX-513" /> class and are explained in <a href="ch05_02.htm#javaxslt-CHP-5-TABLE-1">Table 5-1</a>. 
+</p>
+
+<a name="javaxslt-CHP-5-TABLE-1" /><h4 class="objtitle">Table 5-1. Constants defined in javax.xml.transform.OutputKeys </h4><table border="1" cellpadding="3">
+
+
+
+<tr>
+<th>
+<p>Constant</p>
+</th>
+<th>
+<p>Meaning</p>
+</th>
+</tr>
+
+
+<tr>
+<td>
+<blockquote><pre class="code">CDATA_SECTION_ELEMENTS</pre></blockquote>
+</td>
+<td>
+<p>Specifies a whitespace-separated list of element names whose content
+should be output as CDATA sections. See the XSLT specification from
+the W3C for examples.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">DOCTYPE_PUBLIC</pre></blockquote>
+</td>
+<td>
+<p>Only used if <tt class="literal">DOCTYPE_SYSTEM</tt> is also used, this
+instructs the processor to output a PUBLIC document type declaration.
+For example: <tt class="literal">&lt;!DOCTYPE rootElem PUBLIC</tt>
+<tt class="literal">"public id" "system id"&gt;</tt>.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">DOCTYPE_SYSTEM</pre></blockquote>
+</td>
+<td>
+<p>Instructs the processor to output a document-type declaration. For
+example: <tt class="literal">&lt;!DOCTYPE rootElem SYSTEM</tt>
+<tt class="literal">"system id"&gt;</tt>.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">ENCODING</pre></blockquote>
+</td>
+<td>
+<p>Specifies the character encoding of the result tree, such as UTF-8 or
+UTF-16.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">INDENT</pre></blockquote>
+</td>
+<td>
+<p>Specifies whether or not whitespace may be added to the result tree,
+making the output more readable. Acceptable values are
+<tt class="literal">yes</tt> and <tt class="literal">no</tt>. Although
+indentation makes the output more readable, it does make the file
+size larger, thus harming performance.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">MEDIA_TYPE</pre></blockquote>
+</td>
+<td>
+<p>The MIME type of the result tree.</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">METHOD</pre></blockquote>
+</td>
+<td>
+<p>The output method, either <tt class="literal">xml</tt>,
+<tt class="literal">html</tt>, or <tt class="literal">text</tt>. Although other
+values are possible, such as <tt class="literal">xhtml</tt>, these are
+implementation-defined and may be rejected by your processor.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">OMIT_XML_DECLARATION</pre></blockquote>
+</td>
+<td>
+<p>Acceptable values are <tt class="literal">yes</tt> and
+<tt class="literal">no</tt>, specifying whether or not to include the XML
+declaration on the first line of the result tree.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">STANDALONE</pre></blockquote>
+</td>
+<td>
+<p>Acceptable values are <tt class="literal">yes</tt> and
+<tt class="literal">no</tt>, specifying whether or not the XML declaration
+indicates that the document is standalone. For example:
+<tt class="literal">&lt;?xml version="1.0"</tt> <tt class="literal">encoding="UTF-8"
+standalone="yes"?&gt;</tt>.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">VERSION</pre></blockquote>
+</td>
+<td>
+<p>Specifies the version of the output method, typically
+<tt class="literal">1.0</tt> for XML output. This shows up in the XML
+declaration as follows: <tt class="literal">&lt;?xml version="1.0"
+encoding="UTF-8"?&gt;</tt>.
+</p>
+</td>
+</tr>
+
+</table><p>
+
+<p>It is no coincidence that these output properties are the same as the
+properties you can set on the <tt class="literal">&lt;xsl:output&gt;</tt>
+element in your stylesheets. For example:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:output method="xml" indent="yes" encoding="UTF-8"/&gt;</pre></blockquote>
+
+<p>Using JAXP, you can either specify additional output properties or
+override those set in the stylesheet. To change the encoding, write
+this code:
+</p>
+
+<blockquote><pre class="code">// this will take precedence over any encoding specified in the stylesheet
+trans.setOutputProperty(OutputKeys.ENCODING, "UTF-16");</pre></blockquote>
+
+<p>Keep in mind that this will, in addition to adding
+<tt class="literal">encoding="UTF-16"</tt> to the XML declaration, actually
+cause the processor to use that encoding in the result tree. For a
+value of <tt class="literal">UTF-16</tt>, this means that 16-bit Unicode
+characters will be generated, so you may have trouble viewing the
+result tree in many ASCII-only text editors.<a name="INDEX-514" />
+</p>
+
+</div>
+<a name="javaxslt-CHP-5-SECT-2.4" /><div class="sect2">
+<h3 class="sect2">5.2.4. JAXP XSLT Design</h3>
+
+<p>Now that we have seen some example code and have begun our
+exploration of the <tt class="literal">Transformer</tt> class, let's
+step back and look at the overall design of the XSLT plugability
+layer. JAXP support for XSLT is broken down into the packages listed
+in <a href="ch05_02.htm#javaxslt-CHP-5-TABLE-2">Table 5-2</a>.
+</p>
+
+<a name="javaxslt-CHP-5-TABLE-2" /><h4 class="objtitle">Table 5-2. JAXP transformation packages </h4><table border="1" cellpadding="3">
+
+
+
+<tr>
+<th>
+<p>Package</p>
+</th>
+<th>
+<p>Description</p>
+</th>
+</tr>
+
+
+<tr>
+<td>
+<blockquote><pre class="code">javax.xml.transform</pre></blockquote>
+</td>
+<td>
+<p>Defines a general-purpose API for XML transformations without any
+dependencies on SAX or DOM. The <tt class="literal">Transformer</tt> class
+is obtained from the <tt class="literal">TransformerFactory</tt> class. The
+<tt class="literal">Transformer</tt> transforms from a
+<tt class="literal">Source</tt> to a <tt class="literal">Result</tt>.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">javax.xml.transform.dom</pre></blockquote>
+</td>
+<td>
+<p>Defines how transformations can be performed using DOM. Provides
+implementations of <tt class="literal">Source</tt> and
+<tt class="literal">Result</tt>: <tt class="literal">DOMSource</tt> and
+<tt class="literal">DOMResult</tt>.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">javax.xml.transform.sax</pre></blockquote>
+</td>
+<td>
+<p>Supports SAX2 transformations. Defines SAX versions of
+<tt class="literal">Source</tt> and <tt class="literal">Result</tt>:
+<tt class="literal">SAXSource</tt> and <tt class="literal">SAXResult</tt>. Also
+defines a subclass of <tt class="literal">TransformerFactory</tt> that
+allows SAX2 events to be fed into an XSLT processor.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">javax.xml.transform.stream</pre></blockquote>
+</td>
+<td>
+<p>Defines I/O stream implementations of <tt class="literal">Source</tt> and
+<tt class="literal">Result</tt>: <tt class="literal">StreamSource</tt> and
+<tt class="literal">StreamResult</tt>.
+</p>
+</td>
+</tr>
+
+</table><p>
+
+<p>The heart of JAXP XSLT support lies in the
+<tt class="literal">javax.xml.transform</tt> package, which lays out the
+mechanics and overall process for any transformation that is
+performed. This package mostly consists of interfaces and abstract
+classes, except for <tt class="literal">OutputKeys</tt> and a few exception
+and error classes. <a href="ch05_02.htm#javaxslt-CHP-5-FIG-2">Figure 5-2</a> presents a UML class
+diagram that shows all of the pieces in this important package.
+</p>
+
+<a name="javaxslt-CHP-5-FIG-2" /><div class="figure"><img src="figs/jxt_0502.gif" alt="Figure 5-2" width="480" height="341" /></div><h4 class="objtitle">Figure 5-2. javax.xml.transform class diagram</h4>
+
+<p>As you can see, this is a small package, indicative of the fact that
+JAXP is merely a wrapper around the tools that actually perform
+transformations. The entry point is
+<tt class="literal">TransformerFactory</tt>, which creates instances of
+<tt class="literal">Transformer</tt>, as we have already seen, as well as
+instances of the <tt class="literal">Templates</tt> abstract class. A
+<tt class="literal">Templates</tt> object represents a compiled stylesheet
+and will be covered in detail later in this chapter.<a href="#FOOTNOTE-20">[20]</a> The advantage of compilation
+is performance: the same <tt class="literal">Templates</tt> object can be
+used over and over by many threads without reparsing the XSLT file.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-20" /><p> [20] The exact definition of a "compiled" stylesheet is
+vague. XSLT processors are free to optimize cached stylesheets
+however they see fit.</p> </blockquote>
+
+<p>The <tt class="literal">URIResolver</tt> is responsible for resolving URIs
+found within stylesheets and is generally something you will not need
+to deal with directly. It is used when a stylesheet imports or
+includes another document, and the processor needs to figure out
+where to look for that document. For example:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:import href="commonFooter.xslt"/&gt;</pre></blockquote>
+
+<p><tt class="literal">ErrorListener</tt>, as you may guess, is an interface
+that allows your code to register as a listener for error conditions.
+This interface defines the following three methods:
+</p>
+
+<blockquote><pre class="code">void error(TransformerException ex)
+void fatalError(TransformerException ex)
+void warning(TransformerException ex)</pre></blockquote>
+
+<p>The <tt class="literal">TransformerException</tt> has the ability to wrap
+around another <tt class="literal">Exception</tt> or
+<tt class="literal">Throwable</tt> object and may return an instance of the
+<tt class="literal">SourceLocator</tt> class. If the underlying XSLT
+implementation does not provide a <tt class="literal">SourceLocator</tt>,
+<tt class="literal">null</tt> is returned. The
+<tt class="literal">SourceLocator</tt> interface defines methods to locate
+where a <tt class="literal">TransformerException</tt> originated. In the
+case of <tt class="literal">error()</tt> and <tt class="literal">warning()</tt>,
+the XSLT processor is required to continue processing the document
+until the end. For <tt class="literal">fatalError()</tt>, on the other
+hand, the XSLT processor is not required to continue. If you do not
+register an <tt class="literal">ErrorListener</tt> object, then all errors,
+fatal errors, and warnings are normally written to
+<tt class="literal">System.err</tt>. <a name="INDEX-515" /><tt class="literal">TransformerFactoryConfigurationError</tt><a name="INDEX-516" />
+<a name="INDEX-517" />
+and
+<tt class="literal">TransformerConfigurationException</tt><a name="INDEX-518" />
+<a name="INDEX-519" />
+round out the error-handling APIs for JAXP, indicating problems
+configuring the underlying XSLT processor implementation. The
+<tt class="literal">TransformerFactoryConfigurationError</tt> class is
+generally used when the implementation class cannot be found on the
+CLASSPATH or cannot be instantiated at all.
+<tt class="literal">TransformerConfigurationException</tt> simply indicates
+a "serious configuration error" according to its
+documentation.<a name="INDEX-520" /> 
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch05_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">5. XSLT Processing with Java</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">5.3. Input and Output</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

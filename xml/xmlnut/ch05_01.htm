@@ -1,0 +1,115 @@
+<html><head><title>Internationalization (XML in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Elliotte Rusty Harold and W. Scott Means" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0-596-00292-0" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XML in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XML in a Nutshell" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch05_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 5. Internationalization</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch05_01.htm">Character-Set Metadata</a><br />
+<a href="ch05_02.htm">The Encoding Declaration</a><br />
+<a href="ch05_03.htm">Text Declarations</a><br />
+<a href="ch05_04.htm">XML-Defined Character Sets</a><br />
+<a href="ch05_05.htm">Unicode</a><br />
+<a href="ch05_06.htm">ISO Character Sets</a><br />
+<a href="ch05_07.htm">Platform-Dependent Character Sets</a><br />
+<a href="ch05_08.htm">Converting Between Character Sets</a><br />
+<a href="ch05_09.htm">The Default Character Set for XML Documents</a><br />
+<a href="ch05_10.htm">Character References</a><br />
+<a href="ch05_11.htm">xml:lang</a><br /></p></div><p>We've <a name="xmlnut2-IDXTERM-400" />told
+you that XML documents contain text, but we haven't
+yet told you what kind of text they contain. In this chapter we
+rectify that omission. XML documents contain <a name="xmlnut2-IDXTERM-401" />Unicode text. Unicode is a character
+set large enough to include all the world's living
+languages and a few dead ones. It can be written in a variety of
+encodings, including UCS-2 and the ASCII superset UTF-8. However,
+since Unicode text editors are relatively uncommon, XML documents may
+also be written in other character sets and encodings, which are
+converted to Unicode when the document is parsed. The encoding
+declaration specifies which character set a document uses. You can
+use character references, such as <tt class="literal">&amp;#x03B8;</tt>, to
+insert Unicode characters like <img src="figs/U03B8.gif" alt="Figure " /> that
+aren't available in the legacy character set in
+which a document is written.
+</p><p>Computers don't really understand text. They
+don't recognize the Latin letter <em class="emphasis">Z,</em>
+the Greek letter <img src="figs/U03D2.gif" alt="Figure " />, or the Han ideograph <img src="figs/han.gif" alt="Figure " />. All a computer understands are numbers such as 90, 947, or 40,821. A <em class="emphasis">character set</em><a name="IXT-5-238844" /> maps particular characters, like <em class="emphasis">Z</em>, to particular numbers, like 90. These numbers are called <em class="emphasis">code points</em><a name="IXT-5-238845" />. A <em class="emphasis">character encoding</em><a name="IXT-5-238846" /> determines how those code points are represented in bytes. For instance, the code point 90 can be encoded as a signed byte, a little-endian unsigned short, a 4-byte, two's complement, big-endian integer, or in some still more complicated fashion. </p><p>A human script like Cyrillic may be written in multiple character
+sets, such as KOI8-R, Unicode, or ISO-8859-5. A character set like
+Unicode may then be encoded in multiple encodings, such as UTF-8,
+UCS-2, or UTF-16. In general, however, simpler character sets like
+ASCII and KOI8-R have only one encoding.
+</p><div class="sect1"><a name="xmlnut2-CHP-5-SECT-1" />
+<h2 class="sect1">5.1. Character-Set Metadata</h2>
+
+<p>Some <a name="IXT-5-238847" />
+<a name="IXT-5-238848" />environments keep track of which
+encodings in which particular documents are written. For instance,
+web servers that transmit XML documents precede them with an HTTP
+header that looks something like this:
+</p>
+
+<blockquote><pre class="code">HTTP/1.1 200 OK
+Date: Sun, 28 Oct 2001 11:05:42 GMT
+Server: Apache/1.3.19 (Unix) mod_jk mod_perl/1.25 mod_fastcgi/2.2.10 Connection: close
+Transfer-Encoding: chunked<b class="emphasis-bold">
+Content-Type: text/xml; charset=iso-8859-1</b></pre></blockquote>
+<p>The Content-Type field of the HTTP header provides the MIME media
+type of the document. This may, as shown here, specify in which
+character set the document is written. An
+<a name="IXT-5-238849" />XML parser reading this
+document from a web server should use this information to determine
+the document's character encoding.
+</p>
+
+<p>Many web servers omit the charset parameter from the MIME media type.
+In this case, if the MIME media type is
+<tt class="literal">text/xml</tt><a name="IXT-5-238850" /> <a name="IXT-5-238851" /> <a name="IXT-5-238852" /> <a name="IXT-5-238853" />, then the document is assumed to be in the
+us-ascii encoding. If the MIME media type is
+<tt class="literal">application/xml</tt>, then the parser attempts to guess
+the character set by reading the first few bytes of the document.
+</p>
+
+
+
+<a name="ch05-4-fm2xml" /><blockquote><b>TIP:</b> 
+Since ASCII is almost never an appropriate character set for an XML
+document, <tt class="literal">application/xml</tt> is much preferred over
+text/xml. Unfortunately, most web servers including Apache 2.0.36 and
+earlier are configured to use <tt class="literal">text/xml</tt> by default.
+It's worth editing your
+<em class="filename">mime.types</em> file to fix this. Alternately, at
+least with Apache, if you don't have root access to
+your web server, you can use the AddType and AddCharset directives in
+your <em class="filename">.htaccess</em> files to override the server-wide
+defaults.</p>
+</blockquote>
+ <p>We've focused on MIME types in HTTP
+headers because that's the most common place where
+character-set metadata is applied to XML documents. However, MIME
+types are also used in some filesystems (e.g., the BeOS), in email,
+and in other environments. Other systems may provide other forms of
+character-set metadata. If such metadata is available for a document,
+whatever form it takes, the parser should use it, though in practice
+this is an area where not all parsers and programs are as conformant
+as they should be. </p>
+
+
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch05_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">4.4. Namespaces and DTDs</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">5.2. The Encoding Declaration</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+      </map>
+
+</body></html>

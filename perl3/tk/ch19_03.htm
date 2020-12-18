@@ -1,0 +1,466 @@
+<html><head><title>The Perl/Tk IPADM Client, ipadm (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch19_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch19_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">19.3. The Perl/Tk IPADM Client, ipadm</h2>
+
+<p>The client's primary duties are to build the human interface
+and establish a communications link to the server,
+<em class="emphasis">ipadmd</em>. In order to talk to the server,
+<em class="emphasis">ipadm</em> starts the helper,
+<em class="emphasis">ipadmh</em>, as a separate process. Then
+<em class="emphasis">ipadm</em> sends a message to the daemon requesting a
+list of subnet descriptions, which it uses to construct the hypertext
+interface shown in <a href="ch19_02.htm#mastperltk-CHP-19-FIG-2">Figure 19-2</a>. Each subnet
+description has tags and bindings that react to mouseclicks and
+subsequently display the subnet's nodes, as shown in <a href="ch19_03.htm#mastperltk-CHP-19-FIG-3">Figure 19-3</a>. 
+</p>
+
+<p>The following sections explain all this in detail.</p>
+
+<a name="mastperltk-CHP-19-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">19.3.1. Creating the Hypertext User Interface</h3>
+
+<p><a name="INDEX-2966" /><a name="INDEX-2967" />As <a href="ch19_02.htm#mastperltk-CHP-19-FIG-2">Figure 19-2</a> shows, <em class="emphasis">ipadm</em>'s
+MainWindow is essentially a single, scrolled ROText widget listing
+all of ACME Rocket Supply's subnets.
+</p>
+
+<blockquote><pre class="code">my $t = $MW-&gt;Scrolled('ROText', 
+    qw/-width 80 -height 10 -relief ridge -scrollbars w/);</pre></blockquote>
+
+<p>As the cursor passes over a subnet line, it becomes
+"hot," is highlighted in green, and is able to respond to
+a button click. Clicking on a hot item opens a Toplevel "subnet
+editing" window, which we'll see shortly. All these
+actions are controlled by text tags and bindings. First, we create
+and configure several tags:
+</p>
+
+<blockquote><pre class="code">$t-&gt;tagConfigure(qw/title -font/ =&gt; 'Helvetica 18 bold');
+$t-&gt;tagConfigure(qw/subnet -lmargin1 .5c -lmargin2 1c -foreground blue/);
+$t-&gt;tagConfigure(qw/hot -relief raised -borderwidth 1 -background green/);</pre></blockquote>
+
+<p>The <tt class="literal">title</tt> tag is applied to the title line, giving
+it a nice, large font. The <tt class="literal">subnet</tt> tag is applied
+to each subnet line, and the <tt class="literal">hot</tt> tag is applied to
+a subnet line as the cursor moves over it and is removed as the
+cursor leaves.
+</p>
+
+<p>This dynamic manipulation of the <tt class="literal">hot</tt> tag is
+handled by tag bindings for <tt class="literal">&lt;Enter&gt;</tt> and
+<tt class="literal">&lt;Leave&gt;</tt> events.
+</p>
+
+<blockquote><pre class="code">my $last_hot = '';
+$t-&gt;tagBind(qw/subnet &lt;Enter&gt;/ =&gt; sub {
+    my $text = shift;
+    my($x, $y) = ($Tk::event-&gt;x, $Tk::event-&gt;y);
+    $last_hot = $text-&gt;index("\@$x,$y linestart");
+    $text-&gt;tagAdd('hot', $last_hot, "$last_hot lineend");
+});</pre></blockquote>
+
+<p><a name="INDEX-2968" />As usual,
+the first argument to a bind callback is the bound object reference,
+here the ROText widget. We can determine the text line on which the
+event occurred by fetching the event's cursor coordinates and
+using <em class="replaceable"><tt>index</tt></em> to convert them to a string in
+<tt class="literal">"</tt><em class="replaceable"><tt>line.character</tt></em><tt class="literal">"</tt>
+notation. The <tt class="literal">linestart</tt> modifier ensures that the
+character portion is always 0. Now we can add the
+<tt class="literal">hot</tt> tag to the entire line, changing its
+background color to green.
+</p>
+
+<p>The <tt class="literal">&lt;Leave&gt;</tt> callback is even simpler,
+because we can unconditionally clear the <tt class="literal">hot</tt> tag
+from the entire text area. Note the <tt class="literal">shift</tt> trick
+that returns the implicit ROText widget reference.
+</p>
+
+<blockquote><pre class="code">$t-&gt;tagBind(qw/subnet &lt;Leave&gt;/ =&gt; sub {
+    shift-&gt;tagRemove(qw/hot 1.0 end/);
+});</pre></blockquote>
+
+<p><a name="INDEX-2969" />Our tag bindings tell us when the
+cursor enters or leaves any text tagged with the
+<tt class="literal">subnet</tt> tag; they don't tell us when the
+cursor crosses line boundaries. If you place the cursor at the top of
+the <em class="emphasis">ipadm</em> window and drag it downward, a single
+<tt class="literal">&lt;Enter&gt;</tt> event is generated as the cursor
+hits the first subnet line, and a corresponding
+<tt class="literal">&lt;Leave&gt;</tt> event is generated as the cursor
+moves out the bottom of the window. Essentially, no events whatsoever
+are generated as the cursor moves over subnet lines between the first
+and last. We handle this with a <tt class="literal">&lt;Motion&gt;</tt>
+binding that checks to see when the cursor moves to a different line
+and updates the <tt class="literal">hot</tt> tags appropriately.
+</p>
+
+<blockquote><pre class="code">$t-&gt;tagBind(qw/subnet &lt;Motion&gt;/ =&gt; sub {
+    my $text = shift;
+    my($x, $y) = ($Tk::event-&gt;x, $Tk::event-&gt;y);
+    my $new_hot = $text-&gt;index("\@$x,$y linestart");
+    if ($new_hot ne $last_hot) {
+        $text-&gt;tagRemove(qw/hot 1.0 end/);
+        $text-&gt;tagAdd('hot', $new_hot, "$new_hot lineend");
+        $last_hot = $new_hot;
+    }
+});</pre></blockquote>
+
+<p>As we learned in the previous section, the actual data inserted into
+the ROText widget comes from a <tt class="literal">get_subnet_list</tt>
+IPADM command. The <tt class="literal">do_command</tt> subroutine,
+described later, handles all the busy work concerning the pipe I/O
+and protocol details, but note that it issues a single, human-legible
+command and returns the command status and data. Each line of data
+consists of two tokens: the SDB filename and the Title line from the
+SDB file. In the following code, each line is tagged with two
+strings: <tt class="literal">"subnet"</tt> and the SDB filename (the
+filename has the extension <em class="emphasis">.sdb</em>).
+</p>
+
+<blockquote><pre class="code">my($status, @subnet_list) = do_command "get_subnet_list\n";
+die "Cannot get SDB list" unless  $status =~ /OK/;
+
+foreach (sort numerically @subnet_list) {
+    my($sdb, $title) = /^(\S+)\s+(.*)/;
+    $t-&gt;insert('end', "$title\n", ['subnet', $sdb]);
+}</pre></blockquote>
+
+<p>To complete the user interface, we need to invoke the subnet editor
+when a subnet line is clicked:
+</p>
+
+<blockquote><pre class="code">$t-&gt;tagBind(qw/subnet &lt;ButtonRelease-1&gt;/ =&gt; \&amp;open_subnet);</pre></blockquote>
+
+<p>The <tt class="literal">open_subnet</tt> subroutine creates an instance of
+a Subnet widget for editing an SDB file. It fetches the list of tags
+associated with the current line and searches the list<a href="#FOOTNOTE-51">[51]</a>
+for a tag ending in <em class="emphasis">.sdb</em>, the SDB filename. The
+SDB filename, plus a unique identifier used by the daemon for
+file-locking purposes (described in <a href="ch19_05.htm#mastperltk-CHP-19-SECT-5.3">Section 19.5.3, "Locking an SDB File"</a>), are supplied as parameters to
+the <tt class="literal">get_subnet_file</tt> IPADM command. The command
+status line and SDB contents are returned to the
+<tt class="literal">@sdb</tt> array. We are looking for either of two
+status responses indicating whether <em class="emphasis">ipadmd</em>
+acquired an exclusive or nonexclusive lock. Anything else is an
+error. Ideally, we'd like an exclusive lock so the subnet
+editor can modify the subnet, but failing that, the subnet editor
+lets us look at, but not modify, the subnet.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-51" /><p> [51] <tt class="literal">lsearch</tt> is a local
+subroutine that searches a list using the supplied regular expression
+and returns a match ordinal, or -1 if not found.</p> </blockquote>
+
+<p><a name="INDEX-2970" />The
+subnet editor is really a composite widget that produces a window
+like that shown in <a href="ch19_03.htm#mastperltk-CHP-19-FIG-3">Figure 19-3</a>. After interacting
+with the subnet editor, we can either update the subnet or cancel all
+changes, so we supply callbacks that handle those actions (by issuing
+the appropriate IPADM command).
+</p>
+
+<a name="INDEX-2971" /><blockquote><pre class="code">sub open_subnet {
+
+    my($text) = @_;
+
+    my @tags = $text-&gt;tagNames('current');
+    my $i = lsearch('.*\.sdb', @tags);
+    return if $i &lt; 0;
+    $text-&gt;Busy(-recurse =&gt; 1);
+    my $id = "$ME\@$HN:$$";
+    my(@sdb) = do_command "get_subnet_file $tags[$i] $id\n";
+    if ($sdb[0] =~ /Have Lock|Lock Failed/) {
+     $text-&gt;Subnet(
+      -sdb_path  =&gt; $tags[$i],
+      -sdb       =&gt; \@sdb,
+      -id        =&gt; $id,
+      -updatecmd =&gt; sub {do_command "put_subnet_file $tags[$i] $id\n", @sdb},
+      -cancelcmd =&gt; sub {do_command "unl_subnet_file $tags[$i] $id\n"},
+     );
+    } else {
+     $text-&gt;messageBox(-message =&gt; "SDB Open Error: $sdb[0]",
+      -type =&gt; 'ok', -bitmap =&gt; 'error');
+    }
+    $text-&gt;Unbusy;
+
+} # end open_subnet</pre></blockquote>
+
+</div>
+<a name="mastperltk-CHP-19-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">19.3.2. The Subnet Widget Edits a Subnet Description</h3>
+
+<p><a name="INDEX-2972" /><a name="INDEX-2973" />A
+Subnet widget has two sections, paralleling the two sections of an
+SDB file. The top section is a series of LabEntry widgets that
+display data from the SDB header, while the bottom section displays
+the characteristics of a single network node. In <a href="ch19_03.htm#mastperltk-CHP-19-FIG-3">Figure 19-3</a>, we see details of the node known as
+JetDirect3, a three-port print server used by the Rubber Band
+Development department.
+</p>
+
+<a name="mastperltk-CHP-19-FIG-3" /><div class="figure"><img src="figs/mptk.1903.gif" alt="Figure 19-3" width="352" height="407" /></div><h4 class="objtitle">Figure 19-3.  The Subnet widget edits an SDB description</h4>
+
+<p>The A (address) field is the unqualified IP name of the node. People
+on the Rubber Band subnet can refer to the print server using this
+name or the IP number 192.168.128.17. People on other ACME subnets
+must use either the IP number or include the domain and use the fully
+qualified IP name, JetDirect3.RubberBand.ACME.Com. The CNAME
+(canonical name) field is an alias for the node's IP name. The
+MX (mail exchange) field typically points to a mail server that
+handles mail on behalf of the node; it's not relevant in this
+case. The Comments field is just that.
+</p>
+
+<p>As the balloon help suggests, the subnet administrator can type a
+search string in any node field to perform a search. Once a node
+entry is loaded, he makes his changes and clicks Apply. Or, to make a
+new node entry, he clicks on an available IP number in the Listbox on
+the right, moving it from the free list to the edit area, configures
+the node, and applies the changes. When complete, he can either
+update the subnet with his changes
+(<tt class="literal">put_subnet_file</tt>) or cancel them all
+(<tt class="literal">unl_subnet_file</tt>).
+</p>
+
+<p><a name="INDEX-2974" /><a name="INDEX-2975" />Although we won't spend much
+more time discussing the Subnet widget, it does have one trick up its
+sleeve, and that's how it uses watchpoints to track changes to
+any of the subnet header LabEntry widgets. The widget's
+<tt class="literal">Populate</tt> method reserves an instance variable in
+the composite hash, <tt class="literal">$cw-&gt;{Subnet_Changes}</tt>, so
+all we need do is register a STORE callback on an entry's
+-<tt class="literal">textvariable</tt> to set that flag. Since the
+composite widget reference, <tt class="literal">$cw</tt>, is in scope, we
+simply create a closure and feed that to the CPAN module Tie::Watch:
+</p>
+
+<blockquote><pre class="code">my $callback = sub {
+    shift-&gt;Store(shift);
+    $cw-&gt;{Subnet_Changes}++;
+};
+
+Tie::Watch-&gt;new(-variable =&gt; \$title, -store =&gt; $callback);</pre></blockquote>
+
+<p>Whenever the variable <tt class="literal">$title</tt> is written, the
+callback is invoked with two arguments: a reference to the Tie::Watch
+object and the watched variable's new value. <a name="INDEX-2976" />
+</p>
+
+</div>
+<a name="mastperltk-CHP-19-SECT-3.3" /><div class="sect2">
+<h3 class="sect2">19.3.3. Starting the IPADM Helper Task</h3>
+
+<p>The IPADM client, <em class="emphasis">ipadm</em>, starts its IPADM
+helper, <em class="emphasis">ipadmh</em>, in the standard Unix
+manner<a href="#FOOTNOTE-52">[52]</a> and talks to it via two unidirectional pipes. From our
+point of view (the parent), we use the file handles
+<tt class="literal">PR</tt> and <tt class="literal">PW</tt> to read and write
+data from/to the helper (our child). From the child's point of
+view, it simply reads from STDIN and writes to STDOUT/STDERR, which
+we connect to the opposite ends of the two pipes,
+<tt class="literal">CR</tt> and <tt class="literal">CW</tt>, respectively. Note
+that we unbuffer all the output file handles.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-52" /><p> [52] Here we <tt class="literal">exec</tt> a non-Tk program after the <tt class="literal">fork</tt> (we
+don't require Tk functionality or desire its added baggage),
+but that's not strictly necessary; it's perfectly okay to
+have a Perl/Tk child, with two caveats. First, the child must not
+touch, reference, or manipulate Tk objects belonging to the parent in
+any way. Second, if the child terminates before the parent, it must
+override the standard Tk exit command and use
+<tt class="literal">CORE::exit</tt>, or better,
+<tt class="literal">POSIX::exit</tt>. Invoking plain
+<tt class="literal">exit(Tk::exit)</tt> unceremoniously destroys all
+widgets and data structures and terminates the application.</p>
+</blockquote>
+
+<p>As its first task, <em class="emphasis">ipadmh</em> attempts to connect to
+the daemon, <em class="emphasis">ipadmd</em>, and pipes us an unsolicited
+message indicating whether or not the connect was successful. Calling
+<tt class="literal">do_command</tt> without a command reads this message
+for us.
+</p>
+
+<p>Finally, note the dubious use of a signal handler to catch a SIGPIPE
+error. Generally, mixing signals with Perl/Tk causes unexpected
+application crashes, but in this case, losing contact with the helper
+is, for all intents and purposes, fatal, and this lets us exit
+gracefully.
+</p>
+
+<blockquote><pre class="code">sub start_ipc_helper {
+
+    $SIG{PIPE} = sub {print STDERR "ipadmh pipe failure.\n"; exit};
+
+    pipe CR, PW or die "cr/pw pipe $!";
+    pipe PR, CW or die "pr/cw pipe $!";
+
+    if ($PID = fork) { # parent, ipadm/Tk
+        close CR;
+        close CW;
+        PW-&gt;autoflush(1);
+    } elsif (defined $PID) { # child, exec ipadmh
+        close PR;
+        close PW;
+        open STDIN,  "&lt;&amp;CR" or die "STDIN  open $!";
+        open STDOUT, "&gt;&amp;CW" or die "STDOUT open $!";
+        open STDERR, "&gt;&amp;CW" or die "STDERR open $!";
+        STDOUT-&gt;autoflush(1);
+        STDERR-&gt;autoflush(1);
+        exec("./ipadmh", $DAEMON_HOST, $DAEMON_PORT) or die "exec $!";
+        die "exec warp $!";
+    } else {
+        die "fork $!";
+    } # ifend fork
+
+    my(@stat) = do_command undef;    # did helper make a connection?
+    return if $stat[0] =~ /Connect OK/;
+
+    $MW-&gt;messageBox(-message =&gt; "Cannot connect to remote IPADM daemon " .
+        "$DAEMON_HOST:$DAEMON_PORT.  Please try again later.",
+        -title =&gt; 'Daemon is Dead', -icon  =&gt; 'warning',
+        -type =&gt; 'OK');
+    fini;
+
+} # end start_ipc_helper
+
+sub fini {
+    kill 'SIGTERM', $PID;
+    exit;
+}</pre></blockquote>
+
+</div>
+<a name="mastperltk-CHP-19-SECT-3.4" /><div class="sect2">
+<h3 class="sect2">19.3.4. fileevent Keeps ipadm Happy</h3>
+
+<p><a name="INDEX-2977" /><a name="INDEX-2978" /><a name="INDEX-2979" />And now, here is
+<tt class="literal">do_command</tt>, the guts of
+<em class="emphasis">ipadm</em>'s message handling:
+</p>
+
+<blockquote><pre class="code">sub do_command {
+
+    # Issue a single IPADM command and wait for a reply.  Using
+    # pipes and fileevent( ) allows X11 events to continue flowing.
+
+    pipe_out @_;
+    return pipe_in;
+
+} # end do_command</pre></blockquote>
+
+<p>Recall that <em class="emphasis">ipadm</em> uses this code to get a list
+of subnets:
+</p>
+
+<blockquote><pre class="code">my($status, @subnet_list) = do_command "get_subnet_list\n";
+die "Cannot get SDB list" unless  $status =~ /OK/;</pre></blockquote>
+
+<p><tt class="literal">do_command</tt><em class="emphasis">'s</em> helper
+<tt class="literal">pipe_out</tt> appends the terminating string,
+<tt class="literal">$EOF</tt>, to the outgoing data, then registers a
+callback that's invoked when the output pipe is writable.
+Because we're coding with <tt class="literal">use strict</tt> in
+effect, we cannot give <tt class="literal">fileevent</tt> a bare file
+handle but must use a reference to a glob instead. The callback
+outputs its data, including the <tt class="literal">$EOF</tt>, using
+<tt class="literal">syswrite</tt>, at which time it increments
+<tt class="literal">$wait</tt>. Meanwhile, <tt class="literal">waitVariable</tt>
+has logically suspended us, pending a change in
+<tt class="literal">$wait</tt>, at which time the writable callback is
+canceled.
+</p>
+
+<blockquote><pre class="code">sub pipe_out {
+
+    # Issue an IPADM command by syswrite-ing all the data plus
+    # the terminating $EOF.
+
+    return unless defined $_[0];
+
+    my($bytes, $offset, $sysdata, $sysstat, $wait);
+
+    $sysdata = join '', @_, "$EOF\n";
+    $bytes = length $sysdata;
+    $offset = 0;
+
+    $MW-&gt;fileevent(\*PW, 'writable' =&gt; sub {
+
+        while ($bytes &gt; 0) {
+            $sysstat = syswrite PW, $sysdata, $bytes, $offset;
+            die "ipadm: syswrite error $!" unless defined $sysstat;
+            $bytes  -= $sysstat;
+            $offset += $sysstat;
+        }
+        $wait++;
+
+    });
+
+    $MW-&gt;waitVariable(\$wait);
+    $MW-&gt;fileevent(\*PW, 'writable' =&gt; '');
+
+} # end pipe_out</pre></blockquote>
+
+<p>Unsurprisingly, <tt class="literal">pipe_in</tt> reads the reply
+data<a href="#FOOTNOTE-53">[53]</a> in a similar manner.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-53" /><p> [53] Notice that Tk 800.015 and earlier do not use
+<tt class="literal">sysread</tt> due to differences in
+<tt class="literal">fileevent</tt> handling. This
+leaves us open to a potential deadlock, but our line-oriented
+protocol is simple enough that in practice, this never
+happens.</p> </blockquote>
+
+<a name="INDEX-2980" /><a name="INDEX-2981" /><blockquote><pre class="code">sub pipe_in {
+
+    # Now that the IPADM command has been issued, keep sysread-ing
+    # until the $EOF string is read, and return all the accumulated
+    # data, excluding $EOF.
+
+    my(@data, $sysbuf, $sysdata, $sysstat, $wait);
+
+    $MW-&gt;fileevent(\*PR, 'readable' =&gt; sub {
+
+        if ( $Tk::VERSION  le '800.015' ) {
+            $sysbuf = &lt;PR&gt;;
+        } else {
+            $sysstat = sysread PR, $sysbuf, 4096;
+            die "ipadm: sysread error $!" unless defined $sysstat;
+        }
+        $sysdata .= $sysbuf;
+        if ($sysdata =~ /$EOF$/s) {
+            @data = split /\n/, $sysdata;
+            $#data--;        # throw $EOF away
+            $wait++;         # unblock waitVariable( )
+        }
+
+    });
+
+    $MW-&gt;waitVariable(\$wait);
+    $MW-&gt;fileevent(\*PR, 'readable' =&gt; '');
+
+    @data;
+
+} # end pipe_in</pre></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch19_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch19_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">19.2. IPADM Design Considerations</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">19.4. The IPADM Helper, ipadmh</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

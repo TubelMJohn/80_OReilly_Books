@@ -1,0 +1,362 @@
+<?label 2. Basic Non-DBI Databases  ?><html><head><title>Basic Non-DBI Databases   (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch01_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch02_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 2. Basic Non-DBI Databases  </h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch02_01.htm">Storage Managers and Layers </a><br />
+<a href="ch02_02.htm">Query Languages and Data Functions </a><br />
+<a href="ch02_03.htm">Standing Stones and the Sample Database </a><br />
+<a href="ch02_04.htm">Flat-File Databases </a><br />
+<a href="ch02_05.htm">Putting Complex Data into Flat Files </a><br />
+<a href="ch02_06.htm">Concurrent Database Access and Locking </a><br />
+<a href="ch02_07.htm">DBM Files and the BerkeleyDatabase Manager </a><br />
+<a href="ch02_08.htm">The MLDBM Module </a><br />
+<a href="ch02_09.htm">Summary</a><br /></p></div>
+
+
+
+
+
+<p>There are several ways in which databases organize the data contained
+within them. The most common of these is the <em class="emphasis">relational
+database</em> methodology. Databases that use a relational
+model are called <em class="emphasis">Relational Database Management
+Systems</em>
+<a name="INDEX-19" />
+<a name="INDEX-20" />, or RDBMSs. The most
+popular database systems nowadays (such as Oracle, Informix, and
+Sybase) are all relational in design.</p>
+
+
+
+<p>But what does "relational" actually mean? A
+<em class="emphasis">relational database</em> is a database that is
+perceived by the user as a collection of tables, where a
+<em class="emphasis">table</em> is an <em class="emphasis">unordered collection of
+rows</em>. (Loosely speaking, a <em class="emphasis">relation</em>
+is a just a mathematical term for such a table.) Each row has a fixed
+number of fields, and each field can store a predefined type of data
+value, such as an integer, date, or string.</p>
+
+
+
+<p>Another type of methodology that is growing in popularity is the
+<em class="emphasis">object-oriented</em> methodology, or OODBMS. With an
+object-oriented model, everything within the database is treated as
+an <em class="emphasis">object</em> of a certain
+<em class="emphasis">class</em> that has rules defined within itself for
+manipulating the data it encapsulates. This methodology closely
+follows that of object-oriented programming languages such as
+Smalltalk, C++, and Java. However, the DBI does not support any real
+OODBMS, so for the moment this methodology will not be discussed
+further.</p>
+
+
+
+<p>Finally, there are several simplistic database packages that exist on
+various operating systems. These simple database packages generally
+do not feature the more sophisticated functionality that
+``real'' database engines provide. They are,
+to all intents, only slightly sophisticated file-handling routines,
+not actually database packages. However, in their defense, they can
+be extremely fast, and in certain situations the sophisticated
+functionality that a ``real'' database system
+provides is simply an unnecessary overhead.<a href="#FOOTNOTE-3">[3]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-3" /><p>[3]A useful
+list of a wide range of free databases is available from <a href="ftp://ftp.idiom.com/pub/free-databases">ftp://ftp.idiom.com/pub/free-databases</a>.</p>
+
+
+</blockquote>
+
+
+
+<p>In this chapter, we'll be exploring some non-DBI databases,
+ranging from the very simplest of ASCII data files through to
+disk-based hash files supporting duplicate keys. Along the way,
+we'll consider concurrent access and locking issues, and some
+applications for the rather useful
+<tt class="literal">Storable</tt>
+<a name="INDEX-21" />
+<a name="INDEX-22" /> and
+<tt class="literal">Data::Dumper</tt>
+<a name="INDEX-23" />
+<a name="INDEX-24" />
+modules. (While none of this is strictly about the DBI, we think
+it'll be useful for many people, and even DBI veterans may pick
+up a few handy tricks.)</p>
+
+
+
+<p>All of these <a name="INDEX-25" />database technologies, from the
+most complex to the simplest, share two basic attributes. The first
+is the very definition of the term: a database is a collection of
+data stored on a computer with varying layers of abstraction sitting
+on top of it. Each layer of abstraction generally makes the data
+stored within easier to both organize and access, by separating the
+request for particular data from the mechanics of getting that data.</p>
+
+
+<p>The second basic attribute common to all database systems is that
+they all use <a name="INDEX-26" />Application Programming Interfaces
+(APIs) to provide access to the data stored within the database. In
+the case of the simplest databases, the API is simply the file
+read/write calls provided by the operating system, accessed via your
+favorite programming language.</p>
+
+
+
+<p>An API allows programmers to interact with a more complex piece of
+software through access paths defined by the original software
+creators. A good example of this is the Berkeley Database Manager
+API. In addition to simply accessing the data, the API allows you to
+alter the structure of the database and the data stored within the
+database. The benefit of this higher level of access to a database is
+that you don't need to worry about <em class="emphasis">how</em> the
+Berkeley Database Manager is managing the data. You are manipulating
+an abstracted view via the API.</p>
+
+
+
+<p>In higher-level layers such as those implemented by an RDBMS, the
+data access and manipulation API is completely divorced from the
+structure of the database. This separation of logical model from
+physical representation allows you to write standard database code
+(e.g., <em class="emphasis">SQL</em>) that is independent of the database
+engine that you are using.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch02-ch02_storage_0" />
+<h2 class="sect1">2.1. Storage Managers and Layers </h2>
+
+
+
+<p>
+<a name="INDEX-27" /> <a name="INDEX-28" /> <a name="INDEX-29" />Modern databases, no matter which
+methodology they implement, are generally composed of multiple layers
+of software. Each layer implements a higher level of functionality
+using the interfaces and services defined by the lower-level layers.</p>
+
+
+
+<p>For example, <a name="INDEX-30" />flat-file databases are composed of
+pools of data with very few layers of abstraction. Databases of this
+type allow you to manipulate the data stored within the database by
+directly altering the way in which the data is stored within the data
+files themselves. This feature gives you a lot of power and
+flexibility at the expense of being difficult to use, minimal in
+terms of functionality, and nerve-destroying since you have no safety
+nets. All manipulation of the data files uses the standard Perl file
+operations, which in turn use the underlying operating system APIs.</p>
+
+
+
+<p>
+<a name="INDEX-31" />DBM file
+libraries, like Berkeley DB, are an example of a storage manager
+layer that sits on top of the raw data files and allows you to
+manipulate the data stored within the database through a clearly
+defined API. This storage manager translates your API calls into
+manipulations of the data files on your behalf, preventing you from
+directly altering the structure of the data in such a manner that it
+becomes corrupt or unreadable. Manipulating a database via this
+storage manager is far easier and safer than doing it yourself.</p>
+
+
+
+<p>You could potentially implement a more powerful database system on
+top of DBM files. This new layer would use the DBM API to implement
+more powerful features and add another layer of abstraction between
+you and the actual physical data files containing the data.</p>
+
+
+
+<p>There are many benefits to using higher-level storage managers. The
+levels of abstraction between your code and the underlying database
+allow the database vendors to transparently add optimizations, alter
+the structure of the database files, or port the database engine to
+other platforms without you having to alter a single line of code.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch01_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch02_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">1.4. A Historical Interlude andStanding Stones </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">2.2. Query Languages and Data Functions </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

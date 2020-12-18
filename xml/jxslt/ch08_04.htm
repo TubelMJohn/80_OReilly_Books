@@ -1,0 +1,648 @@
+<html><head><title>Servlet Filters (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch08_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">8.4. Servlet Filters</h2>
+
+<p><a name="INDEX-963" />Version
+2.3 of the Java servlet specification adds a new feature called
+<em class="emphasis">filters</em><a name="INDEX-964" />. A
+filter is an object that intercepts requests to a servlet, JSP, or
+static file in a web application. The filter has the opportunity to
+modify the request before passing it along to the underlying resource
+and can capture and modify the response before sending it back to the
+client. Since filters can be specified declaratively using the web
+application deployment descriptor, they can be inserted into existing
+web applications without altering any of the existing code.
+</p>
+
+<a name="javaxslt-CHP-8-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">8.4.1. Filter Overview</h3>
+
+<p>Servlet
+<a name="INDEX-965" />filters
+are useful for many purposes, including logging, user authentication,
+data compression, encryption, and XSLT transformation. Many filters
+can be chained together, each performing one specific task. For the
+purposes of this book, XSLT transformations are the most interesting
+use of filters. <a href="ch08_04.htm#javaxslt-CHP-8-FIG-5">Figure 8-5</a> illustrates the general
+filter architecture.
+</p>
+
+<a name="javaxslt-CHP-8-FIG-5" /><div class="figure"><img src="figs/jxt_0805.gif" alt="Figure 8-5" width="378" height="175" /></div><h4 class="objtitle">Figure 8-5. Servlet filters</h4>
+
+<p><tt class="literal">javax.servlet.Filter</tt><a name="INDEX-966" />
+<a name="INDEX-967" />
+is an interface that all custom filters must implement. It defines
+the following three methods:
+</p>
+
+<blockquote><pre class="code">void init(FilterConfig config)
+void destroy( )
+void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)</pre></blockquote>
+
+<p>The <tt class="literal">init( )</tt> and <tt class="literal">destroy( )</tt>
+methods are virtually identical to the <tt class="literal">init( )</tt> and
+<tt class="literal">destroy( )</tt> methods found in any servlet.
+<tt class="literal">init( )</tt> is called when the filter is first loaded,
+and the <tt class="literal">FilterConfig</tt> parameter provides access to
+the <tt class="literal">ServletContext</tt> and to a list of initialization
+parameters. The code in <a href="ch08_04.htm#javaxslt-CHP-8-EX-11">Example 8-11</a> demonstrates
+each of these features. <tt class="literal">destroy( )</tt>, as expected,
+is called once when the filter is unloaded. This gives the filter a
+chance to release resources.
+</p>
+
+<p>The <tt class="literal">doFilter( )</tt><a name="INDEX-968" />
+<a name="INDEX-969" /> method is called whenever a client request
+is received. The filter participates in a
+<tt class="literal">FilterChain</tt><a name="INDEX-970" /> <a name="INDEX-971" />
+<a name="INDEX-972" />
+set up by the servlet container, which allows multiple filters to be
+attached to one another. If this filter wishes to block the request,
+it can simply do nothing. Otherwise, it must pass control to the next
+resource in the chain:
+</p>
+
+<blockquote><pre class="code">chain.doFilter(req, res);</pre></blockquote>
+
+<p>Although the next entry in the chain might be another filter, it is
+probably a servlet or a JSP. Either way, the filter does not have to
+know this.
+</p>
+
+<p>Simply calling <tt class="literal">doFilter(req, res)</tt> merely passes
+control to the next entry in the chain. To modify the request or
+response, the filter must modify the
+<tt class="literal">ServletRequest</tt> and/or
+<tt class="literal">ServletResponse</tt> object. Unfortunately, these are
+both interfaces, and their implementation classes are specific to
+each servlet container. Furthermore, the interfaces do not allow
+values to be modified.
+</p>
+
+<p><a name="INDEX-973" />To facilitate this
+capability, Version 2.3 of the servlet API also adds wrapper classes
+that allow the request and response to be modified. The following new
+classes are now available:
+</p>
+
+<ul><li>
+<p><tt class="literal">javax.servlet.ServletRequestWrapper</tt><a name="INDEX-974" />
+</p>
+</li><li>
+<p><tt class="literal">javax.servlet.ServletResponseWrapper</tt><a name="INDEX-975" />
+</p>
+</li><li>
+<p><tt class="literal">javax.servlet.http.HttpServletRequestWrapper</tt><a name="INDEX-976" />
+</p>
+</li><li>
+<p><tt class="literal">javax.servlet.http.HttpServletResponseWrapper</tt><a name="INDEX-977" />
+</p>
+</li></ul>
+<p>Each of these classes merely wraps around another request or
+response, and all methods merely delegate to the wrapped object. To
+modify behavior, programmers must extend from one of these classes
+and override one or more methods. Here is how a custom filter might
+look:
+</p>
+
+<blockquote><pre class="code">public class MyFilter implements Filter {
+    public void doFilter (ServletRequest req, ServletResponse res,
+            FilterChain chain) throws IOException, ServletException {
+        // wrap around the original request and response
+        MyRequestWrapper reqWrap = new MyRequestWrapper(req);
+        MyResponseWrapper resWrap = new MyResponseWrapper(res);
+
+        // pass the wrappers on to the next entry
+        chain.doFilter(reqWrap, resWrap);
+    }
+}</pre></blockquote>
+
+<p>In this case, <tt class="literal">MyRequestWrapper</tt> and
+<tt class="literal">MyResponseWrapper</tt> are doing the actual work of
+modifying the request and response. This works fine for many types of
+simple filters but is more complex when modifying the response
+content. To illustrate this point, consider the
+<tt class="literal">getOutputStream(
+)</tt><a name="INDEX-978" />
+<a name="INDEX-979" /> method in
+<tt class="literal">javax.servlet.ServletResponse</tt><a name="INDEX-980" />:
+</p>
+
+<blockquote><pre class="code">public interface ServletResponse {
+    ServletOutputStream getOutputStream( ) throws IOException;
+    ...additional methods
+}</pre></blockquote>
+
+<p>Here is how <tt class="literal">javax.servlet.ServletResponseWrapper</tt>
+defines the same method:
+</p>
+
+<blockquote><pre class="code">public class ServletResponseWrapper implements ServletResponse {
+    private ServletResponse response;
+
+    public ServletResponseWrapper(ServletResponse response) {
+        this.response = response;
+    }
+<tt class="userinput"><b>
+    // default implementation delegates to the wrapped response</b></tt><tt class="userinput"><b>
+    public ServletOutputStream getOutputStream( ) throws IOException {</b></tt><tt class="userinput"><b>
+        return this.response.getOutputStream( );</b></tt><tt class="userinput"><b>
+    }</b></tt>
+
+    ...additional methods behave the same way
+}</pre></blockquote>
+
+<p>To modify the response sent to the client browser, the custom wrapper
+subclass must override the <tt class="literal">getOutputStream( )</tt>
+method as follows:
+</p>
+
+<blockquote><pre class="code">public class MyResponseWrapper extends ServletResponseWrapper {
+<tt class="userinput"><b>
+    public ServletOutputStream getOutputStream( ) throws IOException {</b></tt><tt class="userinput"><b>
+        // cannot return the ServletOutputStream from the superclass, because</b></tt><tt class="userinput"><b>
+        // that object does not allow us to capture its output. Therefore,</b></tt><tt class="userinput"><b>
+        // return a custom subclass of ServletOutputStream:</b></tt><tt class="userinput"><b>
+        return new MyServletOutputStream( );</b></tt><tt class="userinput"><b>
+    }</b></tt>
+}</pre></blockquote>
+
+<p><tt class="literal">ServletOutputStream</tt><a name="INDEX-981" /> <a name="INDEX-982" /> is an abstract class and does not
+provide methods that allow it to be modified. Instead, programmers
+must create custom subclasses of
+<tt class="literal">ServletOutputStream</tt> that allow them to capture the
+output and make any necessary modifications. This is what makes
+modification of the servlet response so difficult.
+</p>
+
+</div>
+<a name="javaxslt-CHP-8-SECT-4.2" /><div class="sect2">
+<h3 class="sect2">8.4.2. XSLT Transformation Filter </h3>
+
+<p><a name="INDEX-983" /> <a name="INDEX-984" />The previous discussion
+introduced a lot of concepts about servlet filters without a lot of
+details. Next, a complete example for performing XSLT transformations
+using a filter is presented. Hopefully this will illustrate some of
+the issues mentioned so far.
+</p>
+
+<p>The basic goal is to create a servlet filter that performs XSLT
+transformations. A servlet, JSP, or static XML file will provide the
+raw XML data. The filter will intercept this XML before it is sent to
+the client browser and apply an XSLT transformation. The result tree
+is then sent back to the browser.
+</p>
+
+<p><a href="ch08_04.htm#javaxslt-CHP-8-EX-9">Example 8-9</a> is the first of three classes that
+comprise this example. This is a custom subclass of
+<tt class="literal">ServletOutputStream</tt> that captures its output in a
+byte array buffer. The XML data is queued up in this buffer as a
+first step before it is
+transformed.<a name="INDEX-985" />
+<a name="INDEX-986" />
+</p>
+
+<a name="javaxslt-CHP-8-EX-9" /><div class="example">
+<h4 class="objtitle">Example 8-9. BufferedServletOutputStream.java </h4>
+<blockquote><pre class="code">package com.oreilly.javaxslt.util;
+
+import java.io.*;
+import javax.servlet.*;
+
+/**
+ * A custom servlet output stream that stores its data in a buffer,
+ * rather than sending it directly to the client.
+ *
+ * @author Eric M. Burke
+ */
+<tt class="userinput"><b>public class BufferedServletOutputStream extends ServletOutputStream {</b></tt>
+    // the actual buffer
+    private ByteArrayOutputStream bos = new ByteArrayOutputStream( );
+
+    /**
+     * @return the contents of the buffer.
+     */
+    public byte[] getBuffer( ) {
+        return this.bos.toByteArray( );
+    }
+
+    <tt class="userinput"><b>/**
+     * This method must be defined for custom servlet output streams.
+     */
+    public void write(int data) {
+        this.bos.write(data);
+    }</b></tt>
+
+    // BufferedHttpResponseWrapper calls this method
+    public void reset( ) {
+        this.bos.reset( );
+    }
+
+    // BufferedHttpResponseWrapper calls this method
+    public void setBufferSize(int size) {
+        // no way to resize an existing ByteArrayOutputStream
+        this.bos = new ByteArrayOutputStream(size);
+    }
+} </pre></blockquote>
+</div>
+
+<p>The <tt class="literal">BufferedServletOutputStream</tt> class extends
+directly from <tt class="literal">Servlet-OutputStream</tt>. The only
+abstract method in <tt class="literal">ServletOutputStream</tt> is
+<tt class="literal">write( )</tt><a name="INDEX-987" />; therefore, our class
+must define that method. Instead of writing the data to the client,
+however, our class writes the data to a
+<tt class="literal">ByteArrayOutput-Stream</tt><a name="INDEX-988" /> <a name="INDEX-989" />
+<a name="INDEX-990" />.
+The remaining methods, <tt class="literal">reset(
+)</tt><a name="INDEX-991" />
+<a name="INDEX-992" />
+<a name="INDEX-993" /> and
+<tt class="literal">setBufferSize( )</tt>, are required by the class shown
+in <a href="ch08_04.htm#javaxslt-CHP-8-EX-10">Example 8-10</a>.<a name="INDEX-994" />
+</p>
+
+<a name="javaxslt-CHP-8-EX-10" /><div class="example">
+<h4 class="objtitle">Example 8-10. BufferedHttpResponseWrapper.java </h4>
+<blockquote><pre class="code">package com.oreilly.javaxslt.util;
+
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+
+/**
+ * A custom response wrapper that captures all output in a buffer.
+ */
+public class BufferedHttpResponseWrapper extends HttpServletResponseWrapper {
+    private BufferedServletOutputStream bufferedServletOut
+            = new BufferedServletOutputStream( );
+
+    private PrintWriter printWriter = null;
+    private ServletOutputStream outputStream = null;
+
+    public BufferedHttpResponseWrapper(HttpServletResponse origResponse) {
+        super(origResponse);
+    }
+
+    public byte[] getBuffer( ) {
+        return this.bufferedServletOut.getBuffer( );
+    }
+
+    public PrintWriter getWriter( ) throws IOException {
+        if (this.outputStream != null) {
+            throw new IllegalStateException(
+                    "The Servlet API forbids calling getWriter( ) after"
+                    + " getOutputStream( ) has been called");
+        }
+
+        if (this.printWriter == null) {
+            this.printWriter = new PrintWriter(this.bufferedServletOut);
+        }
+        return this.printWriter;
+    }
+
+    public ServletOutputStream getOutputStream( ) throws IOException {
+        if (this.printWriter != null) {
+            throw new IllegalStateException(
+                "The Servlet API forbids calling getOutputStream( ) after"
+                + " getWriter( ) has been called");
+        }
+
+        if (this.outputStream == null) {
+            this.outputStream = this.bufferedServletOut;
+        }
+        return this.outputStream;
+    }
+
+    // override methods that deal with the response buffer
+
+    public void flushBuffer( ) throws IOException {
+        if (this.outputStream != null) {
+            this.outputStream.flush( );
+        } else if (this.printWriter != null) {
+            this.printWriter.flush( );
+        }
+    }
+
+    public int getBufferSize( ) {
+        return this.bufferedServletOut.getBuffer( ).length;
+    }
+
+    public void reset( ) {
+        this.bufferedServletOut.reset( );
+    }
+
+    public void resetBuffer( ) {
+        this.bufferedServletOut.reset( );
+    }
+
+    public void setBufferSize(int size) {
+        this.bufferedServletOut.setBufferSize(size);
+    }
+} </pre></blockquote>
+</div>
+
+<p><tt class="literal">BufferedHttpResponseWrapper</tt><a name="INDEX-995" /> is an extension
+of <tt class="literal">HttpServlet</tt>-<tt class="literal">ResponseWrapper</tt>
+and overrides all methods that affect the <tt class="literal">Writer</tt>
+or <tt class="literal">OutputStream</tt> back to the client. This allows us
+to fully capture and control the response before anything is sent
+back to the client browser.
+</p>
+
+<p>According to the servlet API, either <tt class="literal">getWriter(
+)</tt><a name="INDEX-996" />
+<a name="INDEX-997" />
+<a name="INDEX-998" />
+<a name="INDEX-999" /> or <tt class="literal">getOutputStream( )</tt>
+can be called, but not both. This custom response wrapper class
+cannot know which is needed, so it must support both. This is
+definitely an area where the servlet filtering API can make things a
+lot easier for programmers.
+</p>
+<blockquote><b>WARNING:</b> 
+
+Very little of this is currently documented in the servlet specification. Perhaps this will improve by the time this book is published. However, there are currently very few examples that show how to capture and modify the response. Hopefully this will improve as more containers are upgraded to support the servlet 2.3 specification.
+</p></blockquote>
+<p>The primary class in this example is shown in <a href="ch08_04.htm#javaxslt-CHP-8-EX-11">Example 8-11</a>. This is the actual filter that performs XSLT
+transformations.
+</p>
+
+<a name="javaxslt-CHP-8-EX-11" /><div class="example">
+<h4 class="objtitle">Example 8-11. Servlet filter for XSLT transformations </h4>
+<blockquote><pre class="code">package com.oreilly.javaxslt.util;
+
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import javax.xml.transform.*;
+import javax.xml.transform.stream.*;
+
+/**
+ * A utility class that uses the Servlet 2.3 Filtering API to apply
+ * an XSLT stylesheet to a servlet response.
+ *
+ * @author Eric M. Burke
+ */
+<tt class="userinput"><b>public class StylesheetFilter implements Filter {</b></tt>
+    private FilterConfig filterConfig;
+    private String xsltFileName;
+
+    /**
+     * This method is called once when the filter is first loaded.
+     */
+    public void init(FilterConfig filterConfig) throws ServletException {
+        this.filterConfig = filterConfig;
+
+        // xsltPath should be something like "/WEB-INF/xslt/a.xslt"
+        <tt class="userinput"><b>String xsltPath = filterConfig.getInitParameter("xsltPath");</b></tt>
+        if (xsltPath == null) {
+            throw new UnavailableException(
+                    "xsltPath is a required parameter. Please "
+                    + "check the deployment descriptor.");
+        }
+
+        // convert the context-relative path to a physical path name
+        this.xsltFileName = filterConfig.getServletContext( )
+                .getRealPath(xsltPath);
+
+        // verify that the file exists
+        if (this.xsltFileName == null ||
+                !new File(this.xsltFileName).exists( )) {
+            throw new UnavailableException(
+                    "Unable to locate stylesheet: " + this.xsltFileName, 30);
+        }
+    }
+
+    public void doFilter (ServletRequest req, ServletResponse res,
+            FilterChain chain) throws IOException, ServletException {
+
+        <tt class="userinput"><b>if (!(res instanceof HttpServletResponse)) {
+            throw new ServletException("This filter only supports HTTP");
+        }
+
+        BufferedHttpResponseWrapper responseWrapper =
+                new BufferedHttpResponseWrapper((HttpServletResponse) res);
+        chain.doFilter(req, responseWrapper);</b></tt>
+
+        // Tomcat 4.0 reuses instances of its HttpServletResponse
+        // implementation class in some scenarios. For instance, hitting
+        // reload( ) repeatedly on a web browser will cause this to happen.
+        // Unfortunately, when this occurs, output is never written to the
+        // BufferedHttpResponseWrapper's OutputStream. This means that the
+        // XML output array is empty when this happens. The following
+        // code is a workaround:
+        <tt class="userinput"><b>byte[] origXML = responseWrapper.getBuffer( );
+        if (origXML == null || origXML.length == 0) {
+            // just let Tomcat deliver its cached data back to the client
+            chain.doFilter(req, res);
+            return;
+        }</b></tt>
+
+        try {
+            // do the XSLT transformation
+            Transformer trans = StylesheetCache.newTransformer(
+                    this.xsltFileName);
+
+            ByteArrayInputStream origXMLIn = new ByteArrayInputStream(origXML);
+            Source xmlSource = new StreamSource(origXMLIn);
+
+            ByteArrayOutputStream resultBuf = new ByteArrayOutputStream( );
+            trans.transform(xmlSource, new StreamResult(resultBuf));
+
+            res.setContentLength(resultBuf.size( ));
+            res.setContentType("text/html");
+            res.getOutputStream().write(resultBuf.toByteArray( ));
+            res.flushBuffer( );
+        } catch (TransformerException te) {
+            throw new ServletException(te);
+        }
+    }
+
+    /**
+     * The counterpart to the init( ) method.
+     */
+    public void destroy( ) {
+        this.filterConfig = null;
+    }
+}</pre></blockquote>
+</div>
+
+<p>This filter requires the deployment descriptor to provide the name of
+the XSLT stylesheet as an initialization parameter. The following
+line of code retrieves the parameter:
+</p>
+
+<blockquote><pre class="code">String xsltPath = filterConfig.getInitParameter("xsltPath");</pre></blockquote>
+
+<p>By passing the stylesheet as a parameter, the filter can be
+configured to work with any XSLT. Since the filter can be applied to
+a servlet, JSP, or static file, the XML data is also completely
+configurable.
+</p>
+
+<p>The <tt class="literal">doFilter( )</tt> method illustrates another
+weakness of the current filtering API:
+</p>
+
+<blockquote><pre class="code">if (!(res instanceof HttpServletResponse)) {
+    throw new ServletException("This filter only supports HTTP");
+}</pre></blockquote>
+
+<p>Since there is no HTTP-specific filter interface, custom filters must
+use <tt class="literal">instanceof</tt> and downcasts to ensure that only
+HTTP requests are filtered.
+</p>
+
+<p>Next, the filter creates the buffered response wrapper and delegates
+to the next entry in the chain:
+</p>
+
+<blockquote><pre class="code">BufferedHttpResponseWrapper responseWrapper =
+        new BufferedHttpResponseWrapper((HttpServletResponse) res);
+chain.doFilter(req, responseWrapper);</pre></blockquote>
+
+<p>This effectively captures the XML output from the chain, making the
+XSLT transformation possible. Before doing the transformation,
+however, one "hack" is required to work with Tomcat 4.0:
+</p>
+
+<blockquote><pre class="code">byte[] origXML = responseWrapper.getBuffer( );
+if (origXML == null || origXML.length == 0) {
+    // just let Tomcat deliver its cached data back to the client
+    chain.doFilter(req, res);
+    return;
+}</pre></blockquote>
+
+<p>The complete explanation is captured in the source code comments in
+<a href="ch08_04.htm#javaxslt-CHP-8-EX-11">Example 8-11</a>. Basically, Tomcat seems to cache its
+response when the user tries to reload the same static file
+consecutive times. Without this check, the code fails because the
+<tt class="literal">origXML</tt> byte array is empty.<a href="#FOOTNOTE-40">[40]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-40" /><p> [40] This
+was quite difficult to figure out. Because the servlet specification
+is not specific on this topic, different servlet containers may
+behave slightly differently.</p> </blockquote>
+
+<p>Finally, the filter uses JAXP to perform the XSLT transformation,
+sending the result tree to the original servlet response.
+</p>
+
+<p>The deployment descriptor is listed in <a href="ch08_04.htm#javaxslt-CHP-8-EX-12">Example 8-12</a>.<a name="INDEX-1000" /> <a name="INDEX-1001" />
+</p>
+
+<a name="javaxslt-CHP-8-EX-12" /><div class="example">
+<h4 class="objtitle">Example 8-12. Filter deployment descriptor </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="ISO-8859-1"?&gt;
+<tt class="userinput"><b>&lt;!DOCTYPE web-app PUBLIC 
+  "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+  "http://java.sun.com/j2ee/dtds/web-app_2.3.dtd"&gt;</b></tt>
+
+&lt;web-app&gt;
+  &lt;filter&gt;
+    &lt;filter-name&gt;xsltFilter&lt;/filter-name&gt;
+    &lt;filter-class&gt;com.oreilly.javaxslt.util.StylesheetFilter&lt;/filter-class&gt;
+    &lt;init-param&gt;
+      &lt;param-name&gt;xsltPath&lt;/param-name&gt;
+      &lt;param-value&gt;/WEB-INF/xslt/templatePage.xslt&lt;/param-value&gt;
+    &lt;/init-param&gt;
+  &lt;/filter&gt;
+
+  &lt;filter-mapping&gt;
+    &lt;filter-name&gt;xsltFilter&lt;/filter-name&gt;
+    &lt;url-pattern&gt;/home.xml&lt;/url-pattern&gt;
+  &lt;/filter-mapping&gt;
+  &lt;filter-mapping&gt;
+    &lt;filter-name&gt;xsltFilter&lt;/filter-name&gt;
+    &lt;url-pattern&gt;/company.xml&lt;/url-pattern&gt;
+  &lt;/filter-mapping&gt;
+  &lt;filter-mapping&gt;
+    &lt;filter-name&gt;xsltFilter&lt;/filter-name&gt;
+    &lt;url-pattern&gt;/jobs.xml&lt;/url-pattern&gt;
+  &lt;/filter-mapping&gt;
+  &lt;filter-mapping&gt;
+    &lt;filter-name&gt;xsltFilter&lt;/filter-name&gt;
+    &lt;url-pattern&gt;/products.xml&lt;/url-pattern&gt;
+  &lt;/filter-mapping&gt;
+
+&lt;/web-app&gt; </pre></blockquote>
+</div>
+
+<p>As the first few lines of the deployment descriptor indicate, filters
+require Version 2.3 of the web application DTD.
+</p>
+
+<p>The filter initialization parameter is specified next, inside of the
+<tt class="literal">&lt;filter&gt;</tt> element. This provides the name of
+the XSLT stylesheet for this particular filter instance. It is also
+possible to specify multiple <tt class="literal">&lt;filter&gt;</tt>
+elements using the same filter class but different filter names. This
+allows the same web application to utilize a single filter with many
+different configurations.
+</p>
+
+<p>Finally, the deployment descriptor lists several explicit mappings
+for this filter. In the examples shown, the filter is applied to
+static XML files. It can just as easily be applied to a servlet or
+JSP, however.
+</p>
+
+</div>
+<a name="javaxslt-CHP-8-SECT-4.3" /><div class="sect2">
+<h3 class="sect2">8.4.3. Closing Thoughts on Filters</h3>
+
+<p>Using filters for XSLT
+<a name="INDEX-1002" />transformations is an interesting concept,
+primarily because it allows different stylesheets to be applied to
+XML from many different sources using the web application deployment
+descriptor. To use a different stylesheet, merely change the
+deployment descriptor. One interesting approach is using JSP to
+generate pure XML, then applying a filter to transform that XML into
+XHTML for the client.
+</p>
+
+<p><a name="INDEX-1003" />
+<a name="INDEX-1004" />Filters
+do suffer drawbacks and probably are not the best solution for most
+applications. First and foremost, the filter API is available only in
+Version 2.3 of the servlet specification; many existing servlet
+containers do not support filters at all. In the case of XSLT
+transformations, a custom <tt class="literal">ServletOutputStream</tt> must
+be written to capture the response output, and downcasts are required
+because there is no HTTP-specific filter class. Because some servlet
+containers may cache the response for performance reasons,
+workarounds must be implemented to function reliably.
+</p>
+
+<p>Finally, this approach is slower than others. The XML must be
+converted into text and buffered in memory before the XSLT
+transformation can be performed, which is generally slower than
+sending SAX events or a DOM tree directly to the XSLT processor.
+Generating XML and performing the XSLT transformation in a servlet
+can avoid the extra conversions to and from text that <a name="INDEX-1005" /> <a name="INDEX-1006" />filters
+require.<a name="INDEX-1007" /><a name="INDEX-1008" /> 
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch08_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">8.3. Identifying the Browser</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">8.5. XSLT as a Code Generator</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

@@ -1,0 +1,379 @@
+<html><head><title>More Handlers (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch04_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">4.2. More Handlers</h2>
+
+<p>In the last chapter, I showed you the
+<tt class="literal">ContentHandler</tt> and <tt class="literal">ErrorHandler</tt>
+interfaces and briefly mentioned the
+<tt class="literal">EntityResolver</tt> and <tt class="literal">DTDHandler</tt>
+interfaces as well. Now that you've got a good understanding of
+SAX basics, you're ready to look at these two other
+handlers.<a href="#FOOTNOTE-5">[5]</a> You'll find
+that you use <tt class="literal">EntityResolver</tt> every now and then
+(more if you're writing applications to be resold), and that
+the <tt class="literal">DTDHandler</tt> is something rarely ever pulled out
+of your bag of tricks.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-5" /><p>[5]For the picky reader, I know that
+technically <tt class="literal">EntityResolver</tt> isn't a
+"handler," per se. Of course, I could easily argue that
+the interface might be named <tt class="literal">EntityHandler</tt>, so
+it's close enough for me!</p> </blockquote>
+
+<a name="javaxml2-CHP-4-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">4.2.1. Using an EntityResolver</h3>
+
+<p><a name="INDEX-397" />
+<a name="INDEX-398" />The
+first of these new <a name="INDEX-399" />handlers is
+<tt class="literal">org.xml.sax.EntityResolver</tt>. This interface does
+exactly what it says: resolves entities (or at least declares a
+method that resolves entities, but you get the idea). The interface
+defines only a single method, and it looks like this:
+</p>
+
+<blockquote><pre class="code">public InputSource resolveEntity(String publicID, String systemID)
+    throws SAXException, IOException;</pre></blockquote>
+
+<p>You can create an implementation of this interface, and register it
+with your <tt class="literal">XMLReader</tt> instance (through
+<tt class="literal">setEntityResolver( )</tt>, not surprisingly). Once
+that's done, every time the reader comes across an entity
+reference, it passes the public ID and system ID for that entity to
+the <tt class="literal">resolveEntity( )</tt> method of your
+implementation. Now you can change the normal process of entity
+resolution.
+</p>
+
+<p>Typically, the XML reader resolves the entity through the specified
+public or system ID, whether it be a file, URL, or other resource.
+And if the return value from the <tt class="literal">resolveEntity( )</tt>
+method is <tt class="literal">null</tt>, this process executes unchanged.
+As a result, you should always make sure that whatever code you add
+to your <tt class="literal">resolveEntity( )</tt> implementation, it
+returns <tt class="literal">null</tt> in the default case. In other words,
+start with an implementation class that looks like <a href="ch04_02.htm#javaxml2-CHP-4-EX-1">Example 4-1</a>. 
+</p>
+
+<a name="javaxml2-CHP-4-EX-1" /><div class="example">
+<h4 class="objtitle">Example 4-1. Simple implementation of EntityResolver </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.io.IOException;
+
+import org.xml.sax.EntityResolver;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+
+public class SimpleEntityResolver implements EntityResolver {
+    
+    public InputSource resolveEntity(String publicID, String systemID)
+        throws IOException, SAXException {
+        
+        // In the default case, return null
+        return null;    
+    }
+}    </pre></blockquote>
+</div>
+
+<p>You can compile this class with no problems, and register it with the
+reader implementation used in the <tt class="literal">SAXTreeViewer</tt>
+class within the <tt class="literal">buildTree( )</tt> method:
+</p>
+
+<blockquote><pre class="code">        // Create instances needed for parsing
+        XMLReader reader = 
+            XMLReaderFactory.createXMLReader(vendorParserClass);
+        ContentHandler jTreeContentHandler = 
+            new JTreeContentHandler(treeModel, base, reader);
+        ErrorHandler jTreeErrorHandler = new JTreeErrorHandler( );
+
+        // Register content handler
+        reader.setContentHandler(jTreeContentHandler);
+
+        // Register error handler
+        reader.setErrorHandler(jTreeErrorHandler);
+            
+        <tt class="userinput"><b>// Register entity resolver
+        reader.setEntityResolver(new SimpleEntityResolver( ));
+
+        // Other instructions and parsing...</b></tt></pre></blockquote>
+<p>Recompiling and rerunning the example class creates no change. Of
+course, that's exactly what was predicted, so don't be
+too surprised. By always returning a null value, the process of
+entity resolution proceeds normally. If you don't believe that
+anything is happening, though, you can make this small change to echo
+what's going on to the system output:
+</p>
+<blockquote><pre class="code">
+    public InputSource resolveEntity(String publicID, String systemID)
+        throws IOException, SAXException {
+            
+        <tt class="userinput"><b>System.out.println("Found entity with public ID " + publicID +
+            " and system ID " + systemID);</b></tt>
+        
+        // In the default case, return null
+        return null;    
+    }</pre></blockquote>
+
+<p>Recompile this class and run the sample tree viewer. Once the Swing
+GUI comes up, move it out of the way and check out the shell or
+command prompt output; it should look similar to <a href="ch04_02.htm#javaxml2-CHP-4-EX-2">Example 4-2</a>. 
+</p>
+
+<a name="javaxml2-CHP-4-EX-2" /><div class="example">
+<h4 class="objtitle">Example 4-2. Output from SAXTreeViewer with verbose output </h4>
+<blockquote><pre class="code">C:\javaxml2\build&gt;java javaxml2.SAXTreeViewer 
+    c:\javaxml2\ch04\xml\contents.xml
+Found entity with public ID null and 
+    system ID file:///c:/javaxml2/ch04/xml/DTD/JavaXML.dtd
+Found entity with public ID null and 
+    system ID http://www.newInstance.com/javaxml2/copyright.xml</pre></blockquote>
+</div>
+
+<p>As always, the line breaks are purely for display purposes. In any
+case, you can see that both references in the XML document, for the
+DTD and the <tt class="literal">OReillyCopyright</tt> entity reference, are
+passed to the <tt class="literal">resolveEntity( )</tt> method.
+</p>
+
+<p>At this point, you might be scratching your head; a DTD is an entity?
+The term "entity" is a bit vague as it is used in
+<tt class="literal">EntityResolver</tt>. Perhaps a better name would have
+been <tt class="literal">ExternalReferenceResolver</tt>, but that
+wouldn't be very fun to type. In any case, keep in mind that
+any external reference in your XML is going to be passed on to this
+method. So what's the point, you may be asking yourself.
+Remember the reference for <tt class="literal">OReillyCopyright</tt>, and
+how it accesses an Internet URL (<a href="http://www.newInstance.com/javaxml2/copyright.xml">http://www.newInstance.com/javaxml2/copyright.xml</a>)?
+What if you don't have Internet access? What if you have a
+local copy you already downloaded, and want to save time by using
+that copy? What if you simply want to put your own copyright in
+place? All of these are viable questions, and real-world problems
+that you may have to solve in your applications. The answer, of
+course, is the <tt class="literal">resolveEntity( )</tt> method I've
+been talking about.
+</p>
+
+<p>If you return a valid <tt class="literal">InputSource</tt> (instead of
+<tt class="literal">null</tt>) from this method, that
+<tt class="literal">InputSource</tt> is used as the value for the entity
+reference, rather than the public or system ID specified. In other
+words, you can specify your own data instead of letting the reader
+handle resolution on its own. As an example, create a <em class="emphasis">copyright.xml</em> file on your local machine, as
+shown in <a href="ch04_02.htm#javaxml2-CHP-4-EX-3">Example 4-3</a>.
+</p>
+
+<a name="javaxml2-CHP-4-EX-3" /><div class="example">
+<h4 class="objtitle">Example 4-3. Local copy of copyright.xml </h4>
+<blockquote><pre class="code">&lt;copyright xmlns="http://www.oreilly.com"&gt;
+  &lt;year value="2001" /&gt;
+  &lt;content&gt;This is my local version of the copyright.&lt;/content&gt;
+&lt;/copyright&gt;</pre></blockquote>
+</div>
+
+<p>Save this in a directory you can access from your Java code (I used
+the same directory as my <em class="emphasis">contents.xml</em> file), and make the following
+change to the <tt class="literal">resolveEntity( )</tt> method:
+</p>
+
+<blockquote><pre class="code">    public InputSource resolveEntity(String publicID, String systemID)
+        throws IOException, SAXException {
+         
+        <tt class="userinput"><b>// Handle references to online version of copyright.xml   
+        if (systemID.equals(
+            "http://www.newInstance.com/javaxml2/copyright.xml")) {
+            return new InputSource(
+                "file:///c:/javaxml2/ch04/xml/copyright.xml");
+        }</b></tt>
+        
+        // In the default case, return null
+        return null;    
+    }</pre></blockquote>
+
+<p>You can see that instead of allowing resolution to the online
+resource, an <tt class="literal">InputSource</tt> that provides access to
+the local version of <em class="emphasis">copyright.xml</em> is returned. If you recompile
+your source file and run the tree viewer, you can visually verify
+that this local copy is used. <a href="ch04_02.htm#javaxml2-CHP-4-FIG-1">Figure 4-1</a> shows the
+<tt class="literal">ora:copyright</tt> element expanded, including the
+local copyright document's content.
+</p>
+
+<a name="javaxml2-CHP-4-FIG-1" /><div class="figure"><img height="284" alt="Figure 4-1" src="figs/javax_0401.gif" width="438" /></div><h4 class="objtitle">Figure 4-1. SAXTreeViewer running with local copyrights.xml</h4>
+
+<p>In real-world applications, this method tends to become a lengthy
+laundry list of
+<tt class="literal">if</tt>/<tt class="literal">then</tt>/<tt class="literal">else</tt>
+blocks, each one handling a specific system or public ID. And this
+brings up an important point: try to avoid this class and method
+becoming a kitchen sink for IDs. If you no longer need a specific
+resolution to occur, remove the <tt class="literal">if</tt> clause for it.
+Additionally, try to use different <tt class="literal">EntityResolver</tt>
+implementations for different applications, rather than trying to use
+one generic implementation for all your applications. Doing this
+avoids code bloat, and more importantly, speeds up entity resolution.
+If you have to wait for your reader to run through fifty or a hundred
+<tt class="literal">String.equals( )</tt> comparisons, you can really bog
+down an application. Be sure to put references accessed often at the
+top of the <tt class="literal">if</tt>/<tt class="literal">else</tt> stack, so
+they are encountered first and result in quicker entity resolution.
+</p>
+
+<p>Finally, I want to make one more recommendation concerning your
+<tt class="literal">EntityResolver</tt> implementations. You'll
+notice that I defined my implementation in a separate class file,
+while the <tt class="literal">ErrorHandler</tt>,
+<tt class="literal">ContentHandler</tt>, and (in the next section)
+<tt class="literal">DTDHandler</tt> implementations were in the same source
+file as parsing occurred in. That wasn't an accident!
+You'll find that the way you deal with content, errors, and
+DTDs is fairly static. You write your program, and that's it.
+When you make changes, you're making a larger rewrite, and need
+to make big changes anyway. However, you'll make many changes
+to the way you want your application to resolve entities. Depending
+on the machine you're on, the type of client you're
+deploying to, and what and where documents are available,
+you'll need different versions of an
+<tt class="literal">EntityResolver</tt> implementation. To allow for rapid
+changes to this implementation without causing editing or
+recompilation of your core parsing code, I use a separate source file
+for <tt class="literal">EntityResolver</tt> implementations; I suggest you
+do the same. And with that, you should know all that you need to know
+about resolving entities in your applications using SAX.<a name="INDEX-400" /> <a name="INDEX-401" /><a name="INDEX-402" />
+</p>
+
+</div>
+<a name="javaxml2-CHP-4-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">4.2.2. Using a DTDHandler</h3>
+
+<p><a name="INDEX-403" />
+<a name="INDEX-404" />
+<a name="INDEX-405" />After
+a rather extensive look at <tt class="literal">EntityResolver</tt>,
+I'm going to cruise through <tt class="literal">DTDHandler</tt>
+pretty quickly. In two years of extensive XML programming, I've
+used this interface only once, in writing JDOM, and even then it was
+a rather obscure case. More often than not, you won't work with
+it much unless you have lots of unparsed entities in your XML
+documents.
+</p>
+
+<p>The <tt class="literal">DTDHandler</tt> interface allows you to receive
+notification when a reader encounters an unparsed entity or notation
+declaration. Of course, both of these events occur in DTDs, not XML
+documents, which is why this is called <tt class="literal">DTDHandler</tt>.
+Rather than go on and on, let me just show you what the interface
+looks like. It's right here for you to check out in <a href="ch04_02.htm#javaxml2-CHP-4-EX-4">Example 4-4</a>. 
+</p>
+
+<a name="javaxml2-CHP-4-EX-4" /><div class="example">
+<h4 class="objtitle">Example 4-4. The DTDHandler interface </h4>
+<blockquote><pre class="code">package org.xml.sax;
+
+public interface DTDHandler {
+
+    public void notationDecl(String name, String publicID, 
+                             String systemID)
+        throws SAXException;
+
+    public void unparsedEntityDecl(String name, String publicId,
+                                   String systemId, String notationName)
+         throws SAXException;
+}</pre></blockquote>
+</div>
+
+<p>These two methods do exactly what you would expect. The first reports
+a notation declaration, including its name, public ID, and system ID.
+Remember the <tt class="literal">NOTATION</tt> structure in DTDs?
+</p>
+
+<blockquote><pre class="code">&lt;!NOTATION jpeg SYSTEM "images/jpeg"&gt;</pre></blockquote>
+
+<p>The second method provides information about an unparsed entity
+declaration, which looks as follows:
+</p>
+
+<blockquote><pre class="code">&lt;!ENTITY stars_logo SYSTEM "http://www.nhl.com/img/team/dal38.gif"
+                    NDATA jpeg&gt;</pre></blockquote>
+
+<p>In both cases, you can take action at these occurrences if you create
+an implementation of <tt class="literal">DTDHandler</tt> and register it
+with your reader through the <tt class="literal">XMLReader</tt>'s
+<tt class="literal">setDTDHandler( )</tt> method. This is generally useful
+when writing low-level applications that must either reproduce XML
+content (such as an XML editor), or when you want to build up some
+Java representation of a DTD's constraints (such as for data
+binding, covered in <a href="ch15_01.htm">Chapter 15, "Data Binding"</a>). In most other
+situations, it isn't something you will need very often.
+</p>
+
+</div>
+<a name="javaxml2-CHP-4-SECT-2.3" /><div class="sect2">
+<h3 class="sect2">4.2.3. The DefaultHandler Class</h3>
+
+<p><a name="INDEX-406" />
+<a name="INDEX-407" />Before
+finishing up with handlers (for now, at least), there's one
+other important handler-related class you should know about. This
+class is <tt class="literal">org.xml.sax.helpers.DefaultHandler</tt>, and
+can be a very good friend to you SAX developers out there. Remember
+that so far, implementing the various handler interfaces required a
+class to implement <tt class="literal">ContentHandler</tt>, one to
+implement <tt class="literal">ErrorHandler</tt>, one to implement
+<tt class="literal">EntityResolver</tt> (this one is OK for all the reasons
+I discussed about keeping that implementation in a separate source
+file), and one to implement <tt class="literal">DTDHandler</tt>, if needed.
+Additionally, you get the joy of implementing the numerous methods in
+<tt class="literal">ContentHandler</tt>, even if you don't need them
+all to do anything.
+</p>
+
+<p>And here comes <tt class="literal">DefaultHandler</tt> to the rescue. This
+class doesn't define any behavior of its own; however, it does
+implement <tt class="literal">ContentHandler</tt>,
+<tt class="literal">ErrorHandler</tt>, <tt class="literal">EntityResolver</tt>,
+and <tt class="literal">DTDHandler</tt>, and provides empty implementations
+of each method of each interface. So you can have a single class
+(call it, for example, <tt class="literal">MyHandlerClass</tt>) that
+extends <tt class="literal">DefaultHandler</tt>. This class only needs to
+override methods it needs to perform action in. You might implement
+<tt class="literal">startElement( )</tt>, <tt class="literal">characters( )</tt>,
+<tt class="literal">endElement( )</tt>, and <tt class="literal">fatalError(
+)</tt>, for example. In any combination of implemented methods,
+though, you'll save tons of lines of code for methods you
+don't need to provide action for, and make your code a lot
+clearer too. Then, the argument to <tt class="literal">setErrorHandler(
+)</tt>, <tt class="literal">setContentHandler( )</tt>, and
+<tt class="literal">setDTDHandler( )</tt> would be the same instance of
+this <tt class="literal">MyHandlerClass</tt>. Theoretically, you could pass
+the instance to <tt class="literal">setEntityResolver( )</tt> as well,
+although (for about the fourth time!) I discourage mixing the
+<tt class="literal">resolveEntity( )</tt> method in with these other
+interface methods.
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch04_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4. Advanced SAX </td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">4.3. Filters and Writers</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

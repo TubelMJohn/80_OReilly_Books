@@ -1,0 +1,183 @@
+<html><head><title>Formatting Data with sprintf (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch15_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">15.3. Formatting Data with sprintf</h2>
+
+<p><a name="INDEX-1007" /> <a name="INDEX-1008" />The
+<tt class="literal">sprintf</tt> function takes the same arguments as
+<tt class="literal">printf</tt> (except for the optional filehandle, of
+course), but it returns the requested string instead of printing it.
+This is handy if you want to store a formatted string into a variable
+for later use, or if you want more control over the result than
+<tt class="literal">printf</tt> alone would provide:
+</p>
+
+<blockquote><pre class="code">my $date_tag = sprintf
+  "%4d/%02d/%02d %2d:%02d:%02d",
+  $yr, $mo, $da, $h, $m, $s;</pre></blockquote>
+
+<p>In that example, <tt class="literal">$date_tag</tt> gets something like
+<tt class="literal">"2038/01/19 3:00:08"</tt>. The format string (the first
+argument to <tt class="literal">sprintf</tt>) used a leading zero on some
+of the format number, which we didn't mention when we talked
+about <tt class="literal">printf</tt> formats in <a href="ch06_01.htm">Chapter 6, "I/O Basics"</a>. The leading zero on the format number means
+to use leading zeroes as needed to make the number as wide as
+requested. Without a leading zero in the formats, the resulting
+date-and-time string would have unwanted leading spaces instead of
+zeroes, looking like <tt class="literal">"2038/ 1/19 3: 0: 8"</tt>.
+</p>
+
+<a name="lperl3-CHP-15-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">15.3.1. Using sprintf with "Money Numbers"</h3>
+
+<p><a name="INDEX-1009" /> <a name="INDEX-1010" /> <a name="INDEX-1011" />One popular use for
+<tt class="literal">sprintf</tt> is when a number needs to be rendered
+with a certain number of places after the decimal point, such as when
+an amount of money needs to be shown as <tt class="literal">2.50</tt> and
+not <tt class="literal">2.5</tt> -- and certainly not as
+<tt class="literal">2.49997</tt>! That's easy to accomplish with the
+<tt class="literal">"%.2f"</tt> format:
+</p>
+
+<blockquote><pre class="code">my $money = sprintf "%.2f", 2.49997;</pre></blockquote>
+
+<p>The full implications of rounding are numerous and subtle, but in
+most cases you should keep numbers in memory with all of the
+available accuracy, rounding off only for output.
+</p>
+
+<p>If you have a "money number" that may be large enough to
+need commas to show its size, you might find it handy to use a
+subroutine like this one.<a href="#FOOTNOTE-337">[337]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-337" /><p>[337]Yes, we know that not
+everywhere in the world are commas used to separate groups of digits,
+not everywhere are the digits grouped by threes, and not everywhere
+the currency symbol appears as it does for U.S. dollars. But this is
+a good example anyway, so there!</p> </blockquote>
+
+<blockquote><pre class="code">sub big_money {
+  my $number = sprintf "%.2f", shift @_;
+  # Add one comma each time through the do-nothing loop
+  1 while $number =~ s/^(-?\d+)(\d\d\d)/$1,$2/;
+  # Put the dollar sign in the right place
+  $number =~ s/^(-?)/$1\$/;
+  $number;
+}</pre></blockquote>
+
+<p>This subroutine uses some techniques you haven't seen yet, but
+they logically follow from what we've shown you. The first line
+of the subroutine formats the first (and only) parameter to have
+exactly two digits after the decimal point. That is, if the parameter
+were the number <tt class="literal">12345678.9</tt>, now our
+<tt class="literal">$number</tt> is the string
+<tt class="literal">"12345678.90"</tt>. 
+</p>
+
+<p>The next line of code uses a
+<tt class="literal">while</tt><a name="INDEX-1012" /> modifier. As we mentioned when we
+covered that modifier in <a href="ch10_01.htm">Chapter 10, "More Control Structures"</a>, that can
+always be rewritten as a traditional <tt class="literal">while</tt> loop:
+</p>
+
+<blockquote><pre class="code">while ($number =~ s/^(-?\d+)(\d\d\d)/$1,$2/) {
+  1;
+}</pre></blockquote>
+
+<p>What does that say to do? It says that, as long as the substitution
+returns a true value (signifying success), the loop body should run.
+But the loop body does nothing! That's okay with Perl, but it
+tells us that the purpose of that statement is to do the conditional
+expression (the substitution), rather than the useless loop body. The
+value <tt class="literal">1</tt> is traditionally used as this kind of a
+placeholder, although any other value would be equally
+useful.<a href="#FOOTNOTE-338">[338]</a> This
+works just as well as the loop above:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-338" /><p>[338]Which is to say, useless. By the way, in case
+you're wondering, Perl optimizes away the constant expression
+so it doesn't even take up any runtime.</p> </blockquote>
+
+<blockquote><pre class="code">'keep looping' while $number =~ s/^(-?\d+)(\d\d\d)/$1,$2/;</pre></blockquote>
+
+<p>So, now we know that the substitution is the real purpose of the
+loop. But what is the substitution doing? Remember that
+<tt class="literal">$number</tt> will be some string like
+<tt class="literal">"12345678.90"</tt> at this point. The pattern will
+match the first part of the string, but it can't get past the
+decimal point. (Do you see why it can't?) Memory
+<tt class="literal">$1</tt> will get <tt class="literal">"12345"</tt>, and
+<tt class="literal">$2</tt> will get <tt class="literal">"678"</tt>, so the
+substitution will make <tt class="literal">$number</tt> into
+<tt class="literal">"12345,678.90"</tt> (remember, it couldn't match
+the decimal point, so the last part of the string is left untouched).
+</p>
+
+<p>Do you see what the dash is doing near the start of that pattern?
+(Hint: The dash is allowed at only one place in the string.)
+We'll tell you at the end of this section, in case you
+haven't figured it out.
+</p>
+
+<p>We're not done with that substitution statement yet. Since the
+substitution succeeded, the do-nothing loop goes back to try again.
+This time, the pattern can't match anything from the comma
+onward, so <tt class="literal">$number</tt> becomes
+<tt class="literal">"12,345,678.90"</tt>. The substitution thus adds a
+comma to the number each time through the loop.
+</p>
+
+<p>Speaking of the loop, it's still not done. Since the previous
+substitution was a success, we're back around the loop to try
+again. But this time, the pattern can't match at all, since it
+has to match at least four digits at the start of the string, so now
+that is the end of the loop.
+</p>
+
+<p>Why couldn't we have simply used the <tt class="literal">/g</tt>
+modifier to do a "global" search-and-replace, to save the
+trouble and confusion of the <tt class="literal">1 while</tt>? We
+couldn't use that because we're working backwards from
+the decimal point, rather than forward from the start of the string.
+Putting the commas in a number like this can't be done simply
+with the <tt class="literal">s///g</tt> substitution alone.<a href="#FOOTNOTE-339">[339]</a>
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-339" /><p>[339]At least, it can't be done without some more-advanced
+regular expression techniques than we've shown you so far.
+Those darn Perl developers keep making it harder and harder to write
+Perl books that use the word "can't."</p>
+</blockquote>
+
+<p>So, did you figure out the dash? It's allowing for a possible
+minus-sign at the start of the string. The next line of code makes
+the same allowance, putting the dollar-sign in the right place so
+that <tt class="literal">$number</tt> is something like
+<tt class="literal">"$12,345,678.90"</tt>, or perhaps
+<tt class="literal">"-$12,345,678.90"</tt> if it's negative. Note
+that the dollar sign isn't necessarily the first character in
+the string, or that line would be a lot simpler. Finally, the last
+line of code returns our nicely formatted "money number,"
+ready to be printed in the annual<a name="INDEX-1013" /> <a name="INDEX-1014" /> <a name="INDEX-1015" />
+report.<a name="INDEX-1016" /> <a name="INDEX-1017" /> 
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch15_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">15.2. Manipulating a Substring with substr</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">15.4. Advanced Sorting</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

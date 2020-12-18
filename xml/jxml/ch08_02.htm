@@ -1,0 +1,351 @@
+<html><head><title>JDOM and Factories (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch08_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">8.2. JDOM and Factories</h2>
+
+<p><a name="INDEX-805" /> <a name="INDEX-806" />Moving
+right along, recall the discussion from the last chapter on JDOM and
+factories. I mentioned that you would never see code like this (at
+least with the current versions) in JDOM applications:
+</p>
+
+<blockquote><pre class="code">// This code does not work!!
+JDOMFactory factory = new JDOMFactory( );
+factory.setDocumentClass("javaxml2.BrettsDocumentClass");
+factory.setElementClass("javaxml2.BrettsElementClass");
+
+Element rootElement = JDOMFactory.createElement("root");
+Document document = JDOMFactory.createDocument(rootElement);</pre></blockquote>
+
+<p>Well, that remains true. However, I glossed over some pretty
+important aspects of that discussion, and want to pick it up again
+here. As I mentioned in <a href="ch07_01.htm">Chapter 7, "JDOM"</a>, being able to
+have some form of factories allows greater flexibility in how your
+XML is modeled in Java. Take a look at the simple subclass of
+<a name="INDEX-807" /> <a name="INDEX-808" />
+<a name="INDEX-809" />JDOM's
+<tt class="literal">Element</tt> class shown in <a href="ch08_02.htm#javaxml2-CHP-8-EX-1">Example 8-1</a>. 
+</p>
+
+<a name="javaxml2-CHP-8-EX-1" /><div class="example">
+<h4 class="objtitle">Example 8-1. Subclassing the JDOM Element class </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import org.jdom.Element;
+import org.jdom.Namespace;
+
+public class ORAElement extends Element {
+
+    private static final Namespace ORA_NAMESPACE =
+        Namespace.getNamespace("ora", "http://www.oreilly.com");
+
+    public ORAElement(String name) {
+        super(name, ORA_NAMESPACE);
+    }
+
+    public ORAElement(String name, Namespace ns) {
+        super(name, ORA_NAMESPACE);
+    }
+
+    public ORAElement(String name, String uri) {
+        super(name, ORA_NAMESPACE);
+    }
+
+    public ORAElement(String name, String prefix, String uri) {
+        super(name, ORA_NAMESPACE);
+    }
+}</pre></blockquote>
+</div>
+
+<p>This is about as simple a subclass as you could come up with; it is
+somewhat similar to the <tt class="literal">NamespaceFilter</tt> class from
+<a href="ch04_01.htm">Chapter 4, "Advanced SAX "</a>. It disregards whatever namespace is
+actually supplied to the element (even if there isn't a
+namespace supplied!), and sets the element's namespace defined
+by the URI <a href="http://www.oreilly.com">http://www.oreilly.com</a>
+with the prefix <tt class="literal">ora</tt>.<a href="#FOOTNOTE-12">[12]</a> This is a
+simple case, but it gives you an idea of what is possible, and serves
+as a good example for this section.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-12" /><p>[12]It is
+slightly different from <tt class="literal">NamespaceFilter</tt> in that it
+changes all elements to a new namespace, rather than just those
+elements with a particular namespace.</p> </blockquote>
+
+<a name="javaxml2-CHP-8-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">8.2.1. Creating a Factory</h3>
+
+<p><a name="INDEX-810" />
+<a name="INDEX-811" />Once
+you've got a custom subclass, the next step is actually using
+it. As I already mentioned, JDOM considers having to create all
+objects with factories a bit over-the-top. Simple element creation in
+JDOM works like this:
+</p>
+
+<blockquote><pre class="code">// Create a new Element
+Element element = new Element("guitar");</pre></blockquote>
+
+<p>Things remain equally simple with a custom subclass:</p>
+
+<blockquote><pre class="code">// Create a new Element, typed as an ORAElement
+Element oraElement = new ORAElement("guitar");</pre></blockquote>
+
+<p>The element is dropped into the O'Reilly namespace because of
+the custom subclass. Additionally, this method is more
+self-documenting than using a factory. It's clear at any point
+exactly what classes are being used to create objects. Compare that
+to this code fragment:
+</p>
+
+<blockquote><pre class="code">// Create an element: what type is created?
+Element someElement = doc.createElement("guitar");</pre></blockquote>
+
+<p>It's not clear if the object created is an
+<tt class="literal">Element</tt> instance, an <tt class="literal">ORAElement</tt>
+instance, or something else entirely. For these reasons, the custom
+class approach serves JDOM well. For object creation, you can simply
+instantiate your custom subclass directly. However, the need for
+factories arises when you are building a document:
+</p>
+
+<blockquote><pre class="code">// Build from an input source
+SAXBuilder builder = new SAXBuilder( );
+Document doc = builder.build(someInputStream);</pre></blockquote>
+
+<p>Obviously, here you were not able to specify custom classes through
+the building process. I suppose you could be really bold and modify
+the <tt class="literal">SAXBuilder</tt> class (and the related
+<tt class="literal">org.jdom.input.SAXHandler</tt> class), but that's
+a little ridiculous. So, to facilitate this, the
+<tt class="literal">JDOMFactory</tt><a name="INDEX-812" />
+<a name="INDEX-813" />
+interface, in the <tt class="literal">org.jdom.input</tt> package, was
+introduced. This interface defines methods for every type of object
+creation (see <a href="appa_01.htm">Appendix A, "API Reference"</a> for the complete set of
+methods). For example, there are four methods for element creation,
+which match up to the four constructors for the
+<a name="INDEX-814" /> <a name="INDEX-815" /> <a name="INDEX-816" />
+<a name="INDEX-817" /><tt class="literal">Element</tt> class:
+</p>
+
+<blockquote><pre class="code">public Element element(String name);
+public Element element(String name, Namespace ns);
+public Element element(String name, String uri);
+public Element element(String name, String prefix, String uri);</pre></blockquote>
+
+<p>You will find similar methods for <tt class="literal">Document</tt>,
+<tt class="literal">Attribute</tt>, <tt class="literal">CDATA</tt>, and all the
+rest. By default, JDOM uses the
+<tt class="literal">org.jdom.input.DefaultJDOMFactory</tt>, which simply
+returns all of the core JDOM classes within these methods. However,
+you can easily subclass this implementation and provide your own
+factory methods. Look at <a href="ch08_02.htm#javaxml2-CHP-8-EX-2">Example 8-2</a>, which defines
+a custom factory.
+</p>
+
+<a name="javaxml2-CHP-8-EX-2" /><div class="example">
+<h4 class="objtitle">Example 8-2. A custom JDOMFactory implementation </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import org.jdom.Element;
+import org.jdom.Namespace;
+import org.jdom.input.DefaultJDOMFactory;
+
+class CustomJDOMFactory extends DefaultJDOMFactory {
+
+    public Element element(String name) {
+        return new ORAElement(name);
+    }
+
+    public Element element(String name, Namespace ns) {
+        return new ORAElement(name, ns);
+    }
+
+    public Element element(String name, String uri) {
+        return new ORAElement(name, uri);
+    }
+
+    public Element element(String name, String prefix, String uri) {
+        return new ORAElement(name, prefix, uri);
+    }
+}</pre></blockquote>
+</div>
+
+<p>This is a simple implementation; it doesn't need to be very
+complex. It overrides each of the <tt class="literal">element( )</tt>
+methods and returns an instance of the custom subclass,
+<tt class="literal">ORAElement</tt>, instead of the default JDOM
+<tt class="literal">Element</tt> class. At this point, any builder that
+uses this factory will end up with <tt class="literal">ORAElement</tt>
+instances in the created JDOM <tt class="literal">Document</tt> object,
+rather than the default <tt class="literal">Element</tt> instances you
+would normally see. All that's left is to let the build process
+know about this custom factory.
+</p>
+
+</div>
+<a name="javaxml2-CHP-8-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">8.2.2. Building with Custom Classes</h3>
+
+<p>Once you have a valid implementation of
+<tt class="literal">JDOMFactory</tt>, let your builders know to use it by
+invoking the <tt class="literal">setFactory(
+)</tt><a name="INDEX-818" />
+method and passing in a factory instance. This method is available on
+both of the current <a name="INDEX-819" />
+<a name="INDEX-820" />JDOM builders,
+<tt class="literal">SAXBuilder</tt> and <tt class="literal">DOMBuilder</tt>. To
+see it in action, check out <a href="ch08_02.htm#javaxml2-CHP-8-EX-3">Example 8-3</a>. This simple
+class takes in an XML document and builds it using the
+<tt class="literal">ORAElement</tt> class and
+<tt class="literal">CustomJDOMFactory</tt> from <a href="ch08_02.htm#javaxml2-CHP-8-EX-1">Example 8-1</a> and <a href="ch08_02.htm#javaxml2-CHP-8-EX-2">Example 8-2</a>. It
+then writes the document back out to a supplied output filename, so
+you can see the effect of the custom classes.
+</p>
+
+<a name="javaxml2-CHP-8-EX-3" /><div class="example">
+<h4 class="objtitle">Example 8-3. Building with custom classes using a custom factory </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+
+import org.jdom.Document;
+import org.jdom.JDOMException;
+import org.jdom.input.SAXBuilder;
+import org.jdom.input.JDOMFactory;
+import org.jdom.output.XMLOutputter;
+
+public class ElementChanger {
+
+    public void change(String inputFilename, String outputFilename)
+        throws IOException, JDOMException {
+
+        // Create builder and set up factory
+        SAXBuilder builder = new SAXBuilder( );
+        JDOMFactory factory = new CustomJDOMFactory( );
+        builder.setFactory(factory);
+        
+        // Build document 
+        Document doc = builder.build(inputFilename);
+
+        // Output document
+        XMLOutputter outputter = new XMLOutputter( ); 
+        outputter.output(doc, new FileWriter(new File(outputFilename)));
+    }
+
+    public static void main(String[] args) {
+        if (args.length != 2) {
+            System.out.println("Usage: javaxml2.ElementChanger " +
+                "[XML Input Filename] [XML Output Filename]");
+            return;
+        }
+
+        try {
+            ElementChanger changer = new ElementChanger( );
+            changer.change(args[0], args[1]);
+        } catch (Exception e) {
+            e.printStackTrace( );
+        }
+    }
+}</pre></blockquote>
+</div>
+
+<p>I ran this on the <em class="filename">contents.xml</em> file used
+throughout the first several chapters:
+</p>
+
+<blockquote><pre class="code">bmclaugh@GANDALF
+$ java javaxml2.ElementChanger contents.xml newContents.xml</pre></blockquote>
+
+<p>This hummed along for a second, and then gave me a new document
+(<em class="emphasis">newContents.xml</em>). A portion of
+that new document is shown in <a href="ch08_02.htm#javaxml2-CHP-8-EX-4">Example 8-4</a>.
+</p>
+
+<a name="javaxml2-CHP-8-EX-4" /><div class="example">
+<h4 class="objtitle">Example 8-4. Output fragment from contents.xml after ElementChanger </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE book SYSTEM "DTD/JavaXML.dtd"&gt;
+&lt;!-- Java and XML Contents --&gt;
+&lt;ora:book xmlns:ora="http://www.oreilly.com"&gt;
+  &lt;ora:title ora:series="Java"&gt;Java and XML&lt;/ora:title&gt;
+
+  &lt;!-- Chapter List --&gt;
+  &lt;ora:contents&gt;
+    &lt;ora:chapter title="Introduction" number="1"&gt;
+      &lt;ora:topic name="XML Matters" /&gt;
+      &lt;ora:topic name="What's Important" /&gt;
+      &lt;ora:topic name="The Essentials" /&gt;
+      &lt;ora:topic name="What's Next?" /&gt;
+    &lt;/ora:chapter&gt;
+    &lt;ora:chapter title="Nuts and Bolts" number="2"&gt;
+      &lt;ora:topic name="The Basics" /&gt;
+      &lt;ora:topic name="Constraints" /&gt;
+      &lt;ora:topic name="Transformations" /&gt;
+      &lt;ora:topic name="And More..." /&gt;
+      &lt;ora:topic name="What's Next?" /&gt;
+    &lt;/ora:chapter&gt;
+    &lt;ora:chapter title="SAX" number="3"&gt;
+      &lt;ora:topic name="Getting Prepared" /&gt;
+      &lt;ora:topic name="SAX Readers" /&gt;
+      &lt;ora:topic name="Content Handlers" /&gt;
+      &lt;ora:topic name="Gotcha!" /&gt;
+      &lt;ora:topic name="What's Next?" /&gt;
+    &lt;/ora:chapter&gt; 
+    &lt;ora:chapter title="Advanced SAX" number="4"&gt;
+      &lt;ora:topic name="Properties and Features" /&gt;
+      &lt;ora:topic name="More Handlers" /&gt;
+      &lt;ora:topic name="Filters and Writers" /&gt;
+      &lt;ora:topic name="Even More Handlers" /&gt;
+      &lt;ora:topic name="Gotcha!" /&gt;
+      &lt;ora:topic name="What's Next?" /&gt;
+    &lt;/ora:chapter&gt;
+    &lt;!-- Other chapters --&gt;
+&lt;/ora:book&gt;</pre></blockquote>
+</div>
+
+<p>Each element is now in the O'Reilly namespace, prefixed and
+referencing the URI specified in the <tt class="literal">ORAElement</tt>
+class.
+</p>
+
+<p>Obviously, you can take this subclassing to a much higher degree of
+complexity. Common examples include adding specific attributes or
+even child elements to every element that comes through. Many
+developers have existing business interfaces, and define custom JDOM
+classes that extend the core JDOM classes and also implement these
+business-specific interfaces. Other developers have built
+"lightweight" subclasses that discard namespace
+information and maintain only the bare essentials, keeping documents
+small (albeit not XML-compliant in some cases). The only limitations
+are your own ideas in subclassing. Just remember to set up your own
+factory before building documents, so your new functionality is
+included.<a name="INDEX-821" /> <a name="INDEX-822" /> 
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch08_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">8. Advanced JDOM</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">8.3. Wrappers and Decorators</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

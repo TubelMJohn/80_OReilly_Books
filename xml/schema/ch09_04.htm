@@ -1,0 +1,149 @@
+<html><head><title>Using  and  As Co-occurrence Constraints (XML Schema)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric van der Vlist" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002521L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XML Schema" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XML Schema" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch09_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch10_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">9.4. Using <tt class="literal"><a href="ch15_01.htm#ch15-77346">xs:key</a></tt> and <tt class="literal"><a href="ch15_01.htm#ch15-77603">xs:unique</a></tt> As Co-occurrence Constraints</h2>
+
+<p><a name="INDEX-710" />Co-occurrence
+<a name="INDEX-711" />constraints
+<a name="INDEX-712" />
+<a name="INDEX-713" />are
+interdependent conditions given on the child elements or attributes
+of a node, such as "if this element is present, then
+this attribute must be absent." Under-implemented
+within W3C XML Schema, these constraints can be a workaround to the
+"<a name="INDEX-714" />Consistent Declaration
+rule," which forbids definition of two different
+content models for an element at the same location in an instance
+document. With co-occurrence constraints, one can define a superset
+of the two content models and add the constraints to forbid the
+unwanted combinations. This is frequently useful with vocabularies
+(such as RDF) in which some properties can be expressed either as an
+attribute or an element, and in which we may want to extend our book
+example to accept the ISBN number and the title to be expressed as
+elements or attributes. The two following
+<a name="INDEX-715" />instance documents are then valid (with
+their two remaining combinations):
+</p>
+
+<blockquote><pre class="code">&lt;book id="b0836217462" available="true"&gt;
+  &lt;isbn&gt;
+    0836217462
+  &lt;/isbn&gt;
+  &lt;title lang="en"&gt;
+    Being a Dog Is a Full-Time Job
+  &lt;/title&gt;
+  ../..
+&lt;/book&gt;</pre></blockquote>
+
+<p>or:</p>
+
+<blockquote><pre class="code">&lt;book id="b0836217462" available="true" isbn="0836217462"
+  title="Beinga Dog Is a Full-Time Job"&gt;
+  .../...
+&lt;/book&gt;</pre></blockquote>
+
+<p>The obvious way is to define the <tt class="literal">book</tt> element as a
+choice between the four different valid content models (with the four
+combinations of elements and attributes). However, this is forbidden
+by the Consistent Declaration rule, which states that only one
+<a name="INDEX-716" />content model may be used for
+a given element. The workaround is to define a content model that
+accepts both optional elements and attributes:
+</p>
+
+<blockquote><pre class="code">&lt;xs:complexType&gt;
+  &lt;xs:sequence&gt;
+    &lt;xs:element ref="isbn" minOccurs="0"/&gt;
+    &lt;xs:element ref="title" minOccurs="0"/&gt;
+    &lt;xs:element ref="author" minOccurs="0" maxOccurs="unbounded"/&gt;
+    &lt;xs:element ref="character" minOccurs="0" maxOccurs="unbounded"/&gt;
+  &lt;/xs:sequence&gt;
+  &lt;xs:attribute ref="id"/&gt;
+  &lt;xs:attribute ref="available"/&gt;
+  &lt;xs:attribute ref="isbn"/&gt;
+  &lt;xs:attribute ref="title"/&gt;
+&lt;/xs:complexType&gt;</pre></blockquote>
+
+<p>This definition allows instance documents with both a
+<tt class="literal">title</tt> (or <tt class="literal">isbn</tt>) element and
+attribute or instance documents without any <tt class="literal">title</tt>
+or <tt class="literal">isbn</tt> at all. We need to add co-occurrence
+constraints. In a more general case, these constraints cannot be
+expressed using W3C XML Schema, and we need to embed other languages
+(as shown in <a href="ch14_01.htm">Chapter 14, "Documenting Schemas"</a>) but when we think about
+it, <tt class="literal"><a href="ch15_01.htm#ch15-77603">xs:unique</a></tt>, <tt class="literal"><a href="ch15_01.htm#ch15-77346">xs:key</a></tt>, and <tt class="literal"><a href="ch15_01.htm#ch15-77355">xs:keyref</a></tt> can be considered very specific
+co-occurrence constraints and they can be used here. If we want to
+insure that we have only one title and ISBN number, we can add a
+<tt class="literal"><a href="ch15_01.htm#ch15-77346">xs:key</a></tt> definition in the
+<tt class="literal">book</tt> element itself:
+</p>
+
+<blockquote><pre class="code">&lt;xs:key name="isbn"&gt;
+  &lt;xs:selector xpath="."/&gt;
+  &lt;xs:field xpath="isbn|@isbn"/&gt;
+&lt;/xs:key&gt;
+              
+&lt;xs:key name="title"&gt;
+  &lt;xs:selector xpath="."/&gt;
+  &lt;xs:field xpath="title|@title"/&gt;
+&lt;/xs:key&gt;</pre></blockquote>
+
+<p>These keys are evaluated in the scope of a book element and
+won't have any effect outside each book element.
+They will consider the book invalid if the XPath expression in their
+<tt class="literal">field</tt> element returns either no nodes or multiple
+nodes. Note that if we had used <tt class="literal"><a href="ch15_01.htm#ch15-77603">xs:unique</a></tt> instead of <tt class="literal"><a href="ch15_01.htm#ch15-77346">xs:key</a></tt>, we would still have required that
+only one of the elements or attributes be present, but that would
+have made the property optional. For the record, the full definition
+of our <tt class="literal">book</tt> element would then be:
+</p>
+
+<blockquote><pre class="code">&lt;xs:element name="book"&gt;
+  &lt;xs:complexType&gt;
+    &lt;xs:sequence&gt;
+      &lt;xs:element ref="isbn" minOccurs="0"/&gt;
+      &lt;xs:element ref="title" minOccurs="0"/&gt;
+      &lt;xs:element ref="author" minOccurs="0" maxOccurs="unbounded"/&gt; 
+      &lt;xs:element ref="character" minOccurs="0"
+        maxOccurs="unbounded"/&gt;
+    &lt;/xs:sequence&gt;
+    &lt;xs:attribute ref="id"/&gt;
+    &lt;xs:attribute ref="available"/&gt;
+    &lt;xs:attribute ref="isbn"/&gt;
+    &lt;xs:attribute ref="title"/&gt;
+  &lt;/xs:complexType&gt;
+  &lt;xs:key name="isbn"&gt;
+    &lt;xs:selector xpath="."/&gt;
+    &lt;xs:field xpath="isbn|@isbn"/&gt;
+  &lt;/xs:key&gt;
+  &lt;xs:key name="title"&gt;
+    &lt;xs:selector xpath="."/&gt;
+    &lt;xs:field xpath="title|@title"/&gt;
+  &lt;/xs:key&gt;
+&lt;/xs:element&gt;</pre></blockquote>
+
+
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch09_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch10_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">9.3. ID/IDREF Versus /</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">10. Controlling Namespaces</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

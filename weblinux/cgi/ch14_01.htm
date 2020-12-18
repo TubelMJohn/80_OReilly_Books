@@ -1,0 +1,367 @@
+<?label 14. Middleware and XML?><html><head><title>Middleware and XML (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch14_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 14. Middleware and XML</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch14_01.htm">Communicating with Other Servers</a><br>
+<a href="ch14_02.htm">An Introduction to XML</a><br>
+<a href="ch14_03.htm">Document Type Definition</a><br>
+<a href="ch14_04.htm">Writing an XML Parser</a><br>
+<a href="ch14_05.htm">CGI Gateway to XML Middleware</a><br></p></div>
+
+
+
+<p>CGI programming has been used to make individual web applications
+from simple guestbooks to complex programs such as a calendar capable
+of managing the schedules of large groups. Traditionally, these
+programs have been limited to displaying data and receiving input
+directly from users.</p>
+
+
+<p>However, as with all popular technologies, CGI is being pushed beyond
+these traditional uses. Going beyond CGI applications that interact
+with users, the focus of this chapter is on how CGI can be a powerful
+means of communicating with other programs.</p>
+
+
+<p>We have seen how CGI programs can act as a gateway to a variety of
+resources such as databases, email, and a host of other protocols and
+programs. However, a CGI program can also perform some sophisticated
+processing on the data it gets so that it effectively becomes a data
+resource itself. This is the definition of <a name="INDEX-2717" />
+<a name="INDEX-2718" />CGI
+<em class="emphasis">middleware</em>. In this context, the CGI application
+sits between the program it is serving data to and the resources that
+it is interacting with.</p>
+
+
+<p>The variety of <a name="INDEX-2719" />search engines that exist provides a good
+example of why CGI middleware can be useful. In the early history of
+the Web, there were only a few search engines to choose from. Now,
+there are many. The results these engines produce are usually not
+identical. Finding out about a rare topic is not an easy task if you
+have to jump from engine to engine to retry the search.</p>
+
+
+<p>Instead of trying multiple queries, you would probably rather issue
+one query and get back results from many search engines in a
+consolidated form with duplicate responses already filtered out. To
+make this a reality, the search engines themselves must become CGI
+middleware engines, talking to one CGI script that consolidates the
+results.</p>
+
+
+<p>Furthermore, a <a name="INDEX-2720" />
+<a name="INDEX-2721" />CGI middleware layer can be
+used to consolidate databases other than ones on the Internet. For
+example, a company-wide directory service could be programmed to
+search several internal phone directory databases such as customer
+data and human resources data as well as using an Internet phone
+resource such as <a href="http://www.four11.com/">http://www.four11.com/</a> if the information is
+lacking internally, as shown in <a href="ch14_01.htm#ch14-33108">Figure 14-1</a>.</p>
+
+
+<a name="ch14-33108" /><div class="figure"><img width="334" src="figs/cgi2.1401.gif" height="241" alt="Figure 14-1" /></div><h4 class="objtitle">Figure 14-1. Consolidated phone directory interface using CGI middleware</h4>
+
+<p>Two technologies to illustrate the use of CGI middleware will be
+demonstrated later in this chapter. First, we will look at how to
+perform network connections from your CGI scripts in order to talk to
+other servers. Then, we introduce eXtensible Markup Language (XML), a
+platform-independent way of transferring data between programs.
+We'll show an example using Perl's XML parser.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch14-59873" />
+<h2 class="sect1">14.1. Communicating with Other Servers</h2>
+
+
+<p>Let's look <a name="INDEX-2723" /> <a name="INDEX-2,724" /> <a name="INDEX-2,725" /> <a name="INDEX-2,726" />at the typical communication
+scheme between a <a name="INDEX-2727" />client and a server. Consider an
+electronic mail application, for example. Most
+<a name="INDEX-2728" />email applications save the user's
+messages in a particular file, typically in the
+<em class="emphasis">/var/spool/mail</em> directory. When you send mail to
+someone on a different host, the mail application must find the
+recipient's mail file on that server and append your message to
+it. How does the mail program achieve this task, since it cannot
+manipulate files on a remote host directly?</p>
+
+
+<p>The answer to this question is <em class="emphasis">interprocess
+communication</em>
+<a name="INDEX-2729" /> (IPC). Typically, there
+exists a process on the remote host, which acts as a messenger for
+dealing with email services. When you send a message, the local
+process on your host communicates with this remote agent across a
+network to deliver mail. As a result, the <a name="INDEX-2730" />
+<a name="INDEX-2731" />
+<a name="INDEX-2732" />remote process is called a server
+(because it services an issued request), and the
+<a name="INDEX-2733" />
+<a name="INDEX-2734" />local process is referred to as a
+client. The Web works along the same philosophy: the
+<a name="INDEX-2735" />
+<a name="INDEX-2736" />browser represents the client that issues a
+request to an HTTP server that interprets and executes the request.</p>
+
+
+<p>The most important thing to remember here is that the client and the
+server must speak the same language. In other words, a particular
+client is designed to work with a specific server. So, for example,
+an email client, such as Eudora, cannot communicate with a web
+server. But if you know the stream of data expected by a server, and
+the output it produces, you can write an application that
+communicates with the server, as you will see later in this chapter.</p>
+
+
+<a name="ch14-1-fm2xml" /><div class="sect2">
+<h3 class="sect2">14.1.1. Sockets</h3>
+
+
+<p>Most <a name="INDEX-2737" />
+<a name="INDEX-2738" />
+<a name="INDEX-2739" />
+<a name="INDEX-2740" />companies have a
+telephone switchboard that acts as a gateway for calls coming in and
+going out. A socket can be likened to a telephone switchboard. If you
+want to connect to a remote host, you need to first create a socket
+through which the communications would occur. This is similar to
+dialing "9" to go through the company switchboard to the
+outside world.</p>
+
+
+<p>Similarly, if you want to create a server that accepts
+<a name="INDEX-2741" />connections from remote (or local) hosts,
+you need to set up a socket that listens for connections. The socket
+is identified on the Internet by the <a name="INDEX-2742" />
+<a name="INDEX-2743" />
+<a name="INDEX-2744" />host's IP address and the port
+that it listens on. Once a connection is established, a new socket is
+created to handle this connection, so that the original socket can go
+back and listen for more connections. The telephone switchboard works
+in the same manner: as it handles outside phone calls, it routes them
+to the appropriate extension and goes back to accept more calls.</p>
+
+
+<p>For the sake of discussion, think of a socket simply as a pipe
+between two locations. You can send and receive information through
+that pipe. This concept will make it easier for you to understand
+socket I/O.</p>
+</div>
+
+
+
+
+<a name="ch14-2-fm2xml" /><div class="sect2">
+<h3 class="sect2">14.1.2. IO::Socket</h3>
+
+
+<p>The <a name="INDEX-2745" />
+<a name="INDEX-2746" />
+<a name="INDEX-2747" />IO::Socket module, which is included
+with the standard Perl distribution, makes socket programming simple.
+<a href="ch14_01.htm#ch14-91444">Example 14-1</a> provides a short program that takes a
+URL from the user, requests the resource via a GET method, then
+prints the headers and content.</p>
+
+
+
+<a name="ch14-91444" /><div class="example">
+<h4 class="objtitle">Example 14-1. socket_get.pl </h4>
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+
+use IO::Socket;
+use URI;
+
+my $location = shift || die "Usage: $0 URL\n";
+
+my $url      = new URI( $location );
+my $host     = $url-&gt;host;
+my $port     = $url-&gt;port || 80;
+my $path     = $url-&gt;path || "/";
+
+my $socket   = new IO::Socket::INET (PeerAddr =&gt; $host,
+                                     PeerPort =&gt; $port,
+                                     Proto    =&gt; 'tcp')
+               or die "Cannot connect to the server.\n";
+
+$socket-&gt;autoflush (1);
+
+print $socket "GET $path HTTP/1.1\n",
+              "Host: $host\n\n";
+print while (&lt;$socket&gt;);
+
+$socket-&gt;close;</pre></blockquote>
+</div>
+
+
+<p>We use the <a name="INDEX-2748" />
+<a name="INDEX-2749" />URI module discussed in <a href="ch02_01.htm">Chapter 2, "The Hypertext Transport Protocol "</a>, to break the URL supplied by the user into
+components. Then we create a new instance of the IO::Socket::INET
+object and pass it the host, port number, and the communications
+protocol. And the module takes care of the rest of the details.</p>
+
+
+<p>We make the socket unbuffered by using the
+<tt class="function">autoflush</tt>
+<a name="INDEX-2750" /> method. Notice in the
+next set of code that we can use the
+<a name="INDEX-2751" />
+<a name="INDEX-2752" />instance variable
+<tt class="literal">$socket</tt> as a file handle as well. This means that
+we can read from and write to the socket through this variable.</p>
+
+
+<p>This is a relatively simple program, but there is an even easier way
+to retrieve web resources from Perl: LWP.</p>
+</div>
+
+
+
+
+<a name="ch14-3-fm2xml" /><div class="sect2">
+<h3 class="sect2">14.1.3. LWP</h3>
+
+
+<p><em class="emphasis">LWP</em>
+<a name="INDEX-2753" />
+<a name="INDEX-2754" />,
+which stands for <em class="firstterm">libwww-perl</em>, is an
+implementation of the W3C's <em class="firstterm">libwww</em>
+package for Perl by Gisle Aas and Martijn Koster, with contributions
+from a host of others. LWP allows you to create a fully configurable
+web <a name="INDEX-2755" />client in Perl. You can
+see an example of some of what LWP can do in <a href="ch08_02.htm#ch08-74342">Section 8.2.5, "Trusting the Browser"</a>.</p>
+
+
+<p>With LWP, we can write our <a name="INDEX-2756" /> <a name="INDEX-2,757" />web agent as shown in <a href="ch14_01.htm#ch14-59139">Example 14-2</a>.</p>
+
+
+
+<a name="ch14-59139" /><div class="example">
+<h4 class="objtitle">Example 14-2. lwp_full_get.pl </h4>
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use LWP::UserAgent;
+use HTTP::Request;
+
+my $location = shift || die "Usage: $0 URL\n";
+
+my $agent = new LWP::UserAgent;
+my $req = new HTTP::Request GET =&gt; $location;
+   $req-&gt;header('Accept' =&gt; 'text/html');
+
+my $result = $agent-&gt;request( $req );
+
+print $result-&gt;headers_as_string,
+      $result-&gt;content;</pre></blockquote>
+</div>
+
+
+<p>Here we create a user agent object as well as an HTTP request object.
+We ask the user agent to fetch the result of the HTTP request and
+then print out the headers and content of this response.</p>
+
+
+<p>Finally, let's look at <a name="INDEX-2758" />LWP::Simple. LWP::Simple does not offer
+the same flexibility as the full LWP module, but it is much easier to
+use. In fact, we can rewrite our previous example to be even shorter;
+see <a href="ch14_01.htm#ch14-31064">Example 14-3</a>.</p>
+
+
+
+<a name="ch14-31064" /><div class="example">
+<h4 class="objtitle">Example 14-3. lwp_simple_get.pl </h4>
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use LWP::Simple;
+
+my $location = shift || die "Usage: $0 URL\n";
+
+getprint( $location );</pre></blockquote>
+</div>
+
+
+<p>There is a slight difference between this and the previous example.
+It does not print the HTTP headers, just the content. If we want to
+access the headers, we would need to use the <a name="INDEX-2759" /> <a name="INDEX-2,760" /> <a name="INDEX-2,761" /> <a name="INDEX-2,762" />full LWP module
+instead.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch14_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">13.5. PerlMagick</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">14.2. An Introduction to XML</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

@@ -1,0 +1,169 @@
+<html><head><title>Other Alternatives (XML Schema)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric van der Vlist" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002521L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XML Schema" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XML Schema" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch08_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">8.3. Other Alternatives</h2>
+
+<p>The <a name="INDEX-661" /><tt class="literal"><a href="ch15_01.htm#ch15-77337">xs:include</a></tt> and <tt class="literal"><a href="ch15_01.htm#ch15-77474">xs:redefine</a></tt><a name="INDEX-662" />
+elements are features which provide a safe way to include
+"pieces" of schemas. Their
+processing model is designed to provide a result that is a coherent
+schema. However, the price for this safety is a certain rigidity:
+only full schemas documents can be included and the insertion can
+only occur at a global level in a schema. (It is not possible, for
+instance, to pick a couple of definitions in a schema without
+including the others.) These rules mean that these features cannot be
+used to include local elements, such as annotations or commonly used
+facets. Let's imagine, for instance, that we want to
+require that all our dates and related datatypes specify a time zone,
+and that we have worked very hard to define a generic pattern to use
+to enforce this constraint. This can be something such as:
+</p>
+
+<blockquote><pre class="code">&lt;xs:pattern value=".+(Z|[+-].{5})"/&gt;</pre></blockquote>
+
+<p>We could derive user-defined datatypes for each of the eight
+primitive times--which can have a time zone using this
+pattern--and ask to our schema designers to use only these
+datatypes in their schemas. However, we may prefer to give them this
+pattern as a tool, which they can use in their schemas by reference
+instead of copying it (we may want to keep the possibility of
+modifying the pattern without having to update all the schemas). In
+this case, <tt class="literal"><a href="ch15_01.htm#ch15-77337">xs:include</a></tt> and
+<tt class="literal"><a href="ch15_01.htm#ch15-77474">xs:redefine</a></tt> cannot be used, and
+we must consider using one of the generic XML inclusion methods,
+which are external parsed entities and XInclude.
+</p>
+
+<a name="xmlschema-CHP-8-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">8.3.1. External Parsed Entities</h3>
+
+<p><a name="INDEX-663" />External parsed
+entities are one of the SGML features inherited by XML though its
+DTD. As the name indicates, these are entities (i.e., something you
+need to declare in the DTD and can reference later on in your
+document) that are external (i.e., their replacement value is read
+from an external file when they are referenced) and parsed (i.e.,
+their content is parsed and merged into the infoset of the including
+document).
+</p>
+
+<p>To use external parsed entities, we will create an XML document with
+the pattern we want to include:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt; 
+&lt;xs:pattern value=".+(Z|[+-].{5})"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"/&gt;</pre></blockquote>
+
+<p>Note that including a namespace declaration in this file (which will
+be used as an external parsed entity) is not strictly mandatory, if
+we are sure that this entity will always be used in documents in
+which the namespace has already been defined with the same prefix.
+However, even in this case, the redefinition of the namespace is
+allowed though it will have no effect. Defining it will guarantee
+that if another prefix has been used in the included document, the
+snippet that we include will still be understood as belonging to the
+W3C XML Schema namespace. To use this entity, it must be declared in
+the internal or external DTD of our schema and referred to in our
+derivations:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+&lt;!DOCTYPE xs:schema[
+&lt;!ENTITY TZ-pattern SYSTEM "pattern.ent"&gt;
+]&gt;
+&lt;xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"&gt;
+        &lt;xs:simpleType name="myDate"&gt;
+                &lt;xs:restriction base="xs:date"&gt;
+                                &amp;TZ-pattern;
+                &lt;/xs:restriction&gt;
+        &lt;/xs:simpleType&gt;
+        &lt;xs:element name="myDate" type="myDate"/&gt;
+&lt;/xs:schema&gt;</pre></blockquote>
+
+<p>The interesting thing here is we have a finer granularity than we
+could have achieved using the W3C XML Schema inclusion mechanisms,
+which manipulate only global components. The price for using a
+general purpose inclusion mechanism such as external parsed entities
+(or XInclude, discussed in the next section) is that this mechanism
+doesn't implement any of the semantics of W3C XML
+Schema and doesn't allow any redefinition. Beyond
+this simple example, other DTD features, such as internal parsed
+entities, and even parameter entities can be used in conjunction with
+W3C XML Schema to produce innovative combinations!
+</p>
+
+</div>
+<a name="xmlschema-CHP-8-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">8.3.2. XInclude</h3>
+
+<p><a name="INDEX-664" />Currently a W3C Candidate
+Recommendation, XInclude is a XML application that relies on
+<a name="INDEX-665" />XPointer. XInclude will eventually
+replace external parsed entities and can be used in a similar way;
+the main difference is that a XInclude reference
+doesn't need to be declared prior to its use and can
+include a fragment of a XML document. The same example can then be
+implemented using XInclude, taking advantage of its feature to fetch
+our pattern by its <tt class="literal">id</tt> even if it is defined within
+a more complete schema such as:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt; 
+&lt;xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"&gt;
+  &lt;xs:simpleType name="date"&gt;
+    &lt;xs:restriction base="xs:date"&gt;
+      &lt;xs:pattern value=".+(Z|[+-].{5})" id="TZ-pattern"/&gt;
+    &lt;/xs:restriction&gt;
+  &lt;/xs:simpleType&gt;
+  &lt;xs:element name="myDate" type="myDate"/&gt;
+&lt;/xs:schema&gt;</pre></blockquote>
+
+<p>Now that the <tt class="literal">id</tt> attribute of the <tt class="literal"><a href="ch15_01.htm#ch15-77465">xs:pattern</a></tt> element is defined, we can use the
+XPointer "bare names" syntax, which
+allows us to use the value of an <tt class="literal">id</tt> as a fragment
+identifier. In our case, the XPointer reference to our <tt class="literal"><a href="ch15_01.htm#ch15-77465">xs:pattern</a></tt> definition is thus
+<tt class="literal">pattern.xsd#TZ-pattern</tt>. We can write:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+&lt;xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:xi="http://www.w3.org/2001/XInclude"&gt;
+  &lt;xs:simpleType name="myDateTime"&gt;
+    &lt;xs:restriction base="xs:dateTime"&gt;
+      &lt;xi:include href="pattern.xsd#TZ-pattern" parse="xml"/&gt;
+    &lt;/xs:restriction&gt;
+  &lt;/xs:simpleType&gt;
+  &lt;xs:element name="myDate" type="myDateTime"/&gt;
+&lt;/xs:schema&gt;</pre></blockquote>
+
+<p>Note that XInclude is still a work in progress, and that this syntax
+may change before XInclude reaches the status of W3C Recommendation.
+Also note that a parser implementing XInclude should be used to read
+<a name="INDEX-666" />such a <a name="INDEX-667" />schema. 
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch08_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">8.2. Schema Inclusion with Redefinition</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">8.4. Simplifying the Library</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

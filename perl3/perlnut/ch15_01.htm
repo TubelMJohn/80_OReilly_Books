@@ -1,0 +1,485 @@
+<html><head><title>Sockets (Perl in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Stephen Spainhour" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002416L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="part7.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch15_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 15. Sockets</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#perlnut2-CHP-15-SECT-1">Built-in Socket Functions</a><br />
+<a href="ch15_02.htm">The IO::Socket Module</a><br /></p></div>
+
+<p>Why build networking functionality into your Perl scripts? You might
+want to access your email remotely, or write a simple script that
+updates files on an FTP site<a name="INDEX-1897" /></a><a name="INDEX-1898" /></a>.
+You might want to check up on your employees with a program that
+searches for Usenet postings that came from your site. You might want
+to check a web site for any recent changes, or even write your own
+home-grown web server. The network is the computer these days, and
+Perl makes network applications easy.
+</p>
+
+<p>Perl programmers have their choice of modules for doing common tasks
+with network protocols; <a href="ch14_01.htm">Chapter 14, "SOAP"</a> through <a href="ch17_01.htm">Chapter 17, "Usenet News"</a> cover the modules for
+writing email, news, FTP, and web applications in Perl. If you can do
+what you want with the available modules, you're
+encouraged to jump to those chapters and skip this one. However,
+there will be times when you'll have to wrestle with
+sockets directly, and that's when this chapter comes
+in.
+</p>
+
+<p>Sockets are the underlying mechanism for networking on the Internet.
+With sockets, one application (a <em class="emphasis">server</em>) sits on
+a port waiting for connections. Another application (the
+<em class="emphasis">client</em>) connects to that port and says hello;
+then the client and server have a chat. Their actual conversation is
+done with whatever protocol they choose&#x2014;for example, a web
+client and server would use HTTP, an email server would use POP3 and
+SMTP, etc. But at the most basic level, you might say that all
+network programming comes down to opening a socket, reading and
+writing data, and closing the socket.
+</p>
+
+<p>You can work with sockets in Perl at various levels. At the lowest
+level, Perl's built-in functions include socket
+routines similar to the system calls in C of the same name. To make
+these routines easier to use, the Socket module in the standard
+library imports common definitions and constants specific to your
+system's networking capabilities. Finally, the
+IO::Socket module provides an object interface to the socket
+functions through a standard set of methods and options for
+constructing both client and server communications programs.
+</p>
+
+<p>Sockets provide a connection between systems or applications. They
+can be set up to handle streaming data or discrete data packets.
+Streaming data continually comes and goes over a connection. A
+transport protocol such as TCP (Transmission Control Protocol) is
+used to process streaming data so that all of the data is properly
+received and ordered<a name="INDEX-1899" /></a><a name="INDEX-1900" /></a><a name="INDEX-1901" /></a>. Packet-oriented communication sends
+data across the network in discrete chunks. The message-oriented
+protocol UDP (User Datagram Protocol) works on this type of
+connection. Although streaming sockets using TCP are widely used for
+applications, UDP sockets also have their uses.
+</p>
+
+<p>Sockets exist in one of two address domains: the Internet domain and
+the Unix domain. Sockets used for Internet connections require the
+careful binding and assignment of the proper type of address dictated
+by the <a name="INDEX-1902" /></a>Internet Protocol (IP). These sockets
+are referred to as Internet-domain sockets.
+</p>
+
+<p><a name="INDEX-1903" /></a>Sockets in the Unix domain create
+connections between applications either on the same machine or within
+a LAN. The addressing scheme is less complicated, often just
+providing the name of the target process.
+</p>
+
+<p>In Perl, sockets are attached to a filehandle after they have been
+created. Communication over the connection is then handled by
+standard Perl I/O functions.
+</p>
+<div class="sect1"><a name="perlnut2-CHP-15-SECT-1" /></a>
+<h2 class="sect1">15.1. Built-in Socket Functions</h2>
+
+<p><a name="INDEX-1904" /></a><a name="INDEX-1905" /></a><a name="INDEX-1906" /></a><a name="INDEX-1907" /></a>Perl
+provides built-in support for sockets. The following functions are
+defined specifically for socket programming. For full descriptions
+and syntax, see <a href="ch05_01.htm">Chapter 5, "Function Reference"</a>.
+</p>
+
+<dl>
+<dt><b><tt class="literal">socket</tt></b></dt>
+<dd>
+<a name="INDEX-1908" /></a>Initializes a socket and assigns a
+filehandle to it.
+<p></p>
+</dd>
+
+
+<dt><b><tt class="literal">bind</tt></b></dt>
+<dd>
+<a name="INDEX-1909" /></a>For servers, associates a socket with a
+port and address. For clients, associates a socket with a specific
+source address.
+<p></p>
+</dd>
+
+
+<dt><b><tt class="literal">listen</tt></b></dt>
+<dd>
+<a name="INDEX-1910" /></a>(Server only.) Waits for incoming
+connection with a client.
+<p></p>
+</dd>
+
+
+<dt><b><tt class="literal">accept</tt></b></dt>
+<dd>
+<a name="INDEX-1911" /></a>(Server only.) Accepts incoming
+connection with a client.
+<p></p>
+</dd>
+
+
+<dt><b><tt class="literal">connect</tt></b></dt>
+<dd>
+<a name="INDEX-1912" /></a>(Client only.) Establishes a network
+connection on a socket.
+<p></p>
+</dd>
+
+
+<dt><b><tt class="literal">recv</tt></b></dt>
+<dd>
+<a name="INDEX-1913" /></a>Reads data from a socket filehandle.
+<p></p>
+</dd>
+
+
+<dt><b><tt class="literal">send</tt></b></dt>
+<dd>
+<a name="INDEX-1914" /></a>Writes
+data to a filehandle.
+<p></p>
+</dd>
+
+
+<dt><b><tt class="literal">shutdown</tt> (or <tt class="literal">close</tt>)</b></dt>
+<dd>
+<a name="INDEX-1915" /></a>Terminates a network connection.
+<p></p>
+</dd>
+
+</dl>
+
+<p>Regular functions that read and write filehandles can also be used
+for sockets, e.g., <tt class="literal">write</tt>,
+<tt class="literal">print</tt>, <tt class="literal">printf</tt>, and the diamond
+input operator, <tt class="literal">&lt;&gt;</tt>.
+</p>
+
+<p>The socket functions tend to use hardcoded values for some
+parameters, which severely hurts portability. Perl solves this
+problem with a module called Socket, included in the standard
+library. Use this module for any socket applications that you build
+with the built-in functions (e.g., <tt class="literal">use Socket</tt>).
+The module loads the <em class="emphasis">socket.h</em> header file, which
+enables the built-in functions to use the constants and names
+specific to your system's network programming, as
+well as additional functions for dealing with address and protocol
+names.
+</p>
+
+<p>The next few sections describe Perl socket programming using a
+combination of the built-in functions together with the Socket
+module. After that, we describe the use of the IO::Socket module.
+</p>
+
+<a name="perlnut2-CHP-15-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">15.1.1. Initializing a Socket</h3>
+
+<p><a name="INDEX-1916" /></a><a name="INDEX-1917" /></a><a name="INDEX-1918" /></a>Both
+client and server use the <tt class="literal">socket</tt> call to create a
+socket and associate it with a filehandle. The
+<tt class="literal">socket</tt> function takes several arguments: the name
+of the filehandle, the network domain, an indication of whether the
+socket is stream-oriented or record-oriented, and the network
+protocol to be used. For example, HTTP (web) transactions require
+stream-oriented connections running TCP. The following lines create a
+socket for this case and associates it with the filehandle
+<tt class="literal">SH</tt>:
+</p>
+
+<blockquote><pre class="code">use Socket;
+socket(SH, PF_INET, SOCK_STREAM, getprotobyname('tcp')) || die $!;</pre></blockquote>
+
+<p>The <tt class="literal">PF_INET</tt> argument indicates that the socket
+will connect to addresses in the Internet domain (i.e., IP
+addresses). Sockets with a Unix domain address use
+<tt class="literal">PF_UNIX</tt>.
+</p>
+
+<p>Because this is a streaming connection using TCP, we specify
+<tt class="literal">SOCK_STREAM</tt> for the second argument. The
+alternative would be to specify <tt class="literal">SOCK_DGRAM</tt> for a
+packet-based UDP connection.
+</p>
+
+<p>The third argument indicates the protocol used for the connection.
+Each protocol has a number assigned to it by the system; that number
+is passed to <tt class="literal">socket</tt> as the third argument. In the
+scalar context, <tt class="literal">getprotobyname</tt> returns the
+protocol
+number<a name="INDEX-1919" /></a>.
+</p>
+
+<p>Finally, if the socket call fails, the program will
+<tt class="literal">die</tt>, printing the error message found in
+<tt class="literal">$!</tt>.
+</p>
+
+</div>
+<a name="perlnut2-CHP-15-SECT-1.2" /></a><div class="sect2">
+<h3 class="sect2">15.1.2. Client Connections</h3>
+
+<p><a name="INDEX-1920" /></a><a name="INDEX-1921" /></a><a name="INDEX-1922" /></a>On the client side, the next step is to
+connect with a server at a particular port and host. To do this, the
+client uses the <tt class="literal">connect</tt> call.
+<tt class="literal">connect</tt> requires the socket filehandle as its
+first argument. The second argument is a data structure containing
+the port and hostname that together specify the address. The Socket
+package provides the <tt class="literal">sockaddr_in</tt> function to
+create this structure for Internet addresses and the
+<tt class="literal">sockaddr_un</tt> function for Unix domain addresses.
+</p>
+
+<p>The <tt class="literal">sockaddr_in</tt> function takes a port number for
+its first argument and a 32-bit IP address for the second argument.
+The 32-bit address is formed from the <tt class="literal">inet_aton</tt>
+function found in the Socket package. This function takes either a
+hostname (e.g., www.oreilly.com)
+or a dotted-decimal string (e.g., 207.54.2.25) and returns the
+corresponding 32-bit structure.
+</p>
+
+<p>Continuing with the previous example, a call to
+<tt class="literal">connect</tt> could look like this:
+</p>
+
+<blockquote><pre class="code">my $dest = sockaddr_in (80, inet_aton('www.oreilly.com'));
+connect (SH, $dest) || die $!;</pre></blockquote>
+
+<p>This call attempts to establish a network connection to the specified
+server and port. If successful, it returns true. Otherwise, it
+returns false and <tt class="literal">die</tt> s with the error in
+<tt class="literal">$!</tt>.
+</p>
+
+<p>Assuming that the <tt class="literal">connect</tt> call has completed
+successfully and a connection has been established, there are a
+number of functions we can use to write to and read from the
+filehandle. For example, the <tt class="literal">send</tt> function sends
+data to a socket:
+</p>
+
+<blockquote><pre class="code">$data = "Hello";
+send (FH, $data);</pre></blockquote>
+
+<p><a name="INDEX-1923" /></a>The <tt class="literal">print</tt> function
+allows a wider variety of expressions for sending data to a
+filehandle:
+</p>
+
+<blockquote><pre class="code">select (FH);
+print "$data";</pre></blockquote>
+
+<p>To read incoming data from a socket, use either the
+<tt class="literal">recv</tt> function or the diamond input operator
+regularly used on filehandles. For example:
+</p>
+
+<blockquote><pre class="code">recv (FH, $buffer);
+$input = &lt;FH&gt;;</pre></blockquote>
+
+<p>After the conversation with the server is finished, use
+<tt class="literal">close</tt> or <tt class="literal">shutdown</tt> to close the
+connection and destroy the socket.
+</p>
+
+</div>
+<a name="perlnut2-CHP-15-SECT-1.3" /></a><div class="sect2">
+<h3 class="sect2">15.1.3. Server Connections</h3>
+
+<p><a name="INDEX-1924" /></a><a name="INDEX-1925" /></a>After creating a socket with the
+<tt class="literal">socket</tt> function as you did previously, a server
+application must go through the following steps to receive network
+connections:
+</p>
+
+<ol><li>
+<p>Bind a port number and machine address to the
+socket<a name="INDEX-1926" /></a>
+</p>
+</li><li>
+<p>Listen for incoming connections from clients on the port</p>
+</li><li>
+<p>Accept a client request and assign the connection to a specific
+filehandle
+</p>
+</li></ol>
+<p>We start out by creating a socket for the server: </p>
+
+<blockquote><pre class="code">my $proto = getprotobyname('tcp');
+socket(FH, PF_INET, SOCK_STREAM, $proto) || die $!;</pre></blockquote>
+
+<p>The filehandle <tt class="literal">$FH</tt> is the generic filehandle for
+the socket. This filehandle only receives requests from clients; each
+specific connection is passed to a different filehandle by
+<tt class="literal">accept</tt>, where the rest of the communication
+occurs.
+</p>
+
+<p>A server-side socket must be bound to a port on the local machine by
+passing a port and an address data structure to the
+<tt class="literal">bind</tt> <a name="INDEX-1927" /></a>function via
+<tt class="literal">sockaddr_in</tt>. The Socket module provides
+identifiers for common local addresses, such as localhost and the
+broadcast address. Here we use <tt class="literal">INADDR_ANY</tt>, which
+allows the system to pick the appropriate address for the machine:
+</p>
+
+<blockquote><pre class="code">my $sin = sockaddr_in (80, INADDR_ANY);
+bind (FH, $sin) || die $!;</pre></blockquote>
+
+<p><a name="INDEX-1928" /></a>The <tt class="literal">listen</tt> function
+tells the operating system that the server is ready to accept
+incoming network connections on the port. The first argument is the
+socket filehandle. The second argument gives a queue length, in case
+multiple clients are connecting to the port at the same time. This
+number indicates how many clients can wait for an
+<tt class="literal">accept</tt> at one time.
+</p>
+
+<blockquote><pre class="code">listen (FH, $length);</pre></blockquote>
+
+<p><a name="INDEX-1929" /></a>The <tt class="literal">accept</tt>
+function completes a connection after a client requests and assigns a
+new filehandle specific to that connection. The new filehandle is
+given as the first argument to <tt class="literal">accept</tt>, and the
+generic socket filehandle is given as the second:
+</p>
+
+<blockquote><pre class="code">accept (NEW, FH) || die $!;</pre></blockquote>
+
+<p>Now the server can read and write to the filehandle
+<tt class="literal">NEW</tt> for its communication with the client.
+</p>
+
+</div>
+<a name="perlnut2-CHP-15-SECT-1.4" /></a><div class="sect2">
+<h3 class="sect2">15.1.4. Socket Module Functions</h3>
+
+<p><a name="INDEX-1930" /></a>The following functions are imported
+from the Socket module for use in socket applications.
+</p>
+
+<a name="INDEX-1931" /></a><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>inet_aton</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" true align="left" color="black" /><pre>
+inet_aton (<em class="replaceable">hostname</em>)
+</pre><p><a name="INDEX-1931" /></a>Translates a hostname such as
+<em class="emphasis">www.oreilly.com</em> or 18.181.0.24
+into a data structure (a four-byte string) used for socket addresses.
+If the hostname cannot be resolved, the function returns the
+undefined value.
+</p></div>
+
+<a name="INDEX-1932" /></a><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>inet_ntoa</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" true align="left" color="black" /><pre>
+inet_ntoa (<em class="replaceable">addr_string</em>)
+</pre><p><a name="INDEX-1932" /></a>Translates a four-byte address string
+(as returned by <tt class="literal">inet_aton</tt>) into a string with the
+dotted-quad form of IP address.
+</p></div>
+
+<a name="INDEX-1933" /></a><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>sockaddr_in</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" true align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+sockaddr_in (<em class="replaceable">port</em>, <em class="replaceable">addr_string</em>)
+pack_sockaddr_in (<em class="replaceable">port</em>, <em class="replaceable">addr_string</em>)
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-1933" /></a>Takes
+a port number and a four-byte <em class="replaceable"><tt>addr_string</tt></em>(as returned by <tt class="literal">inet_aton</tt>) and returns the socket
+address structure including those arguments packed with the AF_INET
+argument. This structure is normally what you need for the arguments
+in <tt class="literal">bind</tt>, <tt class="literal">connect</tt>, and
+<tt class="literal">send</tt>, and is also returned by
+<tt class="literal">getpeername</tt>, <tt class="literal">getsockname</tt>, and
+<tt class="literal">recv</tt>.
+</p></div>
+
+<a name="INDEX-1934" /></a><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>sockaddr_un</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" true align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+sockaddr_un (<em class="replaceable">pathname</em>)
+pack_sockaddr_un (<em class="replaceable">pathname</em>)
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-1934" /></a>Takes
+one argument, a pathname, and returns the Unix domain socket address
+structure (the path packed in with AF_UNIX filled in). For Unix
+domain sockets, this structure is normally what you need for the
+arguments in <tt class="literal">bind</tt>, <tt class="literal">connect</tt>, and
+<tt class="literal">send</tt>, and is also returned by
+<tt class="literal">getpeername</tt>, <tt class="literal">getsockname</tt>, and
+<tt class="literal">recv</tt>.
+</p></div>
+
+<a name="INDEX-1935" /></a><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>unpack_sockaddr_in</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" true align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+unpack_sockaddr_in (<em class="replaceable">sockaddr</em>)
+sockaddr_in (<em class="replaceable">sockaddr</em>) 
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-1935" /></a>Takes a socket address structure and
+returns an array of two elements (in list context): the port number
+and the four-byte IP address.
+</p></div>
+
+<a name="INDEX-1936" /></a><a name="INDEX-1937" /></a><a name="INDEX-1938" /></a><a name="INDEX-1939" /></a><a name="INDEX-1940" /></a><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>unpack_sockaddr_un</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" true align="left" color="black" /><table width="515" border="0" cellpadding="5"><tr><td align="left"><pre>
+unpack_sockaddr_un (<em class="replaceable">sockaddr_un</em>)
+sockaddr_un (<em class="replaceable">sockaddr_un</em>) 
+</pre></td><td align="right" /></tr></table><p><p><a name="INDEX-1936" /></a>Takes a Unix domain socket address
+structure (as returned by <tt class="literal">sockaddr_un</tt>) and returns
+the pathname.
+</p><p>The following constants are defined in the Socket module:</p><dl>
+<dt><b><tt class="literal">INADDR_ANY</tt></b></dt>
+<dd>
+<a name="INDEX-1937" /></a>The
+four-byte packed string for the wildcard IP address that specifies
+any of the host's addresses (if the host has
+multiple addresses). This is equivalent to
+<tt class="literal">inet_aton('0.0.0.0')</tt>. 
+<p></p>
+</dd>
+
+
+<dt><b><tt class="literal">INADDR_BROADCAST</tt></b></dt>
+<dd>
+<a name="INDEX-1938" /></a>The four-byte packed string for the
+broadcast address. This is equivalent to
+<tt class="literal">inet_aton('255.255.255.255')</tt>.
+<p></p>
+</dd>
+
+
+<dt><b><tt class="literal">INADDR_LOOPBACK</tt></b></dt>
+<dd>
+<a name="INDEX-1939" /></a>The four-byte packed string for the
+loopback address. This is equivalent to
+<tt class="literal">inet_aton('localhost')</tt>.
+<p></p>
+</dd>
+
+
+<dt><b><tt class="literal">INADDR_NONE</tt></b></dt>
+<dd>
+<a name="INDEX-1940" /></a>The
+four-byte packed string for the
+"invalid" IP address (bitmask).
+Equivalent to <tt class="literal">inet_aton('255.255.255.255')</tt>.
+<p></p>
+</dd>
+
+</dl></div>
+
+</div>
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="part7.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch15_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">VII. Network Programming</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">15.2. The IO::Socket Module</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+      </map>
+
+</body></html>

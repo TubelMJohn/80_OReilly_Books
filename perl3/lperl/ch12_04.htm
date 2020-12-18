@@ -1,0 +1,124 @@
+<html><head><title>Directory Handles (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch12_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch12_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">12.4. Directory Handles</h2>
+
+<p><a name="INDEX-868" />Another way to get a list of names from
+a given directory is with a <em class="emphasis">directory handle</em>. A
+directory handle looks and acts like a filehandle. You open it (with
+<tt class="literal">opendir</tt><a name="INDEX-869" /> instead of <tt class="literal">open</tt>),
+you read from it (with
+<tt class="literal">readdir</tt><a name="INDEX-870" /> instead of
+<tt class="literal">readline</tt>), and you close it (with
+<tt class="literal">closedir</tt><a name="INDEX-871" /> instead of
+<tt class="literal">close</tt>). But instead of reading the
+<em class="emphasis">contents</em> of a file, you're reading the
+<em class="emphasis">names</em> of
+<a name="INDEX-872" />files (and other things)
+in a directory. For example:
+</p>
+
+<blockquote><pre class="code">my $dir_to_process = "/etc";
+opendir DH, $dir or die "Cannot open $dir: $!";
+foreach $file (readdir DH) {
+  print "one file in $dir is $file\n";
+}
+closedir DH;</pre></blockquote>
+
+<p>Like filehandles, directory handles are automatically closed at the
+end of the program or if the directory handle is reopened onto
+another directory.
+</p>
+
+<p>Unlike <a name="INDEX-873" />globbing, which in older versions of
+Perl fired off a separate process, a directory handle never fires off
+another process. So it makes them more efficient for applications
+that demand every ounce of power from the machine. However,
+it's also a lower-level operation, meaning that we have to do
+more of the work ourselves.
+</p>
+
+<p>For example, the names are returned in no particular order.<a href="#FOOTNOTE-280">[280]</a> And the list
+includes all files, not just those matching a particular pattern
+(like <tt class="literal">*.pm</tt> from our globbing examples). And the
+list includes all files, especially the dot files, and particularly
+the dot and dot-dot entries.<a href="#FOOTNOTE-281">[281]</a>
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-280" /><p>[280]It's actually the unsorted order of the directory
+entries, similar to the order you get from <i class="command">ls -f
+</i>or <i class="command">find</i>.</p> </blockquote><blockquote class="footnote"> <a name="FOOTNOTE-281" /><p>[281]Do not make the mistake
+of many old Unix programs and presume that dot and dot-dot are always
+returned as the first two entries (sorted or not). If that
+hadn't even occurred to you, pretend we never said it, because
+it's a false presumption. In fact, we're now sorry for
+even bringing it up.</p> </blockquote>
+
+<p>So, if we wanted only the <em class="emphasis">pm</em>-ending files, we
+could use a skip-over function inside the loop:
+</p>
+
+<blockquote><pre class="code">while ($name = readdir DIR) {
+  next unless $name =~ /\.pm$/;
+  ... more processing ...
+}</pre></blockquote>
+
+<p>Note here that the syntax is that of a regular expression, not a
+glob. And if we wanted all the non-dot files, we could say that:
+</p>
+
+<blockquote><pre class="code">next if $name =~ /^\./;</pre></blockquote>
+
+<p>Or if we wanted everything but the common dot (current directory) and
+dot-dot (parent directory) entries, we could explicitly say that:
+</p>
+
+<blockquote><pre class="code">next if $name eq "." or $name eq "..";</pre></blockquote>
+
+<p>Now we'll look at the part that gets most people mixed up, so
+pay close attention. The filenames returned by the
+<tt class="literal">readdir</tt> operator have <em class="emphasis">no</em>
+pathname component. It's just the <em class="emphasis">name</em>
+within the directory. So, we're not looking at
+<em class="emphasis">/etc/passwd</em>, we're just looking at
+<em class="emphasis">passwd</em>. (And because this is another difference
+from the globbing operation, it's easy to see how people get
+confused.)
+</p>
+
+<p>So you'll need to patch up the name to get the full name:</p>
+
+<blockquote><pre class="code">opendir SOMEDIR, $dirname or die "Cannot open $dirname: $!";
+while (my $name = readdir SOMEDIR) {
+  next if $name =~ /^\./; # skip over dot files
+  $name = "$dirname/$name"; # patch up the path
+  next unless -f $name and -r $name; # only readable files
+  ...
+}</pre></blockquote>
+
+<p>Without the patch, the file tests would have been checking files in
+the current directory, rather than in the directory named in
+<tt class="literal">$dirname</tt>. This is the single most-common mistake
+when using directory handles.<a name="INDEX-874" />
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch12_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch12_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">12.3. An Alternate Syntax for Globbing</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">12.5. Recursive Directory Listing</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

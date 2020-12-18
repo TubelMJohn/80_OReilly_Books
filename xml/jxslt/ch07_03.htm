@@ -1,0 +1,1715 @@
+<html><head><title>Making the XML Dynamic (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch07_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">7.3. Making the XML Dynamic</h2>
+
+<p>At this point in the process, we have specified what each web page
+looks like, the XML data for each page, and the XSLT stylesheets to
+perform the necessary
+<a name="INDEX-816" />transformations. The next step is to
+figure out where the XML actually comes from. During the design and
+prototyping process, all XML data is created as a collection of
+static text files. This makes development of the XSLT stylesheets
+much easier, because the stylesheet authors can see results
+immediately without waiting for the back-end business logic and
+database access code to be created.
+</p>
+
+<p>In the real system, static XML will not meet our requirements. We
+need the ability to extract data from a relational database and
+convert it into XML on the fly, as each page is requested. This makes
+the application "live," making updates to the database
+immediately visible to users. To the XSLT stylesheet developer, this
+is a moot point. The XSLT transformations work the same, regardless
+of whether the XML data came from a flat file, a relational database,
+or any other source.
+</p>
+
+<a name="javaxslt-CHP-7-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">7.3.1. Domain Classes</h3>
+
+<p>A <em class="emphasis">domain class</em><a name="INDEX-817" /> is a Java class that represents
+something in the problem domain. That's a fancy way to describe
+a class that represents the underlying problem you are trying to
+solve. In this example, we need to model the discussion forum as a
+series of Java classes to provide a buffer between the XML and the
+underlying relational database. In addition to representing data
+about the discussion forum, these Java classes can contain business
+logic.
+</p>
+
+<p><a href="ch07_03.htm#javaxslt-CHP-7-FIG-6">Figure 7-6</a> contains a UML diagram of the classes
+found in the <tt class="literal">com.oreilly.forum.domain</tt> package.
+These classes do not contain any database access code, nor do they
+have any XML capability. Instead, they are simply data structures
+with a few key pieces of functionality. This makes it possible, for
+example, to rip out the relational database and replace it with some
+other back-end data source without changing to the XML generation
+logic.
+</p>
+
+<a name="javaxslt-CHP-7-FIG-6" /><div class="figure"><img src="figs/jxt_0706.gif" alt="Figure 7-6" width="442" height="307" /></div><h4 class="objtitle">Figure 7-6. Key domain classes</h4>
+
+<p><tt class="literal">BoardSummary</tt>, <tt class="literal">MessageSummary</tt>,
+and <tt class="literal">Message</tt> are the key interfaces that describe
+the basic discussion forum capabilities. For each interface, an
+associated <tt class="literal">Impl</tt> class provides a basic
+implementation that contains get and set methods, which are not shown
+here. The <tt class="literal">MonthYear</tt>,
+<tt class="literal">DayMonthYear</tt>, and <tt class="literal">DateUtil</tt>
+classes are designed to represent and manipulate dates in an easy way
+and are listed in <a href="appb_01.htm">Appendix B, "JAXP API Reference"</a>. Finally, the
+<tt class="literal">MessageTree</tt> class encapsulates some business logic
+to sort a collection of messages into a hierarchical tree based on
+message replies and creation dates.
+</p>
+
+<p>The <tt class="literal">BoardSummary</tt><a name="INDEX-818" /> <a name="INDEX-819" />
+interface, shown in <a href="ch07_03.htm#javaxslt-CHP-7-EX-11">Example 7-11</a>, contains data that
+will eventually be used to build the discussion forum home page.
+</p>
+
+<a name="javaxslt-CHP-7-EX-11" /><div class="example">
+<h4 class="objtitle">Example 7-11. BoardSummary.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.domain;
+
+import java.util.Iterator;
+
+/**
+ * Information about a message board.
+ */
+public interface BoardSummary {
+    /**
+     * @return a unique ID for this board.
+     */
+    long getID( );
+
+    /**
+     * @return a name for this board.
+     */
+    String getName( );
+
+    /**
+     * @return a description for this board.
+     */
+    String getDescription( );
+
+    /**
+     * @return an iterator of &lt;code&gt;MonthYear&lt;/code&gt; objects.
+     */
+    Iterator getMonthsWithMessages( );
+} </pre></blockquote>
+</div>
+
+<p>By design, the <tt class="literal">BoardSummary</tt> interface is
+read-only. This is an important feature because it means that once an
+instance of this class is extracted from the back-end data source, a
+programmer cannot accidentally call a set method only to discover
+later that the updates were not saved in the database. Technically,
+the client of this class could retrieve an
+<tt class="literal">Iterator</tt> of months with messages and then call the
+<tt class="literal">remove( )</tt> method on the
+<tt class="literal">Iterator</tt> instance. Although we could take steps to
+make instances of this interface truly immutable, such efforts are
+probably overkill.<a name="INDEX-820" /> <a name="INDEX-821" /> 
+</p>
+
+<p>An early decision made in the design of the discussion forum was to
+assign a unique <tt class="literal">long</tt> identifier to each domain
+object. These identifiers have absolutely no meaning other than to
+identify objects uniquely, which will make the SQL queries much
+simpler later on.<a href="#FOOTNOTE-29">[29]</a> This technique also
+makes it easy to reference objects from hyperlinks in the XHTML,
+because a simple identifier can be easily converted to and from a
+string representation.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-29" /><p> [29] The code to actually generate these
+unique IDs is found in the <tt class="literal">DBUtil</tt> class, shown in
+<a href="ch07_03.htm#javaxslt-CHP-7-EX-18">Example 7-18</a>.</p> </blockquote>
+
+<p><a name="INDEX-822" /> <a name="INDEX-823" />The
+next interface, shown in <a href="ch07_03.htm#javaxslt-CHP-7-EX-12">Example 7-12</a>, provides a
+summary for an individual message.
+</p>
+
+<a name="javaxslt-CHP-7-EX-12" /><div class="example">
+<h4 class="objtitle">Example 7-12. MessageSummary.java </h4>
+<a name="INDEX-824" /><a name="INDEX-825" /><blockquote><pre class="code">package com.oreilly.forum.domain;
+
+import java.util.*;
+
+/**
+ * Basic information about a message, not including the message text.
+ */
+public interface MessageSummary extends Comparable {
+
+    /**
+     * @return the ID of the message that this one is a reply to, or
+     *         -1 if none.
+     */
+    long getInReplyTo( );
+
+    /**
+     * @return the unique ID of this message.
+     */
+    long getID( );
+
+    /**
+     * @return when this message was created.
+     */
+    DayMonthYear getCreateDate( );
+
+    /**
+     * @return the board that this message belongs to.
+     */
+    BoardSummary getBoard( );
+
+    /**
+     * @return the subject of this message.
+     */
+    String getSubject( );
+
+    /**
+     * The author Email can be 80 characters.
+     */
+    String getAuthorEmail( );
+} 
+</pre></blockquote>
+</div>
+
+<p>The only thing missing from the <tt class="literal">MessageSummary</tt>
+interface is the actual message text. The
+<tt class="literal">Message</tt><a name="INDEX-826" />
+<a name="INDEX-827" />
+interface, which extends from <tt class="literal">MessageSummary</tt>, adds
+the <tt class="literal">getText( )</tt> method. This interface is shown in
+<a href="ch07_03.htm#javaxslt-CHP-7-EX-13">Example 7-13</a>.
+</p>
+
+<a name="javaxslt-CHP-7-EX-13" /><div class="example">
+<h4 class="objtitle">Example 7-13. Message.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.domain;
+
+/**
+ * Represent a message, including the text.
+ */
+public interface Message extends MessageSummary {
+    /**
+     * @return the text of this message.
+     */
+    String getText( );
+} </pre></blockquote>
+</div>
+
+<p>The decision to keep the message text in a separate interface was
+driven by a prediction that performance could be dramatically
+improved. Consider a web page that shows a hierarchical view of all
+messages for a given month. This page may contain hundreds of
+messages, displaying key information found in the
+<tt class="literal">MessageSummary</tt> interface. But the text of each
+message could contain thousands of words, so it was decided that the
+text should be retrieved later when a message is displayed in its
+entirety. For this page, an instance of a class that implements
+<tt class="literal">Message</tt> can be created.
+</p>
+
+<p>These are the sorts of design decisions that cannot be made in
+complete isolation. Regardless of how cleanly XSLT and XML separate
+the presentation from the underlying data model, heavily used web
+pages should have some influence on design decisions made on the back
+end. The trick is to avoid falling into the trap of focusing too hard
+on early optimization at the expense of a clean design. In this case,
+the potential for large numbers of very long messages was significant
+enough to warrant a separate interface for
+<tt class="literal">Message</tt>.
+</p>
+
+<p>The three reference implementation classes are
+<tt class="literal">MessageImpl</tt>,
+<tt class="literal">Message-SummaryImpl</tt>, and
+<tt class="literal">BoardSummaryImpl</tt>. These are basic Java classes
+that hold data and are listed in <a href="appb_01.htm">Appendix B, "JAXP API Reference"</a>. The
+JDBC data adapter layer (see <a href="ch07_03.htm#javaxslt-CHP-7-SECT-3.2">Section 7.3.2, "Data Adapter Layer"</a>) will create and return new instances of these classes,
+which implement the interfaces in this package. If creating a new
+back-end data source in the future, it is possible to reuse these
+classes or write brand new classes that implement the appropriate
+interfaces.
+</p>
+
+<p>The final class in this package,
+<tt class="literal">MessageTree</tt><a name="INDEX-828" /> <a name="INDEX-829" />,
+is listed in <a href="ch07_03.htm#javaxslt-CHP-7-EX-14">Example 7-14</a>.
+</p>
+
+<a name="javaxslt-CHP-7-EX-14" /><div class="example">
+<h4 class="objtitle">Example 7-14. MessageTree.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.domain;
+
+import java.util.*;
+
+/**
+ * Arranges a collection of MessageSummary objects into a tree.
+ */
+public class MessageTree {
+    private List topLevelMsgs = new ArrayList( );
+
+    // map ids to MessageSummary objects
+    private Map idToMsgMap = new HashMap( );
+
+    // map reply-to ids to lists of MessageSummary objects
+    private Map replyIDToMsgListMap = new HashMap( );
+
+    /**
+     * Construct a new message tree from an iterator of MessageSummary
+     * objects.
+     */
+    public MessageTree(Iterator messages) {
+        while (messages.hasNext( )) {
+            // store each message in a map for fast retrieval by ID
+            MessageSummary curMsg = (MessageSummary) messages.next( );
+            this.idToMsgMap.put(new Long(curMsg.getID( )), curMsg);
+
+            // build the inverted map that maps reply-to IDs to
+            // lists of messages
+            Long curReplyID = new Long(curMsg.getInReplyTo( ));
+            List replyToList =
+                    (List) this.replyIDToMsgListMap.get(curReplyID);
+            if (replyToList == null) {
+                replyToList = new ArrayList( );
+                this.replyIDToMsgListMap.put(curReplyID, replyToList);
+            }
+            replyToList.add(curMsg);
+        }
+
+        // build the list of top-level messages. A top-level message
+        // fits one of the following two criteria:
+        //  - its reply-to ID is -1
+        //  - its reply-to ID was not found in the list of messages. This
+        //    occurs when a message is a reply to a previous month's message
+        Iterator iter = this.replyIDToMsgListMap.keySet().iterator( );
+        while (iter.hasNext( )) {
+            Long curReplyToID = (Long) iter.next( );
+            if (curReplyToID.longValue( ) == -1
+                    || !this.idToMsgMap.containsKey(curReplyToID)) {
+                List msgsToAdd =
+                        (List) this.replyIDToMsgListMap.get(curReplyToID);
+                this.topLevelMsgs.addAll(msgsToAdd);
+            }
+        }
+        Collections.sort(this.topLevelMsgs);
+    }
+
+    public Iterator getTopLevelMessages( ) {
+        return this.topLevelMsgs.iterator( );
+    }
+
+    /**
+     * @return an iterator of MessageSummary objects that are replies
+     *         to the specified message.
+     */
+    public Iterator getReplies(MessageSummary msg) {
+        List replies = (List) this.replyIDToMsgListMap.get(
+                new Long(msg.getID( )));
+        if (replies != null) {
+            Collections.sort(replies);
+            return replies.iterator( );
+        } else {
+            return Collections.EMPTY_LIST.iterator( );
+        }
+    }
+} </pre></blockquote>
+</div>
+
+<p>The <tt class="literal">MessageTree</tt> class helps organize a list of
+messages according to threads of discussion. If you look back at the
+code for <tt class="literal">MessageSummary</tt>, you will see that each
+message keeps track of the message that it is in reply to:
+</p>
+
+<blockquote><pre class="code">public interface MessageSummary extends Comparable {
+    ...
+    long getInReplyTo( );
+    ...
+}</pre></blockquote>
+
+<p>If the message is a top-level message, then the reply-to id is -1.
+Otherwise, it always refers to some other message. Since a message
+does not have a corresponding method to retrieve a list of replies,
+the <tt class="literal">MessageTree</tt> class must build this list for
+each message. This leads to the three data structures found in the
+<tt class="literal">MessageTree</tt> class:
+</p>
+
+<blockquote><pre class="code">private List topLevelMsgs = new ArrayList( );
+private Map idToMsgMap = new HashMap( );
+private Map replyIDToMsgListMap = new HashMap( );</pre></blockquote>
+
+<p>When the <tt class="literal">MessageTree</tt> is constructed, it is given
+an <tt class="literal">Iterator</tt> of all messages in a month. From this
+<tt class="literal">Iterator</tt>, the <tt class="literal">idToMsgMap</tt> data
+structure is built. All messages are stored in
+<tt class="literal">idToMsgMap</tt>, which is used for rapid retrieval
+based on message ids. While building the
+<tt class="literal">idToMsgMap</tt>, the constructor also builds the
+<tt class="literal">replyIDToMsgListMap</tt>. The keys in this map are
+reply-to ids, and the values are lists of message ids. In other
+words, each key maps to a list of replies.
+</p>
+
+<p>After the first two data structures are built, the list of top-level
+messages is built. This is accomplished by looping over all keys in
+the <tt class="literal">idToMsgMap</tt> and then looking for messages that
+have a reply-to id of -1. In addition, messages whose reply-to id
+could not be located are also considered to be top-level messages.
+This occurs when a message is in reply to a previous month's
+message. All of this code can be seen in the
+<tt class="literal">MessageTree</tt> constructor.<a name="INDEX-830" /> <a name="INDEX-831" />
+</p>
+
+</div>
+<a name="javaxslt-CHP-7-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">7.3.2. Data Adapter Layer</h3>
+
+<p>Bridging the gap between an object-oriented class library and a
+physical database is often quite difficult. Enterprise JavaBeans
+(EJB) can be used for this purpose. However, this makes it extremely
+hard to deploy the discussion forum at a typical web hosting service.
+By limiting the application to servlets and a relational database, it
+is possible to choose from several ISPs that support both servlets
+and JDBC access to databases such as MySQL.
+</p>
+
+<p>In addition to the software constraints found at most web hosting
+providers, design flexibility is another consideration. Today, direct
+access to a MySQL database may be the preferred approach. In the
+future, a full EJB solution with some other database may be desired.
+Or, we may choose to store messages in flat files instead of any
+database at all. All of these capabilities are achieved by using an
+abstract class called <tt class="literal">DataAdapter</tt>. This class is
+shown in <a href="ch07_03.htm#javaxslt-CHP-7-FIG-7">Figure 7-7</a> along with several related
+classes.
+</p>
+
+<a name="javaxslt-CHP-7-FIG-7" /><div class="figure"><img src="figs/jxt_0707.gif" alt="Figure 7-7" width="474" height="295" /></div><h4 class="objtitle">Figure 7-7. Data adapter design</h4>
+
+<p>The <tt class="literal">DataAdapter</tt> class defines an interface to some
+back-end data source. As shown in the class diagram,
+<tt class="literal">FakeDataAdapter</tt> and
+<tt class="literal">JdbcDataAdapter</tt> are subclasses. These implement
+the data tier using flat files and relational databases,
+respectively. It is easy to imagine someone creating an
+<tt class="literal">EJBDataAdapter</tt> at some point in the future.
+<tt class="literal">ForumConfig</tt> is used to determine which subclass of
+<tt class="literal">DataAdapter</tt> to instantiate, and the
+<tt class="literal">DBUtil</tt> class encapsulates a few commonly used JDBC
+functions.
+</p>
+
+<p>The source code for <tt class="literal">ForumConfig</tt> is shown in <a href="ch07_03.htm#javaxslt-CHP-7-EX-15">Example 7-15</a>. This is a simple class that places
+configurable application settings in a single place. As shown later
+in this chapter, all configurable settings are stored in the
+servlet's deployment descriptor, so they do not have to be
+hardcoded. The first thing the servlet does is read the values and
+store them in <tt class="literal">ForumConfig</tt>.<a href="#FOOTNOTE-30">[30]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-30" /><p> [30] JNDI
+could also be used for this purpose. However, JNDI requires more
+configuration and may make it harder to deploy to some ISPs.</p>
+</blockquote>
+
+<a name="javaxslt-CHP-7-EX-15" /><div class="example">
+<h4 class="objtitle">Example 7-15. ForumConfig.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum;
+
+/**
+ * Define application-wide configuration information. The Servlet
+ * must call the setValues( ) method before any of the get
+ * methods in this class can be used.
+ */
+public class ForumConfig {
+    // maximum sizes of various fields in the database
+    public static final int MAX_BOARD_NAME_LEN = 80;
+    public static final int MAX_BOARD_DESC_LEN = 255;
+    public static final int MAX_MSG_SUBJECT_LEN = 80;
+    public static final int MAX_EMAIL_LEN = 80;
+
+    private static String jdbcDriverClassName;
+    private static String databaseURL;
+    private static String adapterClassName;
+
+    public static void setValues(
+            String jdbcDriverClassName,
+            String databaseURL,
+            String adapterClassName) {
+        ForumConfig.jdbcDriverClassName = jdbcDriverClassName;
+        ForumConfig.databaseURL = databaseURL;
+        ForumConfig.adapterClassName = adapterClassName;
+    }
+
+    /**
+     * @return the JDBC driver class name.
+     */
+    public static String getJDBCDriverClassName( ) {
+        return ForumConfig.jdbcDriverClassName;
+    }
+
+    /**
+     * @return the JDBC database URL.
+     */
+    public static String getDatabaseURL( ) {
+        return ForumConfig.databaseURL;
+    }
+
+    /**
+     * @return the data adapter implementation class name.
+     */
+    public static String getAdapterClassName( ) {
+        return ForumConfig.adapterClassName;
+    }
+
+    private ForumConfig( ) {
+    }
+}</pre></blockquote>
+</div>
+
+<p>The <tt class="literal">DataException</tt> class is a very basic exception
+that indicates a problem with the back-end data source. It hides
+database-specific exceptions from the client, leaving the door open
+for nondatabase implementations in the future. For example, an EJB
+tier could be added, but the EJBs would throw
+<tt class="literal">RemoteException</tt> and
+<tt class="literal">EJBException</tt> instead of
+<tt class="literal">SQLException</tt>. Therefore, whenever a specific
+exception is thrown, it is wrapped in an instance of
+<tt class="literal">DataException</tt> before being propogated to the
+caller. The source code for <tt class="literal">DataException</tt> is found
+in <a href="appb_01.htm">Appendix B, "JAXP API Reference"</a>.
+</p>
+
+<p><a name="INDEX-832" /> <a name="INDEX-833" />The
+code for <tt class="literal">DataAdapter</tt>, shown in <a href="ch07_03.htm#javaxslt-CHP-7-EX-16">Example 7-16</a>, demonstrates how each method throws
+<tt class="literal">DataException</tt>. This class is the centerpiece of
+the "data abstraction" layer, insulating the domain
+classes from the underlying database implementation.
+</p>
+
+<a name="javaxslt-CHP-7-EX-16" /><div class="example">
+<h4 class="objtitle">Example 7-16. DataAdapter.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.adapter;
+
+import com.oreilly.forum.*;
+import com.oreilly.forum.domain.*;
+import java.util.*;
+
+/**
+ * Defines an interface to a data source.
+ */
+public abstract class DataAdapter {
+    private static DataAdapter instance;
+
+    /**
+     * @return the singleton instance of this class.
+     */
+    public static synchronized DataAdapter getInstance( )
+            throws DataException {
+        if (instance == null) {
+            String adapterClassName = ForumConfig.getAdapterClassName( );
+            try {
+                Class adapterClass = Class.forName(adapterClassName);
+                instance = (DataAdapter) adapterClass.newInstance( );
+            } catch (Exception ex) {
+                throw new DataException("Unable to instantiate "
+                        + adapterClassName);
+            }
+        }
+        return instance;
+    }
+
+    /**
+     * @param msgID must be a valid message identifier.
+     * @return the message with the specified id.
+     * @throws DataException if msgID does not exist or a database
+     * error occurs.
+     */
+    public abstract Message getMessage(long msgID) throws DataException;
+
+    /**
+     * Add a reply to an existing message.
+     *
+     * @throws DataException if a database error occurs, or if any
+     * parameter is illegal.
+     */
+    public abstract Message replyToMessage(long origMsgID, String msgSubject,
+            String authorEmail, String msgText) throws DataException;
+
+    /**
+     * Post a new message.
+     *
+     * @return the newly created message.
+     * @throws DataException if a database error occurs, or if any
+     * parameter is illegal.
+     */
+    public abstract Message postNewMessage(long boardID, String msgSubject,
+            String authorEmail, String msgText) throws DataException;
+
+    /**
+     * If no messages exist for the specified board and month, return
+     * an empty iterator.
+     * @return an iterator of &lt;code&gt;MessageSummary&lt;/code&gt; objects.
+     * @throws DataException if the boardID is illegal or a database
+     * error occurs.
+     */
+    public abstract Iterator getAllMessages(long boardID, MonthYear month)
+            throws DataException;
+
+    /**
+     * @return an iterator of all &lt;code&gt;BoardSummary&lt;/code&gt; objects.
+     */
+    public abstract Iterator getAllBoards( ) throws DataException;
+
+    /**
+     * @return a board summary for the given id.
+     * @throws DataException if boardID is illegal or a database
+     *                       error occurs.
+     */
+    public abstract BoardSummary getBoardSummary(long boardID)
+            throws DataException;
+} </pre></blockquote>
+</div>
+
+<p><tt class="literal">DataAdapter</tt> consists of abstract methods and one
+static method called <tt class="literal">getInstance( )</tt>. This
+implements a singleton design pattern, returning an instance of a
+<tt class="literal">DataAdapter</tt> subclass.<a href="#FOOTNOTE-31">[31]</a> The
+actual return type is specified in the <tt class="literal">ForumConfig</tt>
+class, and Java reflection APIs are used to instantiate the object:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-31" /><p> [31] See Gamma et
+al., <em class="emphasis">Design Patterns: Elements of Reusable Object-Oriented
+Software</em> (Addison-Wesley, 1994).</p> </blockquote>
+
+<blockquote><pre class="code">String adapterClassName = ForumConfig.getAdapterClassName( );
+try {
+    Class adapterClass = Class.forName(adapterClassName);
+    instance = (DataAdapter) adapterClass.newInstance( );
+} catch (Exception ex) {
+    throw new DataException("Unable to instantiate "
+            + adapterClassName);
+}</pre></blockquote>
+
+<p>All remaining methods are abstract and are written in terms of
+interfaces defined in the <tt class="literal">com.oreilly.forum.domain</tt>
+package. For example, a message can be retrieved by its ID:
+</p>
+
+<blockquote><pre class="code">public abstract Message getMessage(long msgID) throws DataException;</pre></blockquote>
+
+<p>By writing this code in terms of the <tt class="literal">Message</tt>
+interface, a future programmer could easily write a new class that
+implements <tt class="literal">Message</tt> in a different way. Throughout
+the <tt class="literal">DataAdapter</tt> class, a
+<tt class="literal">DataException</tt> occurs when an id is invalid, or
+when the underlying database fails.<a name="INDEX-834" /> <a name="INDEX-835" /> 
+</p>
+
+<p>The downloadable discussion forum implementation comes with a
+"fake" implementation of <tt class="literal">DataAdapter</tt>
+as well as a JDBC-based implementation. The fake implementation is
+listed in <a href="appb_01.htm">Appendix B, "JAXP API Reference"</a>. The database implementation
+has been tested on Microsoft Access as well as MySQL and should work
+on just about any relational database that includes a JDBC driver.
+<a href="ch07_03.htm#javaxslt-CHP-7-FIG-8">Figure 7-8</a> shows the physical database design that
+the <tt class="literal">JdbcDataAdapter</tt> class uses.
+</p>
+
+<a name="javaxslt-CHP-7-FIG-8" /><div class="figure"><img src="figs/jxt_0708.gif" alt="Figure 7-8" width="255" height="216" /></div><h4 class="objtitle">Figure 7-8. Database design</h4>
+
+<p>The database is quite simple. Each table has an <tt class="literal">id</tt>
+column that defines a unique identifier and primary key for each row
+of data. <tt class="literal">Message.inReplyToID</tt> contains a reference
+to another message that this one is in reply to, or -1 if this is a
+top-level message. The create date for each message is broken down
+into month, day, and year. Although the application could store the
+date and time in some other format, this approach makes it really
+easy to issue queries such as:
+</p>
+
+<blockquote><pre class="code">SELECT subject
+FROM Message
+WHERE createMonth=3 AND createYear=2001</pre></blockquote>
+
+<p>The <tt class="literal">Message.boardID</tt> column is a foreign key that
+identifies which board a message belongs to. The
+<tt class="literal">Message.msgText</tt> column can contain an unlimited
+amount of text, while the remaining fields all contain fixed-length
+text.
+</p>
+
+<p><a name="INDEX-836" />If you are using
+MySQL, <a href="ch07_03.htm#javaxslt-CHP-7-EX-17">Example 7-17</a> shows a "dump" file
+that can be used to easily recreate the database using the import
+utility that comes with the database.
+</p>
+
+<a name="javaxslt-CHP-7-EX-17" /><div class="example">
+<h4 class="objtitle">Example 7-17. MySQL dump </h4>
+<blockquote><pre class="code"># MySQL dump 8.8
+#
+# Host: localhost    Database: forum
+#--------------------------------------------------------
+# Server version	3.23.23-beta
+
+#
+# Table structure for table 'board'
+#
+
+CREATE TABLE board (
+  id bigint(20) DEFAULT '0' NOT NULL,
+  name char(80) DEFAULT '' NOT NULL,
+  description char(255) DEFAULT '' NOT NULL,
+  PRIMARY KEY (id)
+);
+
+#
+# Dumping data for table 'board'
+#
+
+INSERT INTO board VALUES (0,'XSLT Basics',
+    'How to create and use XSLT stylesheets and processors');
+INSERT INTO board VALUES (1,'JAXP Programming Techniques','How to use JAXP 1.1');
+
+#
+# Table structure for table 'message'
+#
+
+CREATE TABLE message (
+  id bigint(20) DEFAULT '0' NOT NULL,
+  inReplyToID bigint(20) DEFAULT '0' NOT NULL,
+  createMonth int(11) DEFAULT '0' NOT NULL,
+  createDay int(11) DEFAULT '0' NOT NULL,
+  createYear int(11) DEFAULT '0' NOT NULL,
+  boardID bigint(20) DEFAULT '0' NOT NULL,
+  subject varchar(80) DEFAULT '' NOT NULL,
+  authorEmail varchar(80) DEFAULT '' NOT NULL,
+  msgText text DEFAULT '' NOT NULL,
+  PRIMARY KEY (id),
+  KEY inReplyToID (inReplyToID),
+  KEY createMonth (createMonth),
+  KEY createDay (createDay),
+  KEY boardID (boardID)
+);</pre></blockquote>
+</div>
+
+<p>The <tt class="literal">DBUtil</tt><a name="INDEX-837" /> class, shown in <a href="ch07_03.htm#javaxslt-CHP-7-EX-18">Example 7-18</a>, consists of utility functions that make it a
+little easier to work with relational databases from Java code.
+</p>
+
+<a name="javaxslt-CHP-7-EX-18" /><div class="example">
+<h4 class="objtitle">Example 7-18. DBUtil.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.jdbcimpl;
+
+import java.io.*;
+import java.sql.*;
+import java.util.*;
+
+/**
+ * Helper methods for relational database access using JDBC.
+ */
+public class DBUtil {
+
+    // a map of table names to maximum ID numbers
+    private static Map tableToMaxIDMap = new HashMap( );
+
+    /**
+     * Close a statement and connection.
+     */
+    public static void close(Statement stmt, Connection con) {
+        if (stmt != null) {
+            try {
+                stmt.close( );
+            } catch (Exception ignored1) {
+            }
+        }
+        if (con != null) {
+            try {
+                con.close( );
+            } catch (Exception ignored2) {
+            }
+        }
+    }
+
+    /**
+     * @return a new Connection to the database.
+     */
+    public static Connection getConnection(String dbURL)
+            throws SQLException {
+        // NOTE: implementing a connection pool would be a worthy
+        //       enhancement
+        return DriverManager.getConnection(dbURL);
+    }
+
+    /**
+     * Close any connections that are still open. The Servlet will
+     * call this method from its destroy( ) method.
+     */
+    public static void closeAllConnections( ) {
+        // NOTE: if connection pooling is ever implemented, close
+        //       the connections here.
+    }
+
+    /**
+     * Store a long text field in the database. For example, a message's
+     * text will be quite long and cannot be stored using JDBC's
+     * setString( ) method.
+     */
+    public static void setLongString(PreparedStatement stmt,
+            int columnIndex, String data) throws SQLException {
+        if (data.length( ) &gt; 0) {
+            stmt.setAsciiStream(columnIndex,
+                    new ByteArrayInputStream(data.getBytes( )),
+                    data.length( ));
+        } else {
+            // this 'else' condition was introduced as a bug fix.  It was
+            // discovered that the 'setAsciiStream' code shown above
+            // caused MS Access throws a "function sequence error"
+            // when the string was zero length.  This code now works.
+            stmt.setString(columnIndex, "");
+        }
+    }
+
+    /**
+     * @return a long text field from the database.
+     */
+    public static String getLongString(ResultSet rs, int columnIndex)
+            throws SQLException {
+        try {
+            InputStream in = rs.getAsciiStream(columnIndex);
+            if (in == null) {
+                return "";
+            }
+
+            byte[] arr = new byte[250];
+            StringBuffer buf = new StringBuffer( );
+            int numRead = in.read(arr);
+            while (numRead != -1) {
+                buf.append(new String(arr, 0, numRead));
+                numRead = in.read(arr);
+            }
+            return buf.toString( );
+        } catch (IOException ioe) {
+            ioe.printStackTrace( );
+            throw new SQLException(ioe.getMessage( ));
+        }
+    }
+
+    /**
+     * Compute a new unique ID. It is assumed that the specified table
+     * has a column named 'id' of type 'long'. It is assumed that
+     * that all parts of the program will use this method to compute
+     * new IDs.
+     * @return the next available unique ID for a table.
+     */
+    public static synchronized long getNextID(String tableName,
+            Connection con) throws SQLException {
+        Statement stmt = null;
+
+        try {
+            // if a max has already been retrieved from this table,
+            // compute the next id without hitting the database
+            if (tableToMaxIDMap.containsKey(tableName)) {
+                Long curMax = (Long) tableToMaxIDMap.get(tableName);
+                Long newMax = new Long(curMax.longValue( ) + 1L);
+                tableToMaxIDMap.put(tableName, newMax);
+                return newMax.longValue( );
+            }
+
+            stmt = con.createStatement( );
+            ResultSet rs = stmt.executeQuery(
+                    "SELECT MAX(id) FROM " + tableName);
+            long max = 0;
+            if (rs.next( )) {
+                max = rs.getLong(1);
+            }
+            max++;
+            tableToMaxIDMap.put(tableName, new Long(max));
+            return max;
+        } finally {
+            // just close the statement
+            close(stmt, null);
+        }
+    }
+} </pre></blockquote>
+</div>
+
+<p><tt class="literal">DBUtil</tt> has a private class field called
+<tt class="literal">tableToMaxIDMap</tt> that keeps track of the largest
+unique id found in each table. This works in conjunction with the
+<tt class="literal">getNextID( )</tt> method, which returns the next
+available unique id for a given table name. By keeping the unique ids
+cached in the <tt class="literal">Map</tt>, the application reduces the
+required database hits. It should be noted that this approach is
+likely to fail if anyone manually adds a new id to the database
+without consulting this method.
+</p>
+
+<p>The <tt class="literal">close( )</tt> method is useful because nearly
+everything done with JDBC requires the programmer to close a
+<tt class="literal">Statement</tt> and <tt class="literal">Connection</tt>. This
+method should always be called from a <tt class="literal">finally</tt>
+block, which is guaranteed to be called regardless of whether or not
+an exception was thrown. For example:
+</p>
+
+<blockquote><pre class="code">Connection con = null;
+Statement stmt = null;
+try {
+    // code to create the Connection and Statement
+    ...
+    // code to access the database
+    ...<tt class="userinput"><b>
+} finally {</b></tt><tt class="userinput"><b>
+    DBUtil.close(stmt, con);</b></tt><tt class="userinput"><b>
+}</b></tt></pre></blockquote>
+<p>If JDBC resources are not released inside of a finally block, it is
+possible to accidentally leave Connections open for long periods of
+time. This is problematic because database performance can suffer,
+and some databases limit the number of concurrent connections.
+</p>
+
+<p>Although connection pooling is not supported in this version of the
+application, DBUtil does include the following method:
+</p>
+
+<blockquote><pre class="code">public static Connection getConnection(String dbURL)</pre></blockquote>
+
+<p>In a future version of the class, it will be very easy to have this
+method return a <tt class="literal">Connection</tt> instance from pool,
+rather than creating a new instance with each call. Additionally, the
+<tt class="literal">DBUtil.close( )</tt> method could return the
+<tt class="literal">Connection</tt> back to the pool instead of actually
+closing it. These are left as future considerations to keep things
+reasonably sized for the book.
+</p>
+
+<p>The <tt class="literal">setLongString( )</tt> and <tt class="literal">getLongString(
+)</tt> methods are used for setting and retrieving text for
+messages. Since this text may be extremely long, it cannot be stored
+in the same way that shorter strings are stored. In some databases,
+these are referred to as CLOB columns. MS Access uses the MEMO type,
+while MySQL uses the TEXT data type. Since this is an area where
+databases can be implemented differently, the code is placed into the
+<tt class="literal">DBUtil</tt> class for consistency. If a special
+concession has to be made for a particular database, it can be made
+in one place rather than in every SQL statement throughout the
+application.<a name="INDEX-838" /> 
+</p>
+
+<p>Finally, the <tt class="literal">JdbcDataAdapter</tt><a name="INDEX-839" /> <a name="INDEX-840" />
+class is presented in <a href="ch07_03.htm#javaxslt-CHP-7-EX-19">Example 7-19</a>. This is the
+relational database implementation of the
+<tt class="literal">DataAdapter</tt> class and should work with just about
+any relational database.
+</p>
+
+<a name="javaxslt-CHP-7-EX-19" /><div class="example">
+<h4 class="objtitle">Example 7-19. JdbcDataAdapter.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.jdbcimpl;
+
+import com.oreilly.forum.*;
+import com.oreilly.forum.adapter.*;
+import com.oreilly.forum.domain.*;
+import java.sql.*;
+import java.util.*;
+
+/**
+ * An implementation of the DataAdapter that uses JDBC.
+ */
+public class JdbcDataAdapter extends DataAdapter {
+
+    private static String dbURL = ForumConfig.getDatabaseURL( );
+
+    /**
+     * Construct the data adapter and load the JDBC driver.
+     */
+    public JdbcDataAdapter( ) throws DataException {
+        try {
+            Class.forName(ForumConfig.getJDBCDriverClassName( ));
+        } catch (Exception ex) {
+            ex.printStackTrace( );
+            throw new DataException("Unable to load JDBC driver: "
+                    + ForumConfig.getJDBCDriverClassName( ));
+        }
+    }
+
+    /**
+     * @param msgID must be a valid message identifier.
+     * @return the message with the specified id.
+     * @throws DataException if msgID does not exist or a database
+     * error occurs.
+     */
+    public Message getMessage(long msgID) throws DataException {
+        Connection con = null;
+        Statement stmt = null;
+        try {
+            con = DBUtil.getConnection(dbURL);
+            stmt = con.createStatement( );
+            ResultSet rs = stmt.executeQuery(
+                    "SELECT inReplyToID, createDay, createMonth, createYear, "
+                    + "boardID, subject, authorEmail, msgText "
+                    + "FROM Message WHERE id="
+                    + msgID);
+            if (rs.next( )) {
+                long inReplyToID = rs.getLong(1);
+                int createDay = rs.getInt(2);
+                int createMonth = rs.getInt(3);
+                int createYear = rs.getInt(4);
+                long boardID = rs.getLong(5);
+                String subject = rs.getString(6);
+                String authorEmail = rs.getString(7);
+                String msgText = DBUtil.getLongString(rs, 8);
+
+                BoardSummary boardSummary = this.getBoardSummary(boardID, stmt);
+
+                return new MessageImpl(msgID,
+                        new DayMonthYear(createDay, createMonth, createYear),
+                        boardSummary, subject, authorEmail, msgText, 
+                        inReplyToID);
+            } else {
+                throw new DataException("Illegal msgID");
+            }
+        } catch (SQLException sqe) {
+            sqe.printStackTrace( );
+            throw new DataException(sqe.getMessage( ));
+        } finally {
+            DBUtil.close(stmt, con);
+        }
+    }
+
+    /**
+     * Add a reply to an existing message.
+     *
+     * @throws DataException if a database error occurs, or if any
+     * parameter is illegal.
+     */
+    public Message replyToMessage(long origMsgID,
+            String msgSubject, String authorEmail, String msgText)
+            throws DataException {
+        Message inReplyToMsg = this.getMessage(origMsgID);
+        return insertMessage(inReplyToMsg.getBoard( ), origMsgID,
+                msgSubject, authorEmail, msgText);
+
+    }
+
+    /**
+     * Post a new message.
+     *
+     * @return the newly created message.
+     * @throws DataException if a database error occurs, or if any
+     * parameter is illegal.
+     */
+    public Message postNewMessage(long boardID, String msgSubject,
+            String authorEmail, String msgText) throws DataException {
+
+        BoardSummary board = this.getBoardSummary(boardID);
+        return insertMessage(board, -1, msgSubject, authorEmail, msgText);
+    }
+
+    /**
+     * If no messages exist for the specified board and month, return
+     * an empty iterator.
+     * @return an iterator of &lt;code&gt;MessageSummary&lt;/code&gt; objects.
+     * @throws DataException if the boardID is illegal or a database
+     * error occurs.
+     */
+    public Iterator getAllMessages(long boardID, MonthYear month)
+            throws DataException {
+        List allMsgs = new ArrayList( );
+
+        Connection con = null;
+        Statement stmt = null;
+        try {
+            con = DBUtil.getConnection(dbURL);
+            stmt = con.createStatement( );
+
+            BoardSummary boardSum = this.getBoardSummary(boardID, stmt);
+
+            ResultSet rs = stmt.executeQuery(
+                    "SELECT id, inReplyToID, createDay, "
+                    + "subject, authorEmail "
+                    + "FROM Message WHERE createMonth="
+                    + month.getMonth( )
+                    + " AND createYear="
+                    + month.getYear( )
+                    + " AND boardID="
+                    + boardID);
+
+            while (rs.next( )) {
+                long msgID = rs.getLong(1);
+                long inReplyTo = rs.getLong(2);
+                int createDay = rs.getInt(3);
+                String subject = rs.getString(4);
+                String authorEmail = rs.getString(5);
+
+                DayMonthYear createDMY = new DayMonthYear(
+                        createDay, month.getMonth(), month.getYear( ));
+
+                allMsgs.add(new MessageSummaryImpl(msgID, createDMY,
+                        boardSum,
+                        subject, authorEmail, inReplyTo));
+            }
+            return allMsgs.iterator( );
+        } catch (SQLException sqe) {
+            sqe.printStackTrace( );
+            throw new DataException(sqe);
+        } finally {
+            DBUtil.close(stmt, con);
+        }
+    }
+
+    /**
+     * @return an iterator of all &lt;code&gt;BoardSummary&lt;/code&gt; objects.
+     */
+    public Iterator getAllBoards( ) throws DataException {
+        List allBoards = new ArrayList( );
+
+        Connection con = null;
+        Statement stmt = null;
+        Statement stmt2 = null;
+        try {
+            con = DBUtil.getConnection(dbURL);
+            stmt = con.createStatement( );
+            stmt2 = con.createStatement( );
+            ResultSet rs = stmt.executeQuery(
+                    "SELECT id, name, description FROM Board "
+                    + "ORDER BY name");
+
+            while (rs.next( )) {
+                long id = rs.getLong(1);
+                String name = rs.getString(2);
+                String description = rs.getString(3);
+
+                // get the months with messages. Use a different
+                // Statement object because we are in the middle of
+                // traversing a ResultSet that was created with the
+                // first Statement.
+                List monthsWithMessages =
+                        this.getMonthsWithMessages(id, stmt2);
+
+                allBoards.add(new BoardSummaryImpl(id, name, description,
+                        monthsWithMessages));
+            }
+            return allBoards.iterator( );
+        } catch (SQLException sqe) {
+            sqe.printStackTrace( );
+            throw new DataException(sqe);
+        } finally {
+            if (stmt2 != null) {
+                try {
+                    stmt2.close( );
+                } catch (SQLException ignored) {
+                }
+            }
+            DBUtil.close(stmt, con);
+        }
+    }
+
+    /**
+     * @return a board summary for the given id.
+     * @throws DataException if boardID is illegal or a database
+     *                       error occurs.
+     */
+    public BoardSummary getBoardSummary(long boardID)
+            throws DataException {
+        Connection con = null;
+        Statement stmt = null;
+        try {
+            con = DBUtil.getConnection(dbURL);
+            stmt = con.createStatement( );
+            return getBoardSummary(boardID, stmt);
+        } catch (SQLException sqe) {
+            sqe.printStackTrace( );
+            throw new DataException(sqe);
+        } finally {
+            DBUtil.close(stmt, con);
+        }
+    }
+
+    private BoardSummary getBoardSummary(long boardID, Statement stmt)
+            throws DataException, SQLException {
+        ResultSet rs = stmt.executeQuery(
+                "SELECT name, description FROM Board WHERE id=" + boardID);
+
+        if (rs.next( )) {
+            String name = rs.getString(1);
+            String description = rs.getString(2);
+
+            List monthsWithMessages = getMonthsWithMessages(boardID, stmt);
+
+            return new BoardSummaryImpl(boardID, name, description,
+                    monthsWithMessages);
+        } else {
+            throw new DataException("Unknown boardID");
+        }
+    }
+
+    /**
+     * @return a list of MonthYear objects
+     */
+    private List getMonthsWithMessages(long boardID, Statement stmt)
+            throws SQLException {
+
+        List monthsWithMessages = new ArrayList( );
+        ResultSet rs = stmt.executeQuery(
+                "SELECT DISTINCT createMonth, createYear "
+                + "FROM Message "
+                + "WHERE boardID=" + boardID);
+        while (rs.next( )) {
+            monthsWithMessages.add(new MonthYear(
+                    rs.getInt(1), rs.getInt(2)));
+        }
+        return monthsWithMessages;
+    }
+
+    private Message insertMessage(BoardSummary board, long inReplyToID,
+            String msgSubject, String authorEmail,
+            String msgText) throws DataException {
+        // avoid overflowing the max database column lengths
+        if (msgSubject.length( ) &gt; ForumConfig.MAX_MSG_SUBJECT_LEN) {
+            msgSubject = msgSubject.substring(0,
+                    ForumConfig.MAX_MSG_SUBJECT_LEN);
+        }
+        if (authorEmail.length( ) &gt; ForumConfig.MAX_EMAIL_LEN) {
+            authorEmail = authorEmail.substring(0,
+                    ForumConfig.MAX_EMAIL_LEN);
+        }
+
+        DayMonthYear createDate = new DayMonthYear( );
+
+        Connection con = null;
+        PreparedStatement stmt = null;
+        try {
+            con = DBUtil.getConnection(dbURL);
+            long newMsgID = DBUtil.getNextID("Message", con);
+            stmt = con.prepareStatement("INSERT INTO Message "
+                    + "(id, inReplyToID, createMonth, createDay, createYear, "
+                    + "boardID, subject, authorEmail, msgText) "
+                    + "VALUES (?,?,?,?,?,?,?,?,?)");
+            stmt.setString(1, Long.toString(newMsgID));
+            stmt.setString(2, Long.toString(inReplyToID));
+            stmt.setInt(3, createDate.getMonth( ));
+            stmt.setInt(4, createDate.getDay( ));
+            stmt.setInt(5, createDate.getYear( ));
+            stmt.setString(6, Long.toString(board.getID( )));
+            stmt.setString(7, msgSubject);
+            stmt.setString(8, authorEmail);
+            DBUtil.setLongString(stmt, 9, msgText);
+
+            stmt.executeUpdate( );
+
+            return new MessageImpl(newMsgID, createDate,
+                    board, msgSubject, authorEmail,
+                    msgText, inReplyToID);
+
+        } catch (SQLException sqe) {
+            sqe.printStackTrace( );
+            throw new DataException(sqe);
+        } finally {
+            DBUtil.close(stmt, con);
+        }
+    }
+} </pre></blockquote>
+</div>
+
+<p>Since this is not a book about relational database access using Java,
+we will not focus on the low-level JDBC details found in this class.
+The SQL code is intentionally simple to make this class portable to
+several different relational databases. The database URL and JDBC
+driver class name are retrieved from the
+<tt class="literal">ForumConfig</tt> class instead of hardcoded into the
+class:
+</p>
+
+<blockquote><pre class="code">private static String dbURL = ForumConfig.getDatabaseURL( );
+
+/**
+* Construct the data adapter and load the JDBC driver.
+ */
+public JdbcDataAdapter( ) throws DataException {
+    try {
+       Class.forName(ForumConfig.getJDBCDriverClassName( ));
+    } catch (Exception ex) {
+        ex.printStackTrace( );
+        throw new DataException("Unable to load JDBC driver: "
+                + ForumConfig.getJDBCDriverClassName( ));
+    }
+}</pre></blockquote>
+
+<p>Creating connections with the <tt class="literal">DBUtil</tt> class is
+another common pattern:
+</p>
+
+<blockquote><pre class="code">Connection con = null;
+try { 
+    con = DBUtil.getConnection(dbURL);</pre></blockquote>
+
+<p>As mentioned earlier, this approach leaves the door open for
+connection pooling in a future implementation. When the pool is
+written, it only needs to be added to the <tt class="literal">DBUtil</tt>
+class in a single place. When connections and statements are no
+longer needed, they should always be closed in a
+<tt class="literal">finally</tt> block:
+</p>
+
+<blockquote><pre class="code">} finally {
+    DBUtil.close(stmt, con);
+}</pre></blockquote>
+
+<p>As mentioned earlier, this ensures that they will be closed because
+<tt class="literal">finally</tt> blocks are executed regardless of whether
+an exception occurs.<a name="INDEX-841" /> <a name="INDEX-842" /> 
+</p>
+
+</div>
+<a name="javaxslt-CHP-7-SECT-3.3" /><div class="sect2">
+<h3 class="sect2">7.3.3. JDOM XML Production</h3>
+
+<p><a name="INDEX-843" />The <a name="INDEX-844" /> <a name="INDEX-845" />discussion forum code presented up to
+this point can extract data from a relational database and create
+instances of Java domain classes. The next step is to convert the
+domain objects into XML that can be transformed using XSLT. For this
+task, we use the JDOM class library. As mentioned in earlier
+chapters, JDOM is available at
+<a href="http://www.jdom.org">http://www.jdom.org</a> and is open source software.
+Although the DOM API can also be used, JDOM is somewhat easier to
+work with, which results in cleaner code.<a href="#FOOTNOTE-32">[32]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-32" /><p> [32] For a DOM
+example, see the <tt class="literal">LibraryDOMCreator</tt> class shown in
+<a href="ch01_02.htm#javaxslt-CHP-1-EX-4">Example 1-4</a>.</p> </blockquote>
+
+<p>The basic pattern relies on various <a name="INDEX-846" />JDOM "producer" classes,
+each of which knows how to convert one or more domain objects into
+XML. This approach capitalizes on the recursive nature of XML by
+having each class produce a JDOM <tt class="literal">Element</tt> instance.
+Some of these <tt class="literal">Element</tt> instances represent entire
+documents, while others represent a small fragment of XML. These
+fragments can be recursively embedded into other
+<tt class="literal">Element</tt> instances to build up more complex
+structures.
+</p>
+
+<p>Keeping XML production outside of domain objects is useful for
+several reasons:
+</p>
+
+<ul><li>
+<p>JDOM producer classes can be replaced with DOM producers or some
+other technology.
+</p>
+</li><li>
+<p>Additional producers can be written to generate new forms of XML
+without modifying the domain objects or existing XML producers.
+</p>
+</li><li>
+<p>Domain objects may be represented as Java interfaces with several
+different implementation classes. By keeping XML production separate,
+the same producer works with all implementations of the domain
+interfaces.
+</p>
+</li></ul>
+<p>The <tt class="literal">HomeJDOM</tt> class, shown in <a href="ch07_03.htm#javaxslt-CHP-7-EX-20">Example 7-20</a>, is quite simple. It merely produces a
+<tt class="literal">&lt;home&gt;</tt> element containing a list of
+<tt class="literal">&lt;board&gt;</tt> elements. Since a separate JDOM
+producer class creates the <tt class="literal">&lt;board&gt;</tt> elements,
+the <tt class="literal">HomeJDOM</tt> class merely assembles those XML
+fragments into a larger
+structure.<a name="INDEX-847" />
+<a name="INDEX-848" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-20" /><div class="example">
+<h4 class="objtitle">Example 7-20. HomeJDOM.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.xml;
+
+import com.oreilly.forum.domain.*;
+import java.util.*;
+import org.jdom.*;
+
+/**
+ * Produce JDOM data for the home page.
+ */
+public class HomeJDOM {
+
+    /**
+     * @param boards an iterator of &lt;code&gt;BoardSummary&lt;/code&gt; objects.
+     */
+    public static Element produceElement(Iterator boards) {
+        Element homeElem = new Element("home");
+        while (boards.hasNext( )) {
+            BoardSummary curBoard = (BoardSummary) boards.next( );
+            homeElem.addContent(BoardSummaryJDOM.produceElement(curBoard));
+        }
+
+        return homeElem;
+    }
+
+    private HomeJDOM( ) {
+    }
+}</pre></blockquote>
+</div>
+
+<p>As shown in the <tt class="literal">HomeJDOM</tt> class, the constructor is
+private. This prevents instantiation of the class, another decision
+made in the name of efficiency. Since each of the JDOM producer
+classes for the discussion forum are stateless and thread-safe, the
+<tt class="literal">produceElement( )</tt> method can be static. This means
+that there is no reason to create instances of the JDOM producers,
+because the same method is shared by many concurrent threads.
+Additionally, there is no common base class because each of the
+<tt class="literal">produceElement( )</tt> methods accept different types
+of objects as parameters.
+</p>
+
+<a name="javaxslt-CHP-7-SIDEBAR-3" /><blockquote><table border="1" cellpadding="6"><tr><td>
+<h4 class="objtitle">Other JDOM Options</h4>
+&nbsp;
+<p>The static-method technique shown in this chapter is certainly not
+the only way to produce JDOM data. You may prefer to create custom
+subclasses of JDOM's <tt class="literal">Element</tt> class. In your
+subclass, the constructor can take a domain object as a parameter. So
+instead of calling a static method to produce XML, you end up writing
+something like:
+</p>
+&nbsp;
+<blockquote><pre class="code">Iterator boards = ...
+Element homeElem = new HomeElement(boards);</pre></blockquote>
+&nbsp;
+<p>Yet another option is to embed the JDOM production code into the
+domain objects. In this approach, your code would resemble this:
+</p>
+&nbsp;
+<blockquote><pre class="code">BoardSummary board = ...
+Element elem = board.convertToJDOM( );</pre></blockquote>
+&nbsp;
+<p>This approach is probably not the best, because it tightly couples
+the JDOM code with the domain classes. It also will not work for
+cases where the XML data is produced from a group of domain objects
+instead of from a single object.
+</p>
+&nbsp;
+<p>Regardless of the technique followed, consistency is the most
+important goal. If every class follows the same basic pattern, then
+the development team only has to understand one example to be
+familiar with the entire system.
+</p>
+</td></tr></table><p></blockquote>
+
+<p>The code for <tt class="literal">ViewMonthJDOM</tt> is shown in <a href="ch07_03.htm#javaxslt-CHP-7-EX-21">Example 7-21</a>. This class creates XML data for an entire
+month's worth of
+messages.<a name="INDEX-849" />
+<a name="INDEX-850" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-21" /><div class="example">
+<h4 class="objtitle">Example 7-21. ViewMonthJDOM.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.xml;
+
+import java.util.*;
+import com.oreilly.forum.*;
+import com.oreilly.forum.adapter.*;
+import com.oreilly.forum.domain.*;
+import org.jdom.*;
+
+/**
+ * Creates the JDOM for the month view of a board.
+ */
+public class ViewMonthJDOM {
+
+    /**
+     * @param board the message board to generate JDOM for.
+     * @param month the month and year to view.
+     */
+    public static Element produceElement(BoardSummary board,
+            MonthYear month) throws DataException {
+        Element viewMonthElem = new Element("viewMonth");
+        viewMonthElem.addAttribute("month",
+                Integer.toString(month.getMonth( )));
+        viewMonthElem.addAttribute("year",
+                Integer.toString(month.getYear( )));
+
+        // create the &lt;board&gt; element...
+        Element boardElem = BoardSummaryJDOM.produceNameIDElement(board);
+        viewMonthElem.addContent(boardElem);
+
+        DataAdapter adapter = DataAdapter.getInstance( );
+
+        MessageTree msgTree = new MessageTree(adapter.getAllMessages(
+                board.getID( ), month));
+
+        // get an iterator of MessageSummary objects
+        Iterator msgs = msgTree.getTopLevelMessages( );
+
+        while (msgs.hasNext( )) {
+            MessageSummary curMsg = (MessageSummary) msgs.next( );
+            Element elem = produceMessageElement(curMsg, msgTree);
+            viewMonthElem.addContent(elem);
+        }
+
+        return viewMonthElem;
+    }
+
+    /**
+     * Produce a fragment of XML for an individual message. This
+     * is a recursive function.
+     */
+    private static Element produceMessageElement(MessageSummary msg,
+            MessageTree msgTree) {
+        Element msgElem = new Element("message");
+        msgElem.addAttribute("id", Long.toString(msg.getID( )));
+        msgElem.addAttribute("day",
+                Integer.toString(msg.getCreateDate().getDay( )));
+
+        msgElem.addContent(new Element("subject")
+                .setText(msg.getSubject( )));
+        msgElem.addContent(new Element("authorEmail")
+                .setText(msg.getAuthorEmail( )));
+
+        <tt class="userinput"><b>Iterator iter = msgTree.getReplies(msg);</b></tt>
+        while (iter.hasNext( )) {
+            MessageSummary curReply = (MessageSummary) iter.next( );
+
+            // recursively build the XML for all replies
+            <tt class="userinput"><b>msgElem.addContent(produceMessageElement(curReply, msgTree));</b></tt>
+        }
+        return msgElem;
+    }
+
+    private ViewMonthJDOM( ) {
+    }
+} </pre></blockquote>
+</div>
+
+<p>The recursive method that produces <tt class="literal">&lt;message&gt;</tt>
+elements is the only difficult code in
+<tt class="literal">ViewMonthJDOM</tt>. Since
+<tt class="literal">&lt;message&gt;</tt> elements are nested according to
+replies, the XML forms a recursive tree structure that could be
+arbitrarily deep. JDOM supports this nicely, because a JDOM
+<tt class="literal">Element</tt> can contain other nested
+<tt class="literal">Element</tt> s. The <tt class="literal">produceMessageElement(
+)</tt> method is designed to create the required XML data.
+</p>
+
+<p>The next JDOM producer class, shown in <a href="ch07_03.htm#javaxslt-CHP-7-EX-22">Example 7-22</a>,
+is quite simple. It merely creates an XML view of an individual
+message.<a name="INDEX-851" />
+<a name="INDEX-852" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-22" /><div class="example">
+<h4 class="objtitle">Example 7-22. ViewMessageJDOM.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.xml;
+
+import com.oreilly.forum.domain.*;
+import java.util.Date;
+import org.jdom.*;
+import org.jdom.output.*;
+
+/**
+ * Generate JDOM for the View Message page.
+ */
+public class ViewMessageJDOM {
+
+    /**
+     * @param message the message to view.
+     * @param inResponseTo the message this one is in response to, or
+     * perhaps null.
+     */
+    public static Element produceElement(Message message,
+            MessageSummary inResponseTo) {
+        Element messageElem = new Element("message");
+        messageElem.addAttribute("id", Long.toString(message.getID( )));
+        DayMonthYear d = message.getCreateDate( );
+        messageElem.addAttribute("month",
+                Integer.toString(d.getMonth( )));
+        messageElem.addAttribute("day",
+                Integer.toString(d.getDay( )));
+        messageElem.addAttribute("year",
+                Integer.toString(d.getYear( )));
+
+        Element boardElem = BoardSummaryJDOM.produceNameIDElement(
+                message.getBoard( ));
+        messageElem.addContent(boardElem);
+
+
+        if (inResponseTo != null) {
+            Element inRespToElem = new Element("inResponseTo")
+                    .addAttribute("id", Long.toString(inResponseTo.getID( )));
+            inRespToElem.addContent(new Element("subject")
+                    .setText(inResponseTo.getSubject( )));
+            messageElem.addContent(inRespToElem);
+        }
+
+        messageElem.addContent(new Element("subject")
+                .setText(message.getSubject( )));
+        messageElem.addContent(new Element("authorEmail")
+                .setText(message.getAuthorEmail( )));
+        messageElem.addContent(new Element("text")
+                .setText(message.getText( )));
+        return messageElem;
+    }
+
+    private ViewMessageJDOM( ) {
+    }
+} </pre></blockquote>
+</div>
+
+<p>The JDOM producer shown in <a href="ch07_03.htm#javaxslt-CHP-7-EX-23">Example 7-23</a> is also quite
+simple. Its job is to create XML for a
+<tt class="literal">BoardSummary</tt> object. This class is unique because
+it is not designed to create an entire XML document. Instead, the
+elements produced by <tt class="literal">BoardSummaryJDOM</tt> are embedded
+into other XML pages in the application. For example, the home page
+shows a list of all <tt class="literal">&lt;board&gt;</tt> elements found
+in the system, each of which is generated by
+<tt class="literal">BoardSummaryJDOM</tt>. As you design your own systems,
+you will certainly find common fragments of XML that are reused by
+several pages. When this occurs, write a common helper class rather
+than duplicate code.<a name="INDEX-853" /> <a name="INDEX-854" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-23" /><div class="example">
+<h4 class="objtitle">Example 7-23. BoardSummaryJDOM.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.xml;
+
+import com.oreilly.forum.domain.*;
+import java.util.*;
+import org.jdom.*;
+
+/**
+ * Produces JDOM for a BoardSummary object.
+ */
+public class BoardSummaryJDOM {
+    public static Element produceNameIDElement(BoardSummary board) {
+        // produce the following:
+        // &lt;board id="123"&gt;
+        //   &lt;name&gt;the board name&lt;/name&gt;
+        //   &lt;description&gt;board description&lt;/description&gt;
+        // &lt;/board&gt;
+        Element boardElem = new Element("board");
+        boardElem.addAttribute("id", Long.toString(board.getID( )));
+        boardElem.addContent(new Element("name")
+                .setText(board.getName( )));
+        boardElem.addContent(new Element("description")
+                .setText(board.getDescription( )));
+        return boardElem;
+    }
+
+    public static Element produceElement(BoardSummary board) {
+        Element boardElem = produceNameIDElement(board);
+
+        // add the list of messages
+        Iterator iter = board.getMonthsWithMessages( );
+        while (iter.hasNext( )) {
+            MonthYear curMonth = (MonthYear) iter.next( );
+            Element elem = new Element("messages");
+            elem.addAttribute("month", Integer.toString(curMonth.getMonth( )));
+            elem.addAttribute("year", Integer.toString(curMonth.getYear( )));
+            boardElem.addContent(elem);
+        }
+
+        return boardElem;
+    }
+
+    private BoardSummaryJDOM( ) {
+    }
+} </pre></blockquote>
+</div>
+
+<p>The final JDOM producer, <tt class="literal">PostMessageJDOM</tt>, is shown
+in <a href="ch07_03.htm#javaxslt-CHP-7-EX-24">Example 7-24</a>. The <tt class="literal">produceElement(
+)</tt> method takes numerous arguments that allow the method to
+produce XML for posting a new message or replying to an existing
+message. Also, values for the message subject, author email, and
+message text may be pre-filled in the XML. The application takes
+advantage of this capability whenever it must redisplay an HTML form
+to a user with its values filled
+in.<a name="INDEX-855" />
+<a name="INDEX-856" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-24" /><div class="example">
+<h4 class="objtitle">Example 7-24. PostMessageJDOM.java </h4>
+<a name="INDEX-857" /><a name="INDEX-858" /><a name="INDEX-859" /><blockquote><pre class="code">package com.oreilly.forum.xml;
+
+import com.oreilly.forum.domain.*;
+import org.jdom.*;
+
+/**
+ * Produce JDOM for the "Post Message" page.
+ */
+public class PostMessageJDOM {
+
+    public static Element produceElement(
+            BoardSummary board,
+            MessageSummary inResponseToMsg,
+            boolean showError,
+            String subject,
+            String authorEmail,
+            String msgText) {
+        Element messageElem = new Element("postMsg");
+
+        // reuse the BoardSummaryJDOM class to produce a
+        // fragment of the XML
+        messageElem.addContent(BoardSummaryJDOM.produceNameIDElement(board));
+
+        if (inResponseToMsg != null) {
+            Element inRespTo = new Element("inResponseTo")
+                    .addAttribute("id", Long.toString(inResponseToMsg.getID( )));
+            inRespTo.addContent(new Element("subject")
+                    .setText(inResponseToMsg.getSubject( )));
+            messageElem.addContent(inRespTo);
+        }
+
+        if (showError) {
+            messageElem.addContent(new Element("error")
+                    .addAttribute("code", "ALL_FIELDS_REQUIRED"));
+        }
+
+        Element prefill = new Element("prefill");
+        prefill.addContent(new Element("subject")
+                .setText(subject));
+        prefill.addContent(new Element("authorEmail")
+                .setText(authorEmail));
+        prefill.addContent(new Element("message")
+                .setText(msgText));
+        messageElem.addContent(prefill);
+
+        return messageElem;
+    }
+
+
+    private PostMessageJDOM( ) {
+    }
+} 
+</pre></blockquote>
+</div>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch07_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">7.2. Prototyping the XML</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">7.4. Servlet Implementation</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

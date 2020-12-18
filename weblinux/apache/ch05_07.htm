@@ -1,0 +1,301 @@
+<?label 5.7. Digest Authentication?><html><head><title>Digest Authentication (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch05_08.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">5.7. Digest Authentication</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-628" /> <a name="INDEX-629" /> <a name="INDEX-630" /> <a name="INDEX-631" />A halfway house between
+complete encryption and none at all is <em class="emphasis">digest
+authentication</em>. The idea is that a one-way hash, or
+digest, is calculated from a password and various other bits of
+information. Rather than sending the password, as is done in basic
+authentication, the digest is sent. At the other end, the same
+function is calculated: if the numbers are not identical, something
+is wrong -- and in this case, since all other factors should be
+the same, the "something" must be the password.</p>
+
+
+
+
+
+<p>Digest authentication is applied in Apache to improve the security of
+passwords. <a name="INDEX-632" /> <a name="INDEX-633" />MD5
+is a cryptographic hash function written by Ronald Rivest and
+distributed free by RSA Data Security; with its help, the client and
+server use the hash of the password and other stuff. The point of
+this is that although many passwords lead to the same hash value,
+there is a very small chance that a wrong password will give the
+right hash value, if the hash function is intelligently chosen; it is
+also very difficult to construct a password leading to the same hash
+value (which is why these are sometimes referred to as
+<em class="emphasis">one-way hashes</em>
+<a name="INDEX-634" />). The advantage of using the hash value
+is that the password itself is not sent to the server, so it
+isn't visible to the Bad Guys. Just to make things more
+tiresome for them, MD5 adds a few other things into the mix: the URI,
+the method, and a nonce. A
+<em class="emphasis">nonce</em>
+<a name="INDEX-635" />
+is simply a number chosen by the server and told to the client,
+usually different each time. It ensures that the digest is different
+each time and protects against replay attacks.<a href="#FOOTNOTE-47">[47]</a> The digest
+function looks like this:</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-47" /><p>[47]This
+is a method in which the Bad Guy simply monitors the Good Guy's
+session and reuses the headers for his own access. If there were no
+nonce, this would work every time!</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<blockquote><pre class="code">MD5(MD5(&lt;password&gt;)+":"+&lt;nonce&gt;+":"+MD5(&lt;method&gt;+":"+&lt;uri&gt;))</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-636" />MD5
+digest authentication can be invoked with the following line:</p>
+
+
+
+
+
+<blockquote><pre class="code">AuthType Digest</pre></blockquote>
+
+
+
+
+
+<p>This plugs a nasty hole in the Internet's security. Almost
+unbelievably, the authentication procedures discussed up to now send
+the user's password in clear text across the Web. A Bad Guy who
+intercepts the Internet traffic then knows the user's password.
+This is a Bad Thing. So, digest authentication works this way:</p>
+
+
+
+
+
+<ol><li><p>The client requests a URL.</p></li><li><p>Because that URL is protected, the server replies with error 401,
+"Authentication required," and among the headers, it
+sends a nonce.</p></li><li><p>The client combines the user's password, the nonce, the method,
+and the URL, as described previously, then sends the result back to
+the server. The server does the same thing with the hash of the
+user's password<a href="#FOOTNOTE-48">[48]</a> retrieved from the password file and checks
+that its result matches.</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-48" /><p>[48]Which is why MD5 is applied to
+the password, as well as to the whole thing: the server then
+doesn't have to store the actual password, just a digest of
+it.</p>
+
+
+
+
+</blockquote></li></ol>
+<p>A different nonce is sent the next time, so that the Bad Guy
+can't use the captured digest to gain access.</p>
+
+
+
+
+
+<p>MD5 digest authentication is implemented in Apache for two reasons.
+First, it provides one of the two fully compliant reference HTTP/1.1
+implementations required for the standard to advance down the
+standards track; second, it provides a test bed for browser
+implementations. It should only be used for experimental purposes,
+particularly since it makes no effort to check that the returned
+nonce<a href="#FOOTNOTE-49">[49]</a> is the same as the one it chose in the first place. This
+makes it susceptible to a replay attack.</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-49" /><p>[49]It is unfortunate that the nonce must be
+returned as part of the client's digest authentication header,
+but since HTTP is a stateless protocol, there is little alternative.
+It is even more unfortunate that Apache simply believes it! An
+obvious way to protect against this is to include the time somewhere
+in the nonce and to refuse nonces older than some threshold.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<p>The <em class="filename">httpd.conf</em> file is as
+follows:<a name="INDEX-637" /></p>
+
+
+
+
+
+<blockquote><pre class="code">User webuser
+Group webgroup
+ServerName www.butterthlies.com
+ServerAdmin sales@butterthlies.com
+DocumentRoot /usr/www/site.digest/htdocs/customers
+ErrorLog /usr/www/site.digest/logs/customers/error_log
+TransferLog /usr/www/site.digest/logs/customers/access_log
+ScriptAlias /cgi-bin /usr/www/cgi-bin
+
+&lt;VirtualHost sales.butterthlies.com&gt;
+ServerAdmin sales_mgr@butterthlies.com
+DocumentRoot /usr/www/site.digest/htdocs/salesmen
+ServerName sales.butterthlies.com
+ErrorLog /usr/www/site.digest/logs/salesmen/error_log
+TransferLog /usr/www/site.digest/logs/salesmen/access_log
+ScriptAlias /cgi-bin /usr/www/cgi-bin
+
+&lt;Directory /usr/www/site.digest/htdocs/salesmen&gt;
+AuthType Digest
+AuthName darkness
+AuthDigestFile /usr/www/ok_digest/sales
+require valid-user
+#require group cleaners
+&lt;/Directory&gt;
+&lt;/VirtualHost&gt;</pre></blockquote>
+
+
+
+
+
+<p><img src="figs/unix_icon.gif" alt="Figure 5.7" />   Go to the <em class="filename">Configuration</em> file (see <a href="ch01_01.htm">Chapter 1, "Getting Started"</a> ). If the line:</p>
+
+
+
+
+
+<blockquote><pre class="code">Module digest_module mod_digest.o</pre></blockquote>
+
+
+
+
+
+<p>is commented out, uncomment it and remake Apache as described
+previously. Go to the Apache support directory and type:</p>
+
+
+
+
+
+<blockquote><pre class="code">% <b class="emphasis-bold">make htdigest</b>
+% <b class="emphasis-bold">cp htdigest /usr/local/bin</b></pre></blockquote>
+
+
+
+
+
+<p><img src="figs/unix_icon.gif" alt="Figure 5.7" />   The command-line syntax for
+<tt class="literal">htdigest</tt>
+<a name="INDEX-638" /> is:</p>
+
+
+
+
+
+<blockquote><pre class="code">% htdigest [-c]<em class="replaceable">passwordfile realm user</em></pre></blockquote>
+
+
+
+
+
+<p><img src="figs/unix_icon.gif" alt="Figure 5.7" />   Go to <em class="filename">/usr/www</em> (or some other appropriate spot)
+and make the <em class="filename">ok_digest</em> directory and contents:</p>
+
+
+
+
+
+<blockquote><pre class="code">% <b class="emphasis-bold">mkdir ok_digest</b>
+% <b class="emphasis-bold">cd ok_digest</b>
+% <b class="emphasis-bold">htdigest -c sales darkness bill</b>
+Adding password for user bill in realm darkness.
+New password: <b class="emphasis-bold">password</b>
+Re-type new password: <b class="emphasis-bold">password</b>
+% <b class="emphasis-bold">htdigest sales darkness ben</b>
+...
+% <b class="emphasis-bold">htdigest sales darkness sonia</b>
+...
+% <b class="emphasis-bold">htdigest sales darkness daphne</b>
+...</pre></blockquote>
+
+
+
+
+
+<p>Digest authentication can, in principle, also use
+<a name="INDEX-639" />group
+authentication. However, none of it worked when we tested it with
+Netscape Navigator v4.05. Provided that the line:</p>
+
+
+
+
+
+<blockquote><pre class="code">LogLevel debug</pre></blockquote>
+
+
+
+
+
+<p>appeared in the Config file, the error log contained the following
+entry:</p>
+
+
+
+
+
+<blockquote><pre class="code">client used wrong authentication scheme</pre></blockquote>
+
+
+
+
+
+<p>Whether a webmaster used this facility or not might depend on whether
+he or she could control which browsers the clients used.<a name="INDEX-640" /> <a name="INDEX-641" /> <a name="INDEX-642" /> <a name="INDEX-643" /> <a name="INDEX-644" /></p>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch05_08.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">5.6. Order, Allow, and Deny</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">5.8. Anonymous Access</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

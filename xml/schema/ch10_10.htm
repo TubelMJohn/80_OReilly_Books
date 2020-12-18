@@ -1,0 +1,159 @@
+<html><head><title>Chameleon Design (XML Schema)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric van der Vlist" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002521L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XML Schema" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XML Schema" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch10_09.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch10_11.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">10.10. Chameleon Design</h2>
+
+<p>This <a name="INDEX-826" /> <a name="INDEX-827" />chapter wouldn't
+be complete without a look at the impact of namespaces on the
+inclusion of schemas through <tt class="literal"><a href="ch15_01.htm#ch15-77337">xs:include</a></tt><a name="INDEX-828" /> and <tt class="literal"><a href="ch15_01.htm#ch15-77474">xs:redefine</a></tt><a name="INDEX-829" />.
+</p>
+
+<p>When we initially introduced these features, we
+didn't worry about namespaces. However, these
+features have some important interactions with namespaces, since
+<em class="emphasis">W3C XML Schema</em> restricts inclusion (or
+redefinition) to pieces of schema with either the same target
+namespace or without any target namespace (schemas for other
+languages being "imported" rather
+than "included").
+</p>
+
+<p>When a piece of schema that has no <a name="INDEX-830" />target namespace is included in a
+schema with a target namespace, the included definition acquires the
+target namespace of the including schema and behaves exactly as if it
+added the same target namespace. This feature allows creation of
+libraries with pieces of schema that are
+"namespace-transparent," and which
+take the namespace of the schema in which they are imported. This
+method is often called "chameleon,"
+since the included schema takes the
+"color" of the context in which it
+is included.
+</p>
+
+<p>To illustrate this feature and see its implication,
+let's look again at the example that
+we've used throughout this chapter:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+&lt;library xmlns="http://dyomedea.com/ns/library"&gt;
+  &lt;book id="b0836217462"&gt;
+    &lt;title&gt;
+      Being a Dog Is a Full-Time Job
+    &lt;/title&gt;
+    &lt;authors&gt;
+      &lt;person id="CMS"&gt;
+        &lt;name&gt;
+          Charles M Schulz
+        &lt;/name&gt;
+      &lt;/person&gt;
+    &lt;/authors&gt;
+  &lt;/book&gt;
+&lt;/library&gt;</pre></blockquote>
+
+<p>If we want a library of schema parts that describe a person and can
+be included within several vocabularies, we can include a piece of
+schema that has no target namespace. This piece of schema would be
+something like the following (note that we do not define any target
+namespace):
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt; 
+&lt;xs:schema elementFormDefault="qualified"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"&gt;
+  &lt;xs:element name="person"&gt;
+    &lt;xs:complexType&gt;
+      &lt;xs:sequence&gt;
+        &lt;xs:element name="name" type="xs:string"/&gt;
+      &lt;/xs:sequence&gt;
+      &lt;xs:attribute name="id" type="xs:string" use="required"/&gt;
+    &lt;/xs:complexType&gt;
+  &lt;/xs:element&gt;
+&lt;/xs:schema&gt;</pre></blockquote>
+
+<p>And the including schema would look similar to the following example:</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt; 
+&lt;xs:schema targetNamespace="http://dyomedea.com/ns/library"
+  elementFormDefault="qualified"
+  xmlns="http://dyomedea.com/ns/library"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"&gt;
+  &lt;xs:include schemaLocation="very-simple-1-ns-ppl.xsd"/&gt;
+  &lt;xs:element name="library"&gt;
+    &lt;xs:complexType&gt;
+      &lt;xs:sequence&gt;
+        &lt;xs:element name="book"&gt;
+          &lt;xs:complexType&gt;
+            &lt;xs:sequence&gt;
+              &lt;xs:element name="title" type="xs:string"/&gt;
+              &lt;xs:element name="authors"&gt;
+                &lt;xs:complexType&gt;
+                 &lt;xs:sequence&gt;
+                 &lt;xs:element ref="person"/&gt;
+                 &lt;/xs:sequence&gt;
+                &lt;/xs:complexType&gt;
+              &lt;/xs:element&gt;
+            &lt;/xs:sequence&gt;
+            &lt;xs:attribute name="id" type="xs:ID"/&gt;
+          &lt;/xs:complexType&gt;
+        &lt;/xs:element&gt;
+      &lt;/xs:sequence&gt;
+    &lt;/xs:complexType&gt;
+  &lt;/xs:element&gt;
+&lt;/xs:schema&gt;</pre></blockquote>
+
+<p>While this looks very easy and neat, we may wonder if we are really
+building something modular. Including a piece of schema is similar to
+including a C header file. While this is slightly better than a
+copy/paste, the level of modularity that can be achieved in this way
+is very restricted.
+</p>
+
+<p>The namespace of the element <tt class="literal">person</tt> is the
+namespace given to our library. An application cannot guess from
+looking at the instance document that this element is the same as a
+<tt class="literal">person</tt> element that it will find in another
+document describing, for example, an employee.
+</p>
+
+<p>Looking at the modified infoset and checking the datatype
+doesn't help either, since the datatype will be
+defined as a datatype from a schema with the target namespace of our
+library, and won't match other target namespaces,
+including the same piece of schema.
+</p>
+
+<p>The fact that the same <tt class="literal">person</tt> element is used by
+different vocabularies is totally lost by the processing of the
+include (or redefine). Before using it, you may consider if it
+isn't more useful to include information in the
+instance document using a separate namespace, or at least include
+information in the modified infoset by importing datatypes from
+another namespace rather <a name="INDEX-831" />than
+<a name="INDEX-832" />including <a name="INDEX-833" /> <a name="INDEX-834" />common <a name="INDEX-835" />definitions.
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch10_09.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch10_11.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">10.9. Importing Schemas with No Namespaces</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">10.11. Allowing Any Elements or Attributes from a Particular Namespace</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

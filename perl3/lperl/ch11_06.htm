@@ -1,0 +1,924 @@
+<html><head><title>File Tests (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch11_07.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">11.6. File Tests</h2>
+
+<p><a name="INDEX-798" />Now <a name="INDEX-799" />you know how to open a filehandle for
+output. Normally, that will create a new file, wiping out any
+existing file with the same name. Perhaps you want to check that
+there isn't a file by that name. Perhaps you need to know how
+old a given file is. Or perhaps you want to go through a list of
+files to find which ones are larger than a certain number of bytes
+and not accessed for a certain amount of time. Perl has a complete
+set of tests you can use to find out information about files.
+</p>
+
+<p>Let's try that first example, where we need to check that a
+given file doesn't exist, so that we don't accidentally
+overwrite a vital spreadsheet data file, or that important birthday
+calendar. For this, we need the <tt class="literal">-e</tt> file test,
+testing for existence:
+</p>
+
+<blockquote><pre class="code">die "Oops! A file called '$filename' already exists.\n"
+  if -e $filename;</pre></blockquote>
+
+<p>Notice that we don't include <tt class="literal">$!</tt> in this
+<tt class="literal">die</tt> message, since we're not reporting
+that the system refused a request in this case. Here's an
+example of checking whether a file is being kept up-to-date.
+Let's say that our program's configuration file should be
+updated every week or two. (Maybe it's checking for computer
+viruses, say.) If the file hasn't been modified in the past 28
+days, then something is wrong:
+</p>
+
+<blockquote><pre class="code">warn "Config file is looking pretty old!\n"
+  if -M CONFIG &gt; 28;</pre></blockquote>
+
+<p>The third example is more complex. Here, let's say that disk
+space is filling up and rather than buy more disks, we've
+decided to move any large, useless files to the backup tapes. So
+let's go through our list of files<a href="#FOOTNOTE-264">[264]</a> to see which of them are larger than 100 K. But even if a
+file is large, we shouldn't move it to the backup tapes unless
+it hasn't been accessed in the last 90 days (so we know that
+it's not used too often):<a href="#FOOTNOTE-265">[265]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-264" /><p>[264]It's
+more likely that, instead of having the list of files in an array, as
+our example shows, you'll read it directly from the filesystem
+using a glob or directory handle, as shown in <a href="ch12_01.htm">Chapter 12, "Directory Operations"</a>. Since we haven't seen that yet,
+we'll just start with the list and go from there.</p>
+</blockquote><blockquote class="footnote"> <a name="FOOTNOTE-265" /><p>[265]There's a way
+to make this example more efficient, as we'll see by the end of
+the chapter.</p> </blockquote>
+
+<blockquote><pre class="code">my @original_files = qw/ fred barney betty wilma pebbles dino bamm-bamm /;
+my @big_old_files;  # The ones we want to put on backup tapes
+foreach my $filename (@original_files) {
+  push @big_old_files, $_
+    if -s $filename &gt; 100_000 and -A $filename &gt; 90;
+}</pre></blockquote>
+
+<p>This is the first time that we've seen it, so maybe you noticed
+that the control variable of the <tt class="literal">foreach</tt> loop is a
+<tt class="literal">my</tt> variable. That declares it to have the scope of
+the loop itself, so this example should work under <tt class="literal">use
+strict</tt>. Without the <tt class="literal">my</tt> keyword, this
+would be using the global <tt class="literal">$filename</tt>.
+</p>
+
+<p>The file tests all look like a hyphen and a letter, which is the name
+of the test, followed by either a filename or a filehandle to be
+tested. Many of them return a true/false value, but several give
+something more interesting. See <a href="ch11_06.htm#lperl3-CHP-11-TABLE-1">Table 11-1</a> for the
+complete list, and then read the following discussion to learn more
+about the special cases.
+</p>
+
+<a name="lperl3-CHP-11-TABLE-1" /><h4 class="objtitle">Table 11-1. File tests and their meanings </h4><table border="1">
+
+
+
+<tr>
+<th>
+<p>File test</p>
+</th>
+<th>
+<p>Meaning</p>
+</th>
+</tr>
+
+
+<tr>
+<td>
+<blockquote><pre class="code">-r</pre></blockquote>
+</td>
+<td>
+<p><a name="INDEX-800" />File or
+directory is readable by this (effective) user or group
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-w</pre></blockquote>
+</td>
+<td>
+<p><a name="INDEX-801" />File or
+directory is writable by this (effective) user or group
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-x</pre></blockquote>
+</td>
+<td>
+<p>File or directory is executable by this (effective) user or group</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-o</pre></blockquote>
+</td>
+<td>
+<p>File or directory is owned by this (effective) user</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-R</pre></blockquote>
+</td>
+<td>
+<p>File or directory is readable by this real user or group</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-W</pre></blockquote>
+</td>
+<td>
+<p>File or directory is writable by this real user or group</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-X</pre></blockquote>
+</td>
+<td>
+<p>File or directory is executable by this real user or group</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-O</pre></blockquote>
+</td>
+<td>
+<p>File or directory is owned by this real user</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-e</pre></blockquote>
+</td>
+<td>
+<p>File or directory name exists</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-z</pre></blockquote>
+</td>
+<td>
+<p>File exists and has zero size (always false for directories)</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-s</pre></blockquote>
+</td>
+<td>
+<p>File or directory exists and has nonzero size (the value is the size
+in bytes)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-f</pre></blockquote>
+</td>
+<td>
+<p>Entry is a plain file</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-d</pre></blockquote>
+</td>
+<td>
+<p>Entry is a directory</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-l</pre></blockquote>
+</td>
+<td>
+<p>Entry is a symbolic link</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-S</pre></blockquote>
+</td>
+<td>
+<p>Entry is a socket</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-p</pre></blockquote>
+</td>
+<td>
+<p>Entry is a named pipe (a "fifo")</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-b</pre></blockquote>
+</td>
+<td>
+<p>Entry is a block-special file (like a mountable disk)</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-c</pre></blockquote>
+</td>
+<td>
+<p>Entry is a character-special file (like an I/O device)</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-u</pre></blockquote>
+</td>
+<td>
+<p>File or directory is setuid</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-g</pre></blockquote>
+</td>
+<td>
+<p>File or directory is setgid</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-k</pre></blockquote>
+</td>
+<td>
+<p>File or directory has the sticky bit set</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-t</pre></blockquote>
+</td>
+<td>
+<p>The filehandle is a TTY (as reported by the <tt class="literal">isatty(
+)</tt> system function; filenames can't be tested by this
+test)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-T</pre></blockquote>
+</td>
+<td>
+<p>File looks like a "text" file</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-B</pre></blockquote>
+</td>
+<td>
+<p>File looks like a "binary" file</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-M</pre></blockquote>
+</td>
+<td>
+<p>Modification age (measured in days)</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-A</pre></blockquote>
+</td>
+<td>
+<p>Access age (measured in days)</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">-C</pre></blockquote>
+</td>
+<td>
+<p>Inode-modification age (measured in days)</p>
+</td>
+</tr>
+
+</table><p>
+
+<p>The tests <tt class="literal">-r</tt>, <tt class="literal">-w</tt>,
+<tt class="literal">-x</tt>, and <tt class="literal">-o</tt> tell whether the
+given attribute is true for the effective user or group ID,<a href="#FOOTNOTE-266">[266]</a> which essentially refers to the person who is "in
+charge of" running the program.<a href="#FOOTNOTE-267">[267]</a> These tests look at
+the "permission bits" on the file to see what is
+permitted. If your system uses Access Control Lists (ACLs), the tests
+will use those as well. These tests generally tell whether the system
+would <em class="emphasis">try</em> to permit something, but it
+doesn't mean that it really would be possible. For example,
+<tt class="literal">-w</tt> may be true for a file on a CD-ROM, even though
+you can't write to it, or <tt class="literal">-x</tt> may be true on
+an empty file, which can't truly be executed.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-266" /><p>[266]The <tt class="literal">-o</tt> and <tt class="literal">-O</tt> tests
+relate only to the user ID and not to the group ID.</p>
+</blockquote><blockquote class="footnote"> <a name="FOOTNOTE-267" /><p>[267]Note for
+advanced students: the corresponding <tt class="literal">-R</tt>,
+<tt class="literal">-W</tt>, <tt class="literal">-X</tt>, and
+<tt class="literal">-O</tt> tests use the real user or group ID, which
+becomes important if your program may be running set-ID; in that
+case, it's generally the ID of the person who requested running
+it. See any good book about advanced Unix programming for a
+discussion of set-ID programs.</p> </blockquote>
+
+<p>The <tt class="literal">-s</tt> test does return true if the file is
+nonempty, but it's a special kind of true. It's the
+length of the file, measured in bytes, which evaluates as true for a
+nonzero number.
+</p>
+
+<p>On a Unix filesystem,<a href="#FOOTNOTE-268">[268]</a> there are
+just seven types of items, represented by the seven file tests
+<tt class="literal">-f</tt>, <tt class="literal">-d</tt>, <tt class="literal">-l</tt>,
+<tt class="literal">-S</tt>, <tt class="literal">-p</tt>, <tt class="literal">-b</tt>,
+and <tt class="literal">-c</tt>. Any item should be one of those. But if
+you have a <a name="INDEX-802" />symbolic link pointing to a file, that
+will report true for both <tt class="literal">-f</tt> and
+<tt class="literal">-l</tt>. So if you want to know whether something is a
+symbolic link, you should generally test that first. (We'll
+learn more about symbolic links in <a href="ch13_01.htm">Chapter 13, "Manipulating Files and Directories"</a>.)
+</p><blockquote class="footnote"> <a name="FOOTNOTE-268" /><p>[268]This is the case on many
+non-Unix filesystems, but not all of the file tests are meaningful
+everywhere. For example, you aren't likely to have block
+special files on your non-Unix system.</p> </blockquote>
+
+<p>The age tests, <tt class="literal">-M</tt>, <tt class="literal">-A</tt>, and
+<tt class="literal">-C</tt> (yes, they're uppercase), return the
+number of days since the file was last modified, accessed, or had its
+inode changed.<a href="#FOOTNOTE-269">[269]</a> (The inode contains all of the information about the file
+except for its contents -- see the <tt class="literal">stat</tt> system
+call manpage or a good book on Unix internals for details.) This age
+value is a full floating-point number, so you might get a value of
+<tt class="literal">2.00001</tt> if a file were modified two days and one
+second ago. (These "days" aren't necessarily the
+same as a human would count; for example, if it's one thirty in
+the morning when you check a file modified at about an hour before
+midnight, the value of <tt class="literal">-M</tt> for this file would be
+around <tt class="literal">0.1</tt>, even though it was modified
+"yesterday.")
+</p><blockquote class="footnote"> <a name="FOOTNOTE-269" /><p>[269]This information will be somewhat
+different on non-Unix systems, since not all keep track of the same
+times that Unix does. For example, on some systems, the ctime field
+(which the <tt class="literal">-C</tt> test looks at) is the file creation
+time (which Unix doesn't keep track of), rather than the inode
+change time; see the <em class="emphasis">perlport</em> manpage.</p>
+</blockquote>
+
+<p>When checking the age of a file, you might even get a negative value
+like <tt class="literal">-1.2</tt>, which means that the file's
+last-access timestamp is set at about thirty hours in the future! The
+zero point on this timescale is the moment your program started
+running,<a href="#FOOTNOTE-270">[270]</a> so that value might mean
+that a long-running program was looking at a file that had just been
+accessed. Or a timestamp could be set (accidentally or intentionally)
+to a time in the future.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-270" /><p>[270]As recorded in the <tt class="literal">$^T</tt>
+variable, which you could update (with a statement like <tt class="literal">$^T
+= time;</tt>) if you needed to get the ages relative to a
+different starting time.</p> </blockquote>
+
+<p>The tests <tt class="literal">-T</tt> and <tt class="literal">-B</tt> take a try
+at telling whether a file is text or binary. But people who know a
+lot about filesystems know that there's no bit (at least in
+Unix-like operating systems) to indicate that a file is a binary or
+text file -- so how can Perl tell? The answer is that Perl cheats:
+it opens the file, looks at the first few thousand bytes, and makes
+an educated guess. If it sees a lot of null bytes, unusual control
+characters, and bytes with the high bit set, then that looks like a
+binary file. If there's not much weird stuff then it looks like
+text. As you might guess, it sometimes guesses wrong. If a text file
+has a lot of Swedish or French words (which may have characters
+represented with the high bit set, as some ISO-8859-something
+variant, or perhaps even a Unicode version), it may fool Perl into
+declaring it binary. So it's not perfect, but if you just need
+to separate your source code from compiled files, or HTML files from
+PNGs, these tests should do the trick.
+</p>
+
+<p>You'd think that <tt class="literal">-T</tt> and
+<tt class="literal">-B</tt> would always disagree, since a text file
+isn't a binary and vice versa, but there are two special cases
+where they're in complete agreement. If the file doesn't
+exist, both are false, since it's neither a text file nor a
+binary. Alternatively, if the file is empty, it's an empty text
+file and an empty binary file at the same time, so they're both
+true.
+</p>
+
+<p>The <tt class="literal">-t</tt> file test returns true if the given
+filehandle is a TTY -- in short, if it's able to be
+interactive because it's not a simple file or pipe. When
+<tt class="literal">-t STDIN</tt> returns true, it generally means that you
+can interactively ask the user questions. If it's false, your
+program is probably getting input from a file or pipe, rather than a
+keyboard.
+</p>
+
+<p>Don't worry if you don't know what some of the other file
+tests mean -- if you've never heard of them, you won't
+be needing them. But if you're curious, get a good book about
+programming for <a name="INDEX-803" />Unix.
+(On non-Unix systems, these tests all try to give results analogous
+to what they do on Unix. Usually you'll be able to guess
+correctly what they'll do.)
+</p>
+
+<p>If you omit the filename or filehandle parameter to a file test (that
+is, if you have just <tt class="literal">-r</tt> or just
+<tt class="literal">-s</tt>, say), the default operand is the file named in
+<tt class="literal">$_</tt>.<a href="#FOOTNOTE-271">[271]</a> So, to test a list of
+filenames to see which ones are readable, you simply type:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-271" /><p>[271]The <tt class="literal">-t</tt> file
+test is an exception; since that test isn't useful with
+filenames (they're never TTYs). By default it tests
+<tt class="literal">STDIN</tt>. </p> </blockquote>
+
+<blockquote><pre class="code">foreach (@lots_of_filenames) {
+  print "$_ is readable\n" if -r;  # same as -r $_
+}</pre></blockquote>
+
+<p>But if you omit the parameter, be careful that whatever follows the
+file test doesn't look like it <em class="emphasis">could</em> be a
+parameter. For example, if you wanted to find out the size of a file
+in K rather than in bytes, you might be tempted to divide the result
+of <tt class="literal">-s</tt> by <tt class="literal">1000</tt> (or
+<tt class="literal">1024</tt>), like this:
+</p>
+
+<blockquote><pre class="code"># The filename is in $_
+my $size_in_K = -s / 1000;  # Oops!</pre></blockquote>
+
+<p>When the Perl parser sees the slash, it doesn't think about
+division; since it's looking for the optional operand for
+<tt class="literal">-s</tt>, it sees what looks like the start of a regular
+expression in forward slashes. One simple way to prevent this kind of
+confusion is to put
+<a name="INDEX-804" />parentheses around the file test:
+</p>
+
+<blockquote><pre class="code">my $size_in_k = (-s) / 1024;  # Uses $_ by default</pre></blockquote>
+
+<p>Of course, it's always safe to explicitly give a file test a
+parameter.
+</p>
+
+<a name="lperl3-CHP-11-SECT-6.1" /><div class="sect2">
+<h3 class="sect2">11.6.1. The stat and lstat Functions</h3>
+
+<p>While these file tests are fine for testing various attributes
+regarding a particular file or filehandle, they don't tell the
+whole story. For example, there's no file test that returns the
+number of links to a
+<a name="INDEX-805" />file or the owner's
+<a name="INDEX-806" />
+<a name="INDEX-807" />user-ID (uid).
+To get at the remaining information about a file, merely call the
+<tt class="literal">stat</tt><a name="INDEX-808" /> function, which returns pretty much
+everything that the stat Unix system call returns (hopefully more
+than you want to know).<a href="#FOOTNOTE-272">[272]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-272" /><p>[272]On a non-Unix system, both
+<tt class="literal">stat</tt> and <tt class="literal">lstat</tt>, as well as
+the file tests, should return "the closest thing
+available." For example, a system that doesn't have user
+IDs (that is, a system that has just one "user," in the
+Unix sense) might return zero for the user and group IDs, as if the
+one and only user is the system administrator. If
+<tt class="literal">stat</tt> or <tt class="literal">lstat</tt> fails, it will
+return an empty list. If the system call underlying a file test fails
+(or isn't available on the given system), that test will
+generally return <tt class="literal">undef</tt>. See the
+<em class="emphasis">perlport</em> manpage for the latest about what to
+expect on different systems.</p> </blockquote>
+
+<p>The operand to <tt class="literal">stat</tt> is a filehandle, or an
+expression that evaluates to a filename. The return value is either
+the empty list, indicating that the <tt class="literal">stat</tt> failed
+(usually because the file doesn't exist), or a 13-element list
+of numbers, most easily described using the following list of
+<a name="INDEX-809" />scalar variables:
+</p>
+
+<blockquote><pre class="code">my($dev, $ino, $mode, $nlink, $uid, $gid, $rdev,
+  $size, $atime, $mtime, $ctime, $blksize, $blocks)
+    = stat($filename);</pre></blockquote>
+
+<p>The names here refer to the parts of the stat structure, described in
+detail in the <em class="emphasis">stat(2)</em><a name="INDEX-810" /> manpage. You should probably look there
+for the detailed descriptions. But in short, here's a quick
+summary of the important ones:
+</p>
+
+<dl>
+<dt><b><tt class="literal">$dev</tt><a name="INDEX-811" /> and <tt class="literal">$ino</tt><a name="INDEX-812" /> </b></dt>
+<dd>
+The device number and inode number of the file. Together they make up
+a "license plate" for the file. Even if it has more than
+one name (hard link), the combination of device and inode numbers
+should always be unique.
+</p>
+</dd>
+
+</dl>
+
+<dl>
+<dt><b><tt class="literal">$mode</tt><a name="INDEX-813" /></b></dt>
+<dd>
+The set of permission bits for the file, and some other bits. If
+you've ever used the Unix command <i class="command">ls -l</i> to
+get a detailed (long) file listing, you'll see that each line
+of output starts with something like <tt class="literal">-rwxr-xr-x</tt>.
+The nine letters and hyphens of file permissions<a href="#FOOTNOTE-273">[273]</a> correspond to the nine least-significant bits of
+<tt class="literal">$mode</tt>, which would in this case give the octal
+number <tt class="literal">0755</tt>. The other bits, beyond the lowest
+nine, indicate other details about the file. So if you need to work
+with the mode, you'll generally want to use the bitwise
+operators covered later in this chapter.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-273" /><p>[273]The
+first character in that string isn't a permission bit; it
+indicates the type of entry: a hyphen for an ordinary file,
+<tt class="literal">d</tt> for directory, or <tt class="literal">l</tt> for
+symbolic link, among others. The <i class="command">ls </i>command
+determines this from the other bits past the least-significant nine.
+</p> </blockquote>
+</dd>
+
+</dl>
+
+<dl>
+<dt><b><tt class="literal">$nlink</tt><a name="INDEX-814" />
+<a name="INDEX-815" /> </b></dt>
+<dd>
+The number of (hard) links to the file or directory. This is the
+number of true names that the item has. This number is always
+<tt class="literal">2</tt> or more for directories and (usually)
+<tt class="literal">1</tt> for files. We'll see more about this when
+we talk about creating links to files in <a href="ch13_01.htm">Chapter 13, "Manipulating Files and Directories"</a>. In the listing from <i class="command">ls -l</i>,
+this is the number just after the permission-bits string.
+</p>
+</dd>
+
+</dl>
+
+<dl>
+<dt><b><tt class="literal">$uid</tt><a name="INDEX-816" />
+<a name="INDEX-817" />
+<a name="INDEX-818" /> and<a name="INDEX-819" />
+<a name="INDEX-820" /> <tt class="literal">$gid</tt></b></dt>
+<dd>
+The numeric user-ID and group-ID showing the file's ownership.</p>
+</dd>
+
+</dl>
+
+<dl>
+<dt><b><tt class="literal">$size</tt><a name="INDEX-821" />
+<a name="INDEX-822" /></b></dt>
+<dd>
+The size in bytes, as returned by the <tt class="literal">-s</tt> file test.</p>
+</dd>
+
+</dl>
+
+<dl>
+<dt><b><tt class="literal">$atime</tt><a name="INDEX-823" />
+<a name="INDEX-824" />
+<a name="INDEX-825" />, <tt class="literal">$mtime</tt>, and <tt class="literal">$ctime</tt> </b></dt>
+<dd>
+The three
+<a name="INDEX-826" />timestamps, but
+here they're represented in the system's timestamp
+format: a 32-bit number telling how many seconds have passed since
+the <em class="firstterm">Epoch</em>, an arbitrary starting point for
+measuring <a name="INDEX-827" />system
+time. On Unix systems and some others, the
+<a name="INDEX-828" />Epoch is the beginning
+of 1970 at midnight Universal Time, but the Epoch is different on
+some machines. There's more information later in this chapter
+on turning that timestamp number into something useful.
+</p>
+</dd>
+
+</dl>
+
+<p>Invoking <tt class="literal">stat</tt> on the name of a
+<a name="INDEX-829" />symbolic link
+returns information on what the symbolic link points at, not
+information about the symbolic link itself (unless the link just
+happens to be pointing at nothing currently accessible). If you need
+the (mostly useless) information about the symbolic link itself, use
+<tt class="literal">lstat</tt><a name="INDEX-830" /> rather than <tt class="literal">stat</tt>
+(which returns the same information in the same order). If the
+operand isn't a symbolic link, <tt class="literal">lstat</tt>
+returns the same things that <tt class="literal">stat</tt> would.
+</p>
+
+<p>Like the file tests, the operand of <tt class="literal">stat</tt> or
+<tt class="literal">lstat</tt> defaults to <tt class="literal">$_</tt>,
+meaning that the underlying stat system call will be performed on the
+file named by the scalar variable <tt class="literal">$_</tt>.
+</p>
+
+</div>
+<a name="lperl3-CHP-11-SECT-6.2" /><div class="sect2">
+<h3 class="sect2">11.6.2. The localtime Function</h3>
+
+<p>When you have a <a name="INDEX-831" />
+<a name="INDEX-832" />timestamp number (such as the ones
+from <tt class="literal">stat</tt>), it will typically look something like
+1080630098. That's not very useful for most humans, unless you
+need to compare two timestamps by subtracting. You may need to
+convert it to something human-readable, such as a string like
+"<tt class="literal">Tue Mar 30 07:01:38 2004</tt>". Perl can
+do that with the <tt class="literal">localtime</tt> function in a scalar
+context:
+</p>
+
+<blockquote><pre class="code">my $timestamp = 1080630098;
+my $date = localtime $timestamp;</pre></blockquote>
+
+<p>In a list context, <tt class="literal">localtime</tt> returns a list of
+numbers, several of which may not be quite what you'd expect:
+</p>
+
+<blockquote><pre class="code">my($sec, $min, $hour, $day, $mon, $year, $wday, $yday, $isdst)
+  = localtime $timestamp;</pre></blockquote>
+
+<p>The <tt class="literal">$mon</tt> is a month number, ranging from
+<tt class="literal">0</tt> to <tt class="literal">11</tt>, which is handy as an
+index into an array of month names. The <tt class="literal">$year</tt> is
+the number of years since 1900, oddly enough, so add
+<tt class="literal">1900</tt> to get the real year number. The
+<tt class="literal">$wday</tt> ranges from <tt class="literal">0</tt> (for
+Sunday) through <tt class="literal">6</tt> (for Saturday), and the
+<tt class="literal">$yday</tt> is the day-of-the-year (ranging from 0 for
+January 1, through 364 or 365 for December 31).
+</p>
+
+<p>There are two related functions that you'll also find useful.
+The <tt class="literal">gmtime</tt><a name="INDEX-833" /> function is just the same as
+<tt class="literal">localtime</tt>, except that it returns the time in
+<a name="INDEX-834" />Universal
+Time (what we once called <a name="INDEX-835" />Greenwich Mean Time). If you need the
+current timestamp number from the system clock, just use the
+<tt class="literal">time</tt><a name="INDEX-836" /> function. Both
+<tt class="literal">localtime</tt> and <tt class="literal">gmtime</tt> default to
+using the current <tt class="literal">time</tt> value if you don't
+supply a parameter:
+</p>
+
+<blockquote><pre class="code">my $now = gmtime;  # Get the current universal timestamp as a string</pre></blockquote>
+
+<p>For more information on manipulating date and time information, see
+the information about some useful modules in <a href="appb_01.htm">Appendix B, "Beyond the Llama"</a>.
+</p>
+
+</div>
+<a name="lperl3-CHP-11-SECT-6.3" /><div class="sect2">
+<h3 class="sect2">11.6.3. Bitwise Operators</h3>
+
+<p><a name="INDEX-837" />When you need to work with numbers
+bit-by-bit, as when working with the mode bits returned by
+<tt class="literal">stat</tt>, you'll need to use the bitwise
+operators. The bitwise-and operator (<tt class="literal">&amp;</tt>)
+reports which bits are set in the left argument
+<em class="emphasis">and</em> in the right argument. For example, the
+expression <tt class="literal">10 &amp; 12</tt> has the value
+<tt class="literal">8</tt>. The bitwise-and needs to have a one-bit in both
+operands to produce a one-bit in the result. That means that the
+logical-and operation on ten (which is <tt class="literal">1010</tt> in
+binary) and twelve (which is <tt class="literal">1100</tt>) gives eight
+(which is <tt class="literal">1000</tt>, with a one-bit only where the left
+operand has a one-bit <em class="emphasis">and</em> the right operand also
+has a one-bit). See <a href="ch11_06.htm#lperl3-CHP-11-FIG-1">Figure 11-1</a>.
+</p>
+
+<a name="lperl3-CHP-11-FIG-1" /><div class="figure"><img height="88" alt="Figure 11-1" src="figs/lrnp_1101.gif" width="99" /></div><h4 class="objtitle">Figure 11-1. Bitwise-and addition</h4>
+
+<p>The different bitwise operators and their meanings are shown in this
+table:
+</p>
+
+<a name="ch11-9-fm2xml" /><table border="1">
+
+
+
+<tr>
+<th>
+<p>Expression</p>
+</th>
+<th>
+<p>Meaning</p>
+</th>
+</tr>
+
+
+<tr>
+<td>
+<blockquote><pre class="code">10 &amp; 12</pre></blockquote>
+</td>
+<td>
+<p>Bitwise-and -- which bits are true in both operands (this gives
+<tt class="literal">8</tt>)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">10 | 12</pre></blockquote>
+</td>
+<td>
+<p>Bitwise-or -- which bits are true in one operand or the other
+(this gives <tt class="literal">14</tt>)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">10 ^ 12</pre></blockquote>
+</td>
+<td>
+<p>Bitwise-xor -- which bits are true in one operand or the other but
+not both (this gives <tt class="literal">6</tt>)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">6 &lt;&lt; 2</pre></blockquote>
+</td>
+<td>
+<p>Bitwise shift left -- shift the left operand the number of bits
+shown by the right operand, adding zero-bits at the least-significant
+places (this gives <tt class="literal">24</tt>)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">25 &gt;&gt; 2</pre></blockquote>
+</td>
+<td>
+<p>Bitwise shift right -- shift the left operand the number of bits
+shown by the right operand, discarding the least-significant bits
+(this gives <tt class="literal">6</tt>)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">~ 10</pre></blockquote>
+</td>
+<td>
+<p>Bitwise negation, also called unary bit complement -- return the
+number with the opposite bit for each bit in the operand (this gives
+<tt class="literal">0xFFFFFFF5</tt>, but see the text)
+</p>
+</td>
+</tr>
+
+</table><p>
+
+<p>So, here's an example of some things you could do with the
+<tt class="literal">$mode</tt> returned by <tt class="literal">stat</tt>. The
+results of these bit manipulations could be useful with
+<tt class="literal">chmod</tt>, which we'll see in <a href="ch13_01.htm">Chapter 13, "Manipulating Files and Directories"</a>: 
+</p>
+
+<blockquote><pre class="code"># $mode is the mode value returned from a stat of CONFIG
+warn "Hey, the configuration file is world-writable!\n"
+  if $mode &amp; 0002;                                # configuration security problem
+my $classical_mode = 0777 &amp; $mode;                # mask off extra high-bits
+my $u_plus_x = $classical_mode | 0100;            # turn one bit on
+my $go_minus_r = $classical_mode &amp; (~ 0044);      # turn two bits off</pre></blockquote>
+
+</div>
+<a name="lperl3-CHP-11-SECT-6.4" /><div class="sect2">
+<h3 class="sect2">11.6.4. Using Bitstrings</h3>
+
+<p>All of the bitwise operators can work with
+<a name="INDEX-838" />bitstrings, as
+well as with integers. If the operands are integers, the result will
+be an integer. (The integer will be at least a 32-bit integer, but
+may be larger if your machine supports that. That is, if you have a
+64-bit machine, <tt class="literal">~10</tt> may give the 64-bit result
+<tt class="literal">0xFFFFFFFFFFFFFFF5</tt>, rather than the 32-bit result
+<tt class="literal">0xFFFFFFF5</tt>.) 
+</p>
+
+<p>But if any operand of a bitwise operator is a string, Perl will
+perform the operation on that bitstring. That is, <tt class="literal">"\xAA" |
+"\x55"</tt> will give the string <tt class="literal">"\xFF"</tt>. Note
+that these values are single-byte strings; the result is a byte with
+all eight bits set. Bitstrings may be arbitrarily long.
+</p>
+
+<p>This is one of the very few places where Perl distinguishes between
+strings and numbers. See the
+<em class="emphasis">perlop</em><a name="INDEX-839" /> <a name="INDEX-840" />
+manpage for more information on using bitwise operators on
+strings.<a name="INDEX-841" />
+</p>
+
+</div>
+<a name="lperl3-CHP-11-SECT-6.5" /><div class="sect2">
+<h3 class="sect2">11.6.5. Using the Special Underscore Filehandle</h3>
+
+<p>Every time you use <tt class="literal">stat</tt>,
+<tt class="literal">lstat</tt>, or a file test in a program, Perl has to go
+out to the system to ask for a <a name="INDEX-842" />
+<a name="INDEX-843" />stat
+buffer on the file (that is, the return buffer from the stat system
+call). That means if you want to know whether a file is both readable
+and writable, you've essentially asked the system twice for the
+same information (which isn't likely to change in a fairly
+nonhostile environment).
+</p>
+
+<p>This looks like a waste of time,<a href="#FOOTNOTE-274">[274]</a> and in fact, it can be avoided. Doing a file test,
+<tt class="literal">stat</tt><a name="INDEX-844" />, or
+<tt class="literal">lstat</tt><a name="INDEX-845" /> on the special
+<tt class="literal">_</tt><a name="INDEX-846" /> <a name="INDEX-847" />
+<a name="INDEX-848" />
+filehandle (that is, the operand is nothing but a single underscore)
+tells Perl to use whatever happened to be lounging around in memory
+from the previous file test, <tt class="literal">stat</tt>, or
+<tt class="literal">lstat</tt> function, rather than going out to the
+operating system again. Sometimes this is dangerous: a subroutine
+call can invoke <tt class="literal">stat</tt> without your knowledge,
+blowing your buffer away. But if you're careful, you can save
+yourself a few unneeded system calls, thereby making your program
+considerably faster. Here's that example of finding files to
+put on the backup tapes again, using the new tricks we've
+learned:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-274" /><p>[274]Because it is.
+Asking the system for information is relatively slow.</p>
+</blockquote>
+
+<blockquote><pre class="code">my @original_files = qw/ fred barney betty wilma pebbles dino bamm-bamm /;
+my @big_old_files;                       # The ones we want to put on backup tapes
+foreach (@original_files) {
+  push @big_old_files, $_
+    if (-s) &gt; 100_000 and -A _ &gt; 90;     # More efficient than before
+}</pre></blockquote>
+
+<p>Note that we used the default of <tt class="literal">$_</tt> for the first
+test -- this is no more efficient (except perhaps for the
+programmer), but it gets the data from the operating system. The
+second test uses the magic <tt class="literal">_</tt> filehandle; for this
+test, the data left around after getting the file's size is
+used, which is exactly what we want.
+</p>
+
+<p>Note that testing the <tt class="literal">_</tt> filehandle is not the same
+as allowing the operand of a file test, <tt class="literal">stat</tt>, or
+<tt class="literal">lstat</tt> to default to testing
+<tt class="literal">$_</tt>; using <tt class="literal">$_</tt> would be a fresh
+test each time on the current file named by the contents of
+<tt class="literal">$_</tt>, but using <tt class="literal">_</tt> saves the
+trouble of calling the system again. Here is another case where
+similar names were chosen for radically different functions. By now,
+you are probably used to<a name="INDEX-849" /> it.<a name="INDEX-850" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch11_07.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">11.5. Reopening a Standard Filehandle</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">11.7. Exercises</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

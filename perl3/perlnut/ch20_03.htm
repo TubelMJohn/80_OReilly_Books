@@ -1,0 +1,1179 @@
+<html><head><title>The HTTP Modules (Perl in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Stephen Spainhour" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002416L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch20_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch20_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">20.3. The HTTP Modules</h2>
+
+<p>The HTTP modules implement an interface to the HTTP messaging
+protocol used in web transactions. Its most useful modules are
+HTTP::Request and HTTP::Response, which create objects for client
+requests and server responses. Other modules provide means for
+manipulating headers, interpreting server response codes, managing
+cookies, converting date formats, and creating basic server
+applications.
+</p>
+
+<p>Client applications created with LWP::UserAgent use HTTP::Request
+objects to create and send requests to servers. The information
+returned from a server is saved as an HTTP::Response object. Both of
+these objects are subclasses of HTTP::Message, which provides general
+methods of creating and modifying HTTP messages. The header
+information included in HTTP messages can be represented by objects
+of the HTTP::Headers class.
+</p>
+
+<p>HTTP::Status includes functions to classify response codes into the
+categories of informational, successful, redirection, error, client
+error, or server error. It also exports symbolic aliases of HTTP
+response codes; one could refer to the status code of 200 as RC_OK
+and refer to 404 as RC_NOT_FOUND.
+</p>
+
+<p>The HTTP::Date module converts date strings from and to machine time.
+The HTTP::Daemon module can be used to create web server
+applications, utilizing the functionality of the rest of the LWP
+modules to communicate with clients.
+</p>
+
+<a name="perlnut2-CHP-20-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">20.3.1. HTTP::Request</h3>
+
+<p><a name="INDEX-2452" /><a name="INDEX-2453" /><a name="INDEX-2454" /><a name="INDEX-2455" /><a name="INDEX-2456" /><a name="INDEX-2457" />This module summarizes a web
+client's request. For a simple GET request, you
+define an object with the GET method and assign a URL to apply it to.
+Basic headers would be filled in automatically by LWP. For a POST or
+PUT request, you might want to specify a custom HTTP::Headers object
+for the request, or use the contents of a file for an entity body.
+Since HTTP::Request inherits everything in HTTP::Message, you can use
+the header and entity body manipulation methods from HTTP::Message in
+HTTP::Request objects.
+</p>
+
+<p><a name="INDEX-2458" />The constructor for HTTP::Request looks
+like this:
+</p>
+
+<blockquote><pre class="code">$req = http::Request-&gt;new (<em class="replaceable"><tt>method</em>, <em class="replaceable">url</em>, [$<em class="replaceable">header</em>, [<em class="replaceable">content</tt></em>]]);</pre></blockquote>
+
+<p>The method and URL values for the request are required parameters.
+The header and content arguments are not required, nor even necessary
+for all requests. The parameters are defined as follows:
+</p>
+
+<dl>
+<dt><i><em class="replaceable"><tt>method</tt></em></i></dt>
+<dd>
+A string specifying the HTTP request method. GET, HEAD, and POST are
+the most commonly used. Other methods defined in the HTTP
+specification such as PUT and DELETE are not supported by most
+servers.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>url</tt></em></i></dt>
+<dd>
+The address and resource name of the information you are requesting.
+This argument may be either a string containing an absolute URL (the
+hostname is required), or a URI::URL object that stores all the
+information about the URL.
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">$</tt><em class="replaceable">header</em></b></dt>
+<dd>
+A reference to an HTTP::Headers object.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>content</tt></em></i></dt>
+<dd>
+A scalar that specifies the entity body of the request. If omitted,
+the entity body is empty.
+</p>
+</dd>
+
+</dl>
+
+<p>The following methods can be used on HTTP::Request objects.</p>
+
+
+<a name="INDEX-2459" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>as_string</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">req</em>-&gt;as_string
+</pre><p><a name="INDEX-2459" />Returns a text version of the request
+object as a string with <tt class="literal">\n</tt> placed after each line.
+Information about the object reference is also included in the first
+line. The returned string looks like this:
+</p><blockquote><pre class="code">-- HTTP::Request=HASH(0x68148) --
+PUT http:www.ora.com/example/hi.text
+Content-Length: 2
+Content-Type: text/plain
+hi
+------------------</pre></blockquote></div>
+
+<a name="INDEX-2460" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>method</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">req</em>-&gt;method ([<em class="replaceable">method</em>])
+</pre><p><a name="INDEX-2460" />Sets or retrieves the HTTP
+method for an HTTP::Request object. Without an argument,
+<tt class="literal">method</tt> returns the object's
+current method.
+</p></div>
+
+<a name="INDEX-2461" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>url</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">req</em>-&gt;url ([<em class="replaceable">url</em>])
+</pre><p><a name="INDEX-2461" />Sets or retrieves the URL for the
+request object. Without an argument, this method retrieves the
+current URL for the object. <em class="replaceable"><tt>url</tt></em> is a
+string containing the new URL to set for the request or a URI::URL
+object.
+</p></div>
+
+</div>
+<a name="perlnut2-CHP-20-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">20.3.2. HTTP::Response</h3>
+
+<p><a name="INDEX-2462" /><a name="INDEX-2463" /><a name="INDEX-2464" />Responses from a web server are described
+by HTTP::Response objects. An HTTP response message contains a status
+line, headers, and any content data that was requested by the client
+(such as an HTML file). The status line is the minimum requirement
+for a response. It contains the version of HTTP that the server is
+running, a status code indicating the success, failure, or other
+condition the request received from the server, and a short message
+describing the status code.
+</p>
+
+<p>If LWP has problems fulfilling your request, it internally generates
+an HTTP::Response object and fills in an appropriate response code.
+In the context of web client programming, you'll
+usually get an HTTP::Response object from LWP::UserAgent and
+LWP::RobotUA.
+</p>
+
+<p>If you plan to write extensions to LWP or to a web server or proxy
+server, you might use HTTP::Response to generate your own responses.
+</p>
+
+<p><a name="INDEX-2465" />The constructor for HTTP::Response
+looks like this:
+</p>
+
+<blockquote><pre class="code">$resp = HTTP::Response-&gt;new (<em class="replaceable"><tt>rc</em>, [<em class="replaceable">msg</em>, [<em class="replaceable">header</em>, [<em class="replaceable">content</tt></em>]]]);</pre></blockquote>
+
+<p>In its simplest form, an HTTP::Response object can contain just a
+response code. If you would like to specify a more detailed message
+than "OK" or "Not
+found," you can specify a text description of the
+response code as the second parameter. As a third parameter, you can
+pass a reference to an HTTP::Headers object to specify the response
+headers. Finally, you can also include an entity body in the fourth
+parameter as a scalar.
+</p>
+
+<p>For client applications, it is unlikely that you will build your own
+response object with the constructor for this class. You receive a
+client object when you use the <tt class="literal">request</tt> method on
+an LWP::UserAgent object. For example:
+</p>
+
+<blockquote><pre class="code">$ua = LWP::UserAgent-&gt;new;
+$req = HTTP::Request-&gt;new(GET, $url)
+$resp = $ua-&gt;request($req);</pre></blockquote>
+
+<p>The server's response is contained in the object
+<tt class="literal">$resp</tt>. When you have this object, you can use the
+HTTP::Response methods to get the information about the response.
+Since HTTP::Response is a subclass of HTTP::Message, you can also use
+methods from that class on response objects. See <a href="ch20_03.htm#perlnut2-CHP-20-SECT-3.8">Section 20.3.8, "HTTP::Message"</a> for a description of its
+methods.
+</p>
+
+<p>The following methods can be used on objects created by
+HTTP::Response.
+</p>
+
+
+<a name="INDEX-2466" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>as_string</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">resp</em>-&gt;as_string(  )
+</pre><p><a name="INDEX-2466" />Returns a string version of the
+response with lines separated by <tt class="literal">\n</tt>. For example,
+this method would return a response string that looks like this:
+</p><blockquote><pre class="code">-- HTTP::Response=HASH(0xc8548) --
+RC: 200 (OK)
+Message: all is fine
+
+Content-Length: 2
+Content-Type: text/plain
+
+hi
+------------------</pre></blockquote></div>
+
+<a name="INDEX-2467" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>base</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">resp</em>-&gt;base(  )
+</pre><p><a name="INDEX-2467" />Returns the base URL of the response.
+If the response was hypertext, any links from the hypertext should be
+relative to the location returned by this method. LWP looks for the
+BASE tag in HTML and Content-Base/Content-Location HTTP headers for a
+base specification. If a base was not explicitly defined by the
+server, LWP uses the requesting URL as the base.
+</p></div>
+
+<a name="INDEX-2468" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>code</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">resp</em>-&gt;code ([<em class="replaceable">code</em>])
+</pre><p><a name="INDEX-2468" />When invoked without any
+parameters, this method returns the object's
+response code. Sets the status code of the object when invoked with
+an argument.
+</p></div>
+
+<a name="INDEX-2469" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>current_age</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">resp</em>-&gt;current_age(  )
+</pre><p><a name="INDEX-2469" />Returns the number of seconds
+since the response was generated by the original server.
+</p></div>
+
+<a name="INDEX-2470" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>error_as_HTML</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">resp</em>-&gt;error_as_HTML(  )
+</pre><p><a name="INDEX-2470" />When
+<tt class="literal">is_error</tt> is true, this method returns an HTML
+explanation of what happened.
+</p></div>
+
+<a name="INDEX-2471" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>freshness_lifetime</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">resp</em>-&gt;freshness_lifetime(  )
+</pre><p><a name="INDEX-2471" />Returns the number of seconds
+until the response expires. If expiration was not specified by the
+server, LWP will make an informed guess based on the Last-Modified
+header of the response.
+</p></div>
+
+<a name="INDEX-2472" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>fresh_until</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">resp</em>-&gt;fresh_until(  )
+</pre><p><a name="INDEX-2472" />Returns the time when the
+response expires. The time is based on the number of seconds since
+January 1, 1970, UTC.
+</p></div>
+
+<a name="INDEX-2473" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>is_error</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">resp</em>-&gt;is_error(  )
+</pre><p><a name="INDEX-2473" />Returns true when the response code is
+400 through 599. When an error occurs, you might want to use
+<tt class="literal">error_as_HTML</tt> to generate an HTML explanation of
+the error.
+</p></div>
+
+<a name="INDEX-2474" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>is_fresh</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">resp</em>-&gt;is_fresh(  )
+</pre><p><a name="INDEX-2474" />Returns true if the response
+has not yet expired.
+</p></div>
+
+<a name="INDEX-2475" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>is_info</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">resp</em>-&gt;is_info(  )
+</pre><p><a name="INDEX-2475" />Returns true when the response code is
+100 through 199.
+</p></div>
+
+<a name="INDEX-2476" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>is_redirect</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">resp</em>-&gt;is_redirect(  )
+</pre><p><a name="INDEX-2476" />Returns true when the response code is
+300 through 399.
+</p></div>
+
+<a name="INDEX-2477" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>is_success</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">resp</em>-&gt;is_success(  )
+</pre><p><a name="INDEX-2477" />Returns true when the response code is
+200 through 299.
+</p></div>
+
+<a name="INDEX-2478" /><a name="INDEX-2479" /><a name="INDEX-2480" /><a name="INDEX-2481" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>message</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">resp</em>-&gt;message ([<em class="replaceable">msg</em>])
+</pre><p><a name="INDEX-2478" />When invoked without any
+parameters, <tt class="literal">message</tt> returns the
+object's status code message (the short string
+describing the response code). When invoked with a scalar
+<em class="replaceable"><tt>msg</tt></em> argument, this method defines the
+object's message.<a name="INDEX-2479" /><a name="INDEX-2480" /><a name="INDEX-2481" /> 
+</p></div>
+
+<a name="INDEX-2482" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>status_line</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">resp</em>-&gt;status_line(  )
+</pre><p><a name="INDEX-2482" />Returns a string with the
+HTTP status code and message. If the <tt class="literal">message</tt>
+attribute is unspecified, the official message associated with
+<tt class="literal">code</tt> is used.
+</p></div>
+
+</div>
+<a name="perlnut2-CHP-20-SECT-3.3" /><div class="sect2">
+<h3 class="sect2">20.3.3. HTTP::Headers</h3>
+
+<p><a name="INDEX-2483" /><a name="INDEX-2484" /><a name="INDEX-2485" />This module deals with HTTP header
+definition and manipulation. You can use these methods on
+HTTP::Request and HTTP::Response objects to retrieve headers they
+contain, or to set new headers and values for new objects you are
+building.
+</p>
+
+<p><a name="INDEX-2486" />The constructor for an HTTP::Headers
+object looks like this:
+</p>
+
+<blockquote><pre class="code">$h = HTTP::Headers-&gt;new([<em class="replaceable"><tt>name</em> =&gt; <em class="replaceable">val</tt></em>],...);</pre></blockquote>
+
+<p>This code creates a new headers object. You can set headers in the
+constructor by providing a header name and its value. Multiple
+<em class="replaceable"><tt>name</em><tt class="literal">=&gt;</tt><em class="replaceable">val</tt></em>pairs can be used to set multiple headers.
+</p>
+
+<p>The following methods can be used by objects in the HTTP::Headers
+class. These methods can also be used on objects from HTTP::Request
+and HTTP::Response, since they inherit from HTTP::Headers. In fact,
+most header manipulation will occur on the request and response
+objects in LWP applications.
+</p>
+
+
+<a name="INDEX-2487" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>clone</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">h</em>-&gt;clone(  )
+</pre><p><a name="INDEX-2487" />Creates a copy of the current object,
+<tt class="literal">$</tt><em class="replaceable"><tt>h</tt></em>, and returns a
+reference to it.
+</p></div>
+
+<a name="INDEX-2488" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>header</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">h</em>-&gt;header(<em class="replaceable">field</em> [=&gt; $<em class="replaceable">val</em>],...)
+</pre><p><a name="INDEX-2488" />When called with just an HTTP header as
+a parameter, this method returns the current value for the header.
+For example, <tt class="literal">$myobject-&gt;('content-type')</tt> would
+return the value for the object's Content-Type
+header. To define a new header value, invoke
+<tt class="literal">header</tt> with a hash of
+<tt class="literal">header=&gt;value</tt> pairs, in which the value is a
+scalar or reference to an array. For example, to define the
+Content-Type header, you would do this:
+</p><blockquote><pre class="code">$h-&gt;header('content-type' =&gt; 'text/plain');</pre></blockquote></div>
+
+<a name="INDEX-2489" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>init_header</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$h-&gt;init_header($field, $value)
+</pre><p><a name="INDEX-2489" />Sets the specified header to
+the given value, but only if no previous value for that field is set.
+The header field name is not case-sensitive, and <tt class="literal">_</tt>
+can be used as a replacement for <tt class="literal">-</tt>. The
+<tt class="literal">$value</tt> argument may be a scalar or a reference to
+a list of scalars. Previous values of the field are not removed.
+</p></div>
+
+<a name="INDEX-2490" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>push_header</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$h-&gt;push_header(field =&gt; val)
+</pre><p><a name="INDEX-2490" />Adds a new header field and
+value to the object. Previous values of the field are not removed.
+</p><blockquote><pre class="code">$h-&gt;push_header(Accept =&gt; 'image/jpeg');</pre></blockquote></div>
+
+<a name="INDEX-2491" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>remove_header</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">h</em>-&gt;remove_header(<em class="replaceable">field</em>,...)
+</pre><p><a name="INDEX-2491" />Removes the header specified
+in the parameter(s) and the header's associated
+value.
+</p></div>
+
+<a name="INDEX-2492" /><a name="INDEX-2493" /><a name="INDEX-2494" /><a name="INDEX-2495" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>scan</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">h</em>-&gt;scan($<em class="replaceable">sub</em>)
+</pre><p><a name="INDEX-2492" />Invokes the subroutine referenced by
+<tt class="literal">$</tt><em class="replaceable"><tt>sub</tt></em> for each header
+field in the object. The subroutine is passed the name of the header
+and its value as a pair of arguments. For header fields with more
+than one value, the subroutine will be called once for each value.
+</p><p>The HTTP::Headers class allows you to use a number of convenience
+methods on header objects to set (or read) common field values. If
+you supply a value for an argument, that value will be set for the
+field. The previous value for the header is always returned. The
+following methods are available:
+</p><blockquote><pre class="code">date
+expires
+if_modified_since
+if_unmodified_since
+last_modified
+content_type
+content_encoding
+content_length
+content_language
+title
+user_agent
+server
+from
+referrer
+www_authenticate
+proxy_authenticate
+authorization
+proxy_authorization
+authorization_basic
+proxy_authorization_basic</pre></blockquote><a name="INDEX-2493" /><a name="INDEX-2494" /><a name="INDEX-2495" /></div>
+</div>
+<a name="perlnut2-CHP-20-SECT-3.4" /><div class="sect2">
+<h3 class="sect2">20.3.4. HTTP::Status</h3>
+
+<p><a name="INDEX-2496" /><a name="INDEX-2497" />This
+module provides methods to determine the type of a response code. It
+also exports a list of mnemonics that can be used by the programmer
+to refer to a status code.
+</p>
+
+<p>The following methods are used on response objects:</p>
+
+<dl>
+<dt><b><tt class="literal">is_info</tt></b></dt>
+<dd>
+<a name="INDEX-2498" />Returns true when the response code is
+100-199. 
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">is_success</tt></b></dt>
+<dd>
+<a name="INDEX-2499" />Returns true when the response code is
+200-299. 
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">is_redirect</tt></b></dt>
+<dd>
+<a name="INDEX-2500" />Returns true when the response code is
+300-399. 
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">is_client_error</tt></b></dt>
+<dd>
+<a name="INDEX-2501" />Returns true when the response
+code is 400-499.
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">is_server_error</tt></b></dt>
+<dd>
+<a name="INDEX-2502" />Returns true when the response
+code is 500-599.
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">is_error</tt></b></dt>
+<dd>
+<a name="INDEX-2503" />Returns true when the response code is
+400-599. When an error occurs, you might want to use
+<tt class="literal">error_as_HTML</tt> to generate an HTML explanation of
+the error.
+</p>
+</dd>
+
+</dl>
+
+<p>HTTP::Status exports the following constant functions to use as
+mnemonic substitutes for status codes. For example, you could do
+something like<a name="INDEX-2504" />:
+</p>
+
+<blockquote><pre class="code">if ($rc = RC_OK) {....}</pre></blockquote>
+
+<p>Here are the mnemonics, followed by the status codes they represent: </p>
+
+<blockquote><pre class="code">RC_CONTINUE (100)
+RC_SWITCHING_PROTOCOLS (101)
+RC_OK (200)
+RC_CREATED (201)
+RC_ACCEPTED (202)
+RC_NON_AUTHORITATIVE_INFORMATION (203)
+RC_NO_CONTENT (204)
+RC_RESET_CONTENT (205)
+RC_PARTIAL_CONTENT (206)
+RC_MULTIPLE_CHOICES (300)
+RC_MOVED_PERMANENTLY (301)
+RC_MOVED_TEMPORARILY (302)
+RC_SEE_OTHER (303)
+RC_NOT_MODIFIED (304)
+RC_USE_PROXY (305)
+RC_BAD_REQUEST (400)
+RC_UNAUTHORIZED (401)
+RC_PAYMENT_REQUIRED (402)
+RC_FORBIDDEN (403)
+RC_NOT_FOUND (404)
+RC_METHOD_NOT_ALLOWED (405)
+RC_NOT_ACCEPTABLE (406)
+RC_PROXY_AUTHENTICATION_REQUIRED (407)
+RC_REQUEST_TIMEOUT (408)
+RC_CONFLICT (409)
+RC_GONE (410)
+RC_LENGTH_REQUIRED (411)
+RC_PRECONDITION_FAILED (412)
+RC_REQUEST_ENTITY_TOO_LARGE (413)
+RC_REQUEST_URI_TOO_LARGE (414)
+RC_UNSUPPORTED_MEDIA_TYPE (415)
+RC_REQUEST_RANGE_NOT_SATISFIABLE (416)
+RC_INTERNAL_SERVER_ERROR (500)
+RC_NOT_IMPLEMENTED (501)
+RC_BAD_GATEWAY (502)
+RC_SERVICE_UNAVAILABLE (503)
+RC_GATEWAY_TIMEOUT (504)
+RC_HTTP_VERSION_NOT_SUPPORTED (505)</pre></blockquote>
+
+</div>
+<a name="perlnut2-CHP-20-SECT-3.5" /><div class="sect2">
+<h3 class="sect2">20.3.5. HTTP::Date</h3><a name="INDEX-2505" /><a name="INDEX-2506" />
+
+<p><a name="INDEX-2507" /><a name="INDEX-2508" /><a name="INDEX-2509" />The HTTP::Date module is useful when
+you want to process a date string. It exports two functions that
+convert date strings to and from standard time formats.
+</p>
+
+
+
+<a name="INDEX-2510" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>parse_date</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+parse_date($<em class="replaceable">str</em>)
+</pre><p><a name="INDEX-2510" />Parses a date string and returns
+it as a list of numerical values followed by a time zone
+specification. If the date is unrecognized, then the empty list is
+returned.
+</p></div>
+
+<a name="INDEX-2511" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>str2time</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+str2time(<em class="replaceable">str</em> [, <em class="replaceable">zone</em>])
+</pre><p><a name="INDEX-2511" />Converts the time specified as a
+string in the first parameter into the number of seconds since epoch.
+This function recognizes a wide variety of formats, including RFC
+1123 (standard HTTP), RFC 850, ANSI C <tt class="literal">asctime</tt>,
+common log file format, Unix <em class="emphasis">ls -l</em>, and Windows
+<em class="emphasis">dir</em>, among others. When a time zone is not
+implicit in the first parameter, this function will use an optional
+time zone specified as the second parameter, such as -0800, +0500, or
+GMT. If the second parameter is omitted, and the time zone is
+ambiguous, the local time zone is used.
+</p></div>
+
+<a name="INDEX-2512" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>time2iso</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+time2iso([$<em class="replaceable">time</em>])
+</pre><p><a name="INDEX-2512" />Same as <tt class="literal">time2str(
+)</tt>, but returns a "YYYY-MM-DD
+hh:mm:ss"-formatted string representing time in the
+local time zone.
+</p></div>
+
+<a name="INDEX-2513" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>time2isoz</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+time2isoz([$<em class="replaceable">time</em>])
+</pre><p><a name="INDEX-2513" />Same as <tt class="literal">time2str(
+)</tt>, but returns a "YYYY-MM-DD
+hh:mm:ssZ"-formatted string representing Universal
+Time.
+</p></div>
+
+<a name="INDEX-2514" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>time2str</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+time2str([<em class="replaceable">time</em>])
+</pre><p><a name="INDEX-2514" />Given the number of seconds since
+machine epoch, this function generates the equivalent time as
+specified in RFC 1123, which is the recommended time format used in
+HTTP. When invoked with no parameter, the current time is used.
+</p></div>
+
+</div>
+<a name="perlnut2-CHP-20-SECT-3.6" /><div class="sect2">
+<h3 class="sect2">20.3.6. HTTP::Cookies</h3>
+
+<p><a name="INDEX-2515" /><a name="INDEX-2516" /><a name="INDEX-2517" />HTTP
+cookies provide a mechanism for preserving information about a client
+or user across several different visits to a site or page. The
+"cookie" is a name/value pair sent
+to the client on its initial visit to a page. This cookie is stored
+by the client and sent back in the request upon revisit to the same
+page.
+</p>
+
+<p><a name="INDEX-2518" /><a name="INDEX-2519" />A server initializes
+a cookie with the Set-Cookie header. Set-Cookie sets the name and
+value of a cookie, as well as other parameters such as how long the
+cookie is valid and the range of URLs to which the cookie applies.
+Each cookie (a single name/value pair) is sent in its own Set-Cookie
+header, so if there is more than one cookie sent to a client,
+multiple Set-Cookie headers are sent in the response. Two Set-Cookie
+headers may be used in server responses: Set-Cookie is defined in the
+original Netscape cookie specification, and Set-Cookie2 is the
+latest, IETF-defined header. Both header styles are supported by
+HTTP::Cookies. The latest browsers also support both styles.
+</p>
+
+<p>If a client visits a page for which it has a valid cookie stored, the
+client <a name="INDEX-2520" />sends
+the cookie in the request with the Cookie header. This
+header's value contains any name/value pairs that
+apply to the URL. Multiple cookies are separated by semicolons in the
+header.
+</p>
+
+<p>The HTTP::Cookies module is used to retrieve, return, and manage the
+cookies used by an LWP::UserAgent client application. Setting cookies
+from an LWP-created server requires only the coding of the proper
+response headers sent by an HTTP::Daemon server application.
+HTTP::Cookies is not designed to be used in setting cookies on the
+server side, although you may find use for it in managing sent
+cookies.
+</p>
+
+<p><a name="INDEX-2521" />The <tt class="literal">new</tt> constructor
+for HTTP::Cookies creates an object called a cookie jar, which
+represents a collection of saved cookies usually read from a file.
+Methods on the cookie jar object allow you to add new cookies or send
+cookie information in a client request to a specific URL. The
+constructor may take optional parameters, as shown in the following
+example:
+</p>
+
+<blockquote><pre class="code">$cjar = HTTP::Cookies-&gt;new( file =&gt; 'cookies.txt', 
+                            autosave =&gt; 1,
+                            ignore_discard =&gt; 0 );</pre></blockquote>
+
+<p>The cookie jar object <tt class="literal">$cjar</tt> created here contains
+any cookie information stored in the file
+<em class="emphasis">cookies.txt</em>. The <tt class="literal">autosave</tt>
+parameter takes a Boolean value that determines if the state of the
+cookie jar is saved to the file upon destruction of the object.
+<tt class="literal">ignore_discard</tt> also takes a Boolean value to
+determine if cookies marked to be discarded are still saved to the
+file.
+</p>
+
+<p>Cookies received by a client are added to the cookie jar with the
+<tt class="literal">extract_cookies</tt> method. This method searches an
+HTTP::Response object for Set-Cookie and Set-Cookie2 headers and adds
+them to the cookie jar. Cookies are sent in a client request using
+the <tt class="literal">add-cookie-header</tt> method. This method takes an
+HTTP::Request object with the URL component already set, and if the
+URL matches any entries in the cookie jar, adds the appropriate
+Cookie headers to the request.
+</p>
+
+<p>These methods can be used on a cookie jar object created by
+HTTP::Cookies.
+</p>
+
+
+<a name="INDEX-2522" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>add_cookie_header</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">cjar</em>-&gt;add_cookie_header($<em class="replaceable">request</em>)
+</pre><p><a name="INDEX-2522" />Adds appropriate Cookie
+headers to an HTTP::Request object
+<tt class="literal">$</tt><em class="replaceable"><tt>request</tt></em>.
+<tt class="literal">$</tt><em class="replaceable"><tt>request</tt></em> must already
+be created with a valid URL address. This method will search the
+cookie jar for any cookies matching the request URL. If the cookies
+are valid (i.e., have not expired), they are used to create Cookie
+headers and are added to the request.
+</p></div>
+
+<a name="INDEX-2523" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>as_string</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">cjar</em>-&gt;as_string([<em class="replaceable">discard</em>])
+</pre><p><a name="INDEX-2523" />Returns the current contents of the
+cookie jar as a string. Each cookie is output as a Set-Cookie3 header
+line followed by "0". If
+<em class="replaceable"><tt>discard</tt></em> is given and is true, cookies
+marked to be discarded will not be output. Set-Cookie3 is a special
+LWP format used to store cookie information in the save file.
+</p></div>
+
+<a name="INDEX-2524" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>clear</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">cjar</em>-&gt;clear( [<em class="replaceable">domain</em>, [<em class="replaceable">path</em>, [<em class="replaceable">key</em>] ] ])
+</pre><p><a name="INDEX-2524" />Without arguments, this method
+clears the entire contents of the cookie jar. Given arguments,
+cookies belonging to a specific <em class="replaceable"><tt>domain</tt></em>,
+<em class="replaceable"><tt>path</tt></em>, or with a name,
+<em class="replaceable"><tt>key</tt></em>, will be cleared. The arguments are
+ordered for increasing specificity. If only one argument is given,
+all cookies for that domain will be deleted. A second argument
+specifies a distinct <em class="replaceable"><tt>path</tt></em> within the
+<em class="replaceable"><tt>domain</tt></em>. To remove a cookie by keyname, you
+must use all three arguments.
+</p></div>
+
+<a name="INDEX-2525" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>extract_cookies</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">cjar</em>-&gt;extract_cookies($<em class="replaceable">response</em>)
+</pre><p><a name="INDEX-2525" />Searches an HTTP::Response
+object <tt class="literal">$</tt><em class="replaceable"><tt>response</tt></em> for
+any Set-Cookie and Set-Cookie2 headers and stores the cookie
+information in the cookie jar.
+</p></div>
+
+<a name="INDEX-2526" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>load</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">cjar</em>-&gt;load( [<em class="replaceable">file</em>] )
+</pre><p><a name="INDEX-2526" />Loads cookie information into the
+cookie jar from the file specified during construction (default) or
+from the named <em class="replaceable"><tt>file</tt></em>. The file must be in
+the format produced by the <tt class="literal">save</tt> method.
+</p></div>
+
+<a name="INDEX-2527" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>revert</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">cjar</em>-&gt;revert
+</pre><p><a name="INDEX-2527" />Restores the cookie jar to its
+state before the last save.
+</p></div>
+
+<a name="INDEX-2528" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>save</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">cjar</em>-&gt;save( [<em class="replaceable">file</em>] )
+</pre><p><a name="INDEX-2528" />Saves the state of the cookie jar to
+the file specified during construction (by default) or to the named
+<em class="replaceable"><tt>file</tt></em>. The cookies are saved in a special
+LWP format as Set-Cookie3 header lines. This format is not compatible
+with the standard Set-Cookie and Set-Cookie2 headers, but you are not
+likely to use this file to set new cookies in response headers.
+</p></div>
+
+<a name="INDEX-2529" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>set_cookie</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">cjar</em>-&gt;set_cookie(<em class="replaceable">version</em>, <em class="replaceable">key</em>, <em class="replaceable">val</em>, <em class="replaceable">path</em>, <em class="replaceable">domain</em>, <em class="replaceable">port</em>, <em class="replaceable">path_spec</em>, <em class="replaceable">secure</em>, <em class="replaceable">maxages</em>, <em class="replaceable">discard</em>, \%<em class="replaceable">misc</em>)
+</pre><p><a name="INDEX-2529" />Sets a cookie in the cookie
+jar with the information given in the arguments. The number and order
+of arguments represent the structure of elements in the Set-Cookie3
+header lines used to save the cookies in a file.
+</p><dl>
+<dt><i><em class="replaceable"><tt>version</tt></em></i></dt>
+<dd>
+A string containing the cookie-spec version number.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>key</tt></em></i></dt>
+<dd>
+The name of the cookie.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>val</tt></em></i></dt>
+<dd>
+The value of the cookie.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>path</tt></em></i></dt>
+<dd>
+The pathname of the URL for which the cookie is set.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>domain</tt></em></i></dt>
+<dd>
+The domain name for which the cookie is set.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>port</tt></em></i></dt>
+<dd>
+The port number of the URL for which the cookie is set.</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>path_spec</tt></em></i></dt>
+<dd>
+A Boolean value indicating if the cookie is valid for the specific
+URL path or all the URLs in the domain. The path is used if true;
+otherwise, the cookie is valid for the entire domain.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>secure</tt></em></i></dt>
+<dd>
+A Boolean value indicating that the cookie should only be sent over a
+secure connection for true, or over any connection for false.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>maxage</tt></em></i></dt>
+<dd>
+The number of seconds that the cookie will be valid from the time it
+was received. Adding the <em class="replaceable"><tt>maxage</tt></em> to the
+current time will yield a value that can be used for an expiration
+date.
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>discard</tt></em></i></dt>
+<dd>
+A Boolean value indicating that the cookie should not be sent in any
+future requests and should be discarded upon saving the cookie jar,
+unless the <tt class="literal">ignore_discard</tt> parameter was set to
+true in the constructor.
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">%</tt><em class="replaceable">misc</em></b></dt>
+<dd>
+The final argument is a reference to a hash,
+<tt class="literal">%</tt><em class="replaceable"><tt>misc</tt></em>, that contains
+any additional parameters from the Set-Cookie headers such as Comment
+and URLComment, in key/value pairs.
+</p>
+</dd>
+
+</dl></div>
+
+<a name="INDEX-2530" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>scan</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">cjar</em>-&gt;scan( \&amp;<em class="replaceable">callback</em> )
+</pre><p><a name="INDEX-2530" />Invokes the
+<em class="emphasis">callback</em> subroutine for each cookie in the
+cookie jar. The subroutine is called with the same arguments given to
+the <tt class="literal">save</tt> method, described above. Any undefined
+arguments will be given the value <tt class="literal">undef</tt>.
+</p></div>
+<a name="perlnut2-CHP-20-SECT-3.6.1" /><div class="sect3">
+<h3 class="sect3">20.3.6.1. HTTP::Cookies::Netscape</h3>
+
+<p><a name="INDEX-2531" /><a name="INDEX-2532" /><a name="INDEX-2533" />The
+HTTP::Cookies class contains one subclass that supports
+Netscape-style cookies within a cookie jar object. Netscape-style
+cookies were defined in the original cookie specification for
+Navigator 1.1, which outlined the syntax for the Cookie and
+Set-Cookie HTTP headers. Netscape cookie headers are different from
+the newer Set-Cookie2-style cookies in that they
+don't support as many additional parameters when a
+cookie is set. The Cookie header also does not use a version-number
+attribute. Many browsers and servers still use the original Netscape
+cookies, and the Netscape subclass of HTTP::Cookies can be used to
+support this style.
+</p>
+
+<p><a name="INDEX-2534" />The <tt class="literal">new</tt> constructor
+for this subclass creates a Netscape-compatible cookie jar object
+like this:
+</p>
+
+<blockquote><pre class="code">$njar = HTTP::Cookies::Netscape-&gt;new(
+                  File     =&gt; "$ENV{HOME}/.netscape/cookies",
+                  AutoSave =&gt; 1 );</pre></blockquote>
+
+<p>The methods described above can be used on this object, although many
+of the parameters used in Set-Cookie2 headers will simply be lost
+when cookies are saved to the cookie jar<a name="INDEX-2535" /><a name="INDEX-2536" /><a name="INDEX-2537" />. 
+</p>
+
+</div>
+</div>
+<a name="perlnut2-CHP-20-SECT-3.7" /><div class="sect2">
+<h3 class="sect2">20.3.7. HTTP::Daemon</h3>
+
+<p><a name="INDEX-2538" /><a name="INDEX-2539" />The
+HTTP::Daemon module creates HTTP server applications. The module
+provides objects based on the IO::Socket::INET class that can listen
+on a socket for client requests and send server responses. The
+objects implemented by the module are HTTP 1.1 servers. Client
+requests are stored as HTTP::Request objects, and all the methods for
+that class can be used to obtain information about the request.
+HTTP::Response objects can be used to send information back to the
+client.
+</p>
+
+<p><a name="INDEX-2540" />An HTTP::Daemon object is created by
+using the <tt class="literal">new</tt> constructor. Since the base class
+for this object is IO::Socket::INET, the parameters used in that
+class's constructor are the same here. For example:
+</p>
+
+<blockquote><pre class="code">$d = HTTP::Daemon-&gt;new ( LocalAddr =&gt; 'maude.oreilly.com',
+                         LocalPort =&gt; 8888,
+                         Listen =&gt; 5 );</pre></blockquote>
+
+<p>The HTTP::Daemon object is a server socket that automatically listens
+for requests on the specified port (or on the default port if none is
+given). When a client request is received, the object uses the
+<tt class="literal">accept</tt> method to create a connection with the
+client on the network.
+</p>
+
+<blockquote><pre class="code">$d = HTTP::Daemon-&gt;new;
+while ( $c = $d-&gt;accept ) {
+     $req = $c-&gt;get_request;
+     # Process request and send response here
+     }
+$c = undef;   # Don't forget to close the socket</pre></blockquote>
+
+<p><a name="INDEX-2541" />The <tt class="literal">accept</tt> method
+returns a reference to a new object of the HTTP::Daemon::ClientConn
+class. This class is also based on IO::Socket::INET and is used to
+extract the request message and send the response and any requested
+file content.
+</p>
+
+<p>The sockets created by both HTTP::Daemon and HTTP::Daemon::ClientConn
+work the same way as those in IO::Socket::INET. The methods are also
+the same except for some slight variations in usage. The methods for
+the HTTP::Daemon classes are listed in the sections below and include
+the adjusted IO::Socket::INET methods. For more detailed information
+about sockets and the IO::Socket classes and methods, see <a href="ch13_01.htm">Chapter 13, "XML and Perl"</a>. 
+</p>
+
+<p>The following methods can be used on HTTP::Daemon objects.</p>
+
+
+<div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>accept</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">d</em>-&gt;accept ([<em class="replaceable">pkg</em>])
+</pre><p>Accepts a client request on a socket object and creates a connection
+with the client. This method is the same as
+<tt class="literal">IO::Socket-&gt;accept</tt>, except it will return a
+reference to a new HTTP::Daemon::ClientConn object. If an argument is
+given, the connection object will be created in the package named by
+<em class="replaceable"><tt>pkg</tt></em>. If no connection is made before a
+specified timeout, the method will return <tt class="literal">undef</tt>.
+</p></div>
+
+<a name="INDEX-2542" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>product_tokens</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">d</em>-&gt;product_tokens
+</pre><p><a name="INDEX-2542" />Returns the string that the
+server uses to identify itself in the Server response header.
+</p></div>
+
+<a name="INDEX-2543" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>url</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">d</em>-&gt;url
+</pre><p><a name="INDEX-2543" />Returns the URL string that gives
+access to the server root.
+</p></div>
+<a name="perlnut2-CHP-20-SECT-3.7.1" /><div class="sect3">
+<h3 class="sect3">20.3.7.1. HTTP::Daemon::ClientConn methods</h3>
+
+<p><a name="INDEX-2544" /><a name="INDEX-2545" />The
+following methods can be used on HTTP::Daemon::ClientConn objects.
+</p>
+
+
+
+<a name="INDEX-2546" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>antique_client</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">c</em>-&gt;antique_client
+</pre><p><a name="INDEX-2546" />Returns true if
+the client uses the HTTP/0.9 protocol (i.e., no status code or
+headers should be returned).
+</p></div>
+
+<a name="INDEX-2547" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>crlf</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">c</em>-&gt;crlf(  )
+</pre><p><a name="INDEX-2547" />Sends the CRLF
+sequence to the client.
+</p></div>
+
+<a name="INDEX-2548" /><a name="INDEX-2549" /><a name="INDEX-2550" /><a name="INDEX-2551" /><a name="INDEX-2552" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>daemon</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">c</em>-&gt;daemon
+</pre><p><a name="INDEX-2548" />Returns a
+reference to the HTTP::Daemon object from which the current
+ClientConn object was generated.<a name="INDEX-2549" /><a name="INDEX-2550" /><a name="INDEX-2551" /><a name="INDEX-2552" /> 
+</p></div>
+
+<a name="INDEX-2553" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>force_last_request</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">c</em>-&gt;force_last_request(  )
+</pre><p><a name="INDEX-2553" />Ensures that
+<tt class="literal">$c-&gt;get_request</tt> will not try to read more
+requests off this connection. If you generate a response that is not
+self-delimiting, then you should signal this fact by calling this
+method. This attribute is turned on automatically if the client
+announces protocol HTTP/1.0 or worse and does not include a
+Connection: Keep-Alive header. It is also turned on automatically
+when HTTP/1.1 or better clients send the Connection: Close request
+header
+</p></div>
+
+<a name="INDEX-2554" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>get_request</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">c</em>-&gt;get_request
+</pre><p><a name="INDEX-2554" />Reads information
+from the client request and returns a reference to an HTTP::Request
+object. Returns <tt class="literal">undef</tt> if the request failed.
+</p></div>
+
+<a name="INDEX-2555" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>proto_ge</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">c</em>-&gt;proto_ge ( [$<em class="replaceable">new_value</em>] )
+</pre><p><a name="INDEX-2555" />Returns true if
+the client announced a protocol with version number greater or equal
+to the given argument. The <tt class="literal">$proto</tt> argument can be
+a string such as <tt class="literal">"HTTP/1.1"</tt>, or just
+<tt class="literal">"1.1"</tt>.
+</p></div>
+
+<a name="INDEX-2556" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>read_buffer</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">c</em>-&gt;read_buffer ( [$<em class="replaceable">new_value</em>] )
+</pre><p><a name="INDEX-2556" />Bytes read, but
+not used, by <tt class="literal">$c-&gt;get_reques</tt> t are placed in the
+read buffer. The next time <tt class="literal">$c-&gt;get_request</tt> is
+called, it will consume the bytes in this buffer before reading more
+data from the network connection itself.
+</p></div>
+
+<a name="INDEX-2557" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>reason</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">c</em>-&gt;reason(  )
+</pre><p><a name="INDEX-2557" />Returns a short
+string describing what happened if
+<tt class="literal">$c-&gt;get_request</tt> returns
+<tt class="literal">undef</tt>.
+</p></div>
+
+<a name="INDEX-2558" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>send_basic_header</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">c</em>-&gt;send_basic_header ( [<em class="replaceable">code</em>, [<em class="replaceable">msg</em>, [<em class="replaceable">proto</em>]]] )
+</pre><p><a name="INDEX-2558" />Sends status line
+composed of the specified parameters and the Date and Server headers
+to the client. If no arguments are given, the default status line
+<tt class="literal">HTTP/1.1 200 OK</tt> is used.
+</p></div>
+
+<a name="INDEX-2559" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>send_error</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">c</em>-&gt;send_error ( [<em class="replaceable">code</em>, [<em class="replaceable">msg</em>]] )
+</pre><p><a name="INDEX-2559" />Returns an error
+response to the client. <em class="replaceable"><tt>code</tt></em> can contain
+one of the error response codes; the default is <tt class="literal">400 Bad
+Request</tt>. <em class="replaceable"><tt>msg</tt></em> is a string
+describing the error displayed in the HTML entity body.
+</p></div>
+
+<div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>send_file</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">c</em>-&gt;send_file (<em class="replaceable">filename</em>)
+</pre><p>Copies contents of the file <em class="replaceable">filename</em> to
+the client as the response. <em class="replaceable"><tt>filename</tt></em> can
+be a string that is interpreted as a filename, or a reference to a
+glob.
+</p></div>
+
+<a name="INDEX-2560" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>send_file_response</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">c</em>-&gt;send_file_response (<em class="replaceable">filename</em>)
+</pre><p><a name="INDEX-2560" />Sends a response
+with the file <em class="replaceable"><tt>filename</tt></em> as content. If
+<em class="replaceable"><tt>filename</tt></em> is a directory, an index listing
+will be generated and sent as HTML.
+</p></div>
+
+<a name="INDEX-2561" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>send_redirect</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">c</em>-&gt;send_redirect ( <em class="replaceable">url</em>, [<em class="replaceable">code</em>, [<em class="replaceable">entity_body</em>]] )
+</pre><p><a name="INDEX-2561" />Sends a redirect
+response to the client, with the location
+<em class="replaceable"><tt>url</tt></em>, an absolute or a relative URL. The
+optional <em class="replaceable"><tt>code</tt></em> argument should be one of
+the redirect status codes; the default is <tt class="literal">301 Moved
+Permanently</tt>. An <em class="replaceable"><tt>entity_body</tt></em>string can be sent as HTML that informs the user of the redirection.
+</p></div>
+
+<a name="INDEX-2562" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>send_response</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">c</em>-&gt;send_response ( [$<em class="replaceable">resp</em> | @<em class="replaceable">resplist</em>] )
+</pre><p><a name="INDEX-2562" />Sends a response
+to the client created from the HTTP::Response object,
+<tt class="literal">$</tt><em class="replaceable"><tt>resp</tt></em>, or the list of
+parameters, <tt class="literal">@</tt><em class="replaceable"><tt>resplist</tt></em>.
+The <em class="replaceable"><tt>resplist</tt></em> parameters are the same as
+those used in the constructor for HTTP::Response and must at least
+contain a status code. If no argument is given, the default OK
+response is sent.
+</p></div>
+
+<a name="INDEX-2563" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>send_status_line</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">c</em>-&gt;send_status_line ( [<em class="replaceable">code</em>, [<em class="replaceable">msg</em>, [<em class="replaceable">proto</em>]]] )
+</pre><p><a name="INDEX-2563" />Sends the status
+line composed of the given arguments back to the client. If the
+arguments are given, the default status line is sent as
+<tt class="literal">HTTP/1.1 200 OK</tt>. The arguments are:
+</p><dl>
+<dt><i><em class="replaceable"><tt>code</tt></em></i></dt>
+<dd>
+The numeric code indicating the status of the request, e.g., 200 for
+an OK request or 404 for a request for a resource that
+doesn't exist
+</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>msg</tt></em></i></dt>
+<dd>
+A short string describing the status code</p>
+</dd>
+
+
+<dt><i><em class="replaceable"><tt>proto</tt></em></i></dt>
+<dd>
+A string indicating the protocol and version number used by the
+server, e.g., HTTP/1.1.
+</p>
+</dd>
+
+</dl></div>
+</div>
+</div>
+
+<a name="perlnut2-CHP-20-SECT-3.8" /><div class="sect2">
+<h3 class="sect2">20.3.8. HTTP::Message</h3>
+
+<p><a name="INDEX-2564" /><a name="INDEX-2565" />HTTP::Message
+is the generic base class for HTTP::Request and HTTP::Response. It
+provides a couple of methods used on both classes. The constructor
+for this class is used internally by the Request and Response
+classes, so you will probably not need to use it. Methods defined by
+the HTTP::Headers class will also work on Message objects.
+</p>
+
+
+
+<a name="INDEX-2566" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>add_content</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">r</em>-&gt;add_content(<em class="replaceable">data</em>)
+</pre><p><a name="INDEX-2566" />Appends
+<em class="replaceable"><tt>data</tt></em> to the end of the
+object's current entity body.
+</p></div>
+
+<a name="INDEX-2567" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>clone</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">r</em>-&gt;clone(  )
+</pre><p><a name="INDEX-2567" />Creates a copy of the current
+object, <tt class="literal">$</tt><em class="replaceable"><tt>r</tt></em>, and returns
+a reference to it.
+</p></div>
+
+<a name="INDEX-2568" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>content</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">r</em>-&gt;content ([<em class="replaceable">content</em>])
+</pre><p><a name="INDEX-2568" />Without an argument,
+<tt class="literal">content</tt> returns the entity body of the object.
+With a scalar argument, the entity body will be set to
+<em class="replaceable"><tt>content</tt></em>.
+</p></div>
+
+<a name="INDEX-2569" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>content_ref</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">r</em>-&gt;content_ref(  )
+</pre><p><a name="INDEX-2569" />Returns a reference to the
+string containing the content body. This reference can be used to
+manage large content data.
+</p></div>
+
+<a name="INDEX-2570" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>headers</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">r</em>-&gt;headers(  )
+</pre><p><a name="INDEX-2570" />Returns the embedded HTTP::Headers
+object from the message object.
+</p></div>
+
+<a name="INDEX-2571" /><a name="INDEX-2572" /><a name="INDEX-2573" /><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>protocol</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" noshade="true" align="left" color="black" /><pre>
+$<em class="replaceable">r</em>-&gt;protocol([<em class="replaceable">string</em>])
+</pre><p><a name="INDEX-2571" />Sets or retrieves the HTTP protocol
+<em class="replaceable"><tt>string</tt></em> for the message object. This string
+looks like HTTP/1.1.<a name="INDEX-2572" /><a name="INDEX-2573" /> 
+</p></div>
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch20_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch20_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">20.2. The LWP Modules</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">20.4. The HTML Modules</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+</map>
+
+</body></html>

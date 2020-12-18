@@ -1,0 +1,429 @@
+<?label 5.4. Running mSQL?><html><head><title>Running mSQL (MySQL &amp; mSQL)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Randy Jay Yarger, George Reese and Tim King" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924347L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="MySQL &amp; mSQL" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="MySQL and mSQL" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">MySQL &amp; mSQL</a></td><td width="172" valign="top" align="right"><a href="ch05_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">5.4. Running mSQL</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-307" />mSQL
+is really the only database engine that is "install and
+go." In other words, you can install mSQL and start the server
+right up and be in business. The mSQL server process is called
+<em class="emphasis">msql2d</em> (for mSQL 1 servers, it is called
+<em class="emphasis">msqld</em>). This executable and all of the utilities
+that come with an mSQL distribution can be found in the
+<em class="emphasis">bin</em> directory. You can start up an mSQL instance
+simply by issuing the <em class="emphasis">msql2d</em> command with no
+command line options.</p>
+
+
+
+
+
+<p>This default implementation will get you only so far. In most cases,
+you will want to edit a file in the mSQL distribution directory
+called <em class="emphasis">msql.conf</em>. This configuration file
+enables mSQL 2 users (it does not exist under mSQL 1) to specify a
+few common options. Configuring this file is generally necessary only
+when you are using some precompiled mSQL distribution.</p>
+
+
+
+
+
+<p>The mSQL daemon process does not fork. This means that running it
+from the command line will leave the process running in your terminal
+unless you explicitly press CTRL-C to kill the process or put the
+process in the background. Under Unix, you can start the mSQL server
+from the command line in the background using the following command:</p>
+
+
+
+
+
+<blockquote><pre class="code">msqld2 &amp;</pre></blockquote>
+
+
+
+
+
+<p>The following script works to start up an mSQL server process at
+system start-up and to shut it down cleanly on system
+shutdown:<a name="INDEX-308" /></p>
+
+
+
+
+
+<blockquote><pre class="code">#!/bin/sh
+
+if [ $1 = "start" ]; then
+  if [ -x /usr/local/Hughes/bin/msql2d ]; then
+       su msql -c '/usr/local/Hughes/bin/msql2d &amp;'
+  fi
+else
+  if [ $1 = "stop" ]; then
+    if [ -x /usr/local/Hughes/bin/msqladmin ]; then
+         su msql -c '/usr/local/Hughes/bin/msqladmin shutdown'
+    fi
+  fi
+fi</pre></blockquote>
+
+
+
+
+
+<p>This example script assumes that you want to run mSQL on Unix under
+the user ID "msql." You should naturally replace it with
+whatever user ID you wish to run mSQL under and replace
+<em class="emphasis">/usr/local/Hughes</em> with the directory where you
+installed mSQL.</p>
+
+
+
+
+
+<p>While the Win32 does not yet run as an NT service, you can run mSQL
+from the <em class="emphasis">StartUp</em> folder simply by sticking a
+shortcut to the <em class="emphasis">msql2d.exe</em> file into the
+<em class="emphasis">StartUp</em> folder. (We will cover the
+<em class="emphasis">msqladmin</em> command later in the chapter.)</p>
+
+
+
+
+
+<p>While mSQL is a very stable product, every once and a while things
+just happen and the server dies. In particular, earlier versions of
+mSQL did have stability issues that caused the server to crash
+unexpectedly. For those occasions, you want to have something running
+that will check on the status of the database server.</p>
+
+
+
+
+
+<p>The following Unix script will perform a thorough check to see that
+the <em class="emphasis">msql2d</em> daemon is still running. If the
+daemon is inactive, it is restarted and a message is sent to the
+administrator of the
+machine.<a name="INDEX-309" />
+<a name="INDEX-310" /></p>
+
+
+
+
+
+<blockquote><pre class="code"><a name="INDEX-311" />#!/bin/sh
+
+# Retrieve the process ID of the database daemon
+# This is for a default mSQL 2 installation, for mSQL 1
+# the line should be:
+# PID=`cat /usr/local/Minerva/msqld.pid`
+PID=`cat /usr/local/Hughes/msql2d.pid`
+
+# This checks to see if the server process is running.
+# Use this line for BSD systems (Linux)
+ALIVE=`ps aux | grep $PID | grep -v grep | awk '{print $2}'`
+# Uncomment this line for SYSV systems (Solaris)
+#ALIVE=`ps -ef | grep $PID | grep -v grep | awk '{print $2}'`
+
+if [ $ALIVE ]
+then
+    REALLY_ALIVE='msqladmin version'
+    DATE='date'
+
+    # If the first word of the result is 'ERROR', or if
+    # there was no output at all, the msqladmin 
+    # program was not able to connect to the database server
+    if ! echo $REALLY_ALIVE | grep "^ERROR"
+    then
+        exit
+    fi
+    if [ ! $REALLY_ALIVE ]
+    then exit; fi
+else
+    # This should be /usr/local/Minerva/bin/msqld &amp;
+    # for mSQL 1 installations
+    /usr/local/Hughes/bin/msql2d &amp;
+mail -s "mSQL daemon restarted" root@yourmachine.com &lt;&lt;EOM
+The mSQL daemon died unexpectedly and was restarted 
+on $DATE.
+
+Sincerely,
+The mSQL Watchdog
+EOM
+
+fi</pre></blockquote>
+
+
+
+
+
+<p>Once started, mSQL is ready to communicate with the outside world in
+two different ways. Communication with the Internet happens through a
+<a name="INDEX-312" />TCP/IP port. mSQL listens to port 1112
+by default. mSQL 2 listens to port 1114. You can, however, change
+which port the server listens to either at compile time (mSQL 1) or
+in the configuration file (mSQL 2).</p>
+
+
+
+
+
+<p>Internal communication happens through
+<a name="INDEX-313" />Unix sockets. Unix sockets appear as
+regular files in the file system of a Unix server. You can
+distinguish them from regular files because they are followed by the
+character when using the `-F' flag for the
+<em class="emphasis">ls</em> command. mSQL 1 uses the file
+<em class="emphasis">/dev/msql</em> while mSQL 2 uses the file
+<em class="emphasis">/usr/local/Hughes/msql2.sock</em>.</p>
+
+
+
+
+
+<a name="ch05-1-fm2xml" /><div class="sect2">
+<a name="INDEX-314" /><h3 class="sect2">5.4.1. Running Multiple Daemons</h3>
+
+
+
+
+
+<p>
+<a name="INDEX-315" />You may find it useful at times to
+run more than one database server at a time. Performance is the most
+common cause for you to want to do this. Because of mSQL's
+single-threaded nature, it handles all requests serially. If one of
+your databases -- or even one of your tables -- is responsible
+for a large percentage of your database hits, applications which hit
+other databases or tables may end up spending a lot of time waiting
+on queries that hit that database or table.</p>
+
+
+
+
+
+<p>You will not encounter this problem with a multithreaded server like
+MySQL, but you can get around it in mSQL by running multiple mSQL
+processes. This solution is limited in that only one daemon may have
+access to a particular database. Without this limitation, two daemons
+could overwrite each other's changes. You can accomplish this
+by giving each running <em class="emphasis">msql2d</em> instance its own
+base directory under which its data is stored. You can do this in
+mSQL 2 via command line options and the configuration file. Under
+mSQL 1, you actually have to compile and install mSQL multiple times
+into multiple installation directories.</p>
+
+
+
+
+
+<p>To set up the second directory for mSQL 2, use the following:</p>
+
+
+
+
+
+<blockquote>
+<pre class="code">mkdir -p <em class="replaceable">/usr/local/second_database/msqldb/.tmp</em>
+cp <em class="replaceable">/usr/local/Hughes/msql.conf</em> <em class="replaceable">/usr/local/Hughes/msql.acl</em>\
+<em class="replaceable">/usr/local/second_database</em>
+chown -R <em class="replaceable">msql</em> <em class="replaceable">/usr/local/second_database</em></pre>
+</blockquote>
+
+
+<a name="ch05-2-fm2xml"/>
+<blockquote><h4 class="objtitle">NOTE</h4>
+
+<p>Some Unix systems use the
+<em class="emphasis">mkdirs</em>
+<a name="INDEX-316" /> command instead of <em class="emphasis">mkdir
+-p</em> while some may not have that option at all. If the
+option does not exist, you will have to create each directory
+separately. Also, you need to substitute the user ID under which you
+run <em class="emphasis">msql2d</em>
+<a name="INDEX-317" /> if it is different from
+"msql." Finally, the steps are identical if you are
+working under Windows or OS/2 -- only the command names and the
+path separator change.</p>
+</blockquote>
+
+
+
+
+
+<p>Once the directories are created and the files copied, you need to
+edit <a name="INDEX-318" />
+<a name="INDEX-319" /><em class="emphasis">msql.conf</em>
+in the new directory to change <tt class="literal">Inst_Dir</tt> to point
+to <em class="emphasis">/usr/local/second_database</em> and
+<tt class="literal">TCP_Port</tt> to some value that does not conflict with
+any other TCP service on the server. You can leave the
+<tt class="literal">Unix_Port</tt> option unchanged since the new socket
+will go in the new directory.</p>
+
+
+
+
+
+<p>To launch the new daemon, run the old <em class="emphasis">msql2d</em>
+command with the following option:</p>
+
+
+
+
+
+<blockquote><pre class="code">msql2d -f <em class="replaceable">/usr/local/second_database/msql.conf</em></pre></blockquote>
+
+
+
+
+
+<p>If you are working with mSQL 1, life is a little more complicated.
+You specifically have to compile and install mSQL once for each
+server instance you wish to run. All of your utilities will work with
+any instance of your server.<a name="INDEX-320" /></p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch05-3-fm2xml" /><div class="sect2">
+<a name="INDEX-321" /><h3 class="sect2">5.4.2. The mSQL Configuration File</h3>
+
+
+
+
+
+<p>
+<a name="INDEX-322" />
+<a name="INDEX-323" />We
+have touched on the mSQL configuration file in places, but we have
+not really gone into any detail on it. Under mSQL 1, everything
+except security was defined at compile time. mSQL 2 provides a
+configuration file that enables you to configure the runtime behavior
+of your mSQL server. A mSQL configuration file might look like this:</p>
+
+
+
+
+
+<blockquote><pre class="code">[general]
+
+Inst_Dir = c:\usr\local\Hughes
+mSQL_User = msql
+Admin_User = root
+Pid_File = %I\msql2d.pid
+TCP_Port = 1114
+Unix_Port = %I\msql2.sock
+
+[system]
+
+Msync_Timer = 30
+Host_Lookup = True
+Read_Only = False
+Remote_Access = True
+Local_Access = True
+
+[w3-msql]
+
+Auth_Host = NULL
+Footer = True
+Force_Private = False</pre></blockquote>
+
+
+
+
+
+<p>Like a Windows INI file, the mSQL configuration script is divided
+into sections, each with its own set of key/value pairs. At this
+point, the only parts of the mSQL configuration file of interest to
+us are in the <em class="emphasis">general</em> section.</p>
+
+
+
+
+
+<dl>
+<dt><b>Inst_Dir</b></dt>
+<dd><p>The mSQL installation directory. More specifically, this directory is
+where mSQL looks for your ACL file, the mSQL PID file, and the
+<em class="emphasis">msqldb</em> directory where the server's
+database directories are housed. Using this configuration key, you
+can support multiple mSQL servers with a single set of mSQL binaries.</p></dd>
+
+
+
+
+
+<dt><b>mSQL_User</b></dt>
+<dd><p>The user ID under which the mSQL process is running.</p></dd>
+
+
+
+
+
+<dt><b>Admin_User</b></dt>
+<dd><p>The user ID allowed to execute administrative commands such as the
+<em class="emphasis">msqladmin</em> command discussed in the next section
+of this chapter.</p></dd>
+
+
+
+
+
+<dt><b>TCP_Port</b></dt>
+<dd><p>The TCP/IP port to which this server will be listening. Under Unix,
+you can only choose a port number less than 1024 if the mSQL server
+is running as the root user.</p></dd>
+
+
+
+
+
+<dt><b>Unix_Port</b></dt>
+<dd><p>The name of the Unix socket file. In this file, we used the %I%
+variable to stand for the value of
+<tt class="literal">Inst_Dir</tt>.<a name="INDEX-324" />
+<a name="INDEX-325" /></p></dd>
+
+</dl>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch05_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">5.3. Installing mSQL</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">5.5. Database Administration</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

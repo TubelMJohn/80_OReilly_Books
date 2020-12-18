@@ -1,0 +1,140 @@
+<?label 2.8. The MLDBM Module ?><html><head><title>The MLDBM Module  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch02_07.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch02_09.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">2.8. The MLDBM Module </h2>
+
+
+
+<p>The <a name="INDEX-211" /><tt class="literal">MLDBM</tt> module is very
+useful for quickly writing complex Perl data structures to DBM files
+for persistent storage. The <tt class="literal">ML</tt> in
+<tt class="literal">MLDBM</tt> stands for <em class="emphasis">multilevel</em>
+and refers to its ability to <a name="INDEX-212" />store complex multilevel data
+structures. That's something that ordinary hashes, even hashes
+tied to DBM files, can't do.</p>
+
+
+
+<p>The <a name="INDEX-213" /><tt class="literal">MLDBM</tt> module is an
+excellent example of a layered storage manager. It acts as a thin
+layer over another DBM module, but intercepts reads and writes to
+automatically
+<em class="emphasis">serialize</em>
+<a name="INDEX-214" />
+(or deserialize) the data using another module.<a href="#FOOTNOTE-19">[19]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-19" /><p>[19]We
+discussed serialization and the <tt class="literal">Data::Dumper</tt> and
+<tt class="literal">Storable</tt> modules earlier in this chapter.</p>
+
+
+</blockquote>
+
+
+
+<p>The module works by automatically serializing the Perl data
+structures that you wish to store into a single string, which is then
+stored within a DBM file. The data is recovered by deserializing the
+data from the stored string back into a valid Perl object. The actual
+interface for referencing the stored and retrieved data is identical
+to the API for DBM files. That makes it very easy to "drop
+in" use of <tt class="literal">MLDBM</tt> instead of your existing
+DBM module.</p>
+
+
+
+<p>The following example shows how we could use
+<tt class="literal">DB_File</tt>
+<a name="INDEX-215" /> <a name="INDEX-216" />
+for storage and
+<tt class="literal">Data::Dumper</tt>
+<a name="INDEX-217" /> for displaying the restored data:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch02/mldbmtest: Demonstrates storing complex data structures in a DBM
+#                 file using the MLDBM module.
+
+use MLDBM qw( DB_File Data::Dumper );
+use Fcntl;
+
+### Remove the test file in case it exists already ...
+unlink 'mldbmtest.dat';
+
+tie my %database1, 'MLDBM', 'mldbmtest.dat', O_CREAT | O_RDWR, 0666
+    or die "Can't initialize MLDBM file: $!\n";
+
+### Create some megalith records in the database
+%database1 = (
+    'Avebury' =&gt; {
+        name =&gt; 'Avebury',
+        mapref =&gt; 'SU 103 700',
+        location =&gt; 'Wiltshire'
+    },
+    'Ring of Brodgar' =&gt; {
+        name =&gt; 'Ring of Brodgar',
+        mapref =&gt; 'HY 294 133',
+        location =&gt; 'Orkney'
+    }
+);
+
+### Untie and retie to show data is stored in the file
+untie %database1;
+
+tie my %database2, 'MLDBM', 'mldbmtest.dat', O_RDWR, 0666
+    or die "Can't initialize MLDBM file: $!\n";
+
+### Dump out via Data::Dumper what's been stored ...
+print Data::Dumper-&gt;Dump( [ \%database2 ] );
+
+untie %database2;
+
+exit;</pre></blockquote>
+
+
+
+<p>The results of running this program are:</p>
+
+
+
+<blockquote><pre class="code">$VAR1 = {
+      'Avebury' =&gt; {
+                     'name' =&gt; 'Avebury',
+                     'location' =&gt; 'Wiltshire',
+                     'mapref' =&gt; 'SU 103 700'
+                   },
+      'Ring of Brodgar' =&gt; {
+                             'name' =&gt; 'Ring of Brodgar',
+                             'location' =&gt; 'Orkney',
+                             'mapref' =&gt; 'HY 294 133'
+                           }
+    };</pre></blockquote>
+
+
+
+<p>This shows that the nested data within the original hash has been
+restored <a name="INDEX-218" />intact.</p>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch02_07.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch02_09.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">2.7. DBM Files and the BerkeleyDatabase Manager </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">2.9. Summary</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

@@ -1,0 +1,247 @@
+<html><head><title>Transformations (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_11.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch03_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">2.12. Transformations</h2>
+
+<p>The last topic we want to introduce is the concept of <a name="INDEX-154" /> <a name="INDEX-155" />transformations. In XML, a
+<em class="emphasis">transformation</em> is a process of restructuring
+or converting a document into another form. The W3C recommends a
+language for transforming XML called<a name="INDEX-156" />
+<a name="INDEX-157" /> XML Stylesheet Language for
+Transformations (XSLT). It's an incredibly useful
+and fun technology to work with.
+</p>
+
+<p>Like XML Schema, an XSLT transformation script is an XML document.
+It's composed of <em class="emphasis">template
+rules</em><a name="INDEX-158" />, each of which is an instruction for
+how to turn one element type into something else. The term
+<em class="emphasis">template</em> is often used to mean an example of
+how something should look, with blanks that you should fill in.
+That's exactly how template rules work: they are
+examples of how the final document should be, with the blanks filled
+in by the XSLT processor.
+</p>
+
+<p><a href="ch02_12.htm#perlxml-CHP-2-EX-5">Example 2-5</a> is a rudimentary transformation that
+converts a simple
+<a name="INDEX-159" />DocBook XML document into an
+<a name="INDEX-160" />HTML
+page.
+</p>
+
+<a name="perlxml-CHP-2-EX-5" /><div class="example">
+<h4 class="objtitle">Example 2-5. An XSLT transformation document </h4>
+<blockquote><pre class="code">&lt;xsl:stylesheet 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  version="1.0"&gt;
+
+&lt;xsl:output method="html"/&gt;
+
+&lt;!-- RULE FOR BOOK ELEMENT --&gt;
+&lt;xsl:template match="book"&gt;
+  &lt;html&gt;
+    &lt;head&gt;
+      &lt;title&gt;&lt;xsl:value-of select="title"/&gt;&lt;/title&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+      &lt;h1&gt;&lt;xsl:value-of select="title"/&gt;&lt;/h1&gt;
+      &lt;h3&gt;Table of Contents&lt;/h3&gt;
+      &lt;xsl:call-template name="toc"/&gt;
+      &lt;xsl:apply-templates select="chapter"/&gt;
+    &lt;/body&gt;
+  &lt;/html&gt;
+&lt;/xsl:template&gt;
+
+&lt;!-- RULE FOR CHAPTER --&gt;
+&lt;xsl:template match="chapter"&gt;
+  &lt;xsl:apply-templates/&gt;
+&lt;/xsl:template&gt;
+
+&lt;!-- RULE FOR CHAPTER TITLE --&gt;
+&lt;xsl:template match="chapter/title"&gt;
+  &lt;h2&gt;
+    &lt;xsl:text&gt;Chapter &lt;/xsl:text&gt;
+    &lt;xsl:number count="chapter" level="any" format="1"/&gt;
+  &lt;/h2&gt;
+  &lt;xsl:apply-templates/&gt;
+&lt;/xsl:template&gt;
+  
+&lt;!-- RULE FOR PARA --&gt;
+&lt;xsl:template match="para"&gt;
+  &lt;p&gt;&lt;xsl:apply-templates/&gt;&lt;/p&gt;
+&lt;/xsl:template&gt;
+
+&lt;!-- NAMED RULE: TOC --&gt;
+&lt;xsl:template name="toc"&gt;
+  &lt;xsl:if test="count(chapter)&gt;0"&gt;
+    &lt;xsl:for-each select="chapter"&gt;
+      &lt;xsl:text&gt;Chapter &lt;/xsl:text&gt;
+      &lt;xsl:value-of select="position( )"/&gt;
+      &lt;xsl:text&gt;: &lt;/xsl:text&gt;
+      &lt;i&gt;&lt;xsl:value-of select="title"/&gt;&lt;/i&gt;
+      &lt;br/&gt;
+    &lt;/xsl:for-each&gt;
+  &lt;/xsl:if&gt;
+&lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+</div>
+
+<p>First, the XSLT processor reads the stylesheet and creates a table of
+template rules. Next, it parses the source XML document (the one to
+be converted) and traverses it one node at a time. A
+<em class="emphasis">node</em> is an element, a piece of text, a
+processing instruction, an attribute, or a namespace declaration. For
+each node, the XSLT processor tries to find the <em class="emphasis">best
+matching</em><a name="INDEX-161" /> rule. It applies the rule, outputting
+everything the template says it should, jumping to other rules as
+necessary.
+</p>
+
+<p><a href="ch02_12.htm#perlxml-CHP-2-EX-6">Example 2-6</a> is a sample document on which you can
+run the transformation.
+</p>
+
+<a name="perlxml-CHP-2-EX-6" /><div class="example">
+<h4 class="objtitle">Example 2-6. A document to transform </h4>
+<blockquote><pre class="code">&lt;book&gt;
+  &lt;title&gt;The Blathering Brains&lt;/title&gt;
+  &lt;chapter&gt;
+    &lt;title&gt;At the Bazaar&lt;/title&gt;
+    &lt;para&gt;What a fantastic day it was. The crates were stacked
+          high with imported goods: dates, bananas, dried meats,
+          fine silks, and more things than I could imagine. As I
+          walked around, savoring the fragrances of cinnamon and
+          cardamom, I almost didn't notice a small booth with a
+          little man selling brains.&lt;/para&gt;
+    &lt;para&gt;Brains! Yes, human brains, still quite moist and squishy,
+          swimming in big glass jars full of some greenish
+          fluid.&lt;/para&gt;
+    &lt;para&gt;"Would you like a brain, sir?" he asked. "Very reasonable
+          prices. Here is Enrico Fermi's brain for only two
+          dracmas. Or, perhaps, you would prefer Aristotle?  Or the
+          great emperor Akhnaten?"&lt;/para&gt;
+    &lt;para&gt;I recoiled in horror...&lt;/para&gt;
+  &lt;/chapter&gt;
+&lt;/book&gt;</pre></blockquote>
+</div>
+
+<p>Let's walk through the transformation. </p>
+
+<ol><li>
+<p>The first element is <tt class="literal">&lt;book&gt;</tt>. The best
+matching rule is the first one, because it explicitly matches
+"book." The template says to output
+tags like <tt class="literal">&lt;html&gt;</tt>,
+<tt class="literal">&lt;head&gt;</tt>, and
+<tt class="literal">&lt;title&gt;</tt>. Note that these tags are treated as
+data markup because they don't have the
+<tt class="literal">xsl:</tt> namespace prefix.
+</p>
+</li><li>
+<p>When the processor gets to the XSLT instruction
+<tt class="literal">&lt;xsl:value-of select="title"/&gt;</tt>, it has to
+find a <tt class="literal">&lt;title&gt;</tt> element that is a child of
+the current element, <tt class="literal">&lt;book&gt;</tt>. Then it must
+obtain the <em class="emphasis">value</em> of that element, which is
+simply all the text contained within it. This text is output inside a
+<tt class="literal">&lt;title&gt;</tt> element as the template directs.
+</p>
+</li><li>
+<p>The processor continues in this way until it gets to the
+<tt class="literal">&lt;xsl:call-template</tt>
+<tt class="literal">name="toc"/&gt;</tt> instruction. If you look at the
+bottom of the stylesheet, you'll find a template
+rule that begins with <tt class="literal">&lt;xsl:template
+name="toc"&gt;</tt>. This template rule is a <em class="emphasis">named
+template</em> and acts like a function call. It assembles a
+table of contents and returns the text to the calling rule for
+output.
+</p>
+</li><li>
+<p>Inside the named template is an element called <tt class="literal">&lt;xsl:if
+test="count(chapter)&gt;0"&gt;</tt>. This element is a
+conditional statement whose test is whether more than one
+<tt class="literal">&lt;chapter&gt;</tt> is inside the current element
+(still <tt class="literal">&lt;book&gt;</tt>). The test passes, and
+processing continues inside the element.
+</p>
+</li><li>
+<p>The <tt class="literal">&lt;xsl:for-each select="chapter"&gt;</tt>
+instruction causes the processor to visit each
+<tt class="literal">&lt;chapter&gt;</tt> child element and temporarily make
+it the current element while in the body of the
+<tt class="literal">&lt;xsl:for-each&gt;</tt> element. This step is
+analogous to a <tt class="literal">foreach( )</tt> loop in Perl. The
+<tt class="literal">&lt;xsl:value-of select="position( )"/&gt;</tt>
+statement derives the numerical position of each
+<tt class="literal">&lt;chapter&gt;</tt> and outputs it so that the result
+document reads "Chapter 1,"
+"Chapter 2," and so on.
+</p>
+</li><li>
+<p>The named template "toc" returns
+its text to the calling rule and execution continues. Next, the
+processor receives an <tt class="literal">&lt;xsl:apply-templates
+select="chapter"/&gt;</tt> directive. An output of
+<tt class="literal">&lt;xsl:apply-templates&gt;</tt> without any attributes
+means that the processor should then process each of the current
+element's children, making it the current element.
+However, since a <tt class="literal">select="chapter"</tt> attribute is
+present, only children who are of type
+<tt class="literal">&lt;chapter&gt;</tt> should be processed. After all
+descendants have been processed and this instruction returns its
+text, it will be output and the rest of the rule will be followed
+until the end.
+</p>
+</li><li>
+<p>Moving on to the first <tt class="literal">&lt;chapter&gt;</tt> element,
+the processor locates a suitable rule and sees only an
+<tt class="literal">&lt;xsl:apply-tempaltes/&gt;</tt> rule. The rest of the
+processing is pretty easy, as the rules for the remaining elements,
+<tt class="literal">&lt;title&gt;</tt> and <tt class="literal">&lt;para&gt;</tt>,
+are straightforward.
+</p>
+</li></ol>
+<p>XSLT is a rich language for handling transformations, but often
+leaves something to be desired. It can be slow on large documents,
+since it has to build an internal representation of the whole
+document before it can do any processing. Its syntax, while a
+remarkable achievement for XML, is not as expressive and easy to use
+as Perl. We will explore numerous Perl solutions to some problems
+that XSL could also solve. You'll have to decide
+whether you prefer XSLT's simplicity or
+Perl's power.
+</p>
+
+<p>That's our whirlwind tour of XML. Next,
+we'll jump into the fundamentals of XML processing
+with Perl using parsers and basic writers. At this point, you should
+have a good idea of what XML is used for and how
+it's used, and you should be able to recognize all
+the parts when you see them. If you still have any doubts, stop now
+and grab an<a name="INDEX-162" /> <a name="INDEX-163" /> XML<a name="INDEX-164" /> tutorial.
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_11.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch03_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">2.11. Schemas</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">3. XML Basics: Reading and Writing</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

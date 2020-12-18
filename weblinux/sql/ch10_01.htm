@@ -1,0 +1,643 @@
+<?label 10. Perl?><html><head><title>Perl (MySQL &amp; mSQL)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Randy Jay Yarger, George Reese and Tim King" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924347L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="MySQL &amp; mSQL" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="MySQL and mSQL" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch09_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">MySQL &amp; mSQL</a></td><td width="172" valign="top" align="right"><a href="ch10_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 10. Perl</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch10_01.htm">DBI</a><br />
+<a href="ch10_02.htm">An Example DBI Application</a><br />
+<a href="ch10_03.htm">Msql.pm</a><br />
+<a href="ch10_04.htm">MysqlPerl</a><br /></p></div>
+
+
+
+
+
+
+
+
+
+<p>The
+<a name="INDEX-666" />Perl
+programming language has gone from a tool primarily used by Unix
+systems administrators to the most widely used development platform
+for the World Wide Web. Perl was not designed for the web, but its
+ease of use and powerful text handling abilities have made it a
+natural for CGI programming. Similarly, when mSQL first entered the
+scene, its extremely small footprint and execution time were very
+attractive to web developers who needed to serve thousands of
+transactions a day. MySQL, with its enhanced speed and capabilities
+provided an even greater incentive for web developers. Therefore, it
+was only natural that a Perl interface to both MySQL and mSQL was
+developed that allowed the best of both
+worlds.<a name="INDEX-667" />
+<a name="INDEX-668" /></p>
+
+
+
+
+
+<a name="ch10-1-fm2xml" /><blockquote><h4 class="objtitle">NOTE</h4>
+
+<p>At the time of this writing there are two interfaces between MySQL
+and mSQL and Perl. The original consists of
+<em class="emphasis">Mysql.pm</em> and <em class="emphasis">Msql.pm</em>,
+custom interfaces that work only with MySQL and mSQL, respectively.
+The other, newer, interface is a plug-in for the Database Independent
+(DBI) set of modules. DBI is an attempt to provide a common Perl API
+for all database accesses and enable greater behind-the-scenes
+portability. The DBI interface has become the most robust and
+standard, and the makers of MySQL recommend that all work be done
+using DBI as development of the <em class="emphasis">Mysql.pm</em> and
+<em class="emphasis">Msql.pm</em> modules has ceased. However, many legacy
+systems still use these modules, so both will be covered here.</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch10-19642" />
+<a name="INDEX-669" /><h2 class="sect1">10.1. DBI</h2>
+
+
+
+
+
+<p>The recommended method for accessing MySQL and mSQL databases from
+Perl is the DBD/DBI interface. <a name="INDEX-670" />DBD/DBI stands
+for DataBase Dependent/DataBase Independent. The name arises from the
+two-layer implementation of the interface. At the bottom is the
+database dependent layer. Here, modules exist for each type of
+database accessible from Perl. On top of these database dependent
+modules lies a database independent layer. This is the interface that
+you use to access the database. The advantage of this scheme is that
+the programmer only has to learn one API, the database independent
+layer. Every time a new database comes along, someone needs only to
+write a DBD module for it and it will be accessible to all DBD/DBI
+programmers.<a name="INDEX-671" /></p>
+
+
+
+
+
+<p>As with all Perl modules, you must use DBI to get access:</p>
+
+
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+
+use strict;
+use CGI qw(:standard);
+use DBI;</pre></blockquote>
+
+
+
+
+
+<a name="ch10-2-fm2xml" /><blockquote><h4 class="objtitle">NOTE</h4>
+
+<p>When running any MySQL/mSQL Perl programs, you should always include
+the <em class="emphasis">-w</em> command line argument. With this present,
+DBI will redirect all MySQL and mSQL specific error messages to
+<tt class="literal">STDERR</tt> so that you can see any database errors
+without checking for them explicitly in your program.</p>
+</blockquote>
+
+
+
+
+
+<p>All interactions between Perl and MySQL and mSQL are conducted
+through what is known as a <a name="INDEX-672" />database handle. The
+<em class="emphasis">database handle</em> is an object -- represented
+as a <a name="INDEX-673" />scalar
+reference in Perl -- that implements all of the methods used to
+communicate with the database. You may have as many database handles
+open at once as you wish. You are limited only by your system
+resources. The connect() method uses a connection format of
+<tt class="literal">DBI:servertype:database:hostname:port</tt> (hostname
+and port and optional), with additional arguments of username and
+password to create a handle:</p>
+
+
+
+
+
+<blockquote><pre class="code">my <em class="replaceable">$dbh</em> = DBI-&gt;connect('<em class="replaceable">DBI:mysql:mydata</em>', <em class="replaceable">undef</em>, <em class="replaceable">undef</em>);
+my <em class="replaceable">$dbh</em> = DBI-&gt;connect('<em class="replaceable">DBI:mSQL:mydata:myserver</em>', <em class="replaceable">undef</em>, <em class="replaceable">undef</em>);
+my <em class="replaceable">$dbh</em> = DBI-&gt;connect('<em class="replaceable">DBI:mysql:mydata</em>','<em class="replaceable">me</em>','<em class="replaceable">mypass</em>');</pre></blockquote>
+
+
+
+
+
+<p>The <em class="emphasis">servertype</em>
+<a name="INDEX-674" /> attribute is the name of the DBD
+database-specific module, which in our case will be either
+"mysql" or "mSQL" (note capitalization). The
+first version creates a connection to the MySQL server on the local
+machine via a Unix-style socket. This is the most efficient way to
+communicate with the database and should be used if you are
+connecting to a local server. If the hostname is supplied it will
+connect to the server on that host using the standard port unless the
+port is supplied as well. If you do not provide a username and
+password when connecting to a MySQL server, the user executing the
+program must have sufficient privileges within the MySQL database.
+The username and password should always be left undefined for mSQL
+databases.<a name="INDEX-675" />
+<a name="INDEX-676" /></p>
+
+
+
+
+
+<a name="ch10-3-fm2xml" /><blockquote><h4 class="objtitle">NOTE</h4>
+
+<p>Perl 5 has two different calling conventions for modules. With the
+object-oriented syntax, the arrow symbol
+"<tt class="literal">-&gt;</tt>" is used to reference a method
+in a particular class (as in <tt class="literal">DBI-&gt;connect</tt>).
+Another method is the indirect syntax, in which the method name is
+followed by the class name, then the arguments. The last
+<tt class="literal">connect</tt> method above would be written as
+<tt class="literal">connect DBI
+</tt>'<tt class="literal">DBI:mysql:mydata</tt>'<tt class="literal">,
+</tt>'<tt class="literal">me</tt>'<tt class="literal">,
+</tt>'<tt class="literal">mypass</tt>'. Early versions of the
+<em class="emphasis">Msql.pm</em> used the indirect syntax exclusively and
+also enforced a specific method of capitalization inspired by the
+mSQL C API. Therefore, a lot of older <em class="emphasis">MsqlPerl</em>
+code will have lines in it like <tt class="literal">SelectDB $dbh
+</tt>'<tt class="literal">test</tt>' where a simple
+<tt class="literal">$dbh-&gt;selectdb(</tt>'<tt class="literal">test</tt>'<tt class="literal">)</tt>
+would do. If you haven't guessed, we are partial to the
+object-oriented syntax, if only because the arrow makes the
+relationship between class and method clear.</p>
+</blockquote>
+
+
+
+
+
+<p>Once you have connected to the MySQL or mSQL server, the database
+handle -- <tt class="literal">$dbh</tt> in all of the examples in this
+section -- is the gateway to the database server. For instance, to
+prepare an SQL query:</p>
+
+
+
+
+
+<blockquote><pre class="code">$dbh-&gt;prepare($query);</pre></blockquote>
+
+
+
+
+
+<a name="ch10-4-fm2xml" /><blockquote><h4 class="objtitle">WARNING</h4>
+<p>When using <a name="INDEX-677" />
+<a name="INDEX-678" />mSQL you may select only one database
+at a time for a particular database handle. The mSQL server imposes
+this limit. However, you may change the current database at any time
+by calling <tt class="literal">connect</tt> again. With
+<a name="INDEX-679" />MySQL, you may include other databases
+in your query by explicitly naming them. In addition, with both MySQL
+and mSQL, if you need to access more than one database concurrently,
+you can create multiple database handles and use them side by side.</p>
+
+
+
+
+</blockquote>
+
+<p><a href="ch21_01.htm">Chapter 21, "Perl Reference"</a>, describes the full range of methods and
+variables supplied by DBI as well as <em class="emphasis">Mysql.pm</em>
+and <em class="emphasis">Msql.pm</em>.</p>
+
+
+
+
+
+<p>As an example of the use of DBI consider the following simple
+programs. In <a href="ch10_01.htm#ch10-64594">Example 10-1</a>,
+<em class="emphasis">datashow.cgi</em> accepts a hostname as a
+parameter -- "localhost" is assumed if no parameter is
+present. The program then displays all of the databases available on
+that host.</p>
+
+
+
+
+
+<a name="ch10-64594" /><div class="example">
+<h4 class="objtitle">Example 10-1. The CGI datashow.cgi Shows All of the Databases on a MySQL or mSQL Server </h4>
+
+<a name="INDEX-680" />
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+
+use strict;
+use CGI qw(:standard);
+use CGI::Carp;
+	# Use the DBI module
+use DBI;
+CGI::use_named_parameters(1);
+
+my ($server, $sock, $host);
+
+my $output = new CGI;
+$server = param('server') or $server = '';
+
+# Prepare the MySQL DBD driver
+my $driver = DBI-&gt;install_driver('mysql');
+
+	my @databases = $driver-&gt;func($server, '_ListDBs');
+
+# If @databases is undefined we assume
+# that means that the host does not have
+# a running MySQL server. However, there could be other reasons
+# for the failure. You can find a complete error message by
+# checking $DBI::errmsg.
+if (not @databases) {
+        print header, start_html('title'=&gt;"Information on $server",
+        'BGCOLOR'=&gt;'white');
+        print &lt;&lt;END_OF_HTML;
+&lt;H1&gt;$server&lt;/h1&gt;
+$server does not appear to have a running mSQL server.
+&lt;/body&gt;&lt;/html&gt;
+END_OF_HTML
+        exit(0);
+}
+
+                                'BGCOLOR'=&gt;'white');
+       print &lt;&lt;END_OF_HTML;
+&lt;H1&gt;$host&lt;/h1&gt;
+&lt;p&gt;
+$host\'s connection is on socket $sock.
+&lt;p&gt;
+Databases:&lt;br&gt;
+&lt;UL&gt;
+END_OF_HTML
+foreach (@databases) {
+        print "&lt;LI&gt;$_\n";
+}
+print &lt;&lt;END_OF_HTML;
+&lt;/ul&gt;
+&lt;/body&gt;&lt;/html&gt;
+HTML
+exit(0)</pre></blockquote>
+</div>
+
+
+
+
+
+<p>In <a href="ch10_01.htm#ch10-57017">Example 10-2</a>, <em class="emphasis">tableshow.cgi</em>
+accepts the name of a database server (default is
+"localhost") and the name of a database on that server.
+The program then shows all of the available tables on that server.</p>
+
+
+
+
+
+<a name="ch10-57017" /><div class="example">
+<h4 class="objtitle">Example 10-2. The CGI tableshow.cgi Shows All of the Tables Within a Database </h4>
+
+<a name="INDEX-681" />
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+
+use strict;
+use CGI qw(:standard);
+use CGI::Carp;
+	# Use the Msql.pm module
+use DBI;
+CGI::use_named_parameters(1);
+
+my ($db);
+my $output = new CGI;
+$db = param('db') or die("Database not supplied!");
+
+# Connect to the requested server.
+my $dbh = DBI-&gt;connect("DBI:mysql:$db:$server", undef, undef);
+
+# If $dbh does not exist, the attempt to connect to the
+# database server failed. The server may not be running,
+# or the given database may not exist.
+if (not $dbh) {
+        print header, start_html('title'=&gt;"Information on $host =&gt; $db",
+        'BGCOLOR'=&gt;'white');
+
+        print &lt;&lt;END_OF_HTML;
+&lt;H1&gt;$host&lt;/h1&gt;
+&lt;H2&gt;$db&lt;/h2&gt;
+The connection attempt failed for the following reason:&lt;BR&gt;
+$DBI::errstr
+&lt;/body&gt;&lt;/html&gt;
+END_OF_HTML
+        exit(0);
+} 
+
+print header, start_html('title'=&gt;"Information on $host =&gt; $db",
+        'BGCOLOR'=&gt;'white');
+print &lt;&lt;END_OF_HTML;
+&lt;H1&gt;$host&lt;/h1&gt;
+&lt;H2&gt;$db&lt;/h2&gt;
+&lt;p&gt;
+Tables:&lt;br&gt;
+&lt;UL&gt;
+END_OF_HTML
+# $dbh-&gt;listtable returns an array of the tables that are available
+# in the current database.
+my @tables = $dbh-&gt;func( '_ListTables' );
+foreach (@tables) {
+         print "&lt;LI&gt;$_\n";
+}
+print &lt;&lt;END_OF_HTML;
+&lt;/ul&gt;
+&lt;/body&gt;&lt;/html&gt;
+END_OF_HTML
+       exit(0);<a name="INDEX-682" /></pre></blockquote>
+</div>
+
+
+
+
+
+<p>And, finally, <a href="ch10_01.htm#ch10-51696">Example 10-3</a> shows all of the
+information about a specific table.</p>
+
+
+
+
+
+<a name="ch10-51696" /><div class="example">
+<h4 class="objtitle">Example 10-3. The CGI tabledump.cgi Shows Information About a Specific Table </h4>
+
+<a name="INDEX-683" />
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+
+use strict;
+use CGI qw(:standard);
+use CGI::Carp;
+	# Use the DBI module
+use DBI;
+CGI::use_named_parameters(1);
+
+my ($db,$table);
+my $output = new CGI;
+$server = param('server') or $server = '';
+$db = param('db') or die("Database not supplied!");
+
+# Connect to the requested server.
+my $dbh = DBI-&gt;connect("DBI:mysql:$db:$server", undef, undef);
+
+# We now prepare a query for the server asking for all of the data in
+# the table.
+my $table_data = $dbh-&gt;prepare("select * from $table");
+# Now send the query to the server.
+$table_data-&gt;execute;
+
+# If the return value is undefined, the table must not exist. (Or it could
+# be empty; we don't check for that.)
+if (not $table_data) {
+        print header, start_html('title'=&gt;
+        "Information on $host =&gt; $db =&gt; $table", 'BGCOLOR'=&gt;'white');
+
+        print &lt;&lt;END_OF_HTML;
+&lt;H1&gt;$host&lt;/h1&gt;
+&lt;H2&gt;$db&lt;/h2&gt;
+The table '$table' does not exist in $db on $host.
+&lt;/body&gt;&lt;/html&gt;
+END_OF_HTML
+        exit(0);
+}
+
+# At this point, we know we have data to display. First we show the
+# layout of the table.
+print header, start_html('title'=&gt;"Information on $host =&gt; $db =&gt; $table",
+        'BGCOLOR'=&gt;'white');
+print &lt;&lt;END_OF_HTML;
+&lt;H1&gt;$host&lt;/h1&gt;
+&lt;H2&gt;$db&lt;/h2&gt;
+&lt;H3&gt;$table&lt;/h3&gt;
+&lt;p&gt;
+&lt;TABLE BORDER&gt;
+&lt;CAPTION&gt;Fields&lt;/caption&gt;
+&lt;TR&gt;
+ &lt;TH&gt;Field&lt;TH&gt;Type&lt;TH&gt;Size&lt;TH&gt;NOT NULL
+&lt;/tr&gt;
+&lt;UL&gt;
+END_OF_HTML
+
+# $table_data-&gt;name returns a referece to an array 
+# of the fields of the database.
+my @fields = @{$table_data-&gt;NAME};
+# $table_data-&gt;type return an array reference of the types of fields.
+# The types returned here are in SQL standard notation, not MySQL specific.
+my @types = @{$table_data-&gt;TYPE};
+# $table_data-&gt;is_not_null returns a Boolean array ref indicating which fields
+# have the 'NOT NULL' flag.
+my @not_null = @{$table_data-&gt;is_not_null};
+# $table_data-&gt;length return an array ref of the lengths of the fields. This is
+# fixed for INT and REAL types, but variable (defined when the table was
+# created) for CHAR.
+my @length = @{$table_data-&gt;length};
+
+# All of the above arrays were returned in the same order, so that $fields[0],
+# $types[0], $not_null[0] and $length[0] all refer to the same field.
+
+foreach $field (0..$#fields) {
+        print "&lt;TR&gt;\n";
+print "&lt;TD&gt;$fields[$field]&lt;TD&gt;$types[$field]&lt;TD&gt;";
+        print $length[$field] if $types[$field] eq 'SQL_CHAR';
+        print "&lt;TD&gt;";
+        print 'Y' if ($not_null[$field]);
+        print "&lt;/tr&gt;\n";
+}
+
+print &lt;&lt;END_OF_HTML;
+&lt;/table&gt;
+&lt;p&gt;
+&lt;B&gt;Data&lt;/b&gt;&lt;br&gt;
+&lt;OL&gt;
+END_OF_HTML
+
+# Now we step through the data, row by row, using DBI::fetchrow_array().
+# We save the data in an array that has the same order as the informational
+# arrays (@fields, @types, etc.) we created earlier.
+while(my(@data)=$table_data-&gt;fetchrow_array) {
+        print "&lt;LI&gt;\n&lt;UL&gt;";
+        for (0..$#data) {
+                print "&lt;LI&gt;$fields[$_] =&gt; $data[$_]&lt;/li&gt;\n";
+        }
+        print "&lt;/ul&gt;&lt;/li&gt;";
+}
+
+print &lt;&lt;END_OF_HTML;
+&lt;/ol&gt;
+&lt;/body&gt;&lt;/html&gt;
+      END_OF_HTML<a name="INDEX-684" /></pre></blockquote>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch09_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch10_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">9.5. CGI and Databases
+</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">10.2. An Example DBI Application</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

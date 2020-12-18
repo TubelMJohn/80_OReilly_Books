@@ -1,0 +1,323 @@
+<html><head><title>Some Perl/Tk History (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch01_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch01_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">1.2. Some Perl/Tk History</h2>
+
+<p>Perl/Tk has its roots in the X Window System and the Tcl language. So
+let's take a detour into the pages of history, to give you an
+idea of where Perl/Tk came from and how it got here.
+</p>
+
+<a name="mastperltk-CHP-1-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">1.2.1. The X Window System and Xlib</h3>
+
+<p><a name="INDEX-14" /><a name="INDEX-15" />The X Window System (known to its friends
+as just "X" or "X11") was first released in
+1987 as a graphical platform for Unix systems. Like most Unix
+software, X applications are almost universally written in the C
+language, using a library such as Xt, Motif, or (if you were really
+unlucky or just really brave) the underlying library for X-based
+applications, Xlib.
+</p>
+
+<p><a name="INDEX-16" />Xlib has the
+advantage that you can do anything, at the expense of dealing with
+everything. For instance, here's one way to make a simple
+pull-down menu using Xlib (which is one statement in Tk). First,
+determine the dimensions of the longest menu item. For
+argument's sake, assume the menu label string is in the C
+variable <tt class="literal">menu_item</tt>. Subroutine
+<tt class="literal">XTextExtents</tt> determines several metrics about
+<tt class="literal">menu_item</tt>, such as its overall width in pixels in
+the current font and its pixel height, computed by summing the
+maximum ascent and descent (the number of pixels above and below the
+baseline, respectively). After accounting for the number of menu
+items, border widths, and including some slop for good luck, we
+arrive at the dimensions of the menu window itself, and its relative
+(x, y) position in the MainWindow.
+</p>
+
+<blockquote><pre class="code">  XTextExtents( font_info, menu_item, strlen( menu_item ),
+    &amp;direction, &amp;ascent, &amp;descent, &amp;overall );
+  menu_width = overall.width + 4;
+  menu_pane_height = overall.ascent + overall.descent + 4;
+  menu_height = menu_pane_height * menu_pane_count;
+  x = window_width - menu_width - ( 2 * menu_border_width );
+  y = 0;</pre></blockquote>
+
+<p><tt class="literal">XCreateSimpleWindow</tt> draws the menu with the proper
+border and background colors, although nothing appears on the display
+because the window hasn't yet been mapped.
+</p>
+
+<blockquote><pre class="code">  theMenu = XCreateSimpleWindow( theDisplay, theWindow,
+    x, y, menu_width, menu_height,
+    menu_border_width, theBorderPixel,
+    theBackgroundPixel );</pre></blockquote>
+
+<p>But every menu item is itself a tiny window, so create them all, save
+the structure pointers for later use, and select the events
+they'll respond to. Notice that we haven't drawn the
+actual text of the menu items. To do that, we need to define font and
+graphic context items, then call <tt class="literal">XDrawImageString</tt>
+to paint the characters (that's all done in initialization and
+event handler code):
+</p>
+
+<blockquote><pre class="code">  for( i = 0; i &lt; menu_pane_count; i++ ) {
+    menu[i].menu_pane = XCreateSimpleWindow(
+      theDisplay, theMenu, 0, menu_height/menu_pane_count*i,
+      menu_width, menu_pane_height, menu_border_width = 1,
+      theForegroundPixel, theBackgroundPixel );
+    XSelectInput( theDisplay, menu[i].menu_pane, EVENT_MASK3 );
+  }
+
+  XMapSubWindows( theDisplay, theMenu );</pre></blockquote>
+
+<p>The symbol <tt class="literal">EVENT_MASK3</tt> enumerates the events
+applicable to the menu item windows:
+</p>
+
+<blockquote><pre class="code">#define EVENT_MASK3 ButtonPresMask | ButtonReleaseMask |
+  ExposureMask | EnterWindowMask | LeaveWindowMask</pre></blockquote>
+
+<p>Now we must write the event handlers, including an Expose handler
+that actually draws the windows, our own event loop, and even our own
+event dispatching code, and on and on and on .... Whew!
+</p>
+
+<p>Programming with higher-level libraries such as Motif or Xt is
+somewhat more civilized, but it's no walk in the park either. A
+significant stumbling block was that no matter what library you used,
+X remained in the clutches of C programmers. C is a fine language,
+but it kept X in the hands of the professionals&#x2014;no hobbyists or
+hackers need apply. If you needed to develop an in-house tool (e.g.,
+for tracking bugs), many companies would balk at spending the time
+and resources required for developing a C application, so you'd
+end up with a clunky script with a command-line interface.
+</p>
+
+<p>Something had to be done, and something was. </p>
+
+</div>
+<a name="mastperltk-CHP-1-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">1.2.2. The Coming of Tcl/Tk</h3>
+
+<p><a name="INDEX-17" /><a name="INDEX-18" />The Tool Command Language (Tcl) was
+developed in 1987 by John K. Ousterhout of the University of
+California at Berkeley. Ousterhout envisioned an embeddable,
+extensible command language that many different applications could
+reuse. Each application would inherit identical basic features such
+as control structures, scalar variables and arrays, and built-in
+procedures. In turn, an application would add its unique commands,
+each of which had the same "feel" as any other Tcl
+command.<a href="#FOOTNOTE-2">[2]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-2" /><p> [2] Years earlier, Control Data Corporation
+carried the concept of an embeddable, extensible command language to
+a logical conclusion with its operating system, NOS/VE. The command
+language was called System Command Language (SCL) and as the name
+implies it was used by the entire operating system, from utilities,
+compilers, and debuggers, to terminal servers and end-user scripts
+and applications. Any application could embed any other
+application&#x2014;automatically, courtesy of the operating
+system&#x2014;without <em class="emphasis">any</em> work from the user. The
+symmetry and consistency between applications was most
+amazing.</p> </blockquote>
+
+<p><a name="INDEX-19" />But
+Ousterhout needed to prove his ideas, as much to himself as to
+others. Since he was interested in GUIs, he devised a toolkit of
+graphical components and tied them together using Tcl. He reasoned
+this approach would be more cost effective than writing C language
+code, even using a toolkit like Motif. His hunch was proven correct,
+bringing us to his next accomplishment: his graphical toolkit called
+Tk, from which Perl/Tk is derived.
+</p>
+
+<p>In early 1991, Ousterhout released Tk Version 1.0, the graphical
+extension to the Tcl scripting language. Tk's high-level widget
+set (which ultimately uses Xlib as its drawing package) was an
+immediate hit. In the years following, thousands of Tcl/Tk
+applications were written and Tk was ported to languages such as
+Eiffel, Modula-3, Prolog, Python, Scheme, and more.
+</p>
+
+<p><a name="INDEX-20" /><a name="INDEX-21" /><a name="INDEX-22" />By November of 1993, Tcl/Tk was at
+Version 3.4 and, believe it or not, folks were busy pasting Tcl/Tk
+GUIs on top of their Perl programs. If only we Perlers had known that
+help was on its way, for that very same month Malcolm Beattie of
+Oxford University began his <i class="command">TkPerl
+</i>project.<i class="command"><a href="#FOOTNOTE-3">[3]</a></i>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-3" /><p> [3] While TkPerl is no longer
+available, Malcolm has two CPAN modules that allow you to use Tcl/Tk
+commands from a Perl script. Of course, they rely on Tcl/Tk
+libraries, so you need Tcl/Tk installed.</p> </blockquote>
+
+</div>
+<a name="mastperltk-CHP-1-SECT-2.3" /><div class="sect2">
+<h3 class="sect2">1.2.3. The Evolution of Perl/Tk</h3>
+
+<p><a name="INDEX-23" />Malcolm's goal was a pure Perl 5,
+object-oriented interface to Tk without any dependence on Tcl, which
+meant converting Tcl code to Perl and writing XSUBs so Perl could
+call Tk C library routines. The marriage of Tk and Perl was
+complicated further because in those days Tcl/Tk C subroutines passed
+simple strings back and forth, which didn't fit well with
+Perl's model of native data types. Nonetheless, by the summer
+of 1994, TkPerl was available in alpha form for general use, sans the
+Text widget and a handful of lesser-used commands and bindings.
+</p>
+
+<p>Here's an early TkPerl "Hello World" program:</p>
+
+<blockquote><pre class="code">use Tk;
+$mw = tkinit;
+$b = Button::new($mw, -text =&gt; 'Hello World');
+$b-&gt;configure(-method =&gt; sub {exit});
+tkpack($b);
+tkmainloop;</pre></blockquote>
+
+<p>If this looks odd to you, remember it was the state of affairs nearly
+eight years ago, when TkPerl was alpha, and Perl's
+object-oriented features were still beta. Notice that
+<i class="command">pack</i> hadn't yet been turned into a widget
+method and was renamed <i class="command">tkpack</i> so it didn't
+conflict with Perl's built-in function by the same name. Yet it
+worked, and it let us use Tk from Perl, which, after all, was the
+goal.
+</p>
+
+<p><a name="INDEX-24" /><a name="INDEX-25" /><a name="INDEX-26" /><a name="INDEX-27" /><a name="INDEX-28" />Around this time, another chap from the
+United Kingdom, Nick Ing-Simmons (then of Texas Instruments), began
+using TkPerl in earnest. He and Malcolm collaborated for a time, and
+they mutually agreed that Nick would continue development. From this
+came nTk, or "new Tk," or possibly "Nick's
+Tk," and thus began the evolution of Perl's Tk
+programming interface to what it is today. In May 1995, there was
+another name change, and Nick's package became known as pTk,
+for "pure Tk," or "portable Tk," or
+"Perl/Tk." Throughout the years, user-contributed widgets
+and Ioi Kim Lam's Tk Interface Extension (Tix) widgets found
+their way into the distribution. These Tks were all based on Tcl/Tk
+Version 4.x, a version for Unix only.
+</p>
+
+<p>Remember the Xlib code we showed? <a href="ch01_02.htm#mastperltk-CHP-1-FIG-1">Figure 1-1</a> shows
+a simple Perl/Tk window.
+</p>
+
+<a name="mastperltk-CHP-1-FIG-1" /><div class="figure"><img src="figs/mptk.0101.gif" alt="Figure 1-1" width="78" height="45" /></div><h4 class="objtitle">Figure 1-1. Hello, Perl/Tk</h4>
+
+<p>This window was created with the following Perl one-liner:</p>
+
+<blockquote><pre class="code">perl -MTk -e 'MainWindow-&gt;new-&gt;Label(-text =&gt; "Hello, Perl/Tk")-&gt;pack; MainLoop'</pre></blockquote>
+
+<p>This example highlights just how far we've come. </p>
+
+</div>
+<a name="mastperltk-CHP-1-SECT-2.4" /><div class="sect2">
+<h3 class="sect2">1.2.4. Perl/Tk Meets Win32</h3>
+
+<p><a name="INDEX-29" />In the
+meantime, the Tcl/Tk team members weren't resting on their
+well-deserved laurels. By the summer of 1995, Tcl/Tk 8.x<a href="#FOOTNOTE-4">[4]</a> was running on Unix, MacOS classic,
+and Win32 operating systems, with a look and feel appropriate for
+each environment. It would take two more years for Perl/Tk to catch
+up.<a href="#FOOTNOTE-5">[5]</a>
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-4" /><p> [4] There were no Tk 5.x, 6.x, or 7.x versions. Tk jumped from a
+4.x version number to 8.x to match the corresponding Tcl version.
+This made it easier to know which version of Tk matched which Tcl
+installation.</p> </blockquote><blockquote class="footnote"> <a name="FOOTNOTE-5" /><p> [5] On Windows, that is; Perl/Tk is still unavailable
+on Mac OS at the time of this writing.</p> </blockquote>
+
+<p><a name="INDEX-30" />By the
+summer of 1997, Gurusamy Sarathy, a well-known and respected Perl
+porter, had produced a binary distribution of Perl 5.004 and Tk
+40x.000 (and other useful modules) specifically for Window 95 and
+Windows NT. The growth of Perl/Tk took off exponentially. The only
+major complaint was that a Perl/Tk GUI looked too Motif-like, due to
+its Unix roots.
+</p>
+
+<p><a name="INDEX-31" />Nick, with his
+prodigious programming abilities, wasn't idling either, for in
+early 1998 he'd merged all of Perl/Tk, Tix, Jan Nijtmans'
+image package, and Tcl/Tk 8.0, thus creating the basis for the
+current Perl/Tk 800.000 series.
+</p>
+
+<p>Simultaneously, Sarathy was heading the effort to combine the
+disparate Perl ports into a unified Unix and Win32 distribution,
+commonly called Oneperl. Finally, in the summer of 1998, we had one
+Perl, 5.005, for Unix and Win32. ActiveState Corporation distributes
+this unified Perl in binary form, used on most Win32 systems these
+days.
+</p>
+
+<p>Around July 1998, Nick produced a unified Unix and Win32 Perl/Tk
+distribution, and placed a binary version of Perl/Tk 800.010 in
+ActiveState's PPM repository. The result is that Win32 users
+can simply download binary installation packages of Perl and Tk. For
+most Unix users, using a simple idiom, you compile Perl and Tk
+yourself. If you're really lucky, you can search the Web and
+find a binary distribution of Perl/Tk for your particular flavor of
+Unix.
+</p>
+
+<a name="mastperltk-CHP-1-SIDEBAR-1" /><blockquote><table border="1" cellpadding="6"><tr><td>
+<h4 class="objtitle">Running Perl/Tk Programs on Win32</h4>
+
+<p>There are no differences between writing Perl/Tk applications on Unix
+or Windows machines. You can use any simple text editor on either
+system. However, there can be a small difference in the way you run
+them.
+</p>
+
+<p>The lowest common denominator is to manually invoke Perl and specify
+the Perl/Tk program filename on the command line, like this:
+</p>
+
+<blockquote><pre class="code">perl myprog.pl</pre></blockquote>
+
+<p>A Unix user commonly gives his program execute permission and ensures
+that the first line of the program is a valid "bang"
+line. This allows the user to invoke Perl/Tk programs by name. When
+invoking a program by name, the Unix command processor, called the
+shell program, inspects the file's first line and, if it begins
+with the characters <tt class="literal">#!</tt>, treats the remainder of
+the line as the command to execute, possibly with arguments. The
+<tt class="literal">!</tt> character is the <em class="firstterm">bang</em>. A
+line of this form invokes Perl with the <tt class="literal">-w</tt> switch:
+</p>
+
+<blockquote><pre class="code">#!/usr/local/bin/perl -w</pre></blockquote>
+
+<p>Conceptually, Win32 users do the same thing by associating the
+extension <em class="filename">.pl</em> with the Perl interpreter, so they
+can use Explorer and double-click the script to execute it. See <a href="appa_01.htm">Appendix A, "Installing Perl/Tk"</a> for more details.
+</p>
+</td></tr></table><p></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch01_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch01_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">1. Hello, Perl/Tk</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">1.3. Getting Started with Perl/Tk</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

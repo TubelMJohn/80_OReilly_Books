@@ -1,0 +1,817 @@
+<?label A.6. DBI Database Handle Objects ?><html><head><title>DBI Database Handle Objects  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="appa_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="appa_07.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">A.6. DBI Database Handle Objects </h2>
+
+
+
+<p>This section covers the methods and attributes associated with
+database handles.</p>
+
+
+
+<a name="appa-49-fm2xml" /><div class="sect2">
+<h3 class="sect2">A.6.1. Database Handle Methods </h3>
+
+
+
+<p>The following methods are specified for DBI database handles:</p>
+
+
+
+
+<a name="INDEX-1050" /><a name="INDEX-1051" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>do</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+
+$rc  = $dbh-&gt;do($statement)           || die $dbh-&gt;errstr;
+$rc  = $dbh-&gt;do($statement, \%attr)   || die $dbh-&gt;errstr;
+$rv  = $dbh-&gt;do($statement, \%attr, @bind_values) || ...</pre></td><td align="right" /></tr></table><p>Prepares <a name="INDEX-1050" />
+<a name="INDEX-1051" />and
+executes a single statement. Returns the number of rows affected or
+<tt class="literal">undef</tt> on error. A return value of
+<tt class="literal">-1</tt> means the number of rows is not known or is not
+available.</p><p>This method is typically most useful for
+<em class="emphasis">non</em>-<tt class="literal">SELECT</tt> statements that
+either cannot be prepared in advance (due to a limitation of the
+driver) or do not need to be executed repeatedly. It should not be
+used for <tt class="literal">SELECT</tt> statements because it does not
+return a statement handle (so you can't fetch any data).</p><p>The default <tt class="literal">do</tt> method is logically similar to:</p><blockquote><pre class="code">sub do {
+    my($dbh, $statement, $attr, @bind_values) = @_;
+    my $sth = $dbh-&gt;prepare($statement, $attr) or return undef;
+    $sth-&gt;execute(@bind_values) or return undef;
+    my $rows = $sth-&gt;rows;
+    ($rows == 0) ? "0E0" : $rows; # always return true if no error
+}</pre></blockquote><p>For example:</p><blockquote><pre class="code">my $rows_deleted = $dbh-&gt;do(q{
+    DELETE FROM table
+    WHERE status = ?
+}, undef, 'DONE') || die $dbh-&gt;errstr;</pre></blockquote><p>Using placeholders and <tt class="literal">@bind_values</tt> with the
+<tt class="literal">do</tt> method can be useful because it avoids the need
+to correctly quote any variables in the
+<tt class="literal">$statement</tt>. But if you'll be executing the
+statement many times, then it's more efficient to
+<tt class="literal">prepare</tt> it once and call
+<tt class="literal">execute</tt> many times instead.</p><p>The <tt class="literal">q{...}</tt> style quoting used in this example
+avoids clashing with quotes that may be used in the SQL statement.
+Use the double-quote-like <tt class="literal">qq{...}</tt> operator if you
+want to interpolate variables into the string. See the section on
+"<em class="emphasis">Quote and Quote-Like Operators"</em> in
+the perlop manpage for more details.</p></div>
+
+<a name="INDEX-1052" /><a name="INDEX-1053" /><a name="INDEX-1054" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>selectrow_array </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+@row_ary = $dbh-&gt;selectrow_array($statement);
+@row_ary = $dbh-&gt;selectrow_array($statement, \%attr);
+@row_ary = $dbh-&gt;selectrow_array($statement, \%attr, @bind_values);</pre></td><td align="right" /></tr></table><p>This <a name="INDEX-1052" />
+<a name="INDEX-1053" />
+<a name="INDEX-1054" />utility
+method combines <tt class="literal">prepare</tt>,
+<tt class="literal">execute</tt>, and <tt class="literal">fetchrow_array</tt>
+into a single call. If called in a list context, it returns the first
+row of data from the statement. If called in a scalar context, it
+returns the first field of the first row. The
+<tt class="literal">$statement</tt> parameter can be a previously prepared
+statement handle, in which case the <tt class="literal">prepare</tt> is
+skipped.</p><p>If any method fails, and <tt class="literal">RaiseError</tt> is not set,
+<tt class="literal">selectrow_array</tt> will return an empty list.</p><p>In a scalar context, <tt class="literal">selectrow_array</tt> returns the
+value of the first field. An <tt class="literal">undef</tt> is returned if
+there are no matching rows or if an error occurred. Since that
+<tt class="literal">undef</tt> can't be distinguished from an
+<tt class="literal">undef</tt> returned because the first field value was
+NULL, calling <tt class="literal">selectrow_array</tt> in a scalar context
+should be used with caution.</p></div>
+
+<a name="INDEX-1055" /><a name="INDEX-1056" /><a name="INDEX-1057" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>selectall_arrayref </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$ary_ref = $dbh-&gt;selectall_arrayref($statement);
+$ary_ref = $dbh-&gt;selectall_arrayref($statement, \%attr);
+$ary_ref = $dbh-&gt;selectall_arrayref($statement, \%attr,
+@bind_values);</pre></td><td align="right" /></tr></table><p>This <a name="INDEX-1055" />
+<a name="INDEX-1056" />
+<a name="INDEX-1057" />utility
+method combines <tt class="literal">prepare</tt>,
+<tt class="literal">execute</tt><em class="emphasis">,</em> and
+<tt class="literal">fetchall_arrayref</tt> into a single call. It returns a
+reference to an array containing a reference to an array for each row
+of data fetched.</p><p>The <tt class="literal">$statement</tt> parameter can be a previously
+prepared statement handle, in which case the
+<tt class="literal">prepare</tt> is skipped. This is recommended if the
+statement is going to be executed many times.</p><p>If any method except <tt class="literal">fetch</tt> fails, and
+<tt class="literal">RaiseError</tt> is not set,
+<tt class="literal">selectall_arrayref</tt> will return
+<tt class="literal">undef</tt>. If <tt class="literal">fetch</tt> fails, and
+<tt class="literal">RaiseError</tt> is not set, then it will return with
+whatever data it has fetched thus far.</p></div>
+
+<a name="INDEX-1058" /><a name="INDEX-1059" /><a name="INDEX-1060" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>selectcol_arrayref </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$ary_ref = $dbh-&gt;selectcol_arrayref($statement);
+$ary_ref = $dbh-&gt;selectcol_arrayref($statement, \%attr);
+$ary_ref = $dbh-&gt;selectcol_arrayref($statement, \%attr, @bind_values);</pre>
+</td><td align="right" /></tr></table><p>This <a name="INDEX-1058" />
+<a name="INDEX-1059" />
+<a name="INDEX-1060" />utility
+method combines <tt class="literal">prepare</tt>,
+<tt class="literal">execute</tt>, and fetching one column from all the
+rows, into a single call. It returns a reference to an array
+containing the values of the first column from each row.</p><p>The <tt class="literal">$statement</tt> parameter can be a previously
+prepared statement handle, in which case the
+<tt class="literal">prepare</tt> is skipped. This is recommended if the
+statement is going to be executed many times.</p><p>If any method except <tt class="literal">fetch</tt> fails, and
+<tt class="literal">RaiseError</tt> is not set,
+<tt class="literal">selectcol_arrayref</tt> will return
+<tt class="literal">undef</tt>. If <tt class="literal">fetch</tt> fails and
+<tt class="literal">RaiseError</tt> is not set, then it will return with
+whatever data it has fetched thus far.</p></div>
+
+<a name="INDEX-1061" /><a name="INDEX-1062" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>prepare </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$sth = $dbh-&gt;prepare($statement)          || die $dbh-&gt;errstr;
+$sth = $dbh-&gt;prepare($statement, \%attr)  || die $dbh-&gt;errstr;</pre></td><td align="right" /></tr></table><p>Prepares a <a name="INDEX-1061" />
+<a name="INDEX-1062" />single
+statement for later execution by the database engine and returns a
+reference to a statement handle object.</p><p>The returned statement handle can be used to get attributes of the
+statement and invoke the <tt class="literal">execute</tt> method. See
+"<em class="emphasis">Statement Handle Methods."</em></p><p>Drivers for engines without the concept of preparing a statement will
+typically just store the statement in the returned handle and process
+it when <tt class="literal">$sth-</tt>&gt;<tt class="literal">execute</tt> is
+called. Such drivers are unlikely to give much useful information
+about the statement, such as
+<tt class="literal">$sth-</tt>&gt;<tt class="literal">{NUM_OF_FIELDS}</tt>, until
+after <tt class="literal">$sth-</tt>&gt;<tt class="literal">execute</tt> has been
+called. Portable applications should take this into account.</p><p>In general, DBI drivers do not parse the contents of the statement
+(other than simply counting any <em class="emphasis">placeholders</em>).
+The statement is passed directly to the database engine, sometimes
+known as pass-thru mode. This has advantages and disadvantages. On
+the plus side, you can access all the functionality of the engine
+being used. On the downside, you're limited if you're
+using a simple engine, and you need to take extra care if
+you're writing applications intended to be portable between
+engines.</p><p>Portable applications should not assume that a new statement can be
+prepared and/or executed while still fetching results from a previous
+statement.</p><p>Some command-line SQL tools use statement terminators, like a
+semicolon, to indicate the end of a statement. Such terminators
+should not normally be used with the DBI.</p></div>
+
+<a name="INDEX-1063" /><a name="INDEX-1064" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>prepare_cached </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$sth = $dbh-&gt;prepare_cached($statement)
+$sth = $dbh-&gt;prepare_cached($statement, \%attr)
+$sth = $dbh-&gt;prepare_cached($statement, \%attr, $allow_active)</pre></td><td align="right" /></tr></table><p>Like
+<tt class="literal">prepare</tt>
+<a name="INDEX-1063" />
+<a name="INDEX-1064" />
+except that the statement handle returned will be stored in a hash
+associated with the <tt class="literal">$dbh</tt>. If another call is made
+to <tt class="literal">prepare_cached</tt> with the same
+<tt class="literal">$statement</tt> and <tt class="literal">%attr</tt> values,
+then the corresponding cached <tt class="literal">$sth</tt> will be
+returned without contacting the database server.</p><p>This caching can be useful in some applications, but it can also
+cause problems and should be used with care. A warning will be
+generated if the cached <tt class="literal">$sth</tt> being returned is
+active (i.e., it is a <tt class="literal">SELECT</tt> that may still have
+data to be fetched). This warning can be suppressed by setting
+<tt class="literal">$allow_active</tt> to true. The cache can be accessed
+(and cleared) via the <tt class="literal">CachedKids</tt> attribute.</p><p>Here's an example of one possible use of
+<tt class="literal">prepare_cached</tt>:</p><blockquote><pre class="code">while ( ($field, $value) = each %search_fields ) {
+    push @sql,   "$field = ?";
+    push @values, $value;
+}
+$qualifier = "";
+$qualifier = "where ".join(" and ", @sql) if @sql;
+$sth = $dbh-&gt;prepare_cached("SELECT * FROM table $qualifier");
+$sth-&gt;execute(@values);</pre></blockquote></div>
+
+<a name="INDEX-1065" /><a name="INDEX-1066" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>commit </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$rc  = $dbh-&gt;commit     || die $dbh-&gt;errstr;</pre></td><td align="right" /></tr></table><p>Commits <a name="INDEX-1065" />
+<a name="INDEX-1066" />(makes
+permanent) the most recent series of database changes if the database
+supports transactions and <tt class="literal">AutoCommit</tt> is off.</p><p>If <tt class="literal">AutoCommit</tt> is on, then calling
+<tt class="literal">commit</tt> will issue a "commit ineffective with
+AutoCommit" warning.</p></div>
+
+<a name="INDEX-1067" /><a name="INDEX-1068" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>rollback </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$rc  = $dbh-&gt;rollback   || die $dbh-&gt;errstr;</pre></td><td align="right" /></tr></table><p>Rolls back <a name="INDEX-1067" />
+<a name="INDEX-1068" />(undoes)
+the most recent series of uncommitted database changes if the
+database supports transactions and <tt class="literal">AutoCommit</tt> is
+off.</p><p>If <tt class="literal">AutoCommit</tt> is on, then calling
+<tt class="literal">rollback</tt> will issue a "rollback ineffective
+with AutoCommit" warning.</p></div>
+
+<a name="INDEX-1069" /><a name="INDEX-1070" /><a name="INDEX-1071" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>disconnect </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$rc = $dbh-&gt;disconnect  || warn $dbh-&gt;errstr;</pre></td><td align="right" /></tr></table><p>Disconnects
+
+<a name="INDEX-1069" />
+<a name="INDEX-1070" />the
+database from the database handle. <tt class="literal">disconnect</tt> is
+typically used only before exiting the program. The handle is of
+little use after disconnecting.</p><p>The transaction behavior of the <tt class="literal">disconnect</tt> method
+is, sadly, undefined. Some database systems (such as Oracle and
+Ingres) will automatically commit any outstanding changes, but others
+(such as Informix) will roll back any outstanding changes.
+Applications not using <tt class="literal">AutoCommit</tt> should
+explicitly call <tt class="literal">commit</tt> or
+<tt class="literal">rollback</tt> before calling
+<tt class="literal">disconnect</tt>.</p><p>The database is automatically disconnected by the
+<tt class="literal">DESTROY</tt>
+<a name="INDEX-1071" /> method if still connected when there are
+no longer any references to the handle. The
+<tt class="literal">DESTROY</tt> method for each driver should implicitly
+call <tt class="literal">rollback</tt> to undo any uncommitted changes.
+This is vital behavior to ensure that incomplete transactions
+don't get committed simply because Perl calls
+<tt class="literal">DESTROY</tt> on every object before exiting. Also, do
+not rely on the order of object destruction during "global
+destruction," as it is undefined.</p><p>Generally, if you want your changes to be commited or rolled back
+when you disconnect, then you should explicitly call
+<tt class="literal">commit</tt> or <tt class="literal">rollback</tt> before
+disconnecting.</p><p>If you disconnect from a database while you still have active
+statement handles, you will get a warning. The statement handles
+should either be cleared (destroyed) before disconnecting, or the
+<tt class="literal">finish</tt> method should be called on each one.</p></div>
+
+<a name="INDEX-1072" /><a name="INDEX-1073" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>ping </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$rc = $dbh-&gt;ping;</pre></td><td align="right" /></tr></table><p>Attempts <a name="INDEX-1072" />
+<a name="INDEX-1073" />to
+determine, in a reasonably efficient way, if the database server is
+still running and the connection to it is still working. Individual
+drivers should implement this function in the most suitable manner
+for their database engine.</p><p>The current default implementation always returns true without
+actually doing anything. Actually, it returns
+"<tt class="literal">0</tt> <tt class="literal">but</tt>
+<tt class="literal">true</tt>", which is true but zero. That way you
+can tell if the return value is genuine or just the default. Drivers
+should override this method with one that does the right thing for
+their type of database.</p><p>Few applications would have use for this method. See the specialized
+<tt class="literal">Apache::DBI</tt> module for one example usage.</p></div>
+
+<a name="INDEX-1074" /><a name="INDEX-1075" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>table_info  (NEW ) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$sth = $dbh-&gt;table_info;</pre></td><td align="right" /></tr></table><p>Warning: This method is experimental and may change.</p><p>Returns <a name="INDEX-1074" />
+<a name="INDEX-1075" />an
+active statement handle that can be used to fetch information about
+tables and views that exist in the database.</p><p>The handle has at least the following fields in the order show below.
+Other fields, after these, may also be present.</p><dl>
+<dt><b>TABLE_CAT</b></dt>
+<dd><p>Table catalog identifier. This field is NULL
+(<tt class="literal">undef</tt>) if not applicable to the data source,
+which is usually the case. This field is empty if not applicable to
+the table.</p></dd>
+
+
+
+<dt><b>TABLE_SCHEM</b></dt>
+<dd><p>The name of the schema containing the TABLE_NAME value. This field is
+NULL (<tt class="literal">undef</tt>) if not applicable to data source, and
+empty if not applicable to the table.</p></dd>
+
+
+
+<dt><b>TABLE_NAME</b></dt>
+<dd><p>Name of the table (or view, synonym, etc.).</p></dd>
+
+
+
+<dt><b>TABLE_TYPE</b></dt>
+<dd><p>One of the following: "TABLE," "VIEW,"
+"SYSTEM TABLE," "GLOBAL TEMPORARY,"
+"LOCAL TEMPORARY," "ALIAS,"
+"SYNONYM," or a type identifier that is specific to the
+data source.</p></dd>
+
+
+
+<dt><b>REMARKS</b></dt>
+<dd><p>A description of the table. May be NULL (<tt class="literal">undef</tt>).</p></dd>
+
+</dl><p>Note that <tt class="literal">table_info</tt> might not return records for
+all tables. Applications can use any valid table regardless of
+whether it's returned by <tt class="literal">table_info</tt>. See
+also <tt class="literal">tables</tt>.</p><p>For more detailed information about the fields and their meanings,
+refer to:</p><blockquote class="simplelist">
+
+<p><a href="http://msdn.microsoft.com/library/psdk/dasdk/odch6wqb.htm">http://msdn.microsoft.com/library/psdk/dasdk/odch6wqb.htm</a></p>
+
+</blockquote><p>If that URL ceases to work, then use the MSDN search facility at:</p><blockquote class="simplelist">
+
+<p><a href="http://search.microsoft.com/us/dev/">http://search.microsoft.com/us/dev/</a></p>
+
+</blockquote><p>and search for <tt class="literal">SQLTables</tt>
+<tt class="literal">returns</tt> using the exact phrase option. The link
+you want will probably just be called <tt class="literal">SQLTables</tt>
+and will be part of the Data Access SDK.</p></div>
+
+<a name="INDEX-1076" /><a name="INDEX-1077" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>tables  (NEW ) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+@names = $dbh-&gt;tables;</pre></td><td align="right" /></tr></table><p>Warning: This method is experimental and may change.</p><p>Returns a list of <a name="INDEX-1076" />
+<a name="INDEX-1077" />table
+and view names, possibly including a schema prefix. This list should
+include all tables that can be used in a <tt class="literal">SELECT</tt>
+statement without further qualification.</p><p>Note that <tt class="literal">table_info</tt> might not return records for
+all tables. Applications can use any valid table regardless of
+whether it's returned by tables. See also
+<tt class="literal">table_info</tt>.</p></div>
+
+<a name="INDEX-1078" /><a name="INDEX-1079" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>type_info_all  (NEW ) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$type_info_all = $dbh-&gt;type_info_all;</pre></td><td align="right" /></tr></table><p>Warning: This method is experimental and may change.</p><p>Returns <a name="INDEX-1078" />
+<a name="INDEX-1079" />a
+reference to an array that holds information about each datatype
+variant supported by the database and driver. The array and its
+contents should be treated as read-only.</p><p>The first item is a reference to a hash of <tt class="literal">Name
+=</tt>&gt; <tt class="literal">Index</tt> pairs. The following items
+are references to arrays, one per supported datatype variant. The
+leading hash defines the names and order of the fields within the
+following list of arrays. For example:</p><blockquote><pre class="code">$type_info_all = [
+  {   TYPE_NAME         =&gt; 0,
+      DATA_TYPE         =&gt; 1,
+      COLUMN_SIZE       =&gt; 2,     # was PRECISION originally
+      LITERAL_PREFIX    =&gt; 3,
+      LITERAL_SUFFIX    =&gt; 4,
+      CREATE_PARAMS     =&gt; 5,
+      NULLABLE          =&gt; 6,
+      CASE_SENSITIVE    =&gt; 7,
+      SEARCHABLE        =&gt; 8,
+      UNSIGNED_ATTRIBUTE=&gt; 9,
+      FIXED_PREC_SCALE  =&gt; 10,    # was MONEY originally
+      AUTO_UNIQUE_VALUE =&gt; 11,    # was AUTO_INCREMENT originally
+      LOCAL_TYPE_NAME   =&gt; 12,
+      MINIMUM_SCALE     =&gt; 13,
+      MAXIMUM_SCALE     =&gt; 14,
+      NUM_PREC_RADIX    =&gt; 15,
+  },
+  [ 'VARCHAR', SQL_VARCHAR,
+      undef, "'","'", undef,0, 1,1,0,0,0,undef,1,255, undef
+  ],
+  [ 'INTEGER', SQL_INTEGER,
+      undef,  "", "", undef,0, 0,1,0,0,0,undef,0,  0, 10
+  ],
+];</pre></blockquote><p>Note that more than one row may have the same value in the
+<tt class="literal">DATA_TYPE</tt> field if there are different ways to
+spell the type name and/or there are variants of the type with
+different attributes (e.g., with and without
+<tt class="literal">AUTO_UNIQUE_VALUE</tt> set, with and without
+<tt class="literal">UNSIGNED_ATTRIBUTE</tt>, etc.).</p><p>The rows are ordered by <tt class="literal">DATA_TYPE</tt> first and then
+by how closely each type maps to the corresponding ODBC SQL datatype,
+closest first.</p><p>The meaning of the fields is described in the documentation for the
+<tt class="literal">type_info</tt> method. The index values shown above
+(e.g., <tt class="literal">NULLABLE =</tt>&gt; <tt class="literal">6</tt>) are
+for illustration only. Drivers may define the fields with a different
+order.</p><p>This method is not normally used directly. The
+<tt class="literal">type_info</tt> method provides a more useful interface
+to the data.</p></div>
+
+<a name="INDEX-1080" /><a name="INDEX-1081" /><a name="INDEX-1082" /><a name="INDEX-1083" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>type_info  (NEW ) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+@type_info = $dbh-&gt;type_info($data_type);</pre></td><td align="right" /></tr></table><p>Warning: This method is experimental and may change.</p><p>Returns <a name="INDEX-1080" />
+<a name="INDEX-1081" />a
+list of hash references holding information about one or more
+variants of <tt class="literal">$data_type</tt>. The list is ordered by
+<tt class="literal">DATA_TYPE</tt> first and then by how closely each type
+maps to the corresponding ODBC SQL datatype, closest first. If called
+in a scalar context then only the first (best) element is returned.</p><p>If <tt class="literal">$data_type</tt> is undefined or
+<tt class="literal">SQL_ALL_TYPES</tt>, then the list will contain hashes
+for all datatype variants supported by the database and driver.</p><p>If <tt class="literal">$data_type</tt> is an array reference, then
+<tt class="literal">type_info</tt> returns the information for the
+<em class="emphasis">first</em> type in the array that has any matches.</p><p>The keys of the hash follow the same letter case conventions as the
+rest of the DBI (see "<em class="emphasis">Naming Conventions and Name
+Space"</em>). The following items should exist:</p><dl>
+<dt><b>TYPE_NAME (string) </b></dt>
+<dd><p>Datatype name for use in <tt class="literal">CREATE</tt>
+<tt class="literal">TABLE</tt> statements, etc.</p></dd>
+
+
+
+<dt><b>DATA_TYPE (integer) </b></dt>
+<dd><p>SQL datatype number.</p></dd>
+
+
+
+<dt><b>COLUMN_SIZE (integer) </b></dt>
+<dd><p>For numeric types, this is either the total number of digits (if the
+<tt class="literal">NUM_PREC_RADIX</tt> value is <tt class="literal">10</tt>) or
+the total number of bits allowed in the column (if
+<tt class="literal">NUM_PREC_RADIX</tt> is <tt class="literal">2</tt>).</p>
+
+
+
+<p>For string types, this is the maximum size of the string in bytes.</p>
+
+
+
+<p>For date and interval types, this is the maximum number of characters
+needed to display the value.</p></dd>
+
+
+
+<dt><b>LITERAL_PREFIX (string) </b></dt>
+<dd><p>Characters used to prefix a literal. A typical prefix is
+"<tt class="literal">'</tt>" for characters, or possibly
+"<tt class="literal">0x</tt>" for binary values passed as
+hexadecimal. NULL (<tt class="literal">undef</tt>) is returned for
+datatypes for which this is not applicable.</p></dd>
+
+
+
+<dt><b>LITERAL_SUFFIX (string) </b></dt>
+<dd><p>Characters used to suffix a literal. Typically
+"<tt class="literal">'</tt>" for characters. NULL
+(<tt class="literal">undef</tt>) is returned for datatypes where this is
+not applicable.</p></dd>
+
+
+
+<dt><b>CREATE_PARAMS (string) </b></dt>
+<dd><p>Parameters for a datatype definition. For example,
+<tt class="literal">CREATE_PARAMS</tt> for a <tt class="literal">DECIMAL</tt>
+would be "<tt class="literal">precision,scale</tt>" if the
+<tt class="literal">DECIMAL</tt> type should be declared as
+<tt class="literal">DECIMAL(</tt><em class="replaceable">precision</em><tt class="literal">,</tt><em class="replaceable">scale</em><tt class="literal">)</tt>
+where <em class="replaceable">precision</em> and
+<em class="replaceable">scale</em> are integer values. For a
+<tt class="literal">VARCHAR</tt> it would be "<tt class="literal">max</tt>
+<tt class="literal">length</tt>". NULL (<tt class="literal">undef</tt>) is
+returned for datatypes for which this is not applicable.</p></dd>
+
+
+
+<dt><b>NULLABLE (integer) </b></dt>
+<dd><p>Indicates whether the datatype accepts a NULL value:
+<tt class="literal">0</tt> = no, <tt class="literal">1</tt> = yes,
+<tt class="literal">2</tt> = unknown.</p></dd>
+
+
+
+<dt><b>CASE_SENSITIVE ( boolean) </b></dt>
+<dd><p>Indicates whether the datatype is case-sensitive in collations and
+comparisons.</p></dd>
+
+
+
+<dt><b>SEARCHABLE (integer) </b></dt>
+<dd><p>Indicates how the datatype can be used in a <tt class="literal">WHERE</tt>
+clause, as follows:</p>
+
+
+
+<dl>
+<dt><b>0</b></dt>
+<dd><p>Cannot be used in a <tt class="literal">WHERE</tt> clause</p></dd>
+
+
+
+<dt><b>1</b></dt>
+<dd><p>Only with a <tt class="literal">LIKE</tt> predicate</p></dd>
+
+
+
+<dt><b>2</b></dt>
+<dd><p>All comparison operators except <tt class="literal">LIKE</tt></p></dd>
+
+
+
+<dt><b>3</b></dt>
+<dd><p>Can be used in a <tt class="literal">WHERE</tt> clause with any comparison
+operator</p></dd>
+
+</dl>
+</dd>
+
+</dl><dl>
+<dt><b>UNSIGNED_ATTRIBUTE ( boolean) </b></dt>
+<dd><p>Indicates whether the datatype is unsigned. NULL
+(<tt class="literal">undef</tt>) is returned for datatypes for which this
+is not applicable.</p></dd>
+
+
+
+<dt><b>FIXED_PREC_SCALE ( boolean) </b></dt>
+<dd><p>Indicates whether the datatype always has the same precision and
+scale (such as a money type). NULL (<tt class="literal">undef</tt>) is
+returned for datatypes for which this is not applicable.</p></dd>
+
+
+
+<dt><b>AUTO_UNIQUE_VALUE ( boolean) </b></dt>
+<dd><p>Indicates whether a column of this datatype is automatically set to a
+unique value whenever a new row is inserted. NULL
+(<tt class="literal">undef</tt>) is returned for datatypes for which this
+is not applicable.</p></dd>
+
+
+
+<dt><b>LOCAL_TYPE_NAME (string) </b></dt>
+<dd><p>Localized version of the <tt class="literal">TYPE_NAME</tt> for use in
+dialog with users. NULL (<tt class="literal">undef</tt>) is returned if a
+localized name is not available (in which case
+<tt class="literal">TYPE_NAME</tt> should be used).</p></dd>
+
+
+
+<dt><b>MINIMUM_SCALE (integer) </b></dt>
+<dd><p>The minimum scale of the datatype. If a datatype has a fixed scale,
+then <tt class="literal">MAXIMUM_SCALE</tt> holds the same value. NULL
+(<tt class="literal">undef</tt>) is returned for datatypes for which this
+is not applicable.</p></dd>
+
+
+
+<dt><b>MAXIMUM_SCALE (integer) </b></dt>
+<dd><p>The maximum scale of the datatype. If a datatype has a fixed scale,
+then <tt class="literal">MINIMUM_SCALE</tt> holds the same value. NULL
+(<tt class="literal">undef</tt>) is returned for datatypes for which this
+is not applicable.</p></dd>
+
+
+
+<dt><b>SQL_DATA_TYPE (integer) </b></dt>
+<dd><p>This column is the same as the <tt class="literal">DATA_TYPE</tt> column,
+except for interval and datetime datatypes. For interval and datetime
+datatypes, the <tt class="literal">SQL_DATA_TYPE</tt> field will return
+<tt class="literal">SQL_INTERVAL</tt> or <tt class="literal">SQL_DATETIME</tt>,
+and the <tt class="literal">SQL_DATETIME_SUB</tt> field below will return
+the subcode for the specific interval or datetime datatype. If this
+field is NULL, then the driver does not support or report on interval
+or date subtypes.</p></dd>
+
+
+
+<dt><b>SQL_DATETIME_SUB (integer) </b></dt>
+<dd><p>For interval or datetime datatypes, where the
+<tt class="literal">SQL_DATA_TYPE</tt> field above is
+<tt class="literal">SQL_INTERVAL</tt> or <tt class="literal">SQL_DATETIME</tt>,
+this field will hold the subcode for the specific interval or
+datetime datatype. Otherwise it will be NULL
+(<tt class="literal">undef</tt>).</p></dd>
+
+
+
+<dt><b>NUM_PREC_RADIX (integer) </b></dt>
+<dd><p>The radix value of the datatype. For approximate numeric types,
+<tt class="literal">NUM_PREC_RADIX</tt> contains the value
+<tt class="literal">2</tt> and <tt class="literal">COLUMN_SIZE</tt> holds the
+number of bits. For exact numeric types,
+<tt class="literal">NUM_PREC_RADIX</tt> contains the value
+<tt class="literal">10</tt> and <tt class="literal">COLUMN_SIZE</tt> holds the
+number of decimal digits. NULL (<tt class="literal">undef</tt>) is returned
+either for datatypes for which this is not applicable or if the
+driver cannot report this information.</p></dd>
+
+
+
+<dt><b>INTERVAL_PRECISION (integer) </b></dt>
+<dd><p>The interval leading precision for interval types. NULL is returned
+either for datatypes for which this is not applicable or if the
+driver cannot report this information.</p></dd>
+
+</dl><p>Since DBI and ODBC drivers vary in how they map their types into the
+ISO standard types, you may need to search for more than one type.
+Here's an example looking for a usable type to store a date:</p><blockquote><pre class="code">$my_date_type = $dbh-&gt;type_info( [ SQL_DATE, SQL_TIMESTAMP ] );</pre></blockquote><p>Similarly, to more reliably find a type to store small integers, you
+could use a list starting with <tt class="literal">SQL_SMALLINT</tt>,
+<tt class="literal">SQL_INTEGER</tt>, <tt class="literal">SQL_DECIMAL</tt>, etc.</p><p>For more detailed information about these fields and their meanings,
+refer to:</p><blockquote class="simplelist">
+
+<p><a href="http://msdn.microsoft.com/library/psdk/dasdk/odch6yy7.htm">http://msdn.microsoft.com/library/psdk/dasdk/odch6yy7.htm</a></p>
+
+</blockquote><p>If that URL ceases to work, then use the MSDN search facility at:</p><blockquote class="simplelist">
+
+<p><a href="http://search.microsoft.com/us/dev/">http://search.microsoft.com/us/dev/</a></p>
+
+</blockquote><p>and search the MSDN library for <tt class="literal">SQLGetTypeInfo</tt>
+<tt class="literal">returns</tt> using the exact phrase option. The link
+you want will probably just be called
+<tt class="literal">SQLGetTypeInfo</tt> (there may be more than one).</p><p>The individual datatypes are currently described here:</p><blockquote class="simplelist">
+
+<p><a href="http://msdn.microsoft.com/library/psdk/dasdk/odap8fcj.htm">http://msdn.microsoft.com/library/psdk/dasdk/odap8fcj.htm</a></p>
+
+</blockquote><p>If that URL ceases to work, or to get more general information, use
+the MSDN search facility as described above, and search for
+<a name="INDEX-1082" />
+<a name="INDEX-1083" /><tt class="literal">SQL</tt>
+<tt class="literal">Data</tt> <tt class="literal">Types</tt>.</p></div>
+
+<a name="INDEX-1084" /><a name="INDEX-1085" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>quote </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$sql = $dbh-&gt;quote($value);
+$sql = $dbh-&gt;quote($value, $data_type);</pre></td><td align="right" /></tr></table><p>Quotes <a name="INDEX-1084" />
+<a name="INDEX-1085" />a
+string literal for use as a literal value in an SQL statement, by
+escaping any special characters (such as quotation marks) contained
+within the string and adding the required type of outer quotation
+marks.</p><blockquote><pre class="code">$sql = sprintf "SELECT foo FROM bar WHERE baz = %s",
+              $dbh-&gt;quote("Don't");</pre></blockquote><p>For most database types, <tt class="literal">quote</tt> would return
+<tt class="literal">'Don''t'</tt> (including the outer quotation marks).</p><p>An undefined <tt class="literal">$value</tt> value will be returned as the
+string <tt class="literal">NULL</tt> (without quotation marks) to match how
+NULLs are represented in SQL.</p><p>If <tt class="literal">$data_type</tt> is supplied, it is used to try to
+determine the required quoting behavior by using the information
+returned by <tt class="literal">type_info</tt>. As a special case, the
+standard numeric types are optimized to return
+<tt class="literal">$value</tt> without calling
+<tt class="literal">type_info</tt>.</p><p><tt class="literal">quote</tt> will probably <em class="emphasis">not</em> be
+able to deal with all possible input (such as binary data or data
+containing newlines), and is not related in any way with escaping or
+quoting shell meta-characters. There is no need to quote values being
+used with <em class="emphasis">placeholders and bind values</em>.</p></div>
+</div>
+
+
+
+
+
+
+
+
+<a name="appa-65-fm2xml" /><div class="sect2">
+<h3 class="sect2">A.6.2. Database Handle Attributes </h3>
+
+
+
+<p>This section describes attributes specific to database handles.</p>
+
+
+
+<p>Changes to these database handle attributes do not affect any other
+existing or future database handles.</p>
+
+
+
+<p>Attempting to set or get the value of an unknown attribute is fatal,
+except for private driver-specific attributes (which all have names
+starting with a lowercase letter).</p>
+
+
+
+<p>For example:</p>
+
+
+
+<blockquote><pre class="code">$h-&gt;{AutoCommit} = ...;       # set/write
+... = $h-&gt;{AutoCommit};       # get/read</pre></blockquote>
+
+
+
+
+<a name="INDEX-1086" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>AutoCommit ( boolean) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>If true, <a name="INDEX-1086" />then database changes cannot be rolled
+back (undone). If false, then database changes automatically occur
+within a "transaction," which must either be committed or
+rolled back using the <tt class="literal">commit</tt> or
+<tt class="literal">rollback</tt> methods.</p><p>Drivers should always default to <tt class="literal">AutoCommit</tt> mode
+(an unfortunate choice largely forced on the DBI by ODBC and JDBC
+conventions.)</p><p>Attempting to set <tt class="literal">AutoCommit</tt> to an unsupported
+value is a fatal error. This is an important feature of the DBI.
+Applications that need full transaction behavior can set
+<tt class="literal">$dbh-</tt>&gt;<tt class="literal">{AutoCommit}</tt>
+<tt class="literal">=</tt> <tt class="literal">0</tt> (or set
+<tt class="literal">AutoCommit</tt> to <tt class="literal">0</tt> via
+<tt class="literal">connect</tt>) without having to check that the value
+was assigned successfully.</p><p>For the purposes of this description, we can divide databases into
+three categories:</p><blockquote class="simplelist">
+
+<p>Databases that don't support transactions at all.</p>
+
+<p>Databases in which a transaction is always active.</p>
+
+<p>Databases in which a transaction must be explicitly started (<tt class="literal">'BEGIN WORK'</tt>).</p>
+
+</blockquote></div>
+<a name="appa-67-fm2xml" /><div class="sect3">
+<h3 class="sect3">A.6.2.1. Databases that don't support transactions at all </h3>
+
+
+
+<p>For these databases, attempting to turn <tt class="literal">AutoCommit</tt>
+off is a fatal error. <tt class="literal">commit</tt> and
+<tt class="literal">rollback</tt> both issue warnings about being
+ineffective while <tt class="literal">AutoCommit</tt> is in effect.</p>
+</div>
+
+
+
+
+
+<a name="appa-68-fm2xml" /><div class="sect3">
+<h3 class="sect3">A.6.2.2. Databases in which a transaction is always active </h3>
+
+
+
+<p>These are typically mainstream commercial relational databases with
+"ANSI standard" transaction behavior. If
+<tt class="literal">AutoCommit</tt> is off, then changes to the database
+won't have any lasting effect unless <tt class="literal">commit</tt>
+is called (but see also <tt class="literal">disconnect</tt>). If
+<tt class="literal">rollback</tt> is called, then any changes since the
+last <tt class="literal">commit</tt> are undone.</p>
+
+
+
+<p>If <tt class="literal">AutoCommit</tt> is on, then the effect is the same
+as if the DBI called <tt class="literal">commit</tt> automatically after
+every successful database operation. In other words, calling
+<tt class="literal">commit</tt> or <tt class="literal">rollback</tt> explicitly
+while <tt class="literal">AutoCommit</tt> is on would be ineffective
+because the changes would have already been commited.</p>
+
+
+
+<p>Changing <tt class="literal">AutoCommit</tt> from off to on should issue a
+<tt class="literal">commit</tt> in most drivers.</p>
+
+
+
+<p>Changing <tt class="literal">AutoCommit</tt> from on to off should have no
+immediate effect.</p>
+
+
+
+<p>For databases that don't support a specific autocommit mode,
+the driver has to commit each statement automatically using an
+explicit <tt class="literal">COMMIT</tt> after it completes successfully
+(and roll it back using an explicit <tt class="literal">rollback</tt> if it
+fails). The error information reported to the application will
+correspond to the statement that was executed, unless it succeeded
+and the <tt class="literal">commit</tt> or <tt class="literal">rollback</tt>
+failed.</p>
+</div>
+
+
+
+
+
+<a name="appa-69-fm2xml" /><div class="sect3">
+<h3 class="sect3">A.6.2.3. Databases in which a transaction must be explicitly started </h3>
+
+
+
+<p>For these databases, the intention is to have them act like databases
+in which a transaction is always active (as described earlier).</p>
+
+
+
+<p>To do this, the DBI driver will automatically begin a transaction
+when <tt class="literal">AutoCommit</tt> is turned off (from the default
+"on" state) and will automatically begin another
+transaction after a <tt class="literal">commit</tt> or
+<tt class="literal">rollback</tt>. In this way, the application does not
+have to treat these databases as a special case.</p>
+
+
+
+<p>See <tt class="literal">disconnect</tt> for other important notes about
+transactions.</p>
+
+
+
+
+<a name="INDEX-1087" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>Driver ( handle) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>Holds <a name="INDEX-1087" />the handle of the parent driver. The
+only recommended use for this attribute is to find the name of the
+driver using:</p><blockquote><pre class="code">$dbh-&gt;{Driver}-&gt;{Name}</pre></blockquote></div>
+
+<a name="INDEX-1088" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>Name (string) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>Holds <a name="INDEX-1088" />the "name" of the
+database. Usually (and recommended to be) the same as the
+"<tt class="literal">dbi:DriverName:...</tt>" string used to
+connect to the database, but with the leading
+<tt class="literal">dbi:DriverName:</tt> removed.</p></div>
+
+<a name="INDEX-1089" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>RowCacheSize (integer)  (NEW ) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>A <a name="INDEX-1089" />hint to the driver indicating the size
+of the local row cache that the application would like the driver to
+use for future <tt class="literal">SELECT</tt> statements. If a row cache
+is not implemented, then setting <tt class="literal">RowCacheSize</tt> is
+ignored and getting the value returns <tt class="literal">undef</tt>.</p><p>Some <tt class="literal">RowCacheSize</tt> values have special meaning, as
+follows:</p><dl>
+<dt><b>0</b></dt>
+<dd><p>Automatically determine a reasonable cache size for each
+<tt class="literal">SELECT</tt>.</p></dd>
+
+
+
+<dt><b>1</b></dt>
+<dd><p>Disable the local row cache.</p></dd>
+
+
+
+<dt><b>&gt;1</b></dt>
+<dd><p>Cache this many rows.</p></dd>
+
+
+
+<dt><b>&lt;0</b></dt>
+<dd><p>Cache as many rows that will fit into this much memory for each
+<tt class="literal">SELECT</tt>.</p></dd>
+
+</dl><p>Note that large cache sizes may require a very large amount of memory
+(<em class="emphasis">cached rows &times; maximum size of row</em>). Also,
+a large cache will cause a longer delay not only for the first fetch,
+but also whenever the cache needs refilling.</p><p>See also the <tt class="literal">RowsInCache</tt> statement handle
+attribute.</p></div>
+</div>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="appa_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="appa_07.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">A.5. Attributes Common to All Handles </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">A.7. DBI Statement Handle Objects </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

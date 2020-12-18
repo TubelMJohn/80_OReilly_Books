@@ -1,0 +1,455 @@
+<?label 8. DBI Shell and Database Proxying ?><html><head><title>DBI Shell and Database Proxying  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch07_08.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch08_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 8. DBI Shell and Database Proxying </h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch08_01.htm">dbish -- The DBI Shell </a><br />
+<a href="ch08_02.htm">Database Proxying </a><br /></p></div>
+
+
+
+
+
+<p>This chapter takes a look at two essential additions to the Perl DBI
+armory: a command-line shell for databases, and the proxying drivers
+that provide network access to remote database drivers.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch08-ch08_dbish_0" />
+<h2 class="sect1">8.1. dbish -- The DBI Shell </h2>
+
+
+
+<p>The DBI Shell, or <tt class="literal">dbish</tt>
+<a name="INDEX-894" /> <a name="INDEX-895" />, is a command-line tool that
+allows you to run arbitrary SQL statements and diagnostics against
+databases without needing to write a complete Perl program.</p>
+
+
+
+<p>For <a name="INDEX-896" />example, let's say
+we wanted to get a quick list of all the megaliths in Wiltshire. We
+could write a complete Perl program that connects to the database,
+prepares and executes the appropriate SQL statement, fetches the data
+back, formats it, and disconnects from the database.</p>
+
+
+
+<p>With the DBI, this process is easy, but it's a bit tedious if
+you just want some quick information.</p>
+
+
+
+<p>This is where the <tt class="literal">dbish</tt> comes into play.
+<tt class="literal">dbish</tt> allows you to connect to a data source and
+type an SQL statement straight into it. <tt class="literal">dbish</tt>
+handles all the underlying connecting, preparing, and executing, and
+also gives you the results right away.</p>
+
+
+
+<a name="ch08-1-fm2xml" /><div class="sect2">
+<h3 class="sect2">8.1.1. Starting Up dbish </h3>
+
+
+
+<p><tt class="literal">dbish</tt> is an executable program bundled with the
+DBI. You should be able to start it up by <a name="INDEX-897" />typing:</p>
+
+
+
+<blockquote><pre class="code">dbish</pre></blockquote>
+
+
+
+<p>which will return a prompt in the following manner:</p>
+
+
+
+<blockquote><pre class="code">DBI::Shell 10.5 using DBI 1.14
+
+WARNING: The DBI::Shell interface and functionality are
+=======  very likely to change in subsequent versions!
+
+Available DBI drivers:
+ 1: dbi:ADO
+ 2: dbi:ExampleP
+ 3: dbi:Oracle
+ 4: dbi:Proxy
+Enter driver name or number, or full 'dbi:...:...' DSN:</pre></blockquote>
+
+
+
+<p>Some drivers require real username and password authentication to
+connect to databases. To support this requirement, you can supply
+additional arguments to <tt class="literal">dbish</tt> in the form of:</p>
+
+
+
+<blockquote><pre class="code">dbish &lt;data_source&gt; [username] [password]</pre></blockquote>
+
+
+
+<p>For example:</p>
+
+
+
+<blockquote><pre class="code">dbish '' stones stones</pre></blockquote>
+
+
+
+<p>or:</p>
+
+
+
+<blockquote><pre class="code">dbish dbi: stones stones</pre></blockquote>
+
+
+
+<p>In this case, we haven't specified a driver, and so we'll
+choose one interactively through the menus. We can also bypass the
+menus by putting in the data source name for the desired database:</p>
+
+
+
+<blockquote><pre class="code">dbish dbi:Oracle:archaeo stones stones</pre></blockquote>
+
+
+
+<p>If you don't specify a driver on the command line, the
+displayed menus allow you to select a type of database by listing the
+various drivers available. For example, if an Oracle database
+contained the megalithic database, you would select the
+<tt class="literal">dbi:Oracle</tt> data source by typing
+<tt class="literal">3</tt>. This will result in that specific database
+driver being queried for available data sources. For example:</p>
+
+
+
+<blockquote><pre class="code">Enter data source to connect to: 
+ 1: dbi:Oracle:archaeo
+ 2: dbi:Oracle:sales
+Enter data source or number, or full 'dbi:...:...' DSN:</pre></blockquote>
+
+
+
+<p>This example shows that the underlying Oracle database driver is
+aware of two locally configured Oracle databases. Our megalithic
+database is stored in the <tt class="literal">archaeo</tt> database, so
+type <tt class="literal">1</tt>.</p>
+
+
+
+<p>At this stage, <tt class="literal">dbish</tt> will attempt to connect to
+the database. Once you have connected successfully to a data source,
+you will see a prompt such as:</p>
+
+
+
+<blockquote><pre class="code">stones@dbi:Oracle:archaeo&gt;</pre></blockquote>
+
+
+
+<p>telling you that you are connected to the data source
+<tt class="literal">dbi:Oracle:archaeo</tt> as the user
+<tt class="literal">stones</tt>, and that <tt class="literal">dbish</tt> is ready
+for you to issue commands to it.</p>
+
+
+
+<p>You can make a connection to another database from within
+<tt class="literal">dbish</tt> by using the
+<tt class="literal">/connect</tt>
+<a name="INDEX-898" /> command. For example:</p>
+
+
+
+<blockquote><pre class="code">stones@dbi:Oracle:archaeo&gt; /connect dbi:Oracle:sales dbusername
+Disconnecting from dbi:Oracle:archaeo.
+Connecting to 'dbi:Oracle:sales' as 'dbusername'...
+Password for 'dbusername' (not echoed to screen): ......
+stones@dbi:Oracle:sales&gt;</pre></blockquote>
+
+
+
+<p>Unfortunately, connecting to multiple databases simultaneously is not
+yet supported by <tt class="literal">dbish</tt>.<a name="INDEX-899" /></p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch08-ch08_handling_0" /><div class="sect2">
+<h3 class="sect2">8.1.2. Handling Statements </h3>
+
+
+
+<p>In general, <a name="INDEX-900" />the
+<a name="INDEX-901" />most common reason for
+using <tt class="literal">dbish</tt> is to issue ad-hoc SQL statements to a
+database, either to check that the statement works before including
+it in a Perl program, or just to get some quick answers. This task is
+exactly what <tt class="literal">dbish</tt> was designed for.</p>
+
+
+
+<p><tt class="literal">dbish</tt> commands are entered as a forward slash
+(<tt class="literal">/</tt>) followed by a <a name="INDEX-902" />command name and optionally some extra
+arguments. For example:</p>
+
+
+
+<blockquote><pre class="code">/help</pre></blockquote>
+
+
+
+<p>Anything entered that doesn't start with a forward slash is
+considered to be part of an SQL statement and is appended to a
+``<a name="INDEX-903" />statement buffer.'' Once the
+SQL statement is complete, you can execute it, and the results, if
+any, will be returned to your screen.</p>
+
+
+
+<p>For example, to query the names of all sites in the megalithic
+database, type:</p>
+
+
+
+<blockquote><pre class="code">stones@dbi:Oracle:archaeo&gt; SELECT name FROM megaliths
+Current statement buffer (enter '/' to execute or '/help' for help):
+SELECT name FROM megaliths
+
+stones@dbi:Oracle:archaeo&gt; /
+'Avebury'
+'Stonehenge'
+'Lundin Links'
+...
+[132 rows of 1 fields returned]
+stones@dbi:Oracle:archaeo&gt;</pre></blockquote>
+
+
+
+<p>Note that a forward slash by itself can be used to execute
+statements. After executing a statement, the statement buffer is
+cleared. But suppose we start typing in a new query and then change
+our minds about what we want to return:</p>
+
+
+
+<blockquote><pre class="code">stones@dbi:Oracle:archaeo&gt; SELECT name FROM megaliths
+Current statement buffer (enter '/' to execute or '/help' for help):
+SELECT name FROM megaliths
+stones@dbi:Oracle:archaeo&gt; SELECT name, mapref FROM megaliths
+Current statement buffer (enter '/' to execute or '/help' for help):
+SELECT name FROM megaliths
+SELECT name, mapref FROM megaliths
+
+stones@dbi:Oracle:archaeo&gt;</pre></blockquote>
+
+
+
+<p>This is totally wrong! Fortunately, you can clear the statement
+buffer of old statements and start new ones afresh with the
+<tt class="literal">/clear</tt>
+<a name="INDEX-904" /> command. Statements that have been
+executed are automatically cleared from the statement buffer, but can
+be recalled with the
+<tt class="literal">/history</tt>
+<a name="INDEX-905" /> command. You can even use the
+<tt class="literal">/edit</tt>
+<a name="INDEX-906" /> command to start up an external editor
+for editing your SQL.</p>
+
+
+
+<p>The way in which results of
+<tt class="literal">SELECT</tt>
+<a name="INDEX-907" />
+statements are displayed is also configurable using the
+<tt class="literal">/format</tt>
+<a name="INDEX-908" /> command. The two options currently
+available are <tt class="literal">/format</tt> <tt class="literal">neat</tt> and
+<tt class="literal">/format</tt> <tt class="literal">box</tt>. The default option
+is <tt class="literal">neat</tt>, which uses the
+<tt class="literal">DBI::neat_list()</tt>
+<a name="INDEX-909" />
+function to format the data. For example, the statement:</p>
+
+
+
+<blockquote><pre class="code">stones@dbi:Oracle:archaeo&gt; SELECT name, mapref FROM megaliths /</pre></blockquote>
+
+
+
+<p>has the following output:</p>
+
+
+
+<blockquote><pre class="code">'Avebury', 'SU 102 699'
+'Stonehenge' 'SU 123 422',
+'Lundin Links', 'NO 404 027'
+...
+[132 rows of 1 fields returned]</pre></blockquote>
+
+
+
+<p>The <tt class="literal">box</tt> option is prettier:</p>
+
+
+
+<blockquote><pre class="code">+--------------+------------+
+| name         | mapref     |
++--------------+------------+
+| Avebury      | SU 102 699 |
++--------------+------------+
+| Stonehenge   | SU 123 422 |
++--------------+------------+
+| Lundin Links | NO 404 027 |
++--------------+------------+</pre></blockquote>
+
+
+
+<p>It's also possible to issue non-<tt class="literal">SELECT</tt>
+statements from <tt class="literal">dbish</tt> with the
+<tt class="literal">/</tt> command. Want to delete all the rows from a
+table? Simply type:</p>
+
+
+
+<blockquote><pre class="code">stones@dbi:Oracle:archaeo&gt; delete from megaliths /
+[132 rows affected]
+stones@dbi:Oracle:archaeo&gt;</pre></blockquote>
+
+
+
+<p>Quick, easy, and very deadly! Any non-<tt class="literal">SELECT</tt>
+statement can be issued in this way, including <tt class="literal">CREATE
+TABLE</tt> statements or even stored procedure calls, if your
+database supports them.<a href="#FOOTNOTE-67">[67]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-67" /><p>[67]There's a
+<tt class="literal">/do</tt> command that forces the
+<tt class="literal">do()</tt> method to be used instead of a
+<tt class="literal">prepare()</tt> followed by an
+<tt class="literal">execute()</tt>. In practice, it's rarely
+needed.</p>
+
+
+</blockquote>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch08-ch08_some_0" /><div class="sect2">
+<h3 class="sect2">8.1.3. Some Miscellaneous dbish Commands </h3>
+
+
+
+<p>As <tt class="literal">dbish</tt> is a <a name="INDEX-910" />fairly fully featured command-line
+shell,<a href="#FOOTNOTE-68">[68]</a> it has some convenient commands defined within it that
+allow you to commit and roll back database changes, recall statements
+and commands that you'd executed in the past, and even execute
+arbitrary Perl statements!</p><blockquote>
+
+
+<a name="FOOTNOTE-68" /><p>[68]<tt class="literal">dbish</tt>'s powerful
+command-line editing functionality comes courtesy of the
+<tt class="literal">Term::Readline</tt>
+<a name="INDEX-911" /> and
+<tt class="literal">Term::Readline::Gnu</tt>
+<a name="INDEX-912" /> modules. You don't need to install
+them to use <tt class="literal">dbish</tt>, but it helps.</p>
+
+
+</blockquote>
+
+
+
+<p>One of the most useful of the miscellaneous statements is
+<tt class="literal">/table_info</tt>
+<a name="INDEX-913" />, which lists the tables in the database
+that you are currently connected to. This statement is indispensable
+when you're trying to remember exactly what that pesky table
+name is!</p>
+
+
+
+<p>A full list of these commands can be seen by typing the all-important
+<tt class="literal">/help</tt> command.</p>
+
+
+
+<p><tt class="literal">dbish</tt> is currently a handy tool for performing
+quick tasks on a database. It should continue to evolve over time
+into an indispensable part of the database administrator's and
+database developer's armory, much like proprietary tools such
+as Oracle's SQL*Plus <a name="INDEX-914" />utility.<a name="INDEX-915" /> <a name="INDEX-916" /></p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch07_08.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch08_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">7.8. And What About ADO? </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">8.2. Database Proxying </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

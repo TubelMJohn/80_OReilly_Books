@@ -1,0 +1,217 @@
+<?label 17.2. FastCGI?><html><head><title>FastCGI (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch17_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch17_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">17.2. FastCGI</h2>
+
+
+<p>FastCGI is a web <a name="INDEX-3264" /> <a name="INDEX-3265" />
+<a name="INDEX-3266" />
+<a name="INDEX-3267" />server
+extension that allows you to convert CGI programs into persistent,
+long-lived server-like applications. The web server spawns a FastCGI
+process for each specified CGI application at startup, and these
+processes respond to requests, until they are explicitly terminated.
+If you expect a certain application to be used more than others, you
+can also ask FastCGI to spawn multiple processes to handle concurrent
+requests.</p>
+
+
+<p>There are several advantages to this approach. A typical Perl CGI
+application has startup overhead for each request that includes the
+process of spawning a process and interpreting the code. And, if the
+code has a lengthy initialization process, that simply adds to the
+overhead. A typical FastCGI application does not suffer from any of
+these problems. There is no extra spawning for each request, and all
+the initialization is done at startup. Since these applications are
+long-lived, they allow you to store data between requests, which is
+also an advantage.</p>
+
+
+<p><a href="ch17_02.htm#ch17-89196">Example 17-1</a> shows what a typical CGI script looks
+like.</p>
+
+
+
+<a name="ch17-89196" /><div class="example">
+<h4 class="objtitle">Example 17-1. fast_count.cgi </h4>
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use vars qw( $count );
+use FCGI;
+
+local $count = 0;
+
+while ( FCGI::accept &gt;= 0 ) {
+    $count++;
+    print "Content-type: text/plain\n\n";
+    print "You are request number $count. Have a good day!\n";
+}</pre></blockquote>
+</div>
+
+
+<p>Other than a few extra details, this is not much different than a
+regular CGI program. Since this is initialized only once, the value
+of <tt class="literal">$count</tt> (a global variable) will be zero at
+startup and will be persistent for all subsequent requests. If the
+web server receives a request for this FastCGI application, it passes
+it on and the FCGI::accept accepts the request and returns a
+response, which executes the body of the <em class="emphasis">while</em>
+loop. In this case, you will notice that the value of
+<tt class="literal">$count</tt> will be incremented for each request.</p>
+
+
+<p>If your CGI script uses CGI.pm, you can use CGI.pm's FastCGI
+interface, CGI::Fast, instead. <a name="INDEX-3268" />CGI::Fast is included in the standard
+CGI.pm distribution. <a href="ch17_02.htm#ch17-83330">Example 17-2</a> shows how <a href="ch17_02.htm#ch17-89196">Example 17-1</a> looks with CGI::Fast.</p>
+
+
+
+<a name="ch17-83330" /><div class="example">
+<h4 class="objtitle">Example 17-2. fast_count.cgi </h4>
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use vars qw( $count );
+use CGI::Fast;
+
+local $count = 0;
+
+while ( my $q = new CGI::Fast ) {
+    $count++;
+    print $q-&gt;header( "text/plain" ),
+          "You are request number $count. Have a good day!\n";
+}</pre></blockquote>
+</div>
+
+
+<p>This works the same way. Everything before the creation of a
+CGI::Fast object is only executed once. Then the script waits until
+it receives a request, which creates a new CGI::Fast object and runs
+the body of the <em class="emphasis">while</em> loop.</p>
+
+
+<p>Now that you've seen how FastCGI works, let's see how to
+install it. FastCGI works with a wide variety of web servers, but
+we'll walk through the setup for Apache.</p>
+
+
+<a name="ch17-11-fm2xml" /><div class="sect2">
+<h3 class="sect2">17.2.1. Installing FastCGI</h3>
+
+
+<p>Early versions of
+<a name="INDEX-3269" />
+<a name="INDEX-3270" />FastCGI
+required a modified version of Perl to work its magic. Fortunately,
+this is no longer the case. However, FastCGI does require a change to
+your web server. The FastCGI distribution includes modules for your
+web server as well as the Perl module, FCGI (which is also available
+on CPAN). You can obtain it from <a href="http://www.fastcgi.com/">http://www.fastcgi.com/</a>, the home of the
+FastCGI open source project. Note this is separate from <a href="http://www.fastcgi.org/">http://www.fastcgi.org/</a>, which offers
+commercial solutions built upon FastCGI. In this case the
+<em class="emphasis">.org</em> and <em class="emphasis">.com</em> web sites are
+the reverse of what you might expect.</p>
+
+
+<p>Here are the instructions for installing FastCGI with
+<a name="INDEX-3271" />Apache. If you're using
+a version of Apache greater than 1.3, you can simply run
+Apache's <em class="emphasis">configure</em> in the following
+manner:</p>
+
+
+<blockquote><pre class="code">configure --add-module=/usr/local/src/apache-fastcgi/src/mod_fastcgi.c</pre></blockquote>
+
+
+<p>Then, you need to determine where you will place your FastCGI
+applications. We let Apache know the location by adding the following
+directives in <em class="filename">httpd.conf
+</em>(<tt class="literal">Location</tt> goes in
+<em class="emphasis">access.conf</em>, and <tt class="literal">Alias</tt> in
+<em class="emphasis">srm.conf</em> if used):</p>
+
+
+<blockquote><pre class="code">&lt;Location /fcgi&gt;
+SetHandler fastcgi-script
+&lt;/Location&gt;
+
+Alias /fcgi/  /usr/local/apache/fcgi/</pre></blockquote>
+
+
+<p>For each FastCGI application that you want to start, you need to make
+an entry like the following:</p>
+
+
+<blockquote><pre class="code">AppClass /usr/local/apache/fcgi/fast_count.cgi</pre></blockquote>
+
+
+<p>Now, when you start your Apache server, you should see a
+<em class="emphasis">fcgi_count</em> process in your system's
+process table. And you can access it by simply pointing your browser
+at:</p>
+
+
+<blockquote class="simplelist">
+
+<p><em class="emphasis">http://localhost/fcgi/fast_count.cgi</em></p>
+
+</blockquote>
+
+
+<p>Go ahead and convert one of your applications to FastCGI.
+You'll see a major speed improvement. Before you do that,
+however, a few things to note. You should fix all memory leaks within
+your FastCGI programs, or else it could drastically effect your
+system resources. So, make sure to begin your scripts this way:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;</pre></blockquote>
+
+
+<p>to check for warnings and to restrict variable scope.</p>
+
+
+<p>Also, you should think about collapsing the functionality from your
+various CGI applications. Since CGI applications incur significant
+overhead for each request, it is a common practice to split the
+functionality into several little applications to reduce the
+overhead. But, with FastCGI, that is no longer a concern.</p>
+
+
+<p>FastCGI offers other functionality as well, including the ability for
+the local web server to run FastCGI programs on remote machines.
+It's beyond the scope of this chapter to go into detail about
+that topic, but you can find more information in the FastCGI
+documentation.</p>
+
+
+<p>The technology we are about to look at offers high speed improvements
+over conventional CGI applications, much like FastCGI, but does so in
+an entirely <a name="INDEX-3272" /> <a name="INDEX-3273" /> <a name="INDEX-3274" /> <a name="INDEX-3275" />different manner.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch17_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch17_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">17. Efficiency and Optimization</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">17.3. mod_perl</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

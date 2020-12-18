@@ -1,0 +1,222 @@
+<html><head><title>Fixed-length Random-access Databases (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch16_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch16_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">16.3. Fixed-length Random-access Databases</h2>
+
+<p><a name="INDEX-1057" /> <a name="INDEX-1058" />Another form of persistent data
+is the fixed-length, record-oriented disk file.<a href="#FOOTNOTE-350">[350]</a> In this
+scheme, the data consists of a number of records of identical length.
+The numbering of the records is either not important or determined by
+some indexing scheme.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-350" /><p>[350]By
+"fixed-length," we don't mean that the file itself
+is of a fixed length; it's each individual record that is of a
+fixed length. In this section, we'll use an example file in
+which every record is 55 bytes long.</p> </blockquote>
+
+<p>For example, we might want to store some information about each
+bowler at Bedrock Lanes. Let's say we decide to have a series
+of records, one per bowler, in which the data holds the
+player's name, age, last five bowling scores, and the time and
+date of his last game.
+</p>
+
+<p>We need to decide upon a suitable format for this data. Let's
+say that after studying the available formats in the documentation
+for <tt class="literal">pack</tt>, we decide to use 40 characters for the
+player's name, a one-byte integer for his age,<a href="#FOOTNOTE-351">[351]</a> five
+two-byte integers for his last five scores,<a href="#FOOTNOTE-352">[352]</a> and a four-byte integer for the
+timestamp of his most-recent game,<a href="#FOOTNOTE-353">[353]</a> giving a format string of <tt class="literal">"a40 C
+I5 L"</tt>. Each record is thus 55 bytes long. If we were
+reading all of the data in the database, we'd read chunks of 55
+bytes until we got to the end. If we wanted to go to the fifth
+record, we'd skip ahead 4 x 55 bytes (220 bytes) and read
+the fifth record directly.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-351" /><p>[351]Since one byte may have 256 different values, this will hold
+ages from 0 to 255 with ease. If Methuselah comes to bowl in Bedrock,
+we'll have to redesign the database. </p> </blockquote><blockquote class="footnote"> <a name="FOOTNOTE-352" /><p>[352]We
+can't use one-byte integers for the scores, because a bowling
+score can be as high as 300. Two-byte integers can hold values from 0
+to 65535 (if unsigned) or -32768 to 32767 (if signed). We can use
+some of these extra values as special codes; for example, if a player
+has only three games on record, the other scores could be set to 9999
+to indicate this.</p> </blockquote><blockquote class="footnote"> <a name="FOOTNOTE-353" /><p>[353]The standard Unix
+timestamp format (and the time value used by many other systems) is a
+32-bit integer, which fits into four bytes, of course. You'll
+probably find it handy to use a module to manipulate time and date
+formats.</p> </blockquote>
+
+<p>Perl supports programs that use such a disk file. In order to do so,
+however, you need to learn a few more things, including how to:
+</p>
+
+<ol><li>
+<p>Open a disk file for both reading and writing</p>
+</li><li>
+<p>Move around in this file to an arbitrary position</p>
+</li><li>
+<p>Fetch data by a length rather than up to the next newline</p>
+</li><li>
+<p>Write data down in fixed-length blocks</p>
+</li></ol>
+<p>The <tt class="literal">open</tt><a name="INDEX-1059" />
+<a name="INDEX-1060" /> function has an
+additional mode we haven't shown yet. If you use
+<tt class="literal">"+&lt;"</tt> at the front of the filename
+parameter's string, that is similar to using
+<tt class="literal">"&lt;"</tt> to open the existing file for reading,
+except that it also asks for write permission on the file. Thus you
+can have read/write access to the file:
+</p>
+
+<blockquote><pre class="code">open(FRED, "&lt;fred");  # open file fred for reading (error if file absent)
+open(FRED, "+&lt;fred"); # open file fred read/write (error if file absent)</pre></blockquote>
+
+<p>Similarly, <tt class="literal">"+&gt;"</tt> says to create a new file (as
+<tt class="literal">"&gt;"</tt> would), but to have read access to it as
+well, thus also giving read/write access:
+</p>
+
+<blockquote><pre class="code">open(WILMA, "&gt;wilma");  # make new file wilma (wiping out existing file)
+open(WILMA, "+&gt;wilma"); # make new file wilma, but also with read access</pre></blockquote>
+
+<p>Do you see the important difference between the two new modes? Both
+give read/write access to a file. But <tt class="literal">"+&lt;"</tt> lets
+you work with an existing file; it doesn't create it. The
+second mode, <tt class="literal">"+&gt;"</tt> isn't often useful,
+because it gives read/write access to a new, empty file that it has
+just created. That's mostly used for temporary (scratch) files.
+</p>
+
+<p>Once we've got the file open, we need to move around in it. You
+do this with the <tt class="literal">seek</tt><a name="INDEX-1061" /> function:
+</p>
+
+<blockquote><pre class="code">seek(FRED, 55 * $n, 0);  # seek to start of record $n</pre></blockquote>
+
+<p>The first parameter to <tt class="literal">seek</tt> is a filehandle, the
+second parameter gives the offset in bytes from the start of the
+file, and the third parameter is zero.<a href="#FOOTNOTE-354">[354]</a> To get to a certain record in our file of bowling data,
+you'll need to skip over some other records. Since each record
+is 55 bytes long, we'll multiply <tt class="literal">$n</tt> times
+<tt class="literal">55</tt> to find out which byte position we want. (Note
+that the record numbers are thus zero-based; record zero is at the
+beginning of the file.)
+</p><blockquote class="footnote"> <a name="FOOTNOTE-354" /><p>[354]Actually, the
+third parameter is the "whence" parameter. You can use a
+different value than zero if you want to seek to a position relative
+to the current position, or relative to the end of the file; see the
+<em class="emphasis">perlfunc</em>manpage for more
+information. Most people will simply want to use zero here.</p>
+</blockquote>
+
+<p>Once the file pointer has been positioned with
+<tt class="literal">seek</tt>, the next input or output operation will
+start at that position.
+</p>
+
+<p>When we're ready to read from the file, we can't use the
+ordinary line-input operator because that's made to read lines,
+not 55-byte records. There may not be a newline character in this
+entire file, or it may appear in packed data in the middle of a
+record. Instead, we'll use the
+<tt class="literal">read</tt><a name="INDEX-1062" /> function:
+</p>
+
+<blockquote><pre class="code">my $buf;  # The input buffer variable
+my $number_read = read(FRED, $buf, 55);</pre></blockquote>
+
+<p>As you can see, the first parameter to <tt class="literal">read</tt> is
+the filehandle. The second parameter is a buffer variable; the data
+read will be placed into this variable. (Yes, this is an odd way to
+get the result.) The third parameter is the number of bytes to read;
+here we've asked for 55 bytes, since that's the size of
+our record. Normally, you can expect the length of
+<tt class="literal">$buf</tt> to be the specified number of bytes, and you
+can expect that the return value (in <tt class="literal">$number_read</tt>)
+to be the same. But if your current position in the file is only five
+bytes from the end when you request 55 bytes, you'll get only
+five. Under normal circumstances, you'll get as many bytes as
+you ask for.
+</p>
+
+<p>Once you've got those 55 bytes, what can you do with them? You
+can unpack them (using the format we previously designed) to get the
+bowler's name and other information, of course:
+</p>
+
+<blockquote><pre class="code">my($name, $age, $score_1, $score_2, $score_3, $score_4, $score_5, $when)
+  = unpack "a40 C I5 L", $buf;</pre></blockquote>
+
+<p>Since we can read the information from the file with
+<tt class="literal">read</tt>, can you guess how we can write it back
+into the file? Sorry, it's not <tt class="literal">write</tt>; that
+was a trick question.<a href="#FOOTNOTE-355">[355]</a> You already know the correct function, which is
+<tt class="literal">print</tt><a name="INDEX-1063" />. But you have to be sure that the data
+string is exactly the right size; if it's too large,
+you'll overwrite the next record's data, but if
+it's too small, leftover data in the current record may be
+mixed with the new data. To ensure that the length is correct,
+we'll use <tt class="literal">pack</tt>. Let's say that Wilma
+has just bowled a game and her new score is in
+<tt class="literal">$new_score</tt>. That will be the first of the five
+most-recent scores we keep for her (<tt class="literal">$score_5</tt>, as
+the oldest one, will be discarded), and in place of
+<tt class="literal">$when</tt> (the timestamp of her previous game),
+we'll store the current time from the <tt class="literal">time</tt>
+function:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-355" /><p>[355]Perl actually does have a
+<tt class="literal">write</tt> function, but that is used with formats,
+which are beyond the scope of this book. See the
+<em class="emphasis">perlform</em>manpage.</p>
+</blockquote>
+
+<blockquote><pre class="code">print FRED pack("a40 C I5 L",
+  $name, $age,
+  $new_score, $score_1, $score_2, $score_3, $score_4,
+  time);</pre></blockquote>
+
+<p>On some systems, you'll have to use <tt class="literal">seek</tt>
+whenever you switch from reading to writing, even if the current
+position in the file is already correct. It's not a bad idea,
+then, to always use <tt class="literal">seek</tt> right before reading or
+printing.
+</p>
+
+<p>Rather than use the two constant values <tt class="literal">"a40 C I5
+L"</tt> and <tt class="literal">55</tt> throughout the program, as
+we've done here, it would generally be better to define them
+just once near the top of the code. That way, if we ever need to
+change the database format, we don't have to go searching
+through our code for places where the number <tt class="literal">55</tt>
+appears. Here's one way you might define both of those values,
+using the <tt class="literal">length</tt><a name="INDEX-1064" /> function to determine the length of a
+string so you won't have to count bytes:<a name="INDEX-1065" /> <a name="INDEX-1066" />
+</p>
+
+<blockquote><pre class="code">my $pack_format = "a40 C I5 L";
+my $pack_length = length pack($pack_format, "dummy data", 
+  0, 1, 2, 3, 4, 5, 6);</pre></blockquote>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch16_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch16_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">16.2. Manipulating Data with pack and unpack</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">16.4. Variable-length (Text) Databases</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

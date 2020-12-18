@@ -1,0 +1,295 @@
+<?label 12. Searching the Web Server?><html><head><title>Searching the Web Server (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch11_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch12_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 12. Searching the Web Server</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch12_01.htm">Searching One by One</a><br>
+<a href="ch12_02.htm">Searching One by One, Take Two</a><br>
+<a href="ch12_03.htm">Inverted Index Search</a><br></p></div>
+
+
+
+<p>Allowing users to search for specific information on your <a name="INDEX-2339" />
+<a name="INDEX-2340" />
+<a name="INDEX-2341" />web site
+is a very important and useful feature, and one that can save them
+from potential frustration trying to locate particular documents. The
+concept behind creating a search application is rather trivial:
+accept a query from the user, check it against a set of documents,
+and return those that match the specified query. Unfortunately, there
+are several issues that complicate the matter, the most significant
+of which is dealing with large document repositories. In such cases,
+it's not practical to search through each and every document in
+a linear fashion, much like searching for a needle in a haystack. The
+solution is to reduce the amount of data we need to search by doing
+some of the work in advance.</p>
+
+
+<p>This chapter will teach you how to implement different types of
+search engines, ranging from the trivial, which search documents on
+the fly, to the most complex, which are capable of intelligent
+searches.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch12-30160" />
+<h2 class="sect1">12.1. Searching One by One</h2>
+
+
+<p>The very first example that we will look at is rather trivial in that
+it does not perform the actual search, but passes the <a name="INDEX-2342" /> <a name="INDEX-2,343" />
+<a name="INDEX-2344" /> <a name="INDEX-2,345" />query to the <tt class="command">fgrep</tt>
+command and processes the results.</p>
+
+
+<p>Before we go any further, here's the HTML
+<a name="INDEX-2346" />form that we will use to get the
+information from the user:</p>
+
+
+<blockquote><pre class="code">&lt;HTML&gt;
+&lt;HEAD&gt;
+    &lt;TITLE&gt;Simple 'Mindless' Search&lt;/TITLE&gt;
+&lt;/HEAD&gt;
+&lt;BODY&gt;
+&lt;H1&gt;Are you ready to search?&lt;/H1&gt;
+&lt;P&gt;
+&lt;FORM ACTION="/cgi/grep_search1.cgi" METHOD="GET"&gt;
+&lt;INPUT TYPE="text" NAME="query" SIZE="20"&gt;
+&lt;INPUT TYPE="submit" VALUE="GO!"&gt;
+&lt;/FORM&gt;
+&lt;/BODY&gt;
+&lt;/HTML&gt;</pre></blockquote>
+
+
+<p>As we mentioned above, the program is quite simple. It creates a pipe
+to the <tt class="command">fgrep</tt> command and passes it the query, as
+well as options to perform <a name="INDEX-2347" />case-insensitive searches and to
+return the matching filenames without any text. The program
+beautifies the output from <tt class="command">fgrep</tt> by converting it
+to an HTML document and returns it to the browser.</p>
+
+
+<p><em class="emphasis">fgrep</em> returns the list of matched files in the
+following format:</p>
+
+
+<blockquote><pre class="code">/usr/local/apache/htdocs/how_to_script.html
+/usr/local/apache/htdocs/i_need_perl.html
+.
+.</pre></blockquote>
+
+
+<p>The program converts this to the following HTML list:</p>
+
+
+<blockquote><pre class="code">&lt;LI&gt;&lt;A HREF="/how_to_script.html" &gt;how_to_script.html&lt;/A&gt;&lt;/LI&gt;
+&lt;LI&gt;&lt;A HREF="/i_need_perl.html"&gt;i_need_perl.html&lt;/A&gt;&lt;/LI&gt;
+.
+.</pre></blockquote>
+
+
+<p>Let's look at the program now, as shown in <a href="ch12_01.htm#ch12-36249">Example 12-1</a>.</p>
+
+
+
+<a name="ch12-36249" /><div class="example">
+<h4 class="objtitle">Example 12-1. grep_search1.cgi </h4>
+<a name="INDEX-2348" /><a name="INDEX-2,349" />
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+# WARNING: This code has significant limitations; see description
+
+use strict;
+use CGI;
+use CGIBook::Error;
+
+# Make the environment safe to call fgrep
+BEGIN {
+    $ENV{PATH} = "/bin:/usr/bin";
+    delete @ENV{ qw( IFS CDPATH ENV BASH_ENV ) };
+}
+
+my $FGREP         = "/usr/local/bin/fgrep";
+my $DOCUMENT_ROOT = $ENV{DOCUMENT_ROOT};
+my $VIRTUAL_PATH  = "";
+
+my $q       = new CGI;
+my $query   = $q-&gt;param( "query" );
+
+$query =~ s/[^\w ]//g;
+$query =~ /([\w ]+)/;
+$query = $1;
+
+if ( defined $query ) {
+    error( $q, "Please specify a valid query!" );
+}
+
+my $results = search( $q, $query );
+
+print $q-&gt;header( "text/html" ),
+      $q-&gt;start_html( "Simple Search with fgrep" ),
+      $q-&gt;h1( "Search for: $query" ),
+      $q-&gt;ul( $results || "No matches found" ),
+      $q-&gt;end_html;
+
+
+sub search {
+    my( $q, $query ) = @_;
+    local *PIPE;
+    my $matches = "";
+    
+    open PIPE, "$FGREP -il '$query' $DOCUMENT_ROOT/* |"
+        or die "Cannot open fgrep: $!";
+    
+    while ( &lt;PIPE&gt; ) {
+        chomp;
+        s|.*/||;
+        $matches .= $q-&gt;li(
+                        $q-&gt;a( { href =&gt; "$VIRTUAL_PATH/$_" }, $_ )
+                    );
+    }
+    close PIPE;
+    return $matches;
+}</pre></blockquote>
+</div>
+
+
+<p>We initialize three globals -- <tt class="literal">$FGREP</tt>,
+<tt class="literal">$DOCUMENT_ROOT</tt>, and
+<tt class="literal">$VIRTUAL_PATH</tt> -- which store the path to the
+<tt class="command">fgrep</tt> binary, the search directory, and the
+virtual path to that directory, respectively. If you do not want the
+program to search the web server's top-level document
+directory, you should change <tt class="literal">$DOCUMENT_ROOT</tt> to
+reflect the full path of the directory where you want to enable
+searches. If you do make such a change, you will also need to modify
+<tt class="literal">$VIRTUAL_PATH</tt> to reflect the URL path to the
+directory.</p>
+
+
+<p>Because Perl will pass our <tt class="command">fgrep</tt> command through a
+<a name="INDEX-2350" /> <a name="INDEX-2,351" />
+<a name="INDEX-2352" />shell, we need to make
+sure that the query we send it is not going to cause any security
+problems. Let's decide to allow only "words"
+(represented in Perl as "a-z", "A-Z",
+"0-9", and "_") and spaces in the search. We
+proceed to strip out all characters other than words and spaces and
+pass the result through an additional <a name="INDEX-2353" />regular expression to
+<a name="INDEX-2354" />untaint it. We need to do this extra
+step because, although we know the substitution really did make the
+data safe, a substitution is not sufficient to untaint the data for
+Perl. We could have skipped the substitution and just performed the
+regular expression match, but it means that if someone entered an
+invalid character, only that part of their query before the illegal
+character would be included in the search. By doing the substitution
+first, we can strip out illegal characters and perform a search on
+everything else.</p>
+
+
+<p>After all this, if the query is not provided or is empty, we call our
+familiar <em class="emphasis">error</em> subroutine to notify the user of
+the error. We test whether it is defined first to avoid a warning for
+using an undefined variable.</p>
+
+
+<p>We open a <a name="INDEX-2355" />PIPE to the
+<em class="emphasis">fgrep</em> command for reading, which is the purpose
+of the trailing "|". Notice how the syntax is not much
+different from opening a file. If the pipe succeeds, we can go ahead
+and read the results from the pipe.</p>
+
+
+<p>The <tt class="command">-il</tt>
+<a name="INDEX-2356" /> <a name="INDEX-2,357" />
+<a name="INDEX-2358" /> options force
+<tt class="command">fgrep</tt> to perform case-insensitive searches and
+return the filenames (and not the matched lines). We make sure to
+quote the string in case the user is searching for a multiple word
+query.</p>
+
+
+<p>Finally, the last argument to <em class="emphasis">fgrep</em> is a list of
+all the files that it should search. The shell expands
+(<a name="INDEX-2359" /> <a name="INDEX-2,360" />
+<a name="INDEX-2361" />globs)
+the wildcard character into a list of all the files in the specified
+directory. This can cause problems if the directory contains a large
+number of files, as some shells have internal glob limits. We will
+fix this problem in the next section.</p>
+
+
+<p>The <tt class="function">while</tt> loop iterates through the results,
+setting <tt class="literal">$_</tt> to the current record each time through
+the loop. We strip the end-of-line character(s) and the directory
+information so we are left with just the filename. Then we create a
+list item containing a hypertext link to the item.</p>
+
+
+<p>Finally, we print out our results.</p>
+
+
+<p>How would you rate this application? It's a simple search
+engine and it works well on a small collection of files, but it
+suffers from a few problems:</p>
+
+
+<ul><li><p>It calls an external application (<tt class="command">fgrep</tt>) to handle
+the search, which makes it nonportable; Windows 95 for instance does
+not have a <tt class="command">fgrep</tt> application.</p></li><li><p>Alphanumeric "symbols" are stripped from the search
+query, due to security concerns.</p></li><li><p>It could very well run into an internal glob limit when used with
+certain shells; some shells have limits as low as 256 files.</p></li><li><p>It does not search multiple directories.</p></li><li><p>It does not return content, but simply filename(s), although we could
+have added this functionality by not specifying the
+<em class="emphasis">-l</em> option.</p></li></ul>
+<p>So, let's try again and create a better search <a name="INDEX-2362" /> <a name="INDEX-2,363" /> <a name="INDEX-2,364" /> <a name="INDEX-2,365" />engine.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch11_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch12_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">11.3. Client-Side Cookies</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">12.2. Searching One by One, Take Two</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

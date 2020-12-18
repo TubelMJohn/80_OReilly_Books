@@ -1,0 +1,212 @@
+<html><head><title>Generating Links in Unstructured Documents (XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Doug Tidwell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596000537L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XSL" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch05_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+    <h2 class="sect1">5.3. Generating Links in Unstructured Documents</h2>
+<a name="INDEX-484" />
+<a name="INDEX-485" />
+<a name="INDEX-486" />
+<a name="INDEX-487" />
+
+
+    <p>Before we leave the topic of linking, we'll discuss one more useful technique. So far, all of this chapter's examples have been structured nicely. When there was a relationship between two pieces of information, we had an <tt class="literal">id</tt> and <tt class="literal">refid</tt> pair to match them. What happens if the XML document you're transforming isn't written that way?  Fortunately, we can use the <tt class="literal">key()</tt> function and a new function, <tt class="literal">generate-id()</tt>, to create structure where there isn't any.
+
+<a name="INDEX-488" />
+
+</p>
+    <div class="sect2">
+      <h3 class="sect2">5.3.1. An Unstructured XML Document in Need of Links</h3>
+      <p>For our example here, we'll take out all of the <tt class="literal">id</tt> and <tt class="literal">refid</tt> attributes that have served us well so far. This may be a contrived example, but it demonstrates how we can use the <tt class="literal">key()</tt> and <tt class="literal">generate-id()</tt> functions to generate links between parts of our document.</p>
+      <p>In our new sample document, we've stripped out the references that neatly tied things together before:</p>
+      <blockquote><pre class="code">
+&lt;?xml version="1.0" ?&gt;
+&lt;!DOCTYPE glossary SYSTEM "unstructuredglossary.dtd"&gt;
+&lt;glossary&gt;
+  &lt;glentry&gt;
+    &lt;term&gt;applet&lt;/term&gt;
+    &lt;defn&gt;
+      An application program,
+      written in the Java programming language, that can be 
+      retrieved from a web server and executed by a web browser. 
+      A reference to an applet appears in the markup for a web 
+      page, in the same way that a reference to a graphics
+      file appears; a browser retrieves an applet in the same 
+      way that it retrieves a graphics file. 
+      For security reasons, an applet's access rights are limited
+      in two ways: the applet cannot access the file system of the 
+      client upon which it is executing, and the applet's 
+      communication across the network is limited to the server 
+      from which it was downloaded. 
+      Contrast with &lt;refterm&gt;servlet&lt;/refterm&gt;.
+    &lt;/defn&gt;
+  &lt;/glentry&gt;
+
+  &lt;glentry&gt;
+    &lt;term&gt;demilitarized zone&lt;/term&gt;
+    &lt;defn&gt;
+      In network security, a network that is isolated from, and 
+      serves as a neutral zone between, a trusted network (for example, 
+      a private intranet) and an untrusted network (for example, the
+
+      Internet). One or more secure gateways usually control access 
+      to the DMZ from the trusted or the untrusted network.
+    &lt;/defn&gt;
+  &lt;/glentry&gt;
+
+  &lt;glentry&gt;
+    &lt;term&gt;DMZ&lt;/term&gt;
+    &lt;defn&gt;
+      See &lt;refterm&gt;delimitarized zone&lt;/refterm&gt;.
+    &lt;/defn&gt;
+  &lt;/glentry&gt;
+
+  &lt;glentry&gt;
+    &lt;term&gt;pattern-matching character&lt;/term&gt;
+    &lt;defn&gt;
+      A special character such as an asterisk (*) or a question mark 
+      (?) that can be used to represent zero or more characters. 
+      Any character or set of characters can replace a pattern-matching 
+      character.
+    &lt;/defn&gt;
+  &lt;/glentry&gt;
+
+  &lt;glentry&gt;
+    &lt;term&gt;servlet&lt;/term&gt;
+    &lt;defn&gt;
+      An application program, written in the Java programming language, 
+      that is executed on a web server. A reference to a servlet 
+      appears in the markup for a web page, in the same way that a 
+      reference to a graphics file appears. The web server executes
+      the servlet and sends the results of the execution (if there are
+      any) to the web browser. Contrast with &lt;refterm&gt;applet&lt;/refterm&gt;.
+    &lt;/defn&gt;
+  &lt;/glentry&gt;
+
+  &lt;glentry&gt;
+    &lt;term&gt;wildcard character&lt;/term&gt;
+    &lt;defn&gt;
+      See &lt;refterm&gt;pattern-matching character&lt;/refterm&gt;.
+    &lt;/defn&gt;
+  &lt;/glentry&gt;
+&lt;/glossary&gt;</pre></blockquote>
+      <p>To generate cross-references between the <tt class="literal">&lt;refterm&gt;</tt> elements and the associated <tt class="literal">&lt;term&gt;</tt> elements, we'll need to do three things:</p>
+      <ol>
+        <li>
+          <p>Define a <tt class="literal">key</tt> for all terms. We'll use this <tt class="literal">key</tt> to find terms that match the text of the <tt class="literal">&lt;refterm&gt;</tt> element. </p>
+        </li>
+        <li>
+          <p>Generate a new ID for each <tt class="literal">&lt;term&gt;</tt> we find.</p>
+        </li>
+        <li>
+          <p>For each <tt class="literal">&lt;refterm&gt;</tt>, use the <tt class="literal">key()</tt> function to find the <tt class="literal">&lt;term&gt;</tt> element that matches the text of <tt class="literal">&lt;refterm&gt;</tt>. Once we've found the matching <tt class="literal">&lt;term&gt;</tt>, we call <tt class="literal">generate-id()</tt> to find the newly created ID.</p>
+        </li>
+      </ol>
+      <p>We'll go through the relevant parts of the stylesheet. First, we define the <tt class="literal">key</tt>:</p>
+      <blockquote><pre class="code">
+&lt;xsl:key name="terms" match="term" use="."/&gt;</pre></blockquote>
+      <p>Notice that we use the value of the <tt class="literal">&lt;term&gt;</tt> element itself as the lookup value for the <tt class="literal">key</tt>. Given a string, we can find all <tt class="literal">&lt;term&gt;</tt> elements with that same text.</p>
+      <p>Second, we need to generate a named anchor point for each <tt class="literal">&lt;term&gt;</tt> element:</p>
+      <blockquote><pre class="code">
+&lt;xsl:template match="glentry"&gt;
+  &lt;p&gt;
+    &lt;b&gt;
+      &lt;a name="{generate-id(term)}"&gt;
+        &lt;xsl:value-of select="term"/&gt;
+        &lt;xsl:text&gt;: &lt;/xsl:text&gt;
+      &lt;/a&gt;
+    &lt;/b&gt;
+    &lt;xsl:apply-templates select="defn"/&gt;
+  &lt;/p&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+      <p>Third, we find the appropriate reference for a given <tt class="literal">&lt;refterm&gt;</tt>. Given the text of a <tt class="literal">&lt;refterm&gt;</tt>, we can use the <tt class="literal">key()</tt> function to find the <tt class="literal">&lt;term&gt;</tt> that matches. Passing the <tt class="literal">&lt;term&gt;</tt> to the <tt class="literal">generate-id()</tt> function returns the same ID generated when we created the named anchor for that <tt class="literal">&lt;term&gt;</tt>:</p>
+      <blockquote><pre class="code">
+&lt;xsl:template match="refterm"&gt;
+  &lt;a href="#{generate-id(key('terms', .))}"&gt;
+    &lt;xsl:value-of select="."/&gt;
+  &lt;/a&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+      <p>Our generated HTML output creates cross-references similar to those in our earlier stylesheets:</p>
+      <blockquote><pre class="code">
+    &lt;h1&gt;Glossary Listing: applet - wildcard character&lt;/h1&gt;
+    &lt;p&gt;
+        &lt;b&gt;&lt;a name="N11"&gt;applet: &lt;/a&gt;&lt;/b&gt;
+  An application program,
+  written in the Java programming language, that can be 
+  retrieved from a web server and executed by a web browser. 
+  A reference to an applet appears in the markup for a web 
+  page, in the same way that a reference to a graphics
+  file appears; a browser retrieves an applet in the same 
+  way that it retrieves a graphics file. 
+  For security reasons, an applet's access rights are limited
+  in two ways: the applet cannot access the file system of the 
+  client upon which it is executing, and the applet's 
+  communication across the network is limited to the server 
+  from which it was downloaded. 
+  Contrast with &lt;a href="#N53"&gt;servlet&lt;/a&gt;.
+&lt;/p&gt;
+...
+    &lt;p&gt;
+        &lt;b&gt;&lt;a name="N53"&gt;servlet: &lt;/a&gt;&lt;/b&gt;
+  An application program, written in the Java programming language, 
+  that is executed on a web server. A reference to a servlet 
+  appears in the markup for a web page, in the same way that a 
+  reference to a graphics file appears. The web server executes
+  the servlet and sends the results of the execution (if there are
+  any) to the web browser. Contrast with &lt;a href="#N11"&gt;applet&lt;/a&gt;.
+&lt;/p&gt;</pre></blockquote>
+      <p>Using the <tt class="literal">key()</tt> and <tt class="literal">generate-id()</tt> functions, we've been able to create IDs and references automatically. This approach isn't perfect; we have to make sure the text of the <tt class="literal">&lt;refterm&gt;</tt> element matches the text of the <tt class="literal">&lt;term&gt;</tt> exactly. </p>
+      <p>This example, like all of the examples we've shown so far, uses a single input file. A more likely scenario is that we have one XML document that contains terms, and we want to reference definitions in a second XML document that contains definitions, but no IDs. We can combine the technique we've described here with the <tt class="literal">document()</tt> function to import a second XML document and generate links between the two. We'll talk about the <tt class="literal">document()</tt> function in a later chapter; for now, just remember that there are ways to use more than one XML input document in your transformations.</p>
+    </div>
+    <div class="sect2">
+      <h3 class="sect2">5.3.2. The generate-id() Function</h3>
+      <p>Before we leave the topic of linking, we'll go over the details of the <tt class="literal">generate-id()</tt> function. This function takes a node-set as its argument, and works as follows:</p>
+      <ul>
+        <li>
+          <p>For a given transformation, every time <tt class="literal">generate-id()</tt> is invoked against a given node, it returns the same ID. The ID doesn't change while you're doing a given transformation. If you run the transformation again, there's no guarantee <tt class="literal">generate-id()</tt> will generate the same ID the second time around. All calls to <tt class="literal">generate-id()</tt> in the second transformation will return the same ID, but that ID might not be the same as in the first transformation.</p>
+          <blockquote><b>TIP:</b> The <tt class="literal">generate-id()</tt> function is not required to check if an ID it generates duplicates an ID that's already in the document. In other words, if your document has an attribute of type <tt class="literal">ID</tt> with a value of <tt class="literal">sdk3829a</tt>, there's a possibility that an ID returned by <tt class="literal">generate-id()</tt> will also be <tt class="literal">sdk3829a</tt>. It's not likely, but be aware that it could happen. </p>
+          </blockquote>
+        </li>
+
+        <li>
+          <p>If you invoke <tt class="literal">generate-id()</tt> against two different nodes, the two generated IDs will be different.</p>
+        </li>
+        <li>
+          <p>Given a node-set, <tt class="literal">generate-id()</tt> returns an ID for the node in the node-set that occurs first in document order. </p>
+        </li>
+        <li>
+          <p>If the node-set you pass to the function is empty (you invoke <tt class="literal">generate-id(fleeber)</tt>, and there are no <tt class="literal">&lt;fleeber&gt;</tt> elements in the current context), <tt class="literal">generate-id()</tt> returns an empty string.</p>
+        </li>
+        <li>
+          <p>If no node-set is passed in (you invoke <tt class="literal">generate-id()</tt>), the function generates an ID for the context node.
+<a name="INDEX-489" />
+<a name="INDEX-490" />
+<a name="INDEX-491" />
+<a name="INDEX-492" />
+
+
+</p>
+        </li>
+      </ul>
+    </div>
+  
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch05_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">5.2. Generating Links with the key() Function</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">5.4. Summary</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

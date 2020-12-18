@@ -1,0 +1,155 @@
+<html><head><title>IPADM Design Considerations (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch19_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch19_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">19.2. IPADM Design Considerations</h2>
+
+<p><a name="INDEX-2951" /><a name="INDEX-2952" /><a name="INDEX-2953" /><a name="INDEX-2954" />The programs detailed in the
+remainder of this chapter work in unison to help manage Dynamic Host
+Configuration Protocol (DHCP) and Domain Name System (DNS)
+configuration files. Now, you don't have to know anything about
+DHCP or DNS, or managing IP networks for that matter; we're
+more concerned with how to manipulate these files remotely, rather
+than with their actual content.
+</p>
+
+<p><a name="INDEX-2955" /><a name="INDEX-2956" />Suppose we have a company, ACME
+Rocket Supply, Incorporated, which has a class B IP network,
+192.168.0.0.<a href="#FOOTNOTE-50">[50]</a> The site administrator has
+subnetted this address space by department; for instance, IP numbers
+192.168.1.0 through 192.168.1.255 are assigned to the accounting
+department, while 192.168.2.0 through 192.168.2.255 are for
+purchasing. The administrator also decided to make each department
+responsible for managing its own computers and printers, and has
+delegated and trained several responsible persons. But he
+doesn't want his helpers to have direct access to the server
+machine. So he has written a Perl/Tk TCP/IP client,
+<em class="emphasis">ipadm</em>, for remote IP administration.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-50" /><p> [50] This is actually a private address space
+that anyone can use, as long as the addresses remain on the internal
+network. We'll freely use any of the 65,536 IP numbers in the
+range 192.168.0.0 through 192.168.255.255 without fear of interfering
+with a valid address.</p> </blockquote>
+
+<p><a name="INDEX-2957" /><a name="INDEX-2958" />There
+are various DHCP and DNS programs, and
+<em class="emphasis">ACME.com</em>'s network administrator chose not
+to limit his choices by writing <em class="emphasis">ipadm</em> for any
+particular flavors. Instead, he invented a metafile that describes an
+individual subnet, which can be sent to a filter to produce DHCP and
+DNS configuration files in whatever format is required. It's
+these metafiles (subnet definitions) that are remotely manipulated.
+Each subnet definition file consists of two sections, separated by a
+<tt class="literal">__NODES__</tt> line. The following is a sample subnet
+description file:
+</p>
+
+<blockquote><pre class="code">Title = Subnet 128B, ACME Rubber Band Development
+Domain = RubberBand.ACME.Com
+Base_IP = 192.168.128.16
+Subnet_Mask = 255.255.255.240
+Gateway = 192.168.128.30
+__NODES__
+JetDirect3:192.168.128.17:00abcd00abcd:print::Network Print Server
+Coyote:192.168.128.18:00abce00abce:Badguy:Mail.ACME.COM:SGI  1
+Roadrunner:192.168.128.19:00abcf00abcf:Goodguy:Mail.ACME.COM:SGI  2</pre></blockquote>
+
+<p>The first section lists characteristics of the subnet as a whole,
+while the second section defines every subnet node. (We'll
+learn more about each colon-separated field in a node definition in <a href="ch19_03.htm#mastperltk-CHP-19-SECT-3.2">Section 19.3.2, "The Subnet Widget Edits a Subnet Description"</a>.) Using flat
+file databases is a common technique in the Unix world, so
+we'll call these files SDBs, for subnet databases.
+</p>
+
+<p>All the SDB files are centrally located in a single directory on the
+DHCP/DNS server machine, and a forking TCP/IP daemon serves them to
+Perl/Tk clients. The daemon, <em class="emphasis">ipadmd</em>, and client,
+<em class="emphasis">ipadm,</em> communicate using four IPADM messages,
+all originated by the client:
+</p>
+
+<dl>
+<dt><tt class="literal">get_subnet_list</tt> </dt>
+<dd>
+<a name="INDEX-2959" />Tells the daemon to return a list of all
+subnets. <em class="emphasis">ipadmd</em></tt> does this by reading the Title
+line of each SDB file (<a href="ch19_02.htm#mastperltk-CHP-19-FIG-2">Figure 19-2</a>).
+</p>
+</dd>
+
+
+<dt><tt class="literal">get_subnet_file</tt> </dt>
+<dd>
+<a name="INDEX-2960" />Tells the daemon to lock an SDB file for
+exclusive access and return its contents.
+</p>
+</dd>
+
+
+<dt><tt class="literal">put_subnet_file</tt> </dt>
+<dd>
+<a name="INDEX-2961" />Tells the daemon to expect an updated
+version of an SDB file, which it uses to rewrite the master copy.
+<em class="emphasis">ipadmd</em></tt> then releases its exclusive lock on the
+SDB file.
+</p>
+</dd>
+
+
+<dt><tt class="literal">unl_subnet_file</tt> </dt>
+<dd>
+<a name="INDEX-2962" />Tells the daemon to simply release its
+exclusive lock on an SDB, as the client has canceled all changes.
+</p>
+</dd>
+
+</dl>
+
+<p><a name="INDEX-2963" />These four messages and their
+responses make up the IPADM protocol. Once the protocol is defined,
+we know <em class="emphasis">exactly</em> what each component of the
+system can and cannot do. But a formal protocol definition needs to
+be much more comprehensive and define in detail the format of each
+command and response. We won't do that here. Instead,
+we'll look at the actual code. Suffice it to say, each message
+consists of a command line, zero or more lines of data, and a
+terminator. The command line, which may have arguments, ends with a
+newline, as do the data and terminator lines. The terminator, which
+we'll refer to simply as <tt class="literal">$EOF</tt>, is a funny
+string guaranteed to be unique; that is, it will never occur anywhere
+in a message. The message response includes a one-line command
+completion status, zero or more lines of data, and the terminator,
+<tt class="literal">$EOF</tt>.
+</p>
+
+<a name="mastperltk-CHP-19-FIG-2" /><div class="figure"><img src="figs/mptk.1902.gif" alt="Figure 19-2" width="481" height="168" /></div><h4 class="objtitle">Figure 19-2.  ipadm displays the results of a get_subnet_list command</h4>
+
+<p><a name="INDEX-2964" />The daemon also
+maintains an SDBM file containing the last modification times of all
+the SDB files. Periodically, it uses this information to see which
+SDBs have recently changed and invokes the filter procedure to create
+updated versions of the DHCP/DNS configuration files. Of course, the
+filter must exclusively lock SDB files before it can do its work.
+<a name="INDEX-2965" />
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch19_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch19_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">19. Interprocess Communication with Pipes and Sockets</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">19.3. The Perl/Tk IPADM Client, ipadm</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

@@ -1,0 +1,210 @@
+<?label 4.3. Decoding Form Input?><html><head><title>Decoding Form Input (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch05_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">4.3. Decoding Form Input</h2>
+
+
+<p>
+<a name="INDEX-896" /> <a name="INDEX-897" /> <a name="INDEX-898" /> <a name="INDEX-899" />In order to
+<a name="INDEX-900" />access the information contained within
+the form, we must decode the data that is sent to us. The
+<a name="INDEX-901" />algorithm for decoding form data is:</p>
+
+
+<ol><li><p>Read the query string from <tt class="literal">$ENV{QUERY_STRING}</tt>.</p></li><li><p>If the <tt class="literal">$ENV{REQUEST_METHOD}</tt> is POST, determine the
+size of the request using <tt class="literal">$ENV{CONTENT_LENGTH}</tt> and
+read that amount of data from the standard input. Append this data to
+the data read from the query string, if present (this should be
+joined with "<a name="INDEX-902" />&amp;").</p></li><li><p>Split the result on the "<a name="INDEX-903" /> <a name="INDEX-904" />&amp;" character, which separates
+name-value pairs (the format is
+<tt class="literal">name=value&amp;name=value...</tt>).</p></li><li><p>Split each name-value pair on the "s" character to get
+the name and value.</p></li><li><p>Decode the <a name="INDEX-905" />
+<a name="INDEX-906" />
+<a name="INDEX-907" />URL-encoded
+characters in the name and value.</p></li><li><p>Associate each name with its value(s); remember that each option name
+may have multiple values.</p></li></ol>
+<p>A form sends its parameters as the body of a <a name="INDEX-908" />POST request, or as the query string of a
+GET request. However, it is possible to create a form that uses the
+POST method and direct it to a URL containing a query string. Thus,
+it is possible to get a <a name="INDEX-909" />
+<a name="INDEX-910" />query string with a POST request.</p>
+
+
+<p>Here is a first attempt at our
+<a name="INDEX-911" />subroutine:</p>
+
+
+<blockquote><pre class="code">sub parse_form_data {
+    my %form_data;
+    my $name_value;
+    my @name_value_pairs = split /&amp;/, $ENV{QUERY_STRING};
+    
+    if ( $ENV{REQUEST_METHOD} eq 'POST' ) {
+        my $query = "";
+        read( STDIN, $query, $ENV{CONTENT_LENGTH} ) == $ENV{CONTENT_LENGTH}
+          or return undef;
+        push @name_value_pairs, split /&amp;/, $query;
+    }
+    
+    foreach $name_value ( @name_value_pairs ) {
+        my( $name, $value ) = split /=/, $name_value;
+        
+        $name =~ tr/+/ /;
+        $name =~ s/%([\da-f][\da-f])/chr( hex($1) )/egi;
+        
+        $value = "" unless defined $value;
+        $value =~ tr/+/ /;
+        $value =~ s/%([\da-f][\da-f])/chr( hex($1) )/egi;
+        
+        $form_data{$name} = $value;
+    }
+    return %form_data;
+}</pre></blockquote>
+
+
+<p>You can use
+<tt class="function">parse_form_data</tt>
+<a name="INDEX-912" /> <a name="INDEX-913" /> like this:</p>
+
+
+<blockquote><pre class="code">my %query = parse_form_data(  ) or error( "Invalid request" );
+my $activity = $query{activity};</pre></blockquote>
+
+
+<p>We split the query string into name-value pairs and then store each
+pair in <tt class="literal">@name_value_pairs</tt>. Since the client puts
+ampersands between key-value pairs, the
+<em class="emphasis">split</em>
+<a name="INDEX-914" /> command specifies an ampersand as the
+delimiter. If the request method is POST, then we also read the
+content of the request from STDIN. If the number of bytes that we
+read does not match the number that we expect, we return
+<tt class="literal">undef</tt>. This could happen if the user presses their
+browser's Stop button while sending a request.</p>
+
+
+<p>We then loop over each of the name-value pairs and spit them into
+<tt class="literal">$name</tt> and <tt class="literal">$value</tt>. It is
+possible that a parameter can be passed without an equal sign or a
+value. This happens for
+<a name="INDEX-915" />
+<a name="INDEX-916" /> <a name="INDEX-917" />&lt;ISINDEX&gt; forms, which are
+virtually never used anymore, or for <a name="INDEX-918" /> <a name="INDEX-919" />manually
+constructed URLs. By setting the <tt class="literal">$value</tt> to an
+empty string when it isn't defined, we avoid warnings from
+Perl.</p>
+
+
+<p>We replace each <tt class="literal">+</tt> with a
+<a name="INDEX-920" />space character. We then decode
+<a name="INDEX-921" />
+<a name="INDEX-922" />URL-encoded characters by replacing
+strings that start with <tt class="literal">%</tt> and that are followed by
+two hexadecimal characters using the expression that we discussed in
+<a href="ch02_01.htm">Chapter 2, "The Hypertext Transport Protocol "</a>. We then add the name and value pair to
+our <a name="INDEX-923" />
+<a name="INDEX-924" />
+<a name="INDEX-925" />hash, which we return when we are done.</p>
+
+
+<p>You may have noticed that there is a problem with our subroutine; it
+occurs in the hash assignment near the end of the subroutine:</p>
+
+
+<blockquote><pre class="code">$form_data{$name} = $value;</pre></blockquote>
+
+
+<p>If the form has elements that share the same name, or if there is a
+<a name="INDEX-926" />scrolling box that supports
+<a name="INDEX-927" />multiple values, then it is possible for
+us to receive multiple values for the same name. For example, if you
+choose "One" and "Two" in a select list with
+the variable name "numbers," the query string would look
+like:</p>
+
+
+<blockquote><pre class="code">numbers=One&amp;numbers=Two</pre></blockquote>
+
+
+<p>Our example earlier would save only the last value in the hash. There
+are a couple different ways we could solve this, but neither is
+ideal. First, we could convert the value of the hash into an array
+reference for multiple values by replacing the hash assignment with
+the following lines:</p>
+
+
+<blockquote><pre class="code">if ( exists $form_data{$name} ) {
+    if ( ref $form_data{$name} ) {
+        push @{ $form_data{$name} }, $value;
+    }
+    else {
+        $form_data{$name} = [ $form_data{$name}, $value ];
+    }
+else {
+    $form_data{$name} = $value;
+}</pre></blockquote>
+
+
+<p>This code is somewhat complex, but because it is hidden in our
+subroutine, this isn't really an issue. The real problem with
+this approach is that CGI scripts using this subroutine need to know
+which elements can have multiple values and must test each one or run
+the risk of mistakenly believing the user entered something like
+"ARRAY(0x19abcde)", which is <a name="INDEX-928" />Perl's scalar representation
+of an array reference. Code to access the values of the
+"numbers" element would look like this:</p>
+
+
+<blockquote><pre class="code">my %query = parse_form_data(  ) or error( "Invalid request" );
+my @numbers = ref( $query{numbers} ) ? @{ $query{numbers} } : $query{numbers};</pre></blockquote>
+
+
+<p>This syntax is awkward. Another approach is to store the multiple
+values as a single text string that is delimited by a certain
+character, such as a tab or "<tt class="literal">\0</tt>". This
+is easier to code in the subroutine:</p>
+
+
+<blockquote><pre class="code">if ( exists $form_data{$name} ) {
+    $form_data{$name} .= "\t$value";
+else {
+    $form_data{$name} = $value;
+}</pre></blockquote>
+
+
+<p>It is also easier to read in the CGI script:</p>
+
+
+<blockquote><pre class="code">my %query = parse_form_data(  ) or error( "Invalid request" );
+my @numbers = split "\t", $query{numbers};</pre></blockquote>
+
+
+<p>However, there is still a potential for corrupted data if the CGI
+script is not expecting multiple values.</p>
+
+
+<p>Fortunately, there is a better solution. Instead of writing an input
+subroutine ourselves, we can use CGI.pm, which provides an effective
+solution to this problem along with many <a name="INDEX-929" /> <a name="INDEX-930" /> <a name="INDEX-931" /> <a name="INDEX-932" />other <a name="INDEX-933" />useful <a name="INDEX-934" /> <a name="INDEX-935" />features. The next
+chapter discusses CGI.pm.</p>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch05_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">4.2. Form Tags</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">5. CGI.pm</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

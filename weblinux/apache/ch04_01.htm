@@ -1,0 +1,794 @@
+<?label 4. Common Gateway Interface (CGI) ?><html><head><title>Common Gateway Interface (CGI)  (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch03_15.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch04_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 4. Common Gateway Interface (CGI) </h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch04_01.htm">Turning the Brochure into a Form</a><br />
+<a href="ch04_02.htm">Writing and Executing Scripts</a><br />
+<a href="ch04_03.htm">Script Directives</a><br />
+<a href="ch04_04.htm">Useful Scripts</a><br />
+<a href="ch04_05.htm">Debugging Scripts</a><br />
+<a href="ch04_06.htm">Setting Environment Variables</a><br />
+<a href="ch04_07.htm">suEXEC on Unix</a><br />
+<a href="ch04_08.htm">Handlers</a><br />
+<a href="ch04_09.htm">Actions</a><br /></p></div>
+
+
+
+
+
+
+
+
+
+
+<p>Things are going so well here at Butterthlies, Inc., that we are hard
+put to keep up with the flood of demand. Everyone, even the cat, is
+hard at work typing in orders that arrive incessantly by mail and
+telephone.</p>
+
+
+
+
+
+<p>Then someone has a brainstorm: "Hey," she cries,
+"let's use the Internet to take the orders!" The
+essence of her scheme is simplicity itself. Instead of letting
+customers read our catalog pages on the Web and then, drunk with
+excitement, phone in their orders, we provide them with a form they
+can fill out on their screens. At our end we get a chunk of data back
+from the Web, which we then pass to a script or program we have
+written.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch04-1-fm2xml" />
+<h2 class="sect1">4.1. Turning the Brochure into a Form</h2>
+
+
+
+
+
+<p>Creating the form is a simple matter of editing our original brochure
+to turn it into a form. We have to resist the temptation to fool
+around, making our script more and more beautiful. We just want to
+add four fields to capture the number of copies of each card the
+customer wants and, at the bottom, a field for the credit card
+number. Before we get embroiled in artistry, let's look briefly
+at a bit of theory.</p>
+
+
+
+
+
+<a name="ch04-36662" /><div class="sect2">
+<h3 class="sect2">4.1.1. What Is HTTP?</h3>
+
+
+
+
+
+<p>
+<a name="INDEX-412" />To recapitulate amidst a sea of
+initials: HTTP (HyperText Transmission Protocol) is the standard way
+of sending documents over the Web. HTTP uses the TCP protocol. The
+client (which is normally a browser such as Netscape) establishes a
+TCP connection to the server (which in our case is Apache) and then
+sends a request in HTTP format down that channel. The server examines
+the request and responds in whatever way its webmaster has told it
+to. The webmaster does this by configuring the Apache server and the
+files or scripts he or she provides on the system.</p>
+
+
+
+
+
+<p>The machine's response may be in HTML, graphics, audio, VRML,
+Java, or whatever new fad the web fanatics have dreamed up since we
+went to press. Whatever it is, it consists of bytes of data that are
+made into packets by the server's TCP/IP stack and transmitted.
+You can find a list of MIME types in the file <em class="emphasis">mime.types
+</em> or at <a href="http://www.isi.edu/in-notes/iana/assignments/media-types/media-types">http://www.isi.edu/in-notes/iana/assignments/media-types/media-types</a>. The meanings are pretty obvious:
+<tt class="literal">text/html</tt> is HTML, <tt class="literal">text/plain</tt>
+is plain text, <tt class="literal">image/jpeg</tt> is a JPEG, and so on.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch04-25164" /><div class="sect2">
+<h3 class="sect2">4.1.2. What Is an HTTP Method?</h3>
+
+
+
+
+
+<p>
+<a name="INDEX-413" />
+<a name="INDEX-414" />One of the
+more important fields in a request is METHOD. This tells the server
+how to handle the incoming data. For a complete account, see the
+HTTP/1.1 specification. Briefly, however, the methods are as follows:</p>
+
+
+
+
+
+<dl>
+<dt><b><tt class="literal">GET</tt>
+<a name="INDEX-415" /></b></dt>
+<dd><p>Returns the data asked for. To save network traffic, a
+"conditional <tt class="literal">GET </tt>" only generates a
+return if the condition is satisfied. For instance, a page that
+alters frequently may be transmitted. The client asks for it again:
+if it hasn't changed since last time, the conditional
+<tt class="literal">GET</tt> generates a response telling the client to get
+it from its local cache.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">HEAD</tt>
+<a name="INDEX-416" /></b></dt>
+<dd><p>Returns the headers that a <tt class="literal">GET</tt> would have
+included, but without data. They can be used to test the freshness of
+the client's cache.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">POST</tt>
+<a name="INDEX-417" /></b></dt>
+<dd><p>Tells the server to accept the data and do something with it, using
+the CGI<a href="#FOOTNOTE-33">[33]</a> specified by
+the URL<a href="#FOOTNOTE-34">[34]</a> in the <tt class="literal">ACTION</tt> field. For instance,
+when you buy a book across the Web, you fill in a form with the
+book's title, your credit card numbers, and so on. Your browser
+will then tell the server to <tt class="literal">POST</tt> this data.</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-33" /><p>[33]Typically, although the URL could specify a
+module or even something more exotic.</p>
+
+
+
+
+</blockquote><blockquote>
+
+
+
+
+<a name="FOOTNOTE-34" /><p>[34]Often this will be the
+<tt class="literal">ACTION</tt> field from an HTML form, but in principle,
+it could be generated in any way a browser sees fit.</p>
+
+
+
+
+</blockquote></dd>
+
+
+
+
+
+<dt><b><tt class="literal">PUT</tt>
+<a name="INDEX-418" /></b></dt>
+<dd><p>Tells the server to store the data.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">DELETE</tt>
+<a name="INDEX-419" /></b></dt>
+<dd><p>Tells the server to delete the data.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">TRACE</tt>
+<a name="INDEX-420" /></b></dt>
+<dd><p>Tells the server to return a diagnostic trace of the actions it takes.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">CONNECT</tt>
+<a name="INDEX-421" /></b></dt>
+<dd><p>Used to ask a proxy to make a connection to another host and simply
+relay the content, rather than attempting to parse or cache it. This
+is often used to make SSL connections through a proxy.</p></dd>
+
+</dl>
+
+
+
+
+
+<p>Note that servers do not have to implement all these methods. See RFC
+2068 for more detail.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch04-27891" /><div class="sect2">
+<h3 class="sect2">4.1.3. The Form</h3>
+
+
+
+
+
+<p>
+<a name="INDEX-422" />
+<a name="INDEX-423" /> <a name="INDEX-424" /> <a name="INDEX-425" /> <a name="INDEX-426" />The
+catalog, now a form with the new lines marked:</p>
+
+
+
+
+
+<blockquote><pre class="code">&lt;!-- NEW LINE - CREATES A FORM FIELD --&gt;</pre></blockquote>
+
+
+
+
+
+<p>is shown here. As we'll see, the Unix and Win32 versions are
+slightly different in the extensions they will tolerate for CGI
+scripts.</p>
+
+
+
+
+
+<p><img src="figs/unix_icon.gif" alt="Figure 4.1.3" />   Unix doesn't mind what a script is called, provided it
+is made executable with:</p>
+
+
+
+
+
+<blockquote><pre class="code">chmod +x &lt;<em class="replaceable">scriptname</em>&gt;</pre></blockquote>
+
+
+
+
+
+<p><img src="figs/win32_icon.gif" alt="Figure 4.1.3" />   Win32 has a default
+shell -- <em class="emphasis">COMMAND.COM</em> -- that will execute
+batch files with the extension <em class="emphasis">.bat</em>. If you want
+to use it, you don't have to specify it (see later in this
+chapter):</p>
+
+
+
+
+
+<blockquote><pre class="code">&lt;html&gt;
+&lt;body&gt;
+&lt;!-- UNIX --&gt;
+&lt;!--TWO VERSIONS - see text above --&gt;
+&lt;FORM METHOD=GET ACTION="mycgi.cgi"&gt;
+&lt;!-- OR --&gt;
+&lt;FORM METHOD=GET ACTION="cgi-bin/mycgi.cgi"&gt;
+&lt;!-- WIN32 --&gt;
+&lt;!--TWO VERSIONS - see text above --&gt;
+&lt;FORM METHOD=GET ACTION="mycgi.bat"&gt;
+&lt;!-- OR --&gt;
+&lt;FORM METHOD=GET ACTION="cgi-bin/mycgi.bat"&gt;
+
+&lt;h1&gt; Welcome to Butterthlies Inc&lt;/h1&gt;
+&lt;h2&gt;Summer Catalog&lt;/h2&gt;
+&lt;p&gt; All our cards are available in packs of 20 at $2 a pack.
+There is a 10% discount if you order more than 100.
+&lt;/p&gt;
+&lt;hr&gt;
+&lt;p&gt;
+Style 2315
+&lt;p align=center&gt;
+&lt;img src="bench.jpg" alt="Picture of a bench"&gt;
+&lt;p align=center&gt;
+Be BOLD on the bench
+&lt;!-- NEW LINE - CREATES A FORM FIELD --&gt;
+&lt;p&gt;How many packs of 20 do you want? &lt;INPUT NAME="2315_order" TYPE=int&gt;
+&lt;hr&gt;
+&lt;p&gt;
+Style 2316
+&lt;p align=center&gt;
+&lt;img src="hen.jpg" ALT="Picture of a hencoop like a pagoda"&gt;
+&lt;p align=center&gt;
+Get SCRAMBLED in the henhouse
+&lt;!-- NEW LINE - CREATES A FORM FIELD --&gt;
+&lt;p&gt;How many packs of 20 do you want? &lt;INPUT NAME="2316_order" TYPE=int&gt;
+&lt;HR&gt;
+&lt;p&gt;
+Style 2317
+&lt;p align=center&gt;
+&lt;img src="tree.jpg" alt="Very nice picture of tree"&gt;
+&lt;p align=center&gt;
+Get HIGH in the treehouse
+&lt;!-- NEW LINE - CREATES A FORM FIELD --&gt;
+&lt;p&gt;How many packs of 20 do you want? &lt;INPUT NAME="2317_order" TYPE=int&gt;
+&lt;hr&gt;
+&lt;p&gt;
+Style 2318
+&lt;p align=center&gt;
+&lt;img src="bath.jpg" alt="Rather puzzling picture of a batchtub"&gt;
+&lt;p align=center&gt;
+Get DIRTY in the bath
+&lt;!-- NEW LINE - CREATES A FORM FIELD --&gt;
+&lt;p&gt;How many packs of 20 do you want? &lt;INPUT NAME="2318_order" TYPE=int&gt;
+&lt;hr&gt;
+&lt;!-- NEW LINES - CREATE FORM FIELDS --&gt;
+&lt;p&gt;Which Credit Card are you using?
+&lt;ol&gt;&lt;li&gt;Access &lt;INPUT NAME="card_type" TYPE=checkbox VALUE="Access"&gt;
+&lt;li&gt;Amex &lt;INPUT NAME="card_type" TYPE=checkbox VALUE="Amex"&gt;
+&lt;li&gt;MasterCard &lt;INPUT NAME="card_type" TYPE=checkbox VALUE="MasterCard"&gt;
+&lt;/ol&gt;
+&lt;p&gt;Your card number? &lt;INPUT NAME="card_num" SIZE=20&gt;
+&lt;hr&gt;
+&lt;p align=right&gt;
+Postcards designed by Harriet@alart.demon.co.uk
+&lt;hr&gt;
+&lt;br&gt;
+Butterthlies Inc, Hopeful City, Nevada 99999
+&lt;/br&gt;
+&lt;!-- NEW LINE - CREATES A FORM FIELD --&gt;
+&lt;p&gt;&lt;INPUT TYPE=submit&gt;&lt;INPUT TYPE=reset&gt;
+&lt;/FORM&gt;
+&gt;/body&gt;
+&lt;/html&gt;</pre></blockquote>
+
+
+
+
+
+<p>This is all pretty straightforward stuff, except perhaps for the
+line:</p>
+
+
+
+
+
+<blockquote><pre class="code">&lt;FORM METHOD=GET ACTION="/cgi-bin/mycgi.cgi"&gt;</pre></blockquote>
+
+
+
+
+
+<p>or:</p>
+
+
+
+
+
+<blockquote><pre class="code">&lt;FORM METHOD=GET ACTION="mycgi.bat"&gt;</pre></blockquote>
+
+
+
+
+
+<p>The tag &lt;FORM&gt; introduces the form; at the bottom,
+&lt;/FORM&gt; ends it. The tag &lt;METHOD&gt; tells Apache how to
+return the data to the CGI script we are going to write. For the
+moment it is irrelevant because the simple script
+<em class="filename">mycgi.cgi</em> ignores the returned data.</p>
+
+
+
+
+
+<p><img src="figs/unix_icon.gif" alt="Figure 4.1.3" />   The <tt class="literal">ACTION</tt> specification tells Apache to use the
+URL <em class="filename">/cgi-bin/mycgi.cgi</em> (amplified to
+<em class="filename">/usr/www/cgi-bin/mycgi</em>) to do something about
+it all:</p>
+
+
+
+
+
+<blockquote><pre class="code">ACTION="/cgi-bin/mycgi.cgi"</pre></blockquote>
+
+
+
+
+
+<p><img src="figs/unix_icon.gif" alt="Figure 4.1.3" />   Or, if we are using the second method, where we keep the CGI script
+in the <em class="emphasis">htdocs</em> directory:</p>
+
+
+
+
+
+<blockquote><pre class="code">ACTION="/mycgi.cgi"</pre></blockquote>
+
+
+
+
+
+<p><img src="figs/win32_icon.gif" alt="Figure 4.1.3" />   The <tt class="literal">ACTION </tt>specification tells Apache to use the
+URL <em class="filename">/cgi-bin/mycgi.cgi</em> (amplified to
+\<em class="filename">usr\www\cgi-bin\mycgi </em>) to do something about
+it all:</p>
+
+
+
+
+
+<blockquote><pre class="code">ACTION="/cgi-bin/mycgi.bat"</pre></blockquote>
+
+
+
+
+
+<p><img src="figs/win32_icon.gif" alt="Figure 4.1.3" />   Or, if we are using the second method, where we keep the CGI script
+in the <em class="emphasis">htdocs</em> directory:</p>
+
+
+
+
+
+<blockquote><pre class="code">ACTION="/mycgi.bat" <a name="INDEX-427" />
+<a name="INDEX-428" />
+<a name="INDEX-429" />
+<a name="INDEX-430" />
+<a name="INDEX-431" /></pre></blockquote>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch03_15.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch04_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">3.15. Expirations</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">4.2. Writing and Executing Scripts</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

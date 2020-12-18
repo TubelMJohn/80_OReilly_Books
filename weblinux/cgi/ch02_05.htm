@@ -1,0 +1,164 @@
+<?label 2.5. Proxies?><html><head><title>Proxies (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch02_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch02_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">2.5. Proxies</h2>
+
+
+
+<p>Quite often, <a name="INDEX-434" /> <a name="INDEX-435" />
+<a name="INDEX-436" />web browsers do not interact <a name="INDEX-437" />directly with web servers; instead they
+communicate via a proxy. HTTP proxies are often used to reduce
+network traffic, allow access through firewalls, provide content
+filtering, etc. Proxies have their own functionality that is defined
+by the HTTP standard. We don't need to understand these
+details, but we do need to recognize how they affect the HTTP request
+and response cycle. You can think of a proxy as a combination of a
+simplified client and a server (see <a href="ch02_05.htm#ch02-93017">Figure 2-10</a>). An
+HTTP client connects to a proxy with a request; in this way, it acts
+like a server. The proxy forwards the request to a web server and
+retrieves the appropriate response; in this way, it acts like a
+client. Finally, it fulfills its server role by returning the
+response to the client.</p>
+
+
+
+<p><a href="ch02_05.htm#ch02-93017">Figure 2-10</a> shows how an HTTP proxy affects the
+request and response cycle. Note that although there is only one
+proxy represented here, it's quite possible for a single HTTP
+transaction to pass through many proxies.</p>
+
+
+
+<p>Proxies affect us in two ways. First, they make it impossible for web
+servers to reliably identify the browser. Second, proxies often
+<a name="INDEX-438" /> <a name="INDEX-439" /> <a name="INDEX-440" /> <a name="INDEX-441" />cache content. When a client makes a
+request, proxies may return a previously cached response without
+contacting the target web server.</p>
+
+
+
+<a name="ch02-93017" /><div class="figure"><img width="430" src="figs/cgi2.0210.gif" height="156" alt="Figure 2-10" /></div><h4 class="objtitle">Figure 2-10. HTTP proxies and the request/response cycle</h4>
+
+<a name="ch02-99950" /><div class="sect2">
+<h3 class="sect2">2.5.1. Identifying Clients</h3>
+
+
+
+<p>Basic HTTP requests do not contain any information that identifies
+the
+<a name="INDEX-442" />
+<a name="INDEX-443" />
+<a name="INDEX-444" />
+<a name="INDEX-445" />client. In a simple network
+transaction, this is generally not an issue, because a server knows
+which client is talking to it. We can see this by analogy. If someone
+walks up to you and hands you a note, you know who delivered the note
+regardless of what the note says. It's apparent from the
+context.</p>
+
+
+
+<p>The problem is determining who wrote the note. If the note
+isn't signed, you may not know whether the person handing you
+the note wrote the note or is simply delivering it. The same is true
+in HTTP transactions. Web servers know which system is requesting
+information from them, but they don't know whether this client
+is a web browser that originated the request (i.e., the author of the
+note) or if they are just a proxy (i.e., the messenger). This is not
+a shortcoming of proxies, because this anonymity is actually a
+feature of proxies integrated into firewalls. Organizations with
+firewalls typically prefer that the outside world not know the
+addresses of systems behind their firewall.</p>
+
+
+
+<p>Thus, unless the browser passes identifying information in its
+request to the server, there is no way to differentiate among
+different users on different systems since they could be connecting
+via the same proxy. We'll explore how to tackle this issue in
+<a href="ch11_01.htm">Chapter 11, "Maintaining State"</a>.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch02-31-fm2xml" /><div class="sect2">
+<h3 class="sect2">2.5.2. Caching</h3>
+
+
+
+<p>One of the <a name="INDEX-446" />benefits of proxies is that they make
+HTTP transactions more efficient by sharing some of the work the web
+server typically does. Proxies accomplish this by
+<a name="INDEX-447" />caching requests and responses. When a
+proxy receives a request, it checks its cache for a similar, previous
+request. If it finds this, and if the response is not
+<a name="INDEX-448" />stale (out of date), then it returns
+this cached response to the client. The proxy determines whether a
+response is stale by looking at HTTP headers of the cached response,
+by sending a HEAD request to the target web server to retrieve new
+headers to compare against, and via its own algorithms. Regardless of
+how it determines this, if the proxy does not need to fetch a new,
+full response from the target web server, the proxy reduces the load
+on the server and reduces network traffic between the server and
+itself. This can also make the transaction much faster for the user.</p>
+
+
+
+<p>Because most resources on the Internet are static HTML pages and
+images that do not often change, caching is very helpful. For
+<a name="INDEX-449" />
+<a name="INDEX-450" />dynamic content, however, caching
+can cause problems. CGI scripts allow us to generate dynamic content;
+a request to one CGI script can generate a variety of responses.
+Imagine a simple CGI script that returns the current time. The
+request for this CGI script looks the same each time it is called,
+but the response should be different each time. If a proxy caches the
+response from this CGI script and returns it for future requests, the
+user would get an old copy of the page with the wrong time.</p>
+
+
+
+<p>Fortunately, there are ways to indicate that the response from a web
+server should not be cached. We'll explore this in the next
+chapter. HTTP 1.1 also added specific guidelines for proxies that
+solved a number of problems with earlier proxies. Most current
+proxies, even if they do not fully implement HTTP 1.1, have adopted
+these guidelines.</p>
+
+
+
+<p>Caching is not unique to proxies. You probably know that
+<a name="INDEX-451" />
+<a name="INDEX-452" />browsers do their own
+caching too. Some web pages have instructions telling users to clear
+their web browser's cache if they are having problems receiving
+up-to-date information. Proxies present a challenge because users
+cannot clear the cache of intermediate proxies (they often may not
+even know they are using a proxy) <a name="INDEX-453" />as they can for their <a name="INDEX-454" /> <a name="INDEX-455" /> <a name="INDEX-456" />browser.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch02_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch02_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">2.4. Server Responses</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">2.6. Content Negotiation</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

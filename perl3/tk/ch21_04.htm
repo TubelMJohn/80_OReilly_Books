@@ -1,0 +1,123 @@
+<html><head><title>How Not to Port Tk::Square (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch21_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch22_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">21.4. How Not to Port Tk::Square</h2>
+
+<p><a name="INDEX-3143" />As we
+learned earlier, it's best to keep private C widgets distinct
+from the Perl/Tk distribution. But if we were to do a merge, here are
+some considerations.
+</p>
+
+<p>First, copy <em class="emphasis">tkSquare.c</em> (with the same hand edits
+described previously) to <em class="emphasis">pTk/mTk/generic,</em> copy
+<em class="emphasis">square_demo.t</em> to <em class="emphasis">t</em>, and
+then fire up your favorite editor and add these lines to the main
+Perl/Tk <em class="filename">MANIFEST</em>:
+</p>
+
+<blockquote><pre class="code">Square/Makefile.PL
+Square/Square.xs 
+Square/Square.pm
+pTk/mTk/generic/tkSquare.c
+t/square_demo.t</pre></blockquote>
+
+<p>Now make the <em class="emphasis">Square</em> directory and populate it
+with the preceding files. The files <em class="emphasis">Square.xs</em>
+and <em class="emphasis">Square.pm</em> are the exact same files we just
+used, but <em class="emphasis">Makefile.PL</em> looks like this:
+</p>
+
+<blockquote><pre class="code">use Tk::MMutil;
+Tk::MMutil::TkExtMakefile(
+    'dynamic_ptk' =&gt; 1
+);</pre></blockquote>
+
+<p>Secondly, we must add a single statement to three files so the
+Perl/Tk core is "aware of"
+<tt class="literal">Tk_SquareCmd</tt>.
+</p>
+
+<p>To <em class="emphasis">pTk/mTk/generic/tk.h</em>, add the
+followingaround line 1880:
+</p>
+
+<blockquote><pre class="code">EXTERN int Tk_SquareCmd _ANSI_ARGS_((ClientData clientData,
+        Tcl_Interp *interp, int argc, char **argv));</pre></blockquote>
+
+<p>To <em class="emphasis">pTk/mTk/generic/tkWindow.c</em>, add the following
+around line 152:
+</p>
+
+<blockquote><pre class="code">{"square",        Tk_SquareCmd,         NULL,              1},</pre></blockquote>
+
+<p>To <em class="emphasis">pTk/tk.exc</em>,add the
+following around line 96:
+</p>
+
+<blockquote><pre class="code">Tk_SquareCmd</pre></blockquote>
+
+<p>It may be advisable to start fresh and begin with:</p>
+
+<blockquote><pre class="code">make distclean
+perl Makefile.PL</pre></blockquote>
+
+<p>Making and testing the widget code is similar to what we just did,
+although development is slower because it's a
+<em class="emphasis">make</em> from the top of the entire Perl/Tk
+hierarchy, with scores of dependencies and nested
+<em class="emphasis">makes</em>. You'll quickly find that the
+<em class="emphasis">make</em>; <em class="emphasis">make test</em> cycle is
+ridiculously slow.
+</p>
+
+<p>Testing is sped up if we use a command of the form:</p>
+
+<blockquote><pre class="code">perl -Mblib Square/t/square_demo.t</pre></blockquote>
+
+<p>This uses all the newly made code (both Perl and the loadable object)
+from <em class="emphasis">blib</em>, the build library.
+</p>
+
+<p>We can even fake a <em class="emphasis">make install</em> with a script
+that might look like this (although the exact pathnames vary):
+</p>
+
+<blockquote><pre class="code">#!/bin/sh
+make
+cp blib/arch/auto/Tk/Square/Square.so /usr/local/lib/perl5/site_perl/5.005/i686-
+linux/auto/Tk/Square/Square.so</pre></blockquote>
+
+<p>Of course, this only "installs" the C loadable, not the
+<em class="emphasis">.pm</em> file or autosplit subroutines.
+</p>
+
+<p>There are various techniques for debugging the C code, but perhaps
+the easiest is the tried-and-true <tt class="literal">fprintf</tt>
+statement (don't forget the <tt class="literal">#include
+&lt;stdio.h&gt;</tt>):<a name="INDEX-3144" />
+</p>
+
+<blockquote><pre class="code">fprintf(stderr, "square size=%d\n", squarePtr-&gt;size);</pre></blockquote>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch21_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch22_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">21.3. Building and Testing Tk::Square</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">22. Perl/Tk and the Web</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

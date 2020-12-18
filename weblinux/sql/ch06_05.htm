@@ -1,0 +1,214 @@
+<?label 6.5. Sequences and Auto-Incrementing?><html><head><title>Sequences and Auto-Incrementing (MySQL &amp; mSQL)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Randy Jay Yarger, George Reese and Tim King" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924347L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="MySQL &amp; mSQL" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="MySQL and mSQL" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">MySQL &amp; mSQL</a></td><td width="172" valign="top" align="right"><a href="ch06_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">6.5. Sequences and Auto-Incrementing</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-513" />
+<a name="INDEX-514" />The
+best kind of primary key is one that has absolutely no meaning in the
+database except to act as a primary key. The best way to achieve this
+is to make a numeric primary key that increments every time you
+insert a new row. Looking at the <tt class="literal">cities</tt> table
+shown earlier, the first city you insert would have an
+<tt class="literal">id</tt> of 1, the second 2, the third 3, and so on. In
+order to successfully manage this sequencing of a primary key, you
+need some way to guarantee that a number can be read and incremented
+by one and only one client at a time. Under transactional databases,
+you could create a table called <tt class="literal">sequence</tt> that has
+a number representing the next <tt class="literal">id</tt>. When you need
+to insert a new row, you would read that table and insert a new
+number one more than the one you read. You must be assured that no
+one else will read from that table before you insert a new value,
+however, in order for that scheme to work. Otherwise, two clients
+could read the same value and attempt to use it as a primary key
+value in the same table.</p>
+
+
+
+
+
+<p>Neither MySQL nor mSQL support transactions, so the previously
+identified mechanism cannot be used for generating unique ID numbers.
+The MySQL command <tt class="literal">LOCK TABLE</tt> is cumbersome for
+this task. However, both engines support their own variant of a
+concept called a sequence, which enables you to generate unique ID
+numbers without worrying about those transactional issues.</p>
+
+
+
+
+
+<a name="ch06-14-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.5.1. MySQL Sequences</h3>
+
+
+
+
+
+<p>When you create a table in
+<a name="INDEX-515" />MySQL,
+you can specify at most one column as being
+<tt class="literal">AUTO_INCREMENT</tt>. When you do this, you can
+automatically have this column insert the highest current value for
+that column + 1 when you insert a row and specify
+<tt class="literal">NULL</tt> or
+for that row's value. The <tt class="literal">AUTO_INCREMENT</tt> row
+must be indexed. The following command creates the cities table with
+the <tt class="literal">id</tt> field being
+<tt class="literal">AUTO_INCREMENT</tt>:</p>
+
+
+
+
+
+<blockquote><pre class="code">CREATE TABLE <em class="replaceable">cities</em> (<em class="replaceable">id</em>      INT  NOT NULL PRIMARY KEY AUTO_INCREMENT,
+                     <em class="replaceable">name</em>    VARCHAR(100),
+                     <em class="replaceable">pop</em>     MEDIUMINT,
+<em class="replaceable">                     founded</em> DATE)</pre></blockquote>
+
+
+
+
+
+<p>The first time you insert a row, the <tt class="literal">id</tt> field for
+your first row will be 1 so long as you use <tt class="literal">NULL</tt>
+or
+for that field in the <tt class="literal">INSERT</tt> statement. For
+example, this command takes advantage of the
+<tt class="literal">AUTO_INCREMENT</tt> feature:</p>
+
+
+
+
+
+<blockquote><pre class="code">INSERT INTO <em class="replaceable">cities</em> (<em class="replaceable">id</em>, <em class="replaceable">name</em>, <em class="replaceable">pop</em>)
+VALUES (<em class="replaceable">NULL</em>, '<em class="replaceable">Houston</em>', <em class="replaceable">3000000</em>)</pre></blockquote>
+
+
+
+
+
+<p>If no other values are in that table when you issue this command,
+MySQL will set this field to 1, not <tt class="literal">NULL</tt>
+(remember, it cannot be <tt class="literal">NULL</tt>). If other values are
+present in the table, the value inserted will be one greater than the
+largest current value for <tt class="literal">id</tt>.</p>
+
+
+
+
+
+<p>Another way to implement sequences is by referring to the value
+returned by the <tt class="literal">LAST_INSERT_ID</tt> function:</p>
+
+
+
+
+
+<blockquote><pre class="code">UPDATE table SET id=LAST_INSERT_ID (id+1);</pre></blockquote>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch06-15-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.5.2. mSQL Sequences</h3>
+
+
+
+
+
+<p>Each
+<a name="INDEX-516" />mSQL
+table can have at most one sequence associated with it. The following
+syntax creates a sequence on a table:</p>
+
+
+
+
+
+<blockquote><pre class="code">CREATE SEQUENCE ON <em class="replaceable">table_name</em> [VALUE <em class="replaceable">start</em> STEP <em class="replaceable">incr</em>]</pre></blockquote>
+
+
+
+
+
+<p>The start value is the number to start with. The
+<tt class="literal">incr</tt> value is the amount to increment on each
+access. By default, a sequence starts with 1 and increments 1 at a
+time. For example:</p>
+
+
+
+
+
+<blockquote><pre class="code">CREATE SEQUENCE ON <em class="replaceable">mytable</em> VALUE <em class="replaceable">100</em> STEP <em class="replaceable">5</em></pre></blockquote>
+
+
+
+
+
+<p>This command creates a sequence on the <tt class="literal">mytable</tt>
+table whose first value will be 100 and will increase by 5 each time
+some accesses the sequence. The second value under this scheme would
+therefore be 105.</p>
+
+
+
+
+
+<p>In order to access a sequence, you need to select a special column
+called <tt class="literal">_seq</tt> from the table:</p>
+
+
+
+
+
+<blockquote><pre class="code">SELECT _seq FROM <em class="replaceable">table_name</em></pre></blockquote>
+
+
+
+
+
+<p>This will both return to you the next value in the sequence and
+increment it. <a name="INDEX-517" />
+<a name="INDEX-518" /></p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch06_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">6.4. Indices</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">6.6. Managing Data</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

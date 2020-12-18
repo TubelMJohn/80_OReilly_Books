@@ -1,0 +1,219 @@
+<html><head><title>Simple Databases (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch16_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+
+<h1 class="chapter">Chapter 16. Simple Databases</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#lperl3-CHP-16-SECT-1">DBM Files and DBM Hashes</a><br />
+<a href="ch16_02.htm">Manipulating Data with pack and unpack</a><br />
+<a href="ch16_03.htm">Fixed-length Random-access Databases</a><br />
+<a href="ch16_04.htm">Variable-length (Text) Databases</a><br />
+<a href="ch16_05.htm">Exercises</a><br /></p></div>
+
+<p><a name="INDEX-1035" /></a>Databases
+permit us to allow data to persist beyond the end of our program. The
+kinds of databases we're talking about in this chapter are
+merely simple ones; how to use full-featured database implementations
+(Oracle, Sybase, Informix, mySQL, and others) is a topic that could
+fill an entire book, and usually does. The databases in this chapter
+are those that are simple enough to implement that you don't
+need to know about modules to use them.<a href="#FOOTNOTE-346">[346]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-346" /></a><p>[346]To be sure,
+on some of these, the core of Perl will load a module for you. But
+you don't need to know anything about modules to use these
+databases.</p> </blockquote>
+
+<div class="sect1"><a name="lperl3-CHP-16-SECT-1" /></a>
+<h2 class="sect1">16.1. DBM Files and DBM Hashes</h2>
+
+<p><a name="INDEX-1036" /></a> <a name="INDEX-1037" /></a>Every
+system thas has Perl also has a simple database already available in
+the form of DBM files. This lets your program store data for quick
+lookup in a file or in a pair of files. When two files are used, one
+holds the data and the other holds a table of contents, but you
+don't need to know that in order to use DBM files. We're
+intentionally being a little vague about the exact implementation,
+because that will vary depending upon your machine and configuration;
+see the <tt class="literal">AnyDBM_file</tt><a name="INDEX-1038" /></a> manpage for more information. Also,
+among the downloadable files from the O'Reilly website is a
+utility called
+<em class="filename">which_dbm,</em><a name="INDEX-1039" /></a>
+<a name="INDEX-1040" /></a>
+which tries to tell you which implementation you're using, how
+many files there are, and what extensions they use, if any.
+</p>
+
+<p>Some DBM file implementations (we'll call it "a
+file," even though it may be two actual files) have a limit of
+around 1000 bytes for each key and value in the file. Your actual
+limit may be larger or smaller than this number, but as long as you
+aren't trying to store gigantic text strings in the file, it
+shouldn't be a problem. There's no limit to the number of
+individual data items in the file, as long as you have enough disk
+space.
+</p>
+
+<p>In Perl, we can access the DBM file as a special kind of hash called
+a DBM hash. This is a powerful concept, as we'll see.
+</p>
+
+<a name="lperl3-CHP-16-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">16.1.1. Opening and Closing DBM Hashes</h3>
+
+<p>To associate a DBM database with a DBM hash (that is, to open it),
+use the <tt class="literal">dbmopen</tt><a name="INDEX-1041" /></a> function,<a href="#FOOTNOTE-347">[347]</a> which looks similar to
+<tt class="literal">open</tt>, in a way:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-347" /></a><p>[347]Here we
+depart from other beginner documentation, which claims that
+<tt class="literal">dbmopen </tt>is deprecated and suggests that you use
+the more complicated <tt class="literal">tie </tt><a name="INDEX-1042" /></a>interface instead. We disagree, since
+<tt class="literal">dbmopen </tt>works just fine, and it keeps you from
+having to think harder about what you're doing. Keep the common
+tasks simple!</p> </blockquote>
+
+<blockquote><pre class="code">dbmopen(%DATA, "my_database", 0644)
+  or die "Cannot create my_database: $!";</pre></blockquote>
+
+<p>The first parameter is the name of a Perl hash. (If this hash already
+has values, the values are inaccessible while the DBM file is open.)
+This hash becomes connected to the DBM database whose name was given
+as the second parameter, often stored on disk as a pair of files with
+the extensions <tt class="literal">.</tt><em class="emphasis">dir</em> and
+<tt class="literal">.</tt><em class="emphasis">pag</em>. (The filename as given
+in the second parameter shouldn't include either extension,
+though; the extensions will be automatically added as needed.) In
+this case, the files might be called
+<em class="filename">my_database.dir</em> and
+<em class="filename">my_database.pag</em>.
+</p>
+
+<p>Any legal hash name may be used as the name of the DBM hash, although
+uppercase-only hash names are traditional because their resemblance
+to filehandles reminds us that the hash is connected to a file. The
+hash name isn't stored anywhere in the file, so you can call it
+whatever you'd like.
+</p>
+
+<p>If the file doesn't exist, it will be created and given a
+permission mode based upon the value in the third
+parameter.<a href="#FOOTNOTE-348">[348]</a> The number is typically specified in
+octal; the frequently used value of <tt class="literal">0644</tt> gives
+read-only permission to everyone but the owner, who gets read/write
+permission. If you're trying to open an existing file,
+you'd probably rather have the <tt class="literal">dbmopen</tt>
+fail if the file isn't found, so just use
+<tt class="literal">undef</tt> as the third parameter.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-348" /></a><p>[348]The actual mode will be modified by the
+<tt class="literal">umask</tt>; see the
+<em class="emphasis">perlfunc</em>manpage for more
+information.</p> </blockquote>
+
+<p>The return value from the <tt class="literal">dbmopen</tt> is true if the
+database could be opened or created, and false otherwise, just like
+<tt class="literal">open</tt>. You should generally use <tt class="literal">or
+die</tt> in the same spirit as <tt class="literal">open</tt>.
+</p>
+
+<p>The DBM hash typically stays open throughout the program. When the
+program terminates, the association is terminated. You can also break
+the association in a manner similar to closing a filehandle, by using
+<tt class="literal">dbmclose</tt><a name="INDEX-1043" /></a>:
+</p>
+
+<blockquote><pre class="code">dbmclose(%DATA);</pre></blockquote>
+
+</div>
+<a name="lperl3-CHP-16-SECT-1.2" /></a><div class="sect2">
+<h3 class="sect2">16.1.2. Using a DBM Hash</h3>
+
+<p>Here's the beauty of the DBM hash: it works just like the
+hashes you already understand! To read from the file, look at an
+element of the hash. To write to the file, store something into the
+hash. In short, it's like any other hash, but instead of being
+stored in memory, it's stored on disk. And thus, when your
+program opens it up again, the hash is already stuffed full of the
+data from the previous invocation.
+</p>
+
+<p>All of the normal hash operations are available:</p>
+
+<blockquote><pre class="code">$DATA{"fred"} = "bedrock";      # create (or update) an element
+delete $DATA{"barney"};         # remove an element of the database
+
+foreach my $key (keys %DATA) {  # step through all values
+  print "$key has value of $DATA{$key}\n";
+}</pre></blockquote>
+
+<p>That last loop could have a problem, since <tt class="literal">keys</tt>
+has to traverse the entire hash, possibly producing a very large list
+of keys. If you are scanning through a DBM hash, it's generally
+more memory-efficient to use the
+<tt class="literal">each</tt><a name="INDEX-1044" /></a>
+function:
+</p>
+
+<blockquote><pre class="code">while (my($key, $value) = each(%DATA)) {
+  print "$key has value of $value\n";
+}</pre></blockquote>
+
+<p>If you are accessing DBM files that are maintained by
+<a name="INDEX-1045" /></a>C programs, you should be aware that
+C programs generally tack on a trailing <a name="INDEX-1046" /></a>NUL (<tt class="literal">"\0"</tt>) character to
+the end of their strings, for reasons known only to Kernighan and
+Ritchie.<a href="#FOOTNOTE-349">[349]</a> The DBM library routines do not need this
+NUL (they handle binary data using a byte count, not a NUL-terminated
+string), and so the NUL is stored as part of the data.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-349" /></a><p>[349]Well, they're not the only ones:
+it's because C uses the NUL byte as the end-of-string
+marker.</p> </blockquote>
+
+<p>To cooperate with these programs, you must therefore append a NUL
+character to the end of your keys and values, and discard the NUL
+from the end of the returned values to have the data make sense. For
+example, to look up <tt class="literal">merlyn</tt> in the sendmail aliases
+database on a Unix system, you might do something like this:
+</p>
+
+<blockquote><pre class="code">dbmopen(my %ALI, "/etc/aliases", undef) or die "no aliases?";
+my $value = $ALI{"merlyn\0"};                  # note appended NUL
+$value =~ s/\0$//;                             # remove trailing NUL
+print "Randal's mail is headed for: $value\n"; # show result</pre></blockquote>
+
+<p>If your DBM files may be concurrently accessed by more than one
+process (for example if they're being updated over the Web),
+you'll generally need to use an <a name="INDEX-1047" /></a>auxiliary lock file. The details of this
+are beyond the scope of this book; see <em class="emphasis"><a href="../cookbook/index.htm">The Perl Cookbook</a> </em> by Tom Christiansen and Nathan Torkington
+(O'Reilly &amp; Associates, Inc.).<a name="INDEX-1048" /></a> <a name="INDEX-1049" /></a>
+</p>
+
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch16_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">15.5. Exercises</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">16.2. Manipulating Data with pack and unpack</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

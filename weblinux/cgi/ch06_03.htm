@@ -1,0 +1,655 @@
+<?label 6.3. HTML::Template?><html><head><title>HTML::Template (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch06_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">6.3. HTML::Template</h2>
+
+
+<p>SSI is quite powerful, but it does have limitations. Its advantages
+are that it is efficient and simple enough for HTML designers without
+programming experience to use. The disadvantages are that it only has
+a handful of commands, and it only parses static documents.
+<a name="INDEX-1351" /> <a name="INDEX-1,352" />
+<a name="INDEX-1353" /> <a name="INDEX-1,354" />HTML::Template
+is a simple template parser that addresses both of these issues while
+still maintaining a simple interface.</p>
+
+
+<a name="ch06-5-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.3.1. Syntax</h3>
+
+
+<p>
+<a name="INDEX-1355" />
+<a name="INDEX-1356" />HTML::Template
+actually has fewer commands than SSI, but because the value of its
+variable tags can be set to anything by a CGI script, it is more
+flexible. While it's true that an SSI document can include CGI
+output, this becomes unwieldy if a page includes several complex
+components that must each execute a CGI script. HTML::Template
+supports complex templates with the execution of a single CGI script.</p>
+
+
+<p>Let's look at a very simple example that displays the current
+<a name="INDEX-1357" />date and time. <a href="ch06_03.htm#ch06-63459">Example 6-3</a> shows the template file.</p>
+
+
+
+<a name="ch06-63459" /><div class="example">
+<h4 class="objtitle">Example 6-3. current_time.tmpl </h4>
+<a name="INDEX-1358" />
+
+<blockquote><pre class="code">&lt;HTML&gt;
+
+&lt;HEAD&gt;
+  &lt;TITLE&gt;Current Time&lt;/TITLE&gt;
+&lt;/HEAD&gt;
+
+&lt;BODY BGCOLOR="white"&gt;
+  &lt;H1&gt;Current Time&lt;/H1&gt;
+  &lt;P&gt;Welcome. The current time is &lt;TMPL_VAR NAME="current_time"&gt;.&lt;/P&gt;
+&lt;/BODY&gt;
+&lt;/HTML&gt;</pre></blockquote>
+</div>
+
+
+<p>This is a standard HTML file with one added tag:
+
+<a name="INDEX-1359" />&lt;TMPL_VAR NAME="current_date" &gt;.
+<a name="INDEX-1360" />
+<a name="INDEX-1361" />HTML::Template's
+commands can be formatted like standard HTML tags or as comments. The
+following is also acceptable:</p>
+
+
+<blockquote><pre class="code">&lt;!-- TMPL_VAR NAME="current_date" --&gt;</pre></blockquote>
+
+
+<p>This alternate syntax makes the commands easier to input into HTML
+editors that may be restrictive about the tags they allow. In order
+to use this template, we must create a CGI script that is the target
+of the request. The code for this is shown in <a href="ch06_03.htm#ch06-60742">Example 6-4</a>.</p>
+
+
+
+<a name="ch06-60742" /><div class="example">
+<h4 class="objtitle">Example 6-4. current_time.cgi </h4>
+
+<a name="INDEX-1362" /><a name="INDEX-1,363" />
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use HTML::Template;
+
+use constant TMPL_FILE =&gt; "$ENV{DOCUMENT_ROOT}/templates/current_time.tmpl";
+
+my $tmpl = new HTML::Template( filename =&gt; TMPL_FILE );
+my $time = localtime;
+
+$tmpl-&gt;param( current_time =&gt; $time );
+
+print "Content-type: text/html\n\n",
+      $tmpl-&gt;output;</pre></blockquote>
+</div>
+
+
+<p>We create a constant called <tt class="literal">TMPL_FILE</tt> that points
+to the template file we will use. We then create an HTML::Template
+object, assign a parameter, and output it. Most tags have a
+<a name="INDEX-1364" />
+<a name="INDEX-1365" />NAME
+attribute; this value of this attribute corresponds to a parameter
+set by a CGI script via <a name="INDEX-1366" />HTML::Template's
+<tt class="function">param</tt> method, which (by design) works much like
+CGI.pm's <tt class="function">param</tt>
+<a name="INDEX-1367" /> method. In fact, you can import
+parameters from CGI.pm when you create a HTML::Template
+<a name="INDEX-1368" />object:</p>
+
+
+<blockquote><pre class="code">my $q    = new CGI;
+my $tmpl = new HTML::Template( filename  =&gt; TMPL_FILE,
+                               associate =&gt; $q );</pre></blockquote>
+
+
+<p>This loads all of the form parameters that your CGI script just
+received; you can of course still use the <tt class="function">param</tt>
+method to add additional parameters or override those loaded from
+CGI.pm.</p>
+
+
+<p>HTML::Template's
+<a name="INDEX-1369" /> <a name="INDEX-1,370" />commands are summarized in <a href="ch06_03.htm#ch06-78999">Table 6-4</a>.</p>
+
+
+
+<a name="ch06-78999" /><h4 class="objtitle">Table 6-4. Commands Available in HTML::Template </h4><table border="1">
+
+
+
+
+<tr>
+<th>
+<p>Element</p></th>
+<th>
+<p>Attribute</p></th>
+<th>
+<p>Description</p></th>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p><em class="filename">TMPL_VAR</em></p></td>
+<td>
+<p><em class="filename">NAME="param_name"</em></p></td>
+<td>
+<p>This tag is replaced by the value of the parameter
+<em class="emphasis">param_name</em>; has no closing tag.</p></td>
+</tr>
+
+<tr>
+<td />
+<td>
+<p><em class="filename">ESCAPE="HTML|URL"</em></p></td>
+<td>
+<p>If this is set to "HTML", then the value substituted for
+this tag is HTML escaped (e.g., <tt class="literal">"</tt> will be replaced
+by <tt class="literal">&amp;quot;</tt>, etc.); "URL" will
+encode the value for URLs. No escaping is done if this is set to
+or omitted.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="filename">TMPL_LOOP</em></p></td>
+<td>
+<p><em class="filename">NAME="param_name"</em></p></td>
+<td>
+<p>Loops over content between its opening and closing tags for each item
+in the array that corresponds to <em class="emphasis">param_name</em>, see
+below.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="filename">TMPL_IF</em></p></td>
+<td>
+<p><em class="filename">NAME="param_name"</em></p></td>
+<td>
+<p>Content within this tag is omitted unless the parameter
+<em class="emphasis">param_name</em> is true.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="filename">TMPL_ELSE</em></p></td>
+<td />
+<td>
+<p>This reverses the condition for the remaining content within a
+<em class="emphasis">TMPL_IF</em> or <em class="emphasis">TMPL_UNLESS</em> tag.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="filename">TMPL_UNLESS</em></p></td>
+<td>
+<p><em class="filename">NAME="param_name"</em></p></td>
+<td>
+<p>The reverse of <em class="emphasis">TMPL_IF</em>. Content within this tag
+is omitted unless the parameter param_name is false.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="filename">TMPL_INCLUDE</em></p></td>
+<td>
+<p><em class="filename">NAME="/file/path"</em></p></td>
+<td>
+<p>Includes the contents of another file; has no closing tag.</p></td>
+</tr>
+
+
+</table>
+
+
+<p>Only the <a name="INDEX-1371" /> <a name="INDEX-1,372" />
+<a name="INDEX-1373" />TMPL_LOOP, TMPL_IF, and
+TMPL_UNLESS commands have opening and closing tags; the others are
+single tags (like &lt;HR&gt; or &lt;BR&gt;).</p>
+
+
+<a name="ch06-6-fm2xml" /><div class="sect3">
+<h3 class="sect3">6.3.1.1. Loops</h3>
+
+
+<p>One of the most convenient features that
+<a name="INDEX-1374" />
+<a name="INDEX-1375" /> <a name="INDEX-1,376" />HTML::Template
+offers is the ability to create loops. The previous example
+didn't take advantage of this, so let's look at a more
+complex example. HTML::Template requires an
+<a name="INDEX-1377" />array of hashes for
+loops. It loops over each element in the array and creates variables
+corresponding to the hash keys. You can visualize this structure as a
+table, as in <a href="ch06_03.htm#ch06-95790">Table 6-5</a>, which can be represented
+in Perl as an array of hashes, as in <a href="ch06_03.htm#ch06-86484">Example 6-5</a>.</p>
+
+
+
+<a name="ch06-95790" /><h4 class="objtitle">Table 6-5. A Sample Table of Data </h4><table border="1">
+
+
+
+
+<tr>
+<th>
+<p>Name</p></th>
+<th>
+<p>Location</p></th>
+<th>
+<p>Age</p></th>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p>Mary</p></td>
+<td>
+<p>Minneapolis</p></td>
+<td>
+<p>37</p></td>
+</tr>
+
+<tr>
+<td>
+<p>Fred</p></td>
+<td>
+<p>Chicago</p></td>
+<td>
+<p>24</p></td>
+</tr>
+
+<tr>
+<td>
+<p>Martha</p></td>
+<td>
+<p>Orlando</p></td>
+<td>
+<p>51</p></td>
+</tr>
+
+<tr>
+<td>
+<p>Betty</p></td>
+<td>
+<p>Los Angeles</p></td>
+<td>
+<p>19</p></td>
+</tr>
+
+<tr>
+<td>
+<p>...</p></td>
+<td>
+<p>...</p></td>
+<td>
+<p>...</p></td>
+</tr>
+
+
+</table>
+
+
+
+<a name="ch06-86484" /><div class="example">
+<h4 class="objtitle">Example 6-5. A Perl Data Structure Corresponding to <a href="ch06_03.htm#ch06-95790">Table 6-5</a> </h4>
+
+<blockquote><pre class="code">@table = (
+    { name     =&gt; "Mary",
+      location =&gt; "Minneapolis",
+      age      =&gt; "37" },
+    { name     =&gt; "Fred",
+      location =&gt; "Chicago",
+      age      =&gt; "24" },
+    { name     =&gt; "Martha",
+      location =&gt; "Orlando",
+      age      =&gt; "51" },
+    { name     =&gt; "Betty",
+      location =&gt; "Los Angeles",
+      age      =&gt; "19" },
+    ...
+);</pre></blockquote>
+</div>
+
+
+<p><a href="ch06_03.htm#ch06-70025">Example 6-6</a> contains a script that will display all
+of the standard colors available on systems that support the X Window
+system.</p>
+
+<a name="ch06-70025" /><div class="example">
+<h4 class="objtitle">Example 6-6. xcolors.cgi</h4>
+
+<blockquote><pre class="code">
+#!/usr/bin/perl -wT
+
+use strict;
+use HTML::Template;
+
+my $rgb_file = "/usr/X11/lib/X11/rgb.txt";
+my $template = "/usr/local/apache/templates/xcolors.tmpl";
+
+my @colors   = parse_colors( $rgb_file );
+
+print "Content-type: text/html\n\n";
+my $tmpl = new HTML::Template( filename =&gt; $template );
+
+$tmpl-&gt;param( colors =&gt; \@colors );
+print $tmpl-&gt;output;
+
+
+sub parse_colors {
+    my $path = shift;
+    local *RGB_FILE;
+    open RGB_FILE, $path or die "Cannot open $path: $!";
+    
+    while (&lt;RGB_FILE&gt;) {
+        next if /^!/;
+        chomp;
+        my( $r, $g, $b, $name ) = split;
+        
+        # Convert to hexadecimal #RRGGBB format
+        my $rgb = sprintf "#%0.2x%0.2x%0.2x", $r, $g, $b;
+        
+        my %color = ( rgb =&gt; $rgb, name =&gt; $name );
+        push @colors, \%color;
+    }
+    
+    close RGB_FILE;
+    return @colors;
+}</pre></blockquote>
+</div>
+
+<p>This CGI script uses the <tt class="function">rgb.txt</tt> file that is
+typically found on X Window systems at
+<em class="filename">/usr/X11/lib/X11/rgb.txt</em>. This file contains a
+list of colors along with their 8-bit values for red, green, and
+blue:</p>
+
+
+<blockquote><pre class="code">! $XConsortium: rgb.txt,v 10.41 94/02/20 18:39:36 rws Exp $
+255 250 250	    snow
+248 248 255	    ghost white
+248 248 255	    GhostWhite
+245 245 245	    white smoke
+245 245 245	    WhiteSmoke
+...</pre></blockquote>
+
+
+<p>We read the red, green, and blue values and convert them to the
+hexadecimal equivalent that is used on HTML pages (e.g.,
+<tt class="literal">#336699</tt>). We create a separate hash for each color
+with an entry for the RGB value and the name of the color. Then we
+add each hash to the array <tt class="literal">@colors</tt>. We need to
+pass only <tt class="literal">@colors</tt> as a parameter to
+HTML::Template, which we can use as a loop variable within our HTML
+template. Within the loop, we have access to the "rgb"
+and "name" elements of our hashes, as shown in <a href="ch06_03.htm#ch06-70010">Example 6-7</a>.</p>
+
+
+<a name="ch06-70010" /><div class="example">
+<h4 class="objtitle">Example 6-7. xcolors.tmpl</h4>
+
+<blockquote><pre class="code">&lt;HTML&gt;
+
+&lt;HEAD&gt;
+  &lt;TITLE&gt;X11 Color Viewer&lt;/TITLE&gt;
+&lt;/HEAD&gt;
+
+&lt;BODY BGCOLOR="white"&gt;
+&lt;DIV ALIGN="center"&gt;
+  &lt;H1&gt;X11 Color Viewer&lt;/H1&gt;
+  &lt;HR&gt;
+  
+  &lt;TABLE BORDER="1" CELLPADDING="4" WIDTH="400"&gt;
+    &lt;TMPL_LOOP NAME="colors"&gt;
+      &lt;TR&gt;
+        &lt;TD BGCOLOR="&lt;TMPL_VAR NAME="rgb"&gt;"&gt;
+          &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;/TD&gt;
+        &lt;TD&gt;&lt;TMPL_VAR NAME="name"&gt;&lt;/TD&gt;
+      &lt;/TR&gt;
+    &lt;/TMPL_LOOP&gt;
+  &lt;/TABLE&gt;
+&lt;/DIV&gt;
+&lt;/BODY&gt;
+&lt;/HTML&gt;</pre></blockquote>
+</div>
+
+<p>This loop structure is flexible enough to allow us to display other
+forms of data, such as hashes. <a href="ch06_03.htm#ch06-58970">Example 6-8</a> lists a
+CGI script that generates all of the environment variables and their
+values.</p>
+
+
+
+<a name="ch06-58970" /><div class="example">
+<h4 class="objtitle">Example 6-8. env_tmpl.cgi </h4>
+<a name="INDEX-1378" /><a name="INDEX-1,379" />
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use HTML::Template;
+
+use constant TMPL_FILE =&gt; "$ENV{DOCUMENT_ROOT}/templates/env.tmpl";
+
+my $tmpl = new HTML::Template( filename =&gt; TMPL_FILE,
+                               no_includes =&gt; 1 );
+my @env;
+
+foreach ( sort keys %ENV ) {
+    push @env, { var_name =&gt; $_, var_value =&gt; $ENV{$_} };
+}
+
+$tmpl-&gt;param( env =&gt; \@env );
+
+print "Content-type: text/html\n\n",
+      $tmpl-&gt;output;</pre></blockquote>
+</div>
+
+
+<p>HTML::Template has no facility for handling
+<a name="INDEX-1380" />hashes directly, but because it will loop
+over <a name="INDEX-1381" />arrays of
+hashes, we build a hash for each pair in <tt class="literal">%ENV</tt> and
+add it to an array, <tt class="literal">@env</tt>. We then pass a reference
+to <tt class="literal">@env</tt> as a parameter to our HTML::Template
+object and output the parsed file. Our template file is shown in
+<a href="ch06_03.htm#ch06-54470">Example 6-9</a>.</p>
+
+
+
+<a name="ch06-54470" /><div class="example">
+<h4 class="objtitle">Example 6-9. env.tmpl </h4>
+<a name="INDEX-1382" /><a name="INDEX-1,383" />
+
+<blockquote><pre class="code">&lt;HTML&gt;
+
+&lt;HEAD&gt;
+  &lt;TITLE&gt;Environment Variables&lt;/TITLE&gt;
+&lt;/HEAD&gt;
+
+&lt;BODY BGCOLOR="white"&gt;
+  &lt;TABLE BORDER="1"&gt;
+    &lt;TMPL_LOOP NAME="env"&gt;
+      &lt;TR&gt;
+        &lt;TD&gt;&lt;B&gt;&lt;TMPL_VAR NAME="var_name"&gt;&lt;/B&gt;&lt;/TD&gt;
+        &lt;TD&gt;&lt;TMPL_VAR NAME="var_value"&gt;&lt;/TD&gt;
+      &lt;/TR&gt;
+    &lt;/TMPL_LOOP&gt;
+  &lt;/TABLE&gt;
+
+&lt;/BODY&gt;
+&lt;/HTML&gt;</pre></blockquote>
+</div>
+
+
+<p>Note that we called <tt class="function">param</tt> once, even though
+there are three different HTML::Template tags in this file. The
+<tt class="literal">var_name</tt> and <tt class="literal">var_value</tt>
+variables were set because they corresponded to hash keys within the
+<tt class="literal">@env</tt> array.</p>
+</div>
+
+
+
+<a name="ch06-7-fm2xml" /><div class="sect3">
+<h3 class="sect3">6.3.1.2. Conditionals</h3>
+
+
+<p>
+<a name="INDEX-1384" /> <a name="INDEX-1,385" />HTML::Template
+offers two ways to create a conditional just like Perl: TMPL_IF and
+TMPL_UNLESS. You can use these to include or omit particular portions
+of your HTML template. Both tags take a <a name="INDEX-1386" />
+<a name="INDEX-1387" />NAME
+attribute that corresponds to a parameter, just like previous tags,
+which is evaluated in a boolean context. There is no way to create
+expressions to evaluate within your templates, since the goal is to
+keep templates simple. Note also that you do not always have to set a
+separate parameter in order to use these tags. For example, you could
+include a block like this in your document:</p>
+
+
+<blockquote><pre class="code">&lt;TMPL_IF NAME="secret_msg" &gt;
+  &lt;P&gt;Psst, here's your secret message: &lt;TMPL_VAR NAME="secret_msg"&gt;.&lt;/P&gt;
+&lt;/TMPL_IF&gt;</pre></blockquote>
+
+
+<p>Here the same parameter is used in both the TMPL_IF and TMPL_VAR
+commands. If there is a secret message, it is displayed. If there
+isn't (i.e., if it is an empty string), then nothing is
+displayed instead.</p>
+
+
+<p>You can also use
+<a name="INDEX-1388" />
+<a name="INDEX-1389" />loop parameters as conditions. If
+the loop parameter contains any values, it returns true; otherwise it
+returns false. This is useful for displaying search results when
+there are no matches:</p>
+
+
+<blockquote><pre class="code">&lt;P&gt;Here are the results of your query:&lt;/P&gt;
+
+&lt;TABLE&gt;
+  &lt;TR&gt;
+    &lt;TH&gt;Software Title&lt;/TH&gt;&lt;/TR&gt;
+    &lt;TH&gt;Home Page&lt;/TH&gt;&lt;/TR&gt;
+  &lt;/TR&gt;
+ 
+ &lt;TMPL_LOOP NAME="results"&gt;
+  &lt;TR&gt;
+    &lt;TD&gt;&lt;TMPL_VAR NAME="sw_title"&gt;&lt;/TD&gt;
+    &lt;TD&gt;&lt;A HREF="&lt;TMPL_VAR NAME="url"&gt;"&gt;&lt;TMPL_VAR NAME="sw_url"&gt;&lt;/A&gt;&lt;/TD&gt;
+  &lt;/TR&gt;
+ &lt;/TMPL_LOOP&gt;
+ 
+ &lt;TMPL_UNLESS NAME="results"&gt;
+  &lt;TR&gt;
+    &lt;TD COLSPAN="2"&gt;
+      No software titles match your query.
+    &lt;/TD&gt;
+  &lt;/TR&gt;
+ &lt;/TMPL_UNLESS&gt;
+
+&lt;/TABLE&gt;</pre></blockquote>
+
+
+<p>In this example, a user is searching for software according to some
+criteria. If the query matches any titles, then the name and home
+page of the titles are displayed on separate rows in a table. If no
+rows match, then the script says this instead. This template gives
+the interface designer full control over how the results are
+presented to the user without being too complicated to understand.</p>
+</div>
+
+
+
+<a name="ch06-8-fm2xml" /><div class="sect3">
+<h3 class="sect3">6.3.1.3. Including other files</h3>
+
+
+<p>The final command,
+<a name="INDEX-1390" />TMPL_INCLUDE, includes
+the content of other files in your template. The content of these
+files is included before loops and variables are parsed, so you can
+include files that contain loop and variable tags (or even other
+include tags). This is similar to the SSI
+<tt class="command">include</tt>
+<a name="INDEX-1391" /> command, except there is no ability to
+provide a virtual
+<a name="INDEX-1392" />path to the
+file; you must provide a filesystem path. HTML::Template does no
+validation that the file is within the document root, so an HTML
+developer could easily include the following statement in a file and
+HTML::Template would act accordingly:</p>
+
+
+<blockquote><pre class="code">&lt;TMPL_INCLUDE NAME="/etc/passwd" &gt;</pre></blockquote>
+
+
+<p>This is not as serious a security issue as it might appear, since an
+HTML designer could always copy the contents of
+<em class="emphasis">/etc/passwd</em> into an HTML file manually or create
+a symbolic link to it. However, this potential is something you
+should be aware of. You can disable includes entirely with the
+<tt class="literal">no_includes</tt> option when you create an
+HTML::Template object.</p>
+</div>
+</div>
+
+
+
+
+<a name="ch06-9-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.3.2. Summary</h3>
+
+
+<p>HTML::Template is certainly a very elegant solution for projects
+where the roles of HTML designers and developers are clearly
+separated. HTML::Template has only been available a short while but
+has matured quickly. It also offers more advanced features including
+caching output that we haven't discussed. The features we
+discussed are accurate as of Version 1.7, but new features are still
+being added, so check the documentation for more information. You can
+find <a name="INDEX-1393" /> <a name="INDEX-1,394" />HTML::Template on CPAN; for the
+latest information, including information on the mailing list and
+CVS, consult the online <a name="INDEX-1395" /> <a name="INDEX-1,396" /> <a name="INDEX-1,397" /> <a name="INDEX-1,398" />documentation.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch06_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">6.2. Server Side Includes</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">6.4. Embperl</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

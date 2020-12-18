@@ -1,0 +1,1500 @@
+<?label 2.7. DBM Files and the BerkeleyDatabase Manager ?><html><head><title>DBM Files and the BerkeleyDatabase Manager  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch02_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch02_08.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">2.7. DBM Files and the BerkeleyDatabase Manager </h2>
+
+
+
+<p>
+<a name="INDEX-108" />DBM <a name="INDEX-109" />files <a name="INDEX-110" />are <a name="INDEX-111" />a
+<a name="INDEX-112" />storage management layer that allows
+programmers to store information in files as pairs of strings, a
+<a name="INDEX-113" />key, <a name="INDEX-114" />and a
+value. DBM files are <em class="emphasis">binary</em> files and the key
+and value strings can also hold binary data.</p>
+
+
+
+<p>There are several forms of DBM files, each with its own strengths and
+weaknesses. Perl supports the
+<em class="filename">ndbm</em>
+<a name="INDEX-115" />,
+<em class="filename">db</em>
+<a name="INDEX-116" />,
+<em class="filename">gdbm</em>
+<a name="INDEX-117" />,
+<em class="filename">sdbm</em>
+<a name="INDEX-118" />, and
+<em class="filename">odbm</em>
+<a name="INDEX-119" /> managers via the
+<tt class="literal">NDBM_File</tt>
+<a name="INDEX-120" />,
+<tt class="literal">DB_File</tt>
+<a name="INDEX-121" />,
+<tt class="literal">GDBM_File</tt>
+<a name="INDEX-122" />,
+<tt class="literal">SDBM_File</tt>
+<a name="INDEX-123" />, and
+<tt class="literal">ODBM_File</tt>
+<a name="INDEX-124" /> extensions. There's also an
+<tt class="literal">AnyDBM_File</tt>
+<a name="INDEX-125" /> module that will simply use the best
+available DBM. The documentation for the
+<tt class="literal">AnyDBM_File</tt> module includes a useful table
+comparing the different DBMs.</p>
+
+
+
+<p>These extensions all associate a DBM file on disk with a Perl
+<a name="INDEX-126" />hash variable
+(or <em class="emphasis">associative
+array</em>
+<a name="INDEX-127" />)
+in memory.<a href="#FOOTNOTE-13">[13]</a> The simple
+<em class="emphasis">look like a hash</em> programming interface lets
+programmers store data in operating system files without having to
+consider how it's done. It just works.</p><blockquote>
+
+
+<a name="FOOTNOTE-13" /><p>[13]DBM files are implemented by library code
+that's linked into the Perl extensions. There's no
+separate server process involved.</p>
+
+
+</blockquote>
+
+
+
+<p>Programmers store and fetch values into and out of the hash, and the
+underlying DBM storage management layer will look after getting them
+on and off the disk.</p>
+
+
+
+<p>In this section, we shall discuss the most popular and sophisticated
+of these storage managers, the Berkeley Database Manager, also known
+as the Berkeley DB. This software is accessed from Perl via the
+<tt class="literal">DB_File</tt> and Berkeley DB extensions. On Windows
+systems, it can be installed via the Perl <a name="INDEX-128" />package manager,
+<em class="emphasis">ppm</em>. On Unix systems, it is built by default
+when Perl is built <em class="emphasis">only if</em> the Berkeley DB
+library has already been installed on your system. That's
+generally the case on Linux, but on most other systems you may need
+to fetch and build the Berkeley DB library first.<a href="#FOOTNOTE-14">[14]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-14" /><p>[14]Version 1 of Berkeley DB is available from <a href="http://www.perl.com/CPAN/src/misc/db.1.86.tar.gz">http://www.perl.com/CPAN/src/misc/db.1.86.tar.gz</a>.
+The much improved Version 2 (e.g.,
+<em class="filename">db.2.14.tar.gz</em>) is also available, but
+isn't needed for our examples and is only supported by recent
+Perl versions. Version 3 is due out soon. See 
+<a href="www.sleepycat.com">www.sleepycat.com</a>.</p>
+
+
+</blockquote>
+
+
+
+<p>In addition to the standard DBM file features, Berkeley DB and the
+<tt class="literal">DB_File</tt> module also provide support for several
+different storage and retrieval algorithms that can be used in subtly
+different situations. In newer versions of the software, concurrent
+access to databases and locking are also supported.</p>
+
+
+
+<a name="ch02-ch02_creating_0" /><div class="sect2">
+<h3 class="sect2">2.7.1. Creating a New Database </h3>
+
+
+
+<p>Prior <a name="INDEX-129" />to <a name="INDEX-130" />manipulating
+data within a Berkeley database, either a new database must be
+created or an existing database must be opened for reading. This can
+be done by using one of the following function calls:</p>
+
+
+
+<blockquote><pre class="code">tie %hash,  'DB_File', $filename, $flags, $mode, $DB_HASH;
+tie %hash,  'DB_File', $filename, $flags, $mode, $DB_BTREE;
+tie @array, 'DB_File', $filename, $flags, $mode, $DB_RECNO;</pre></blockquote>
+
+
+
+<p>The final parameter of this call is the interesting one, as it
+dictates the way in which the Berkeley DB will store the data in the
+database file. The behavior of these parameters is as follows:</p>
+
+
+
+<ul><li><p>
+<a name="INDEX-131" /><tt class="literal">DB_HASH</tt>
+
+<a name="INDEX-132" />is the default behavior for Berkeley DB
+databases. It stores the data according to a <em class="emphasis">hash
+value</em>
+<a name="INDEX-133" />
+computed from the string specified as the key itself. Hashtables are
+generally extremely fast, in that by simply applying the hash
+function to any given key value, the data associated with that key
+can be located in a single operation. This is much faster than
+sequential scanning. However, hashtables provide no useful ordering
+of the data by default, and hashtable performance can begin to
+degrade when several keys have identical hash key values. This
+results in several items of data being attached to the same hash key
+value, which results in slower access times.</p></li><li><p>
+<a name="INDEX-134" />With the
+<tt class="literal">DB_BTREE</tt>
+<a name="INDEX-135" /> format, Berkeley DB files are stored in
+the form of a balanced binary tree. The B-tree storage technique will
+sort the keys that you insert into the Berkeley DB, the default being
+to sort them in lexical order. If you desire, you can override this
+behavior with your own sorting algorithms.</p></li><li><p>
+<a name="INDEX-136" />The
+<tt class="literal">DB_RECNO</tt>
+<a name="INDEX-137" /> format allows you to store key/value
+pairs in both fixed-length and variable-length textual flat files.
+The key values in this case consist of a line number, i.e., the
+number of the record within the database.</p></li></ul>
+<p>When initializing a new or existing Berkeley DB database for use with
+Perl, use the <tt class="literal">tie</tt>
+<a name="INDEX-138" /> mechanism defined within Perl to
+associate the actual Berkeley DB with either a hash or a standard
+scalar array. By doing this, we can simply manipulate the Perl
+variables, which will automatically perform the appropriate
+operations on the Berkeley DB files instead of us having to manually
+program the Berkeley DB API ourselves.</p>
+
+
+
+<p>For example, to create a simple Berkeley DB, we could use the
+following Perl script:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch02/DBM/createdb: Creates a Berkeley DB
+
+use strict;
+
+use DB_File;
+
+my  %database;
+tie %database, 'DB_File', "createdb.dat"
+    or die "Can't initialize database: $!\n";
+
+untie %database;
+
+exit;</pre></blockquote>
+
+
+
+<p>If you now look in the directory in which you ran this script, you
+should hopefully find a new file called
+<em class="emphasis">createdb.dat</em>. This is the disk image of your
+Berkeley database, i.e., your data stored in the format implemented
+by the Berkeley DB storage manager. These files are commonly referred
+to as DBM files.</p>
+
+
+
+<p>In the example above, we simply specified the name of the file in
+which the database is to be stored and then ignored the other
+arguments. This is a perfectly acceptable thing to do if the defaults
+are satisfactory. The additional arguments default to the values
+listed in <a href="ch02_07.htm#ch02-23652">Table 2-1</a>.</p>
+
+
+
+<a name="ch02-23652" /><h4 class="objtitle">Table 2-1. The Default Argument Values of DB_File</h4><table border="1">
+
+
+
+<tr>
+<th>
+<p>Argument</p></th>
+<th>
+<p>Default Value</p></th>
+</tr>
+
+
+
+
+
+
+<tr>
+<td>
+<p><tt class="literal">$filename</tt></p></td>
+<td>
+<p><tt class="literal">undef</tt>
+<a href="#FOOTNOTE-15">[15]</a></p></td>
+</tr>
+
+
+<tr>
+<td>
+<p><tt class="literal">$flags</tt></p></td>
+<td>
+<p><tt class="literal">O_CREAT | O_RDWR</tt></p></td>
+</tr>
+
+
+<tr>
+<td>
+<p><tt class="literal">$mode</tt></p></td>
+<td>
+<p><tt class="literal">0666</tt></p></td>
+</tr>
+
+
+<tr>
+<td>
+<p><tt class="literal">$storage_type</tt></p></td>
+<td>
+<p><tt class="literal">$DB_HASH</tt></p></td>
+</tr>
+
+
+
+</table><blockquote>
+
+
+<a name="FOOTNOTE-15" /><p>[15]If the filename argument is
+specified as <tt class="literal">undef</tt>, the database will be created
+in-memory only. It still behaves as if written to file, although once
+the program exits, the database will no longer exist.</p>
+
+
+</blockquote>
+
+
+
+<p>The <tt class="literal">$flags</tt> argument <a name="INDEX-139" />takes the values that are associated
+with the standard Perl <tt class="literal">sysopen()</tt> function, and the
+<tt class="literal">$mode</tt> argument takes the form of the octal value
+of the file permissions that you wish the DBM file to be created
+with. In the case of the default value, <tt class="literal">0666</tt>, the
+corresponding Unix permissions will be:</p>
+
+
+
+<blockquote><pre class="code">-rw-rw-rw-</pre></blockquote>
+
+
+
+<p>That is, the file is user, group, and world readable and
+writeable.<a href="#FOOTNOTE-16">[16]</a> You may wish to specify more strict permissions on your
+DBM files to be sure that unauthorized users won't tamper with
+them.</p><blockquote>
+
+
+<a name="FOOTNOTE-16" /><p>[16] We are ignoring any modifications to the
+permissions that <tt class="literal">umask</tt> may make.</p>
+
+
+</blockquote>
+
+
+
+<p>Other platforms such as Win32 differ, and do not necessarily use a
+permission system. On these platforms, the permission mode is simply
+ignored.</p>
+
+
+
+<p>Given that creating a new database is a fairly major operation, it
+might be worthwhile to implement an exclusive locking mechanism that
+protects the database files while the database is initially created
+and loaded. As with flat-file databases, the Perl
+<tt class="literal">flock()</tt> call should be used to perform file-level
+locking, but there are some differences between locking standard
+files and <a name="INDEX-140" />DBM <a name="INDEX-141" />files.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch02-ch02_locking_0" /><div class="sect2">
+<h3 class="sect2">2.7.2. Locking Strategies </h3>
+
+
+
+<p>The
+<a name="INDEX-142" />issues <a name="INDEX-143" />of safe
+access to databases that plagued flat-file databases still apply to
+Berkeley databases. Therefore, it is a good idea to implement a
+locking strategy that allows safe multi-user access to the databases,
+if this is required by your applications.</p>
+
+
+
+<p>The way in which
+<tt class="literal">flock()</tt>
+<a name="INDEX-144" />
+<a name="INDEX-145" />
+is used regarding DBM files is slightly different than that of
+locking standard Perl filehandles, as there is no direct reference to
+the underlying filehandle when we create a DBM file within a Perl
+script.</p>
+
+
+
+<p>Fortunately, the <tt class="literal">DB_File</tt> module defines a method
+that can be used to locate the underlying <em class="emphasis">file
+descriptor</em>
+<a name="INDEX-146" />
+<a name="INDEX-147" />for a DBM file, allowing us to use
+<tt class="literal">flock()</tt> on it. This can be achieved by invoking
+the <tt class="literal">fd()</tt>
+<a name="INDEX-148" />
+<a name="INDEX-149" />
+method on the object reference returned from the database
+initialization by <tt class="literal">tie()</tt>. For example:</p>
+
+
+
+<blockquote><pre class="code">### Create the new database ...
+$db = tie %database, 'DB_File', "megaliths.dat"
+    or die "Can't initialize database: $!\n";
+
+### Acquire the file descriptor for the DBM file
+my $fd = $db-&gt;fd();
+
+### Do a careful open() of that descriptor to get a Perl filehandle
+open DATAFILE, "+&lt;&amp;=$fd" or die "Can't safely open file: $!\n";
+
+### And lock it before we start loading data ...
+print "Acquiring an exclusive lock...";
+flock( DATAFILE, LOCK_EX )
+        or die "Unable to acquire exclusive lock: $!. Aborting";
+print "Acquired lock. Ready to update database!\n\n";</pre></blockquote>
+
+
+
+<p>This code looks a bit gruesome, especially with the additional call
+to <tt class="literal">open()</tt>. It is written in such a way that the
+original file descriptor being currently used by the DBM file when
+the database was created is not invalidated. What actually occurs is
+that the file descriptor is associated with the Perl filehandle in a
+nondestructive way. This then allows us to <tt class="literal">flock()</tt>
+the filehandle as per usual.</p>
+
+
+
+<p>However,after having written this description
+and all the examples using this standard documented way to lock
+Berkeley DBM files, it has been discovered that there is a small risk
+of data corruption during concurrent access. To make a long story
+short, the DBM code reads some of the file when it first opens it,
+before you get a chance to lock it. That's the problem.</p>
+
+
+
+<p>There is a quick fix if your system supports the
+<tt class="literal">O_EXLOCK</tt>
+<a name="INDEX-150" /> flag, as FreeBSD does and probably most
+Linux versions do. Just add the <tt class="literal">O_EXLOCK</tt> flag to
+the <tt class="literal">tie</tt>
+<a name="INDEX-151" />:</p>
+
+
+
+<blockquote><pre class="code">use Fcntl;    # import O_EXLOCK, if available
+$db = tie %database, 'DB_File', "megaliths.dat", O_EXLOCK;</pre></blockquote>
+
+
+
+<p>For more information, and a more general workaround, see:</p>
+
+
+
+<p><a href="http://www.xray.mpe.mpg.de/mailing-lists/perl5-porters/1999-09/msg00954.html">http://www.xray.mpe.mpg.de/mailing-lists/perl5-porters/1999-09/msg00954.html</a></p>
+
+
+
+<p>and the thread of messages that follows it.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch02-ch02_inserting_1" /><div class="sect2">
+<h3 class="sect2">2.7.3. Inserting and Retrieving Values </h3>
+
+
+
+<p>Inserting <a name="INDEX-152" />data
+into a Berkeley DB using the Perl <tt class="literal">DB_File</tt> module
+is extremely simple as a result of using a <em class="emphasis">tied
+hash</em>
+<a name="INDEX-153" /> or
+<em class="emphasis">tied array</em>
+<a name="INDEX-154" />. The association of a DBM file and a Perl
+data structure is created when the database is opened. This allows us
+to manipulate the contents of the database simply by altering the
+contents of the Perl data structures.</p>
+
+
+
+<p>This system makes it very easy to store data within a DBM file and
+also abstracts the actual file-related operations for data
+manipulation away from our scripts. Thus, the Berkeley DB is a
+higher-level storage manager than the simple flat-file databases
+discussed earlier in this chapter.</p>
+
+
+
+<p>The following script demonstrates the insertion and retrieval of data
+from a DBM file using a tied hash. This hash has the Perl
+characteristic of <a name="INDEX-155" />being
+<a name="INDEX-156" />a key/value pair. That is, values are
+stored within the hash table against a unique key. This affords
+extremely fast retrieval and an element of indexed data access as
+opposed to sequential access. For example:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch02/DBM/simpleinsert: Creates a Berkeley DB, inserts some test data
+#                        and dumps it out again
+
+use DB_File;
+use Fcntl ':flock';
+
+### Initialize the Berkeley DB
+my %database;
+my $db = tie %database, 'DB_File', "simpleinsert.dat",
+         O_CREAT | O_RDWR, 0666
+    or die "Can't initialize database: $!\n";
+
+my $fd = $db-&gt;fd();
+open DATAFILE, "+&lt;&amp;=$fd"
+    or die "Can't safely open file: $!\n";
+print "Acquiring exclusive lock...";
+flock( DATAFILE, LOCK_EX )
+    or die "Unable to acquire lock: $!. Aborting";
+print "Acquired lock. Ready to update database!\n\n";
+
+
+### Insert some data rows
+$database{'Callanish I'} = 
+    "This site, commonly known as the "Stonehenge of the North" is in the
+form of a buckled Celtic cross.";
+
+$database{'Avebury'} =
+    "Avebury is a vast, sprawling site that features, amongst other marvels,
+the largest stone circle in Britain. The henge itself is so large,
+it almost completely surrounds the village of Avebury.";
+$database{'Lundin Links'} =
+    "Lundin Links is a megalithic curiosity, featuring 3 gnarled and
+immensely tall monoliths arranged possibly in a 4-poster design.
+Each monolith is over 5m tall.";
+
+### Untie the database
+undef $db;
+untie %database;
+
+### Close the file descriptor to release the lock
+close DATAFILE;
+
+
+### Retie the database to ensure we're reading the stored data
+$db = tie %database, 'DB_File', "simpleinsert.dat", O_RDWR, 0444
+    or die "Can't initialize database: $!\n";
+
+### Only need to lock in shared mode this time because we're not updating ...
+$fd = $db-&gt;fd();
+open DATAFILE, "+&lt;&amp;=$fd" or die "Can't safely open file: $!\n";
+print "Acquiring shared lock...";
+flock( DATAFILE, LOCK_SH )
+    or die "Unable to acquire lock: $!. Aborting";
+print "Acquired lock. Ready to read database!\n\n";
+
+### Dump the database
+foreach my $key ( keys %database ) {
+    print "$key\n", ( "=" x ( length( $key ) + 1 ) ), "\n\n";
+    print "$database{$key}\n\n";
+}
+
+### Close the Berkeley DB
+undef $db;
+untie %database;
+
+### Close the file descriptor to release the lock
+close DATAFILE;
+
+exit;</pre></blockquote>
+
+
+
+<p>When run, this script will generate the following output, indicating
+that it is indeed retrieving values from a database:</p>
+
+
+
+<blockquote><pre class="code">Acquiring exclusive lock...Acquired lock. Ready to update database!
+
+Acquiring shared lock...Acquired lock. Ready to read database!
+
+Callanish I
+============
+
+This site, commonly known as the "Stonehenge of the North" is in the
+form of a buckled Celtic cross.
+
+Avebury
+========
+
+Avebury is a vast, sprawling site that features, amongst other marvels,
+the largest stone circle in Britain. The henge itself is so large,
+it almost completely surrounds the village of Avebury.
+
+Lundin Links
+=============
+
+Lundin Links is a megalithic curiosity, featuring 3 gnarled and
+immensely tall monoliths arranged possibly in a 4-poster design.
+Each monolith is over 5m tall.</pre></blockquote>
+
+
+
+<p>You may have noticed that we cheated a little bit in the previous
+example. We stored only the descriptions of the sites instead of all
+the information such as the map reference and location. This is the
+inherent problem with key/value pair databases: you can store only a
+single value against a given key. You can circumvent this by simply
+concatenating values into a string and storing that string instead,
+just like we did using <tt class="literal">join()</tt>,
+<tt class="literal">pack()</tt>, <tt class="literal">Data::Dumper</tt>, and
+<tt class="literal">Storable</tt> earlier in this chapter.</p>
+
+
+
+<p>This particular form of storage jiggery-pokery can be accomplished in
+at least two ways.<a href="#FOOTNOTE-17">[17]</a> One is to hand-concatenate
+the data into a string and hand-split it when required. The other is
+slightly more sophisticated and uses a Perl object encapsulating a
+megalith to handle, and hide, the packing and unpacking.</p><blockquote>
+
+
+<a name="FOOTNOTE-17" /><p>[17]As with all Perl things,
+There's More Than One Way To Do It (a phrase so common with
+Perl you'll often see it written as TMTOWTDI). We're
+outlining these ideas here because they dawned on us first. You might
+come up with something far more outlandish and obscure, or painfully
+obvious. Such is Perl.</p>
+
+
+</blockquote>
+
+
+
+<a name="ch02-ch02_localized_0" /><div class="sect3">
+<h3 class="sect3">2.7.3.1. Localized storage and retrieval </h3>
+
+
+
+<p>
+<a name="INDEX-157" />The <a name="INDEX-158" />first technique -- application
+handling of string joins and splits -- is certainly the most
+self-contained. This leads us into a small digression.</p>
+
+
+
+<p>Self-containment can be beneficial, as it tends to concentrate the
+logic of a script internally, making things slightly more simple to
+understand. Unfortunately, this localization can also be a real pain.
+Take our megalithic database as a good example. In the previous
+section, we wrote four different Perl scripts to handle the four main
+data manipulation operations. With localized logic, you're
+essentially implementing the same storing and extraction code in four
+different places.</p>
+
+
+
+<p>Furthermore, if you decide to change the format of the data, you need
+to keep four different scripts in sync. Given that it's also
+likely that you'll add more scripts to perform more specific
+functions (such as generating web pages) with the appropriate
+megalithic data from the database, that gives your database more
+points of potential failure and inevitable corruption.</p>
+
+
+
+<p>Getting back to the point, we can fairly simply store complex data in
+a <a name="INDEX-159" />DBM file by using
+either <tt class="literal">join(
+)</tt>
+<a name="INDEX-160" />
+<a name="INDEX-161" />,
+to create a delimited string, or <tt class="literal">pack(
+)</tt>
+<a name="INDEX-162" />
+<a name="INDEX-163" />,
+to make a fixed-length record. <tt class="literal">join( )</tt> can be used
+in the following way to produce the desired effect:</p>
+
+
+
+<blockquote><pre class="code">### Insert some data rows
+$database{'Callanish I'} =
+    join( ':', 'Callanish I', 'Callanish, Western Isles', 'NB 213 330',
+               'Stone Circle', 'Description of Callanish I' );
+$database{'Avebury'} =
+    join( ':', 'Avebury', 'Wiltshire', 'SU 103 700', 
+               'Stone Circle and Henge',
+               'Description of Avebury' );
+$database{'Lundin Links'} =
+    join( ':', 'Lundin Links', 'Fife', 'NO 404 027', 'Standing Stones',
+               'Description of Lundin Links' );
+### Dump the database
+foreach my $key ( keys %database ) {
+    my ( $name, $location, $mapref, $type, $description ) =
+         split( /:/, $database{$key} );
+    print "$name\n", ( "=" x length( $name ) ), "\n\n";
+    print "Location:      $location\n";
+    print "Map Reference: $mapref\n";
+    print "Description:   $description\n\n";
+}</pre></blockquote>
+
+
+
+<p>The storage of <a name="INDEX-164" />fixed-length records is equally
+straightforward, but does gobble up space within the database rather
+quickly. Furthermore, the main rationale for using fixed-length
+records is often access speed, but when stored within a DBM file,
+in-place queries and updates simply do not provide any major speed
+increase.</p>
+
+
+
+<p>The code to insert and dump megalithic data using fixed-length
+records is shown in the following code segment:</p>
+
+
+
+<blockquote><pre class="code">### The pack and unpack template.
+$PACKFORMAT = 'A64 A64 A16 A32 A256';
+
+### Insert some data rows
+$database{'Callanish I'} =
+    pack( $PACKFORMAT, 'Callanish I', 'Callanish, Western Isles', 
+                     'NB 213 330', 'Stone Circle', 
+                     'Description of Callanish I' );
+
+$database{'Avebury'} =
+    pack( $PACKFORMAT, 'Avebury', 'Wiltshire', 'SU 103 700', 
+                     'Stone Circle and Henge', 'Description of Avebury' );
+
+$database{'Lundin Links'} =
+    pack( $PACKFORMAT, 'Lundin Links', 'Fife', 'NO 404 027', 
+                     'Standing Stones', 
+                     'Description of Lundin Links' );
+
+### Dump the database
+foreach my $key ( keys %database ) {
+    my ( $name, $location, $mapref, $type, $description ) =
+        unpack( $PACKFORMAT, $database{$key} );
+    print "$name\n", ( "=" x length( $name ) ), "\n\n";
+    print "Location:      $location\n";
+    print "Map Reference: $mapref\n";
+    print "Description:   $description\n\n";
+}</pre></blockquote>
+
+
+
+<p>The actual code to express the storage and retrieval mechanism
+isn't really much more horrible than the delimited record
+version, but it does introduce a lot of gibberish in the form of the
+<tt class="literal">pack( )</tt> template, which could easily be miskeyed
+or forgotten about. This also doesn't really solve the problem
+of localized program logic, and turns maintenance into the
+aforementioned nightmare.</p>
+
+
+
+<p>How <a name="INDEX-165" />can <a name="INDEX-166" />we improve on this?</p>
+</div>
+
+
+
+
+
+<a name="ch02-ch02_packing_0" /><div class="sect3">
+<h3 class="sect3">2.7.3.2. Packing in Perl objects </h3>
+
+
+
+<p>
+<a name="INDEX-167" />One <a name="INDEX-168" />solution to both the localized code
+problem <em class="emphasis">and</em> the problem of storing multiple data
+values within a single hash key/value pair is to use a Perl
+<em class="emphasis">object</em> to encapsulate and hide some of the nasty
+bits.<a href="#FOOTNOTE-18">[18]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-18" /><p>[18]This is where people tend to get a little
+confused about Perl. The use of objects, accessor methods, and data
+hiding are all very object-oriented. By this design, we get to mix
+the convenience of non-OO programming with the neat bits of OO
+programming. Traditional OO programmers have been known to make
+spluttering noises when Perl programmers discuss this sort of thing
+in public.</p>
+
+
+</blockquote>
+
+
+
+<p>The following Perl code defines an object of class
+<tt class="literal">Megalith</tt>. We can then reuse this packaged object
+module in all of our programs without having to rewrite any of them,
+if we change the way the module works:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+  #
+  # ch02/DBM/Megalith.pm: A perl class encapsulating a megalith
+  
+  package Megalith;
+  
+  use strict;
+  use Carp;
+  
+  ### Creates a new megalith object and initializes the member fields.
+  sub new {
+      my $class = shift;
+      my ( $name, $location, $mapref, $type, $description ) = @_;
+      my $self = {};
+      bless $self =&gt; $class;
+      
+      ### If we only have one argument, assume we have a string
+      ### containing all the field values in $name and unpack it
+      if ( @_ == 1 ) {
+          $self-&gt;unpack( $name );
+      }
+      else {
+          $self-&gt;{name} = $name;
+          $self-&gt;{location} = $location;
+          $self-&gt;{mapref} = $mapref;
+          $self-&gt;{type} = $type;
+          $self-&gt;{description} = $description;
+      }
+      return $self;
+  }
+  
+  ### Packs the current field values into a colon delimited record
+  ### and returns it
+  sub pack {
+      my ( $self ) = @_;
+      
+      my $record = join( ':', $self-&gt;{name}, $self-&gt;{location},
+                              $self-&gt;{mapref}, $self-&gt;{type},
+                              $self-&gt;{description} );
+      
+      ### Simple check that fields don't contain any colons
+      croak "Record field contains ':' delimiter character"
+          if $record =~ tr/:/:/ != 4;
+      
+      return $record;
+  }
+  
+  ### Unpacks the given string into the member fields
+  sub unpack {
+      my ( $self, $packedString ) = @_;
+      
+      ### Naive split...Assumes no inter-field delimiters
+      my ( $name, $location, $mapref, $type, $description ) =
+           split( ':', $packedString, 5 );
+      
+      $self-&gt;{name} = $name;
+      $self-&gt;{location} = $location;
+      $self-&gt;{mapref} = $mapref;
+      $self-&gt;{type} = $type;
+      $self-&gt;{description} = $description;
+  }
+  
+  ### Displays the megalith data
+  sub dump {
+      my ( $self ) = @_;
+      
+      print "$self-&gt;{name} ( $self-&gt;{type} )\n", 
+            "=" x ( length( $self-&gt;{name} ) + 
+                    length( $self-&gt;{type} ) + 5 ), "\n";
+      print "Location:      $self-&gt;{location}\n"; 
+      print "Map Reference: $self-&gt;{mapref}\n";
+      print "Description:   $self-&gt;{description}\n\n";
+  }
+  
+  1;</pre></blockquote>
+
+
+
+<p>The record format defined by the module contains the items of data
+pertaining to each megalithic site that can be queried and
+manipulated by programs. A new <tt class="literal">Megalith</tt> object can
+be created from Perl via the <tt class="literal">new</tt> operator, for
+example:</p>
+
+
+
+<blockquote><pre class="code">### Create a new object encapsulating Stonehenge
+$stonehenge = 
+    new Megalith( 'Stonehenge', 'Description of Stonehenge',
+                  'Wiltshire', 'SU 123 400' );
+
+### Display the name of the site stored within the object ...
+print "Name: $stonehenge-&gt;{name}\n";</pre></blockquote>
+
+
+
+<p>It would be extremely nice if these <tt class="literal">Megalith</tt>
+objects could be stored directly into a DBM file. Let's try a
+simple piece of code that simply stuffs the object into the hash:</p>
+
+
+
+<blockquote><pre class="code">### Create a new object encapsulating Stonehenge
+$stonehenge = 
+    new Megalith( 'Stonehenge', 'Description of Stonehenge',
+                  'Wiltshire', 'SU 123 400' );
+
+### Store the object within the database hash
+$database{'Stonehenge'} = $stonehenge;
+
+### Have a look at the entry within the database
+print "Key: $database{'Stonehenge'}\n";</pre></blockquote>
+
+
+
+<p>This generates some slightly odd results, to say the least:</p>
+
+
+
+<blockquote><pre class="code">Key: Megalith=HASH(0x80e9aec)</pre></blockquote>
+
+
+
+<p>What appears to have happened is that the string describing the
+reference to the Perl object has been inserted in the Berkeley DB
+instead of the object itself!</p>
+
+
+
+<p>This result is perhaps not surprising, given that the DBM systems are
+really designed for storing single string values, and there is no
+innate understanding of how to compact complex objects into a single
+value. It simply converts all keys and values into strings.</p>
+
+
+
+<p>Fortunately, the problem of storing a Perl object can be routed
+around by <em class="emphasis">packing</em>
+<a name="INDEX-169" />
+<a name="INDEX-170" />, or marshalling, all the values of all
+the <tt class="literal">Megalith</tt> object's fields into a single
+string, and then inserting that string into the database. Similarly,
+upon extracting the string from the database, a new
+<tt class="literal">Megalith</tt> can be allocated and populated by
+unpacking the string into the appropriate fields.</p>
+
+
+
+<p>By using our conveniently defined <tt class="literal">Megalith</tt> class,
+we can write the following code to do this (note the calling of the
+<tt class="literal">pack()</tt> method):</p>
+
+
+
+<blockquote><pre class="code">$database{'Callanish I'} =
+    new Megalith( 'Callanish I', 
+                  'Western Isles',
+                  'NB 213 330',
+                  'Stone Circle',
+                  'Description of Callanish I' )-&gt;pack(  );
+
+### Dump the database
+foreach $key ( keys %database ) {
+
+    ### Unpack the record into a new megalith object
+    my $megalith = new Megalith( $database{$key} );
+
+    ### And display the record
+    $megalith-&gt;dump(  );
+}</pre></blockquote>
+
+
+
+<p>The <tt class="literal">Megalith</tt> object has two methods declared
+within it called <tt class="literal">pack(
+)</tt>
+<a name="INDEX-171" />
+<a name="INDEX-172" />
+and <tt class="literal">unpack(
+)</tt>
+<a name="INDEX-173" />
+<a name="INDEX-174" />.
+These simply pack all the fields into a single delimited string, and
+unpack a single string into the appropriate fields of the object as
+needed. If a <tt class="literal">Megalith</tt> object is created with one
+of these strings as the sole argument, <tt class="literal">unpack( )</tt>
+is called internally, shielding the programmer from the internal
+details of storage management.</p>
+
+
+
+<p>Similarly, the actual way in which the data is packed and unpacked is
+hidden from the module user. This means that if any database
+structural changes need to be made, they can be made internally
+without any maintenance on the database manipulation scripts
+themselves.</p>
+
+
+
+<p>If you read the section on putting complex data into flat files
+earlier in the chapter, then you'll know that there's
+more than one way to do it.</p>
+
+
+
+<p>So although it's a little more work at the outset, it is
+actually quite straightforward to store Perl objects (and other
+complex forms of data) within <a name="INDEX-175" />DBM <a name="INDEX-176" />files.</p>
+</div>
+
+
+
+
+
+<a name="ch02-ch02_object_0" /><div class="sect3">
+<h3 class="sect3">2.7.3.3. Object accessor methods </h3>
+
+
+
+<p>A final gloss on the <tt class="literal">Megalith</tt> class would be to
+<em></em>
+<a name="INDEX-177" />add <em class="emphasis">accessor
+methods</em>
+<a name="INDEX-178" />
+<a name="INDEX-179" />
+<a name="INDEX-180" /> to
+allow controlled access to the values stored within each object. That
+is, the example code listed above contains code that explicitly
+accesses member variables within the object:</p>
+
+
+
+<blockquote><pre class="code">print "Megalith Name: $megalith-&gt;{name}\n";</pre></blockquote>
+
+
+
+<p>This may cause problems if the internal structure of the
+<tt class="literal">Megalith</tt> object alters in some way. Also, if you
+write <tt class="literal">$megalith-</tt>&gt;<tt class="literal">{nme}</tt> by
+mistake, no errors or warnings will be generated. Defining an
+accessor method called <tt class="literal">getName( )</tt>, such as:</p>
+
+
+
+<blockquote><pre class="code">### Returns the name of the megalith
+sub getName {
+    my ( $self ) = @_;
+    return $self-&gt;{name};
+}</pre></blockquote>
+
+
+
+<p>makes the code arguably more readable:</p>
+
+
+
+<blockquote><pre class="code">print "Megalith Name: " . $megalith-&gt;getName(  ) . "\n";</pre></blockquote>
+
+
+
+<p>and also ensures the correctness of the application code, since the
+actual logic is migrated, once again, into the object.</p>
+</div>
+
+
+
+
+
+<a name="ch02-ch02_querying_1" /><div class="sect3">
+<h3 class="sect3">2.7.3.4. Querying limitations of DBM files and hashtables </h3>
+
+
+
+<p>
+<a name="INDEX-181" />Even
+<a name="INDEX-182" />with the functionality of
+being able to insert complex data into the Berkeley DB file (albeit
+in a slightly roundabout way), there is still a fundamental
+limitation of this database software: you can retrieve values via
+only one key. That is, if you wanted to search our megalithic
+database, the name, not the map reference or the location, must be
+used as the search term.</p>
+
+
+
+<p>This might be a pretty big problem, given that you might wish to
+issue a query such as, ``tell me about all the sites in
+Wiltshire,'' without specifying an exact name. In this
+case, every record would be tested to see if any fit the bill. This
+would use a sequential search instead of the indexed access you have
+when querying against the key.</p>
+
+
+
+<p>A solution to this problem is to create secondary
+<em class="emphasis">referential
+hashes</em>
+<a name="INDEX-183" /> that have key values for the different
+fields you might wish to query on. The value stored for each key is
+actually a <em class="emphasis">reference</em> to the original hash and
+not to a separate value. This allows you to update the value in the
+original hash, and the new value is automatically mirrored within the
+reference hashes. The following snippet shows some code that could be
+used to create and dump out a referential hash keyed on the location
+of a megalithic site:</p>
+
+
+
+<blockquote><pre class="code">### Build a referential hash based on the location of each monument
+$locationDatabase{'Wiltshire'}     = \$database{'Avebury'};
+$locationDatabase{'Western Isles'} = \$database{'Callanish I'};
+$locationDatabase{'Fife'}          = \$database{'Lundin Links'};
+
+### Dump the location database
+foreach $key ( keys %locationDatabase ) {
+
+    ### Unpack the record into a new megalith object
+    my $megalith = new Megalith( ${ $locationDatabase{$key} } );
+
+    ### And display the record
+    $megalith-&gt;dump(  );
+}</pre></blockquote>
+
+
+
+<p>There are, of course, a few drawbacks to this particular solution.
+The most apparent is that any data deletion or insertion would
+require a mirror operation to be performed on each secondary
+reference hash.</p>
+
+
+
+<p>The biggest problem with this approach is that your data might not
+have unique keys. If we wished to store records for Stonehenge and
+Avebury, both of those sites have a location of Wiltshire. In this
+case, the latest inserted record would always overwrite the earlier
+records inserted into the hash. To solve this general problem, we can
+use a feature of Berkeley DB files that allows <em class="emphasis">value
+chaining</em>.</p>
+</div>
+
+
+
+
+
+<a name="ch02-ch02_chaining_0" /><div class="sect3">
+<h3 class="sect3">2.7.3.5. Chaining multiple values into a hash </h3>
+
+
+
+<p>One <a name="INDEX-184" />of <a name="INDEX-185" />the bigger problems when using a DBM file
+with the storage mechanism of
+<tt class="literal">DB_HASH</tt>
+<a name="INDEX-186" /> is that the keys against which the data
+is stored must be unique. For example, if we stored two different
+values with the key of ``Wiltshire,'' say for
+Stonehenge and Avebury, generally the last value inserted into the
+hash would get stored in the database. This is a bit problematic, to
+say the least.</p>
+
+
+
+<p>In a good database design, the <em class="emphasis">primary
+key</em>
+<a name="INDEX-187" />
+of any data structure generally should be unique in order to speed up
+searches. But quick and dirty databases, badly designed ones, or
+databases with a suboptimal data quality may not be able to enforce
+this uniqueness. Similarly, using referential hashtables to provide
+nonprimary key searching of the database also triggers this problem.</p>
+
+
+
+<p>A Perl solution to this problem is to push the multiple values onto
+an array that is stored within the hash element. This technique works
+fine while the program is running, because the array references are
+still valid, but when the database is written out and reloaded, the
+data is invalid.</p>
+
+
+
+<p>Therefore, to solve this problem, we need to look at using the
+different Berkeley DB storage management method of
+<tt class="literal">DB_BTREE</tt>
+<a name="INDEX-188" />, which orders its keys prior to
+insertion. With this mechanism, it is possible to have duplicate
+keys, because the underlying DBM file is in the form of an array
+rather than a hashtable. Fortunately, you still reference the DBM
+file via a Perl hashtable, so <tt class="literal">DB_BTREE</tt> is not any
+harder to use. The main downside to <tt class="literal">DB_BTREE</tt>
+storage is a penalty in performance, since a B-Tree is generally
+slightly slower than a hashtable for data retrieval.</p>
+
+
+
+<p>The following short program creates a <a name="INDEX-189" />Berkeley DB
+using the <tt class="literal">DB_BTREE</tt> storage mechanism and also
+specifies a flag to indicate that duplicate keys are allowed. A
+number of rows are inserted with duplicate keys, and finally the
+database is dumped to show that the keys have been stored:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+  #
+  # ch02/DBM/dupkey1: Creates a Berkeley DB with the DB_BTREE mechanism and 
+  #                   allows for duplicate keys. We then insert some test 
+  #                   object data with duplicate keys and dump the final
+  #                   database.
+  
+  use DB_File;
+  use Fcntl ':flock';
+  use Megalith;
+  
+  ### Set Berkeley DB BTree mode to handle duplicate keys
+  $DB_BTREE-&gt;{'flags'} = R_DUP;
+  
+  ### Remove any existing database files
+  unlink 'dupkey2.dat';
+  
+  ### Open the database up
+  my %database;
+  my $db = tie %database, 'DB_File', "dupkey2.dat", 
+                 O_CREAT | O_RDWR, 0666, $DB_BTREE
+      or die "Can't initialize database: $!\n";
+  
+  ### Exclusively lock the database to ensure no one accesses it
+  my $fd = $db-&gt;fd(  );
+  open DATAFILE, "+&lt;&amp;=$fd"
+      or die "Can't safely open file: $!\n";
+  print "Acquiring exclusive lock...";
+  flock( DATAFILE, LOCK_EX )
+      or die "Unable to acquire lock: $!. Aborting";
+  print "Acquired lock. Ready to update database!\n\n";
+  
+  ### Create, pack and insert some rows with duplicate keys
+  $database{'Wiltshire'} = 
+    new Megalith( 'Avebury',
+                  'Wiltshire',
+                  'SU 103 700',
+                  'Stone Circle and Henge',
+                  'Largest stone circle in Britain' )-&gt;pack(  );
+  
+  $database{'Wiltshire'} =
+    new Megalith( 'Stonehenge',
+                  'Wiltshire',
+                  'SU 123 400',
+                  'Stone Circle and Henge',
+                  'The most popularly known stone circle in the world' )-&gt;pack(  );
+  
+  $database{'Wiltshire'} =
+    new Megalith( 'The Sanctuary',
+                  'Wiltshire',
+                  'SU 118 680',
+                  'Stone Circle ( destroyed )',
+                  'No description available' )-&gt;pack(  );
+  
+  ### Dump the database
+  foreach my $key ( keys %database ) {
+  
+      ### Unpack the record into a new megalith object
+      my $megalith = new Megalith( $database{$key} );
+      
+      ### And display the record
+      $megalith-&gt;dump(  );
+  }
+  
+  ### Close the database
+  undef $db;
+  untie %database;
+  
+  ### Close the filehandle to release the lock
+  close DATAFILE;
+  
+  exit;</pre></blockquote>
+
+
+
+<p>The output you get from running this program is not exactly what
+we'd hoped for:</p>
+
+
+
+<blockquote><pre class="code">Acquiring exclusive lock...Acquired lock. Ready to update database!
+  
+  The Sanctuary ( Stone Circle ( destroyed ) )
+  ============================================
+  Location:      Wiltshire
+  Map Reference: SU 118 680
+  Description:   No description available
+  
+  The Sanctuary ( Stone Circle ( destroyed ) )
+  ============================================
+  Location:      Wiltshire
+  Map Reference: SU 118 680
+  Description:   No description available
+  
+  The Sanctuary ( Stone Circle ( destroyed ) )
+  ============================================
+  Location:      Wiltshire
+  Map Reference: SU 118 680
+  Description:   No description available</pre></blockquote>
+
+
+
+<p>It seems that we've managed to successfully store three copies
+of the same record instead of three different records!</p>
+
+
+
+<p>Fortunately, this isn't actually the case. We have correctly
+stored the three different records with the same key in the DBM file.
+The problem lies in the way we've tried to read these records
+back out of the DBM file. A basic dereference using the hash key
+obviously doesn't work, since Perl stores only a single value
+for each key, as we already know.</p>
+
+
+
+<p>To get around this limitation, we can use the <tt class="literal">seq(
+)</tt>
+<a name="INDEX-190" />
+<a name="INDEX-191" />
+<a name="INDEX-192" />method
+declared within the <tt class="literal">DB_File</tt> module, which is used
+to <a name="INDEX-193" /> <a name="INDEX-194" />traverse
+<em class="emphasis">chained</em> records stored within a single hash
+element. <a href="ch02_07.htm#ch02-26791">Figure 2-1</a> illustrates the principle of
+chained record traversal within a hash element.</p>
+
+
+
+<a name="ch02-26791" /><div class="figure"><img width="502" src="figs/dbi.0202.gif" height="167" alt="Figure 2-1" /></div><h4 class="objtitle">Figure 2-1. Chained record traversal</h4>
+
+<p>The corrected record dumping chunk is rewritten to use
+<tt class="literal">seq()</tt> in this way:</p>
+
+
+
+<blockquote><pre class="code">### Dump the database
+my ($key, $value, $status) = ('', '', 0);
+for ( $status = $db-&gt;seq( $key, $value, R_FIRST ) ;
+      $status == 0 ;
+      $status = $db-&gt;seq( $key, $value, R_NEXT ) ) {
+
+    ### Unpack the record into a new megalith object
+    my $megalith = new Megalith( $value );
+
+    ### And display the record
+    $megalith-&gt;dump();
+}</pre></blockquote>
+
+
+
+<p>Running this corrected version produces the output we expected, i.e.,
+records for three different megalithic <a name="INDEX-195" />sites.</p>
+
+
+
+<p>The <tt class="literal">seq()</tt> method is quite simple to use and
+understand, and it works well when used in conjunction with a
+<tt class="literal">for</tt> loop, as shown above. The method takes three
+arguments: the hash key, the hash value, and a flag signifying which
+element within the chain should be returned. The first two arguments
+are actually populated with the hash key and the correct hash value,
+respectively, when <tt class="literal">seq()</tt> is called. Exactly which
+hash value is returned depends on the value of the third argument:</p>
+
+
+
+<ul><li><p><tt class="literal">R_FIRST</tt> returns the first record within the chain
+of records.</p></li><li><p><tt class="literal">R_LAST</tt> returns the last record stored within the
+chain of records.</p></li><li><p><tt class="literal">R_NEXT</tt> returns the next record within the chain of
+records. This is used for forward sequential traversals of the chain.</p></li><li><p><tt class="literal">R_PREV</tt> returns the previous record within the
+chain of records. This is used for backward sequential traversals of
+the chain.</p></li><li><p><tt class="literal">R_CURSOR</tt> returns a record in which a
+<em class="emphasis">partial match</em> for the key has been located. This
+allows a certain element of "fuzzy matching" of keys.
+This feature is not necessarily accurate and may return the closest
+match to the desired key rather than an exact match. For example, if
+you searched for all sites within Wiltshire and asked for a partial
+match against ``wilt'', but no exact records
+matched, you may be returned the entries for the
+``Western Isles,'' as these are the closest
+to the search term.</p></li></ul>
+<p>In the database dumping example shown above, we are simply starting
+at the beginning of the record chain and traversing through it in a
+forward direction. We could have performed a backward search by
+writing:</p>
+
+
+
+<blockquote><pre class="code">for ( $status = $db-&gt;seq( $key, $value, R_LAST ) ;
+      $status == 0 ;
+      $status = $db-&gt;seq( $key, $value, R_PREV ) ) {
+    ...
+}</pre></blockquote>
+
+
+
+<p>A <a name="INDEX-196" />
+<a name="INDEX-197" />quicker and easier utility method
+for querying duplicate values also exists:
+<tt class="literal">get_dup()</tt>
+<a name="INDEX-198" />
+<a name="INDEX-199" />.
+This method returns either the number of records with the given key
+or an array or hash containing the appropriate records. For example,
+given that we have three records in our database with the key of
+Wiltshire, we could <a name="INDEX-200" />verify <a name="INDEX-201" />that fact by
+<a name="INDEX-202" />writing:</p>
+
+
+
+<blockquote><pre class="code">### Displays the number of records inserted against 
+### the "Wiltshire" key
+my $numRecords = $db-&gt;get_dup( 'Wiltshire' );
+print "Number of Wiltshire records: $numRecords\n";</pre></blockquote>
+</div>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch02-ch02_deleting_2" /><div class="sect2">
+<h3 class="sect2">2.7.4. Deleting Values </h3>
+
+
+
+<p>Deleting <a name="INDEX-203" />values <a name="INDEX-204" />is
+the final operation that can be performed on DBM files. Updating is
+as simple as assigning different values to the appropriate key within
+the database, and deleting is equally simple. This operation is
+performed by using the standard Perl
+<tt class="literal">delete</tt>
+<a name="INDEX-205" />
+<a name="INDEX-206" /> function on the appropriate key
+within the database. <tt class="literal">delete</tt> removes it from the
+hash that represents the database, and because the hash has been tied
+to the DBM file, it is purged from that also.</p>
+
+
+
+<p>The following program inserts three records into a Berkeley DB, and
+then dumps the database to show that the records are there. Following
+that process, a single record is deleted and the database is redumped
+to illustrate the deletion. Here's the program:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch02/DBM/delete: Creates a Berkeley DB, inserts some test data then
+#                  deletes some of it
+
+use strict;
+
+use DB_File;
+
+### Initialize the Berkeley DB
+my  %database;
+tie %database, 'DB_File', "delete.dat"
+    or die "Can't initialize database: $!\n";
+
+### Insert some data rows
+$database{'Callanish I'}  = "Western Isles";
+$database{'Avebury'}      = "Wiltshire";
+$database{'Lundin Links'} = "Fife";
+
+### Dump the database
+print "Dumping the entire database...\n";
+foreach my $key ( keys %database ) {
+    printf "%15s - %s\n", $key, $database{$key};
+}
+print "\n";
+
+### Delete a row
+delete $database{'Avebury'};
+
+### Re-dump the database
+print "Dumping the database after deletions...\n";
+foreach my $key ( keys %database ) {
+    printf "%15s - %s\n", $key, $database{$key};
+}
+
+### Close the Berkeley DB
+untie %database;
+
+exit;</pre></blockquote>
+
+
+
+<p>The output of this program is as expected:</p>
+
+
+
+<blockquote><pre class="code">Dumping the entire database...
+     Callanish I - Western Isles
+         Avebury - Wiltshire
+    Lundin Links - Fife
+  
+Dumping the database after deletions...
+     Callanish I - Western Isles
+    Lundin Links - Fife</pre></blockquote>
+
+
+
+<p>That is, the specified row has been permanently removed from the
+database <a name="INDEX-207" />by <a name="INDEX-208" />deleting the related <a name="INDEX-209" />hash <a name="INDEX-210" />entry.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch02_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch02_08.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">2.6. Concurrent Database Access and Locking </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">2.8. The MLDBM Module </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

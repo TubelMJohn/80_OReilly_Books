@@ -1,0 +1,796 @@
+<?label 17. Efficiency and Optimization?><html><head><title>Efficiency and Optimization (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch16_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch17_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 17. Efficiency and Optimization</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch17_01.htm">Basic Perl Tips, Top Ten</a><br>
+<a href="ch17_02.htm">FastCGI</a><br>
+<a href="ch17_03.htm">mod_perl</a><br></p></div>
+
+
+
+<p>Let's face it, <a name="INDEX-3188" /> <a name="INDEX-3189" /> <a name="INDEX-3190" />CGI applications, run under normal
+conditions, are not exactly speed demons. In this chapter, we will
+show you a few tricks that you can use to speed up current
+applications, and also introduce you to two
+technologies -- FastCGI and <em class="emphasis">mod_perl
+</em> -- that allow you to develop significantly accelerated
+CGI applications. If you develop Perl CGI scripts on Win32, then you
+may also wish to look at
+<a name="INDEX-3191" /> <a name="INDEX-3192" />ActiveState's PerlEx. Although we
+do not discuss PerlEx in this chapter, it provides many of the same
+benefits as <em class="emphasis">mod_perl</em>.</p>
+
+
+<p>First, let's try to understand why CGI applications are so
+<a name="INDEX-3193" />slow. When a user requests a
+resource from a web server that turns out to be a CGI application,
+the server has to create another process to handle the request. And
+when you're dealing with applications that use
+<a name="INDEX-3194" />interpreted languages, like Perl, there is
+an additional delay incurred in firing up the interpreter, then
+parsing and compiling the application.</p>
+
+
+<p>So, how can we possibly improve the performance of Perl CGI
+applications? We could ask Perl to interpret only the most commonly
+used parts of our application, and delay interpreting other pieces
+unless necessary. That certainly would speed up applications. Or, we
+could turn our application into a server (<a name="INDEX-3195" />
+<a name="INDEX-3196" />daemon) that runs in the
+background and executes on demand. We would no longer have to worry
+about the overhead of firing up the
+<a name="INDEX-3197" />
+<a name="INDEX-3198" />interpreter and
+evaluating the code. Or, we could embed the Perl interpreter within
+the web server itself. Again, we avoid the overhead of having to
+start a new process, and we don't even suffer the communication
+delay we would have talking to another daemon.</p>
+
+
+<p>We'll look at all the techniques mentioned here, in addition to
+basic Perl tips for writing more efficient applications. Let's
+start with the basics.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch17-30424" />
+<h2 class="sect1">17.1. Basic Perl Tips, Top Ten</h2>
+
+
+<p>Here is a list of ten techniques you <a name="INDEX-3199" /> <a name="INDEX-3200" /> <a name="INDEX-3201" />can use to <a name="INDEX-3202" /> <a name="INDEX-3203" />improve the performance of your CGI
+scripts:</p>
+
+
+<blockquote class="simplelist">
+<p>
+10.  Benchmark your code.
+</p>
+<p>
+9.  Benchmark modules, too.
+</p>
+<p>
+8.  Localize variables with <tt class="function">my.</tt>
+</p>
+<p>
+7.  Avoid slurping data from files.
+</p>
+<p>
+6.  Clear arrays with <tt class="function">undef</tt> instead of <tt class="literal">(
+)</tt>.
+
+</p>
+<p>
+5.  Use <em class="emphasis">SelfLoader</em> where applicable.
+</p>
+<p>
+4.  Use <em class="emphasis">autouse</em> where applicable.
+</p>
+<p>
+3.  Avoid the shell.
+</p>
+<p>
+2.  Find existing solutions for your problems.
+</p>
+<p>
+1.  Optimize your regular expressions.
+</p>
+</blockquote>
+
+<p>Let's look at each one in more detail.</p>
+
+
+<a name="ch17-1-fm2xml" /><div class="sect2">
+<h3 class="sect2">17.1.1. Benchmark Your Code</h3>
+
+
+<p>Before we <a name="INDEX-3204" />
+<a name="INDEX-3205" /> <a name="INDEX-3206" />can determine how well our program is
+working, we need to know how to benchmark the critical code.
+Benchmarking may sound involved, but all it really involves is timing
+a piece of code, and there are some standard Perl modules to make
+this very easy to perform. Let's look at a few ways to
+benchmark code, and you can choose the one that works best for you.</p>
+
+
+<p>First, here's the simplest way to benchmark:</p>
+
+
+<blockquote><pre class="code">$start = (times)[0];
+
+## your code goes here
+
+$end = (times)[0];
+
+printf "Elapsed time: %.2f seconds!\n", $end - $start;</pre></blockquote>
+
+
+<p>This determines the elapsed user time needed to execute your code in
+seconds. It is important to consider a few rules when benchmarking:</p>
+
+
+<ul><li><p>Try to benchmark only the relevant piece(s) of code.</p></li><li><p>Don't accept the first benchmark value. Benchmark the code
+several times and take the average.</p></li><li><p>If you are comparing different benchmarks, make sure they are tested
+under comparable conditions. For example, make sure that the load on
+the machine doesn't differ between tests because another user
+happened to be running a heavy job during one.</p></li></ul>
+<p>Second, we can use the Benchmark module. The Benchmark module
+provides us with several functions that allow us to compare multiple
+pieces of code and determine elapsed CPU time as well as elapsed
+real-world time.</p>
+
+
+<p>Here's the easiest way to use the module:</p>
+
+
+<blockquote><pre class="code">use Benchmark;
+$start = new Benchmark;
+
+## your code goes here
+
+$end = new Benchmark;
+
+$elapsed = timediff ($end, $start);
+print "Elapsed time: ", timestr ($elapsed), "\n";</pre></blockquote>
+
+
+<p>The result will look similar to the following:</p>
+
+
+<blockquote><pre class="code">Elapsed time:  4 wallclock secs (0.58 usr +  0.00 sys =  0.58 CPU)</pre></blockquote>
+
+
+<p>You can also use the module to benchmark several pieces of code. For
+example:</p>
+
+
+<blockquote><pre class="code">use Benchmark;
+timethese (100, {
+                    for =&gt; &lt;&lt;'end_for',
+                        my   $loop;
+                        for ($loop=1; $loop &lt;= 100000; $loop++) { 1 }
+end_for
+                    foreach =&gt; &lt;&lt;'end_foreach'
+                        my      $loop;
+                        foreach $loop (1..100000) { 1 }
+end_foreach
+                } );</pre></blockquote>
+
+
+<p>Here, we are checking the <em class="emphasis">for</em> and
+<em class="emphasis">foreach</em> loop constructs. As a side note, you
+might be interested to know that, in cases where the loop iterator is
+great, <em class="emphasis">foreach</em> is much less efficient than
+<em class="emphasis">for</em> in versions of Perl older than 5.005.</p>
+
+
+<p>The resulting output of <tt class="function">timethese</tt> will look
+something like this:</p>
+
+
+<blockquote><pre class="code">Benchmark: timing 100 iterations of for, foreach...
+       for: 49 wallclock secs (49.07 usr +  0.01 sys = 49.08 CPU)
+   foreach: 69 wallclock secs (68.79 usr +  0.00 sys = 68.79 CPU)</pre></blockquote>
+
+
+<p>One thing to note here is that Benchmark uses the
+<em class="emphasis">time</em> system call to perform the actual timing,
+and therefore the granularity is still limited to one second. If you
+want higher resolution timing, you can experiment with the
+Time::HiRes module. Here's an example of how to use the module:</p>
+
+
+<blockquote><pre class="code">use Time::HiRes;
+my $start = [ Time::HiRes::gettimeofday(  ) ];
+
+## Your code goes here
+
+my $elapsed = Time::HiRes::tv_interval( $start );
+print "Elapsed time: $elapsed seconds!\n";</pre></blockquote>
+
+
+<p>The <tt class="function">gettimeofday</tt> function returns the current
+time in seconds and microseconds; we place these in a list, and store
+a reference to this list in <tt class="literal">$start</tt>. Later, after
+our code has run, we call <tt class="function">tv_interval</tt>, which
+takes <tt class="literal">$start</tt> and calculates the difference between
+the original time and the current time. It returns a floating-point
+number indicating the number of seconds elapsed.</p>
+
+
+<p>One caveat: the less time your code takes, the less reliable your
+benchmarks will be. Time::HiRes can be useful for determining how
+long portions of your program take to run, but do not use it if you
+want to compare two subroutines that each take less than one second.
+When comparing code, it is better to use Benchmark and have it test
+your subroutines <a name="INDEX-3207" /> <a name="INDEX-3208" /> <a name="INDEX-3209" />over many iterations.</p>
+</div>
+
+
+
+
+<a name="ch17-2-fm2xml" /><div class="sect2">
+<h3 class="sect2">17.1.2. Benchmark Modules, Too</h3>
+
+
+<p>CPAN is <a name="INDEX-3210" />
+<a name="INDEX-3211" />absolutely
+wonderful. It contains a great number of highly useful Perl modules.
+You should take advantage of this resource because the code available
+on CPAN has been tested and improved by the entire Perl community.
+However, if you are creating applications where performance is
+critical, remember to benchmark code included from modules you are
+using in addition to your own. For example, if you only need a
+portion of the functionality available in a module, you may benefit
+by deriving your own version of the module that is tuned for your
+application. Most modules distributed on CPAN are available according
+to the same terms as Perl, which allows you to modify code without
+restriction for your own internal use. However, be sure to verify the
+licensing terms for a module before you do this, and if you believe
+your solution would be beneficial to others, notify the module
+author, and please give back to CPAN.</p>
+
+
+<p>You should also determine whether using a module make sense. For
+example, a popular module is IO::File, which provides a set of
+functions to deal with file I/O:</p>
+
+
+<blockquote><pre class="code">use IO::File;
+$fh = new IO::File;
+if ($fh-&gt;open ("index.html")) {
+    print &lt;$fh&gt;;
+    $fh-&gt;close;
+}</pre></blockquote>
+
+
+<p>There are advantageous to using an interface like IO::File.
+Unfortunately, due to module loading and method-call overhead, this
+code is, on the average, ten times slower than:</p>
+
+
+<blockquote><pre class="code">if (open FILE, "index.html") {
+    print &lt;FILE&gt;;
+    close FILE;
+}</pre></blockquote>
+
+
+<p>So the bottom line is, pay very careful attention to modules that you
+use.</p>
+</div>
+
+
+
+
+<a name="ch17-3-fm2xml" /><div class="sect2">
+<h3 class="sect2">17.1.3. Localize Variables with my</h3>
+
+
+<p>You should <a name="INDEX-3212" /> <a name="INDEX-3213" />
+<a name="INDEX-3214" /> <a name="INDEX-3215" />create lexical variables with the
+<tt class="function">my</tt>
+<a name="INDEX-3216" /> function. Perl keeps track of
+managing memory usage for you, but it doesn't look ahead to see
+if you are going to use a variable in the future. In order to create
+a variable that you need only within a particular block of code, such
+as a subroutine, declare it with <tt class="function">my</tt>. Then the
+memory for that variable will be reclaimed at the end of the block.</p>
+
+
+<p>Note that despite its name, the
+<em class="emphasis">local</em>
+<a name="INDEX-3217" /> function doesn't localize
+variables in the standard sense of the term. Here is an example:</p>
+
+
+<blockquote><pre class="code">sub name {
+    local $my_name = shift;
+    greeting(  );
+}
+
+sub greeting {
+    print "Hello $my_name, how are you!\n";
+}</pre></blockquote>
+
+
+<p>If you run this simple program, you can see that
+<tt class="literal">$my_name</tt> isn't exactly local to the
+<tt class="function">name</tt> function. In fact, it is also visible in
+<tt class="function">greeting</tt>. This behavior can produce unexpected
+results if you are not careful. Thus, most Perl developers avoid
+using <tt class="function">local</tt> and use <tt class="function">my</tt>
+instead for everything except global variables, file handles, and
+Perl's built-in global punctuation variables like
+<tt class="literal">$_</tt> or <tt class="literal">$/</tt>.</p>
+</div>
+
+
+
+
+<a name="ch17-4-fm2xml" /><div class="sect2">
+<h3 class="sect2">17.1.4. Avoid Slurping</h3>
+
+
+<p>What is slurping, you ask? <a name="INDEX-3218" /> <a name="INDEX-3219" /> <a name="INDEX-3220" /> <a name="INDEX-3221" />Consider the following code:</p>
+
+
+<blockquote><pre class="code">local $/;
+open FILE, "large_index.html" or die "Could not open file!\n";
+$large_string = &lt;FILE&gt;;
+close FILE;</pre></blockquote>
+
+
+<p>Since we undefine the input record separator, one read on the file
+handle will
+<em class="emphasis">slurp</em>
+<a name="INDEX-3222" />
+<a name="INDEX-3223" /> (or read in) the entire file. When
+dealing with large files, this can be highly inefficient. If what you
+are doing can be done a line at a time, then use a
+<tt class="function">while</tt> loop to process only a line at a time:</p>
+
+
+<blockquote><pre class="code">open FILE, "large_index.html" or die "Could not open file!\n";
+while (&lt;FILE&gt;) {
+    # Split fields by whitespace, output as HTML table row
+    print $q-&gt;tr( $q-&gt;td( [ split ] ) );
+}
+close FILE;</pre></blockquote>
+
+
+<p>Of course, there are situations when you cannot process a line at a
+time. For example, you may be looking for data that crosses line
+boundaries. In this case, you may fall back to slurping for small
+files. Try benchmarking your code to see what kind of penalty is
+imposed by slurping in the entire file.</p>
+</div>
+
+
+
+
+<a name="ch17-5-fm2xml" /><div class="sect2">
+<h3 class="sect2">17.1.5. undef Versus (  )</h3>
+
+
+<p>If you intend to reuse
+<a name="INDEX-3224" />
+<a name="INDEX-3225" />arrays, <a name="INDEX-3226" />
+<a name="INDEX-3227" />
+<a name="INDEX-3228" />especially
+large ones, it is more efficient to clear them out by equating them
+to a null list instead of undefining them. For example:</p>
+
+
+<blockquote><pre class="code">...
+while (&lt;FILE&gt;) {
+    chomp;
+    $count++;  
+    $some_large_array[$count] .= int ($_);
+}
+...
+ 
+@some_large_array = (  );     ## Good
+undef @some_large_array;    ## Not so good</pre></blockquote>
+
+
+<p>If you undefine <tt class="literal">@some_large_array</tt> to clear it out,
+Perl will deallocate the space containing the data. And when you
+populate the array with new data, Perl will have to reallocate the
+necessary space again. This can slow things down.</p>
+</div>
+
+
+
+
+<a name="ch17-6-fm2xml" /><div class="sect2">
+<h3 class="sect2">17.1.6. SelfLoader</h3>
+
+
+<p>The SelfLoader module <a name="INDEX-3229" /> <a name="INDEX-3230" /> <a name="INDEX-3231" />
+<a name="INDEX-3232" />allows
+you to hide <a name="INDEX-3233" />
+<a name="INDEX-3234" />functions and subroutines,
+so the Perl interpreter does not compile them into internal opcodes
+when it loads up your application, but compiles them only where there
+is a need to do so. This can yield great savings, especially if your
+program is quite large and contains many subroutines that may not all
+be run for any given request.</p>
+
+
+<p>Let's look at how to convert your program to use self-loading,
+and then we can look at the internals of how it works. Here's a
+simple framework:</p>
+
+
+<blockquote><pre class="code">use SelfLoader;
+
+## step 1: subroutine stubs
+
+sub one;
+sub two;
+...
+
+## your main body of code
+...
+
+## step 2: necessary/required subroutines
+
+sub one {
+    ...
+}
+
+__DATA__
+
+## step 3: all other subroutines
+
+sub two {
+    ...
+}
+...
+__END__</pre></blockquote>
+
+
+<p>It's a three-step process:</p>
+
+
+<ol><li><p>Create stubs for all the functions and subroutines in your
+application.</p></li><li><p>Determine which functions are used often enough that they should be
+loaded by default.</p></li><li><p>Take the rest of your functions and move them between the <tt class="literal">__DATA__</tt> and <tt class="literal">__END__</tt> tokens.</p></li></ol>
+<p>Congratulations, Perl will now load these functions only on demand!</p>
+
+
+<p>Now, how does it actually work? The <tt class="literal">__DATA__</tt>
+token has a special significance to Perl; everything after the token
+is available for reading through the DATA filehandle. When Perl
+reaches the <tt class="literal">__DATA__</tt> token, it stops compiling,
+and all the subroutines defined after the token do not exist, as far
+as Perl is concerned.</p>
+
+
+<p>When you call an unavailable function, SelfLoader reads in all the
+subroutines from the DATA filehandle, and caches them in a hash. This
+is a one-time process, and is performed the first time you call an
+unavailable function. It then checks to see if the specified function
+exists, and if so, will <tt class="function">eval</tt> it within the
+caller's namespace. As a result, that function now exists in
+the caller's namespace, and any subsequent calls to that
+function are handled via symbol table lookups.</p>
+
+
+<p>The costs of this process are the one time reading and parsing of the
+self-loaded subroutines, and a <tt class="function">eval</tt> for each
+function that is invoked. Despite this overhead, the performance of
+large programs with many functions and subroutines can improve
+dramatically.</p>
+</div>
+
+
+
+
+<a name="ch17-7-fm2xml" /><div class="sect2">
+<h3 class="sect2">17.1.7. autouse</h3>
+
+
+<p>If you use many <a name="INDEX-3235" />
+<a name="INDEX-3236" />
+<a name="INDEX-3237" />
+<a name="INDEX-3238" />external
+modules in your application, you may consider using the
+<em class="emphasis">autouse</em> feature to delay loading them until a
+specific function from a module is used:</p>
+
+
+<blockquote><pre class="code">use autouse DB_File;</pre></blockquote>
+
+
+<p>You have to be very careful when using this feature, since a portion
+of the chain of execution will shift from compile time to runtime.
+Also, if a module needs to execute a particular sequence of steps
+early on in the compile phase, using <em class="emphasis">autouse</em> can
+potentially break your applications.</p>
+
+
+<p>If the modules you need behave as expected, using
+<em class="emphasis">autouse</em> for modules can yield a big savings when
+it comes time to "load" your application.</p>
+</div>
+
+
+
+
+<a name="ch17-8-fm2xml" /><div class="sect2">
+<h3 class="sect2">17.1.8. Avoid the Shell</h3>
+
+
+<p>Avoid accessing the <a name="INDEX-3239" />
+<a name="INDEX-3240" />
+<a name="INDEX-3241" />shell from your
+application, unless you have no other choice. Perl has equivalent
+functions to many Unix commands. Whenever possible, use the functions
+to avoid the shell overhead. For example, use the
+<em class="emphasis">unlink</em> function, instead of executing the
+external <tt class="command">rm</tt> command:</p>
+
+
+<blockquote><pre class="code">system( "/bin/rm", $file );                     ## External command
+unlink $file or die "Cannot remove $file: $!";  ## Internal function</pre></blockquote>
+
+
+<p>It as also much safer to avoid the shell, as we saw in <a href="ch08_01.htm">Chapter 8, "Security"</a>. However, there are some instances when you
+may get better performance using some standard external programs than
+you can get in Perl. If you need to find all occurrences of a certain
+term in a very large text file, it may be faster to use
+<tt class="command">grep</tt>
+<a name="INDEX-3242" />
+<a name="INDEX-3243" /> than performing the same task in Perl:</p>
+
+
+<blockquote><pre class="code">system( "/bin/grep", $expr, $file );</pre></blockquote>
+
+
+<p>Note however, that the circumstances under which you might need to do
+this are rare. First, Perl must do a lot of extra work to invoke a
+system call, so the performance difference gained by an external
+command is seldom worth the overhead. Second, if you only were
+interested in the first match and not all the matches, then Perl
+gains speed because your script can exit the loop as soon as it finds
+a match:</p>
+
+
+<blockquote><pre class="code">my $match;
+open FILE, $file or die "Could not open $file: $!";
+while (&lt;FILE&gt;) {
+    chomp;
+    if ( /$expr/ ) {
+        $match = $_;
+        last;
+    }
+}</pre></blockquote>
+
+
+<p><tt class="command">grep</tt> will always read the entire file. Third, if
+you find yourself needing to resort to using <tt class="command">grep</tt>
+to handle text files, it likely means that the problem isn't so
+much with Perl as with the structure of your data. You should
+probably consider a different data format, such as a DBM file or a
+RDBMS.</p>
+
+
+<p>Also avoid using the <a name="INDEX-3244" />
+<a name="INDEX-3245" />
+<a name="INDEX-3246" />glob
+<tt class="literal">&lt;*&gt;</tt> notation to get a list of files in a
+particular directory. Perl must invoke a subshell to expand this. In
+addition to this being inefficient, it can also be erroneous; certain
+shells have an internal glob limit, and will return files only up to
+that limit. Note that Perl 5.6, when released, will solve these
+limitations by handling globs internally.</p>
+
+
+<p>Instead, use Perl's <tt class="function">opendir</tt>,
+<tt class="function">readdir,</tt> and <tt class="function">closedir</tt>
+functions. Here is an example:</p>
+
+
+<blockquote><pre class="code">@files = &lt;/usr/local/apache/htdocs/*.html&gt;;      ## Uses the shell
+....
+$directory = "/usr/local/apache/htdocs";         ## A better solution
+if (opendir (HTDOCS, $directory)) {
+    while ($file = readdir (HTDOCS)) {
+        push (@files, "$directory/$file") if ($file =~ /\.html$/);
+    }
+}</pre></blockquote>
+</div>
+
+
+
+
+<a name="ch17-9-fm2xml" /><div class="sect2">
+<h3 class="sect2">17.1.9. Find Existing Solutions for Your Problems</h3>
+
+
+<p>Chances are, if you find <a name="INDEX-3247" /> <a name="INDEX-3248" /> <a name="INDEX-3249" />yourself stuck with a
+problem, someone else has encountered it elsewhere and has spent a
+lot of time developing a solution. And thanks to the spirit of Perl,
+you can likely borrow it. Throughout this book, we have referred to
+many modules that are available on CPAN. There are countless more.
+Take the time to browse through CPAN regularly to see what is
+available there.</p>
+
+
+<p>You should also check out the Perl
+newsgroups. <em class="emphasis">news:comp.lang.perl.modules</em> is a good
+place to go to check in with new module announcements or to get help
+with particular modules. <em class="emphasis">news:comp.lang.perl</em> and
+<em class="emphasis">news:comp.lang.perl.misc</em> are more general
+newsgroups.</p>
+
+
+<p>Finally, there are many very good books available that discuss
+algorithms or useful tricks and tips. The <em class="citetitle">Perl
+Cookbook</em> by Tom Christiansen and Nathan Torkington and
+<em class="citetitle">Mastering Algorithms with Perl</em> by Jon Orwant,
+Jarkko Hietaniemi, and John Macdonald are full of gems specifically
+for Perl. Of course, don't overlook books whose focus is not
+Perl. <em class="citetitle">Programming Pearls</em> by John Bentley,
+<em class="citetitle">The C Programming Language</em> by Brian Kernighan
+and Dennis Ritchie, and <em class="citetitle">Code Complete</em> by Steve
+McConnell are also all excellent references.</p>
+</div>
+
+
+
+
+<a name="ch17-10-fm2xml" /><div class="sect2">
+<h3 class="sect2">17.1.10. Regular Expressions </h3>
+
+
+<p>Regular <a name="INDEX-3250" /> <a name="INDEX-3251" /> <a name="INDEX-3252" />expressions are an integral part of
+Perl, and we use them in many CGI applications. There are many
+different ways that we can improve the performance of regular
+expressions.</p>
+
+
+<p>First, avoid using <tt class="literal">$&amp;</tt>, <tt class="literal">$`</tt>,
+and <tt class="literal">$'</tt>. If Perl spots one of these variables in
+your application, or in a module that you imported, it will make a
+copy of the search string for possible future reference. This is
+highly inefficient, and can really bog down your application. You can
+use the <a name="INDEX-3253" />
+<a name="INDEX-3254" />
+<a name="INDEX-3255" />Devel::SawAmpersand module, available
+on CPAN, to check for these variables.</p>
+
+
+<p>Second, the following type of regular expressions are highly
+inefficient:</p>
+
+
+<blockquote><pre class="code">while (&lt;FILE&gt;) {
+    next if (/^(?:select|update|drop|insert|alter)\b/);     
+    ...  
+}</pre></blockquote>
+
+
+<p>Instead, use the following syntax:</p>
+
+
+<blockquote><pre class="code">while (&lt;FILE&gt;) {
+    next if (/^select/);
+    next if (/^update/);
+    ...
+}</pre></blockquote>
+
+
+<p>Or, consider building a runtime compile pattern if you do not know
+what you are searching against at compile time:</p>
+
+
+<blockquote><pre class="code">@keywords = qw (select update drop insert);
+$code = "while (&lt;FILE&gt;) {\n";
+
+foreach $keyword (@keywords) {
+    $code .= "next if (/^$keyword/);\n";
+}
+
+$code .= "}\n";
+eval $code;</pre></blockquote>
+
+
+<p>This will build a code snippet that is identical to the one shown
+above, and evaluate it on the fly. Of course, you will incur an
+overhead for using <em class="emphasis">eval</em>, but you will have to
+weigh that against the savings you will gain.</p>
+
+
+<p>Third, consider using <em class="emphasis">o</em> modifier in expressions
+to compile the pattern only once. Take a look at this example:</p>
+
+
+<blockquote><pre class="code">@matches = (  );
+...
+while (&lt;FILE&gt;) {
+    push @matches, $_ if /$query/i;
+}
+...</pre></blockquote>
+
+
+<p>Code like this is typically used to search for a string in a file.
+Unfortunately, this code will execute very slowly, because Perl has
+to compile the pattern each time through the loop. However, you can
+use the <em class="emphasis">o</em> modifier to ask Perl to compile the
+regex just once:</p>
+
+
+<blockquote><pre class="code">push @matches, $_ if /$query/io;</pre></blockquote>
+
+
+<p>If the value of <tt class="literal">$query</tt> changes in your script,
+this won't work, since Perl will use the first compiled value.
+The compiled regex features introduced in Perl 5.005 address this;
+refer to the <em class="citetitle">perlre</em> manpage for more
+information.</p>
+
+
+<p>Finally, there are often multiple ways that you can build a regular
+expression for any given task, but some ways are more efficient than
+others. If you want to learn how to write more <a name="INDEX-3256" /> <a name="INDEX-3257" /> <a name="INDEX-3258" />efficient regular
+expressions, <a name="INDEX-3259" /> <a name="INDEX-3260" /> <a name="INDEX-3261" />we highly <a name="INDEX-3262" /> <a name="INDEX-3263" />recommend Jeffrey Friedl's
+<em class="citetitle">Mastering Regular Expressions</em>.</p>
+
+
+<p>These tips are general optimization tips. You'll get a lot of
+mileage from some, and not so much from the others, depending on your
+application. Now, it's time to look at more complicated ways to
+optimize our CGI applications.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch16_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch17_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">16.2. Coding Guidelines</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">17.2. FastCGI</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

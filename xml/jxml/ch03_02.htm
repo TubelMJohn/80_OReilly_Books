@@ -1,0 +1,428 @@
+<html><head><title>SAX Readers (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch03_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">3.2. SAX Readers</h2>
+
+<p>Without spending any further time on the preliminaries, it's
+time to code. As a sample to familiarize you with SAX, this chapter
+details the
+<tt class="literal">SAXTreeViewer</tt><a name="INDEX-203" />
+<a name="INDEX-204" />
+class. This class uses SAX to parse an XML document supplied on the
+command line, and displays the document visually as a Swing
+<tt class="literal">JTree</tt>. If you don't know anything about
+Swing, don't worry; I don't focus on that, but just use
+it for visual purposes. The focus will remain on SAX, and how events
+within parsing can be used to perform customized action. All that
+really happens is that a <tt class="literal">JTree</tt> is used, which
+provides a nice simple tree model, to display the XML input document.
+The key to this tree is the
+<tt class="literal">DefaultMutableTreeNode</tt><a name="INDEX-205" />
+<a name="INDEX-206" />
+class, which you'll get quite used to in using this example, as
+well as the
+<tt class="literal">DefaultTreeModel</tt><a name="INDEX-207" />
+<a name="INDEX-208" />
+that takes care of the layout.
+</p>
+
+<p>The first thing you need to do in any SAX-based application is get an
+instance of a class that conforms to the <a name="INDEX-209" />
+<a name="INDEX-210" />
+<a name="INDEX-211" />SAX
+<tt class="literal">org.xml.sax.XMLReader</tt> interface. This interface
+defines parsing behavior and allows us to set features and properties
+(which I'll cover later in this chapter). For those of you
+familiar with <a name="INDEX-212" />SAX 1.0,
+this interface replaces the
+<tt class="literal">org.xml.sax.Parser</tt><a name="INDEX-213" />
+<a name="INDEX-214" />
+<a name="INDEX-215" /> interface.
+</p>
+<blockquote><b>WARNING:</b> 
+This is a good time to point out that SAX 1.0 is not covered in this book. While there is a very small section at the end of this chapter explaining how to convert SAX 1.0 code to SAX 2.0, you really are not in a good situation if you are using SAX 1.0. While the first edition of this book came out on the heels of SAX 2.0, it's now been well over a year since the API was released in a 2.0 final form. I strongly urge you to move on to Version 2 if you haven't already.
+</p></blockquote>
+<a name="javaxml2-CHP-3-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">3.2.1. Instantiating a Reader</h3>
+
+<p><a name="INDEX-216" />
+<a name="INDEX-217" />
+<a name="INDEX-218" />SAX
+provides an interface all SAX-compliant XML parsers should implement.
+This allows SAX to know exactly what methods are available for
+callback and use within an application. For example, the Xerces main
+SAX parser class,
+<tt class="literal">org.apache.xerces.parsers.SAXParser</tt>, implements
+the <tt class="literal">org.xml.sax.XMLReader</tt> interface. If you have
+access to the source of your parser, you should see the same
+interface implemented in your parser's main SAX parser class.
+Each XML parser must have one class (and sometimes has more than one)
+that implements this interface, and that is the class you need to
+instantiate to allow for parsing XML:
+</p>
+
+<blockquote><pre class="code">// Instantiate a Reader
+XMLReader reader = 
+  new org.xml.sax.SAXParser( );
+
+// Do something with the parser
+reader.parse(uri);</pre></blockquote>
+
+<p>With that in mind, it's worth looking at a more realistic
+example. <a href="ch03_02.htm#javaxml2-CHP-3-EX-1">Example 3-1</a> is the skeleton for the
+<tt class="literal">SAXTreeViewer</tt><a name="INDEX-219" /> <a name="INDEX-220" />
+class I was just referring to, which allows viewing of an
+<a name="INDEX-221" />XML document as a graphical tree.
+This also gives you a chance to look at each of the SAX events and
+associated callback methods that can be used to perform action within
+the parsing of an XML document.
+</p>
+
+<a name="javaxml2-CHP-3-EX-1" /><div class="example">
+<h4 class="objtitle">Example 3-1. The SAXTreeViewer skeleton </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import org.xml.sax.Attributes;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.InputSource;
+import org.xml.sax.Locator;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.XMLReaderFactory;
+
+// This is an XML book - no need for explicit Swing imports
+import java.awt.*;
+import javax.swing.*;
+import javax.swing.tree.*;
+
+public class SAXTreeViewer extends JFrame {
+
+    /** Default parser to use */
+    private String vendorParserClass = 
+        "org.apache.xerces.parsers.SAXParser";
+
+    /** The base tree to render */
+    private JTree jTree;
+
+    /** Tree model to use */
+    DefaultTreeModel defaultTreeModel;
+
+    public SAXTreeViewer( ) {
+        // Handle Swing setup
+        super("SAX Tree Viewer");
+        setSize(600, 450);
+    }
+
+    public void init(String xmlURI) throws IOException, SAXException {
+        DefaultMutableTreeNode base = 
+            new DefaultMutableTreeNode("XML Document: " + 
+                xmlURI);
+        
+        // Build the tree model
+        defaultTreeModel = new DefaultTreeModel(base);
+        jTree = new JTree(defaultTreeModel);
+
+        // Construct the tree hierarchy
+        buildTree(defaultTreeModel, base, xmlURI);
+
+        // Display the results
+        getContentPane( ).add(new JScrollPane(jTree), 
+            BorderLayout.CENTER);
+    }
+
+    public void buildTree(DefaultTreeModel treeModel, 
+                          DefaultMutableTreeNode base, String xmlURI) 
+        throws IOException, SAXException {
+
+        // Create instances needed for parsing
+        XMLReader reader = 
+            XMLReaderFactory.createXMLReader(vendorParserClass);
+
+        // Register content handler
+
+        // Register error handler
+
+        // Parse
+    }
+
+    public static void main(String[] args) {
+        try {
+            if (args.length != 1) {
+                System.out.println(
+                    "Usage: java javaxml2.SAXTreeViewer " +
+                    "[XML Document URI]");
+                System.exit(0);
+            }
+            SAXTreeViewer viewer = new SAXTreeViewer( );
+            viewer.init(args[0]);
+            viewer.setVisible(true);
+        } catch (Exception e) {
+            e.printStackTrace( );
+        }
+    }
+}</pre></blockquote>
+</div>
+
+<p>This should all be fairly straightforward.<a href="#FOOTNOTE-2">[2]</a> Other than setting up
+the visual properties for Swing, this code takes in the URI of an XML
+document (our <em class="emphasis">contents.xml</em> from
+the last chapter). In the <tt class="literal">init( )</tt> method, a
+<tt class="literal">JTree</tt> is created for displaying the contents of
+the URI. These objects (the tree and URI) are then passed to the
+method that is worth focusing on, the <tt class="literal">buildTree(
+)</tt><a name="INDEX-222" />
+method. This is where parsing will take place, and the visual
+representation of the XML document supplied will be created.
+Additionally, the skeleton takes care of creating a base node for the
+graphical tree, with the path to the supplied XML document as that
+node's text.<a name="INDEX-223" /> <a name="INDEX-224" /> 
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-2" /><p>[2]Don't be concerned if you are not familiar with the Swing
+concepts involved here; to be honest, I had to look most of them up
+myself! For a good reference on Swing, pick up a copy of
+<em class="emphasis">Java Swing</em> by Robert Eckstein, Marc Loy, and
+Dave Wood (O'Reilly). </p> </blockquote>
+
+<a name="javaxml2-CHP-3-SIDEBAR-1" /><blockquote><table border="1" cellpadding="6"><tr><td>
+<h4 class="objtitle">U-R-What?</h4>
+
+<p>I've just breezed by what URIs are both here and in the last
+chapter. In short, a <a name="INDEX-225" /> <a name="INDEX-226" />URI is a
+<em class="filename">uniform resource indicator</em>. As the name
+suggests, it provides a standard means of identifying (and thereby
+locating, in most cases) a specific resource; this resource is almost
+always some sort of XML document, for the purposes of this book. URIs
+are related to <a name="INDEX-227" /> <a name="INDEX-228" />URLs, <em class="filename">uniform
+resource locators</em>. In fact, a URL is always a URI
+(although the reverse is not true). So in the examples in this and
+other chapters, you could specify a filename or a URL, like
+<a href="http://www.newInstance.com/javaxml2/copyright.xml">http://www.newInstance.com/javaxml2/copyright.xml</a>,
+and either would be accepted.
+</p>
+</td></tr></table><p></blockquote>
+
+<p>You should be able to load and compile this program if you made the
+preparations talked about earlier to ensure that an XML parser and
+the SAX classes are in your class path. If you have a parser other
+than Apache Xerces, you can replace the value of the
+<tt class="literal">vendorParserClass</tt> variable to match your
+parser's <tt class="literal">XMLReader</tt> implementation class, and
+leave the rest of the code as is. This simple program doesn't
+do much yet; in fact, if you run it and supply a legitimate filename
+as an argument, it should happily grind away and show you an empty
+tree, with the document's filename as the base node.
+That's because you have only instantiated a reader, not
+requested that the XML document be parsed.
+</p>
+<blockquote><b>WARNING:</b> 
+
+If you have trouble compiling this source file, you most likely have
+problems with your IDE or system's class path. First, make sure
+you obtained the Apache Xerces parser (or your vendor's
+parser). For Xerces, this involves downloading azipped or gzipped file. This archive can then
+be extracted, and will contain a <em class="emphasis">xerces.jar</em> file; it is this
+<em class="filename">jar</em> file that contains the compiled class files
+for the program. Add this archive to your class path. You should then
+be able to compile the source file listing.
+</p>
+</blockquote>
+</div>
+<a name="javaxml2-CHP-3-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">3.2.2. Parsing the Document</h3>
+
+<p>Once a reader is loaded and ready for use, you can instruct it to
+parse an XML document. This is conveniently handled by the
+<tt class="literal">parse( )</tt><a name="INDEX-229" />
+<a name="INDEX-230" /> <a name="INDEX-231" /> method of
+<tt class="literal">org.xml.sax.XMLReader</tt><a name="INDEX-232" />
+<a name="INDEX-233" />
+<a name="INDEX-234" /><a name="INDEX-235" /> class, and this method can accept
+either an <tt class="literal">org.xml.sax.InputSource</tt> or a simple
+string URI. It's a much better idea to use the SAX
+<tt class="literal">InputSource</tt> class, as that can provide more
+information than a simple location. I'll talk more about that
+later, but suffice it to say that an <tt class="literal">InputSource</tt>
+can be constructed from an I/O <tt class="literal">InputStream</tt>,
+<tt class="literal">Reader</tt>, or a string URI.
+</p>
+
+<p>You can now add construction of an <tt class="literal">InputSource</tt>
+from the provided URI, as well as the invocation of the
+<tt class="literal">parse( )</tt><a name="INDEX-236" /> method to
+the example. Because the document must be loaded, either locally or
+remotely, a <tt class="literal">java.io.IOException</tt> may result, and
+must be caught. In addition, the
+<tt class="literal">org.xml.sax.SAXException</tt> will be thrown if
+problems occur while parsing the document. Notice that the
+<tt class="literal">buildTree</tt><a name="INDEX-237" />
+method can throw both of these exceptions:
+</p>
+
+<blockquote><pre class="code">    public void buildTree(DefaultTreeModel treeModel, 
+                          DefaultMutableTreeNode base, File file) 
+        <tt class="userinput"><b>throws IOException, SAXException</b></tt> {
+
+        // Create instances needed for parsing
+        XMLReader reader = 
+            XMLReaderFactory.createXMLReader(vendorParserClass);
+
+        // Register content handler
+
+        // Register error handler
+
+        // Parse<tt class="userinput"><b>
+        InputSource inputSource = 
+            new InputSource(xmlURI);
+        reader.parse(inputSource);</b></tt>
+    }</pre></blockquote>
+
+<p><a name="INDEX-238" />Compile these changes and you are
+ready to execute the parsing example. You should specify the path to
+your file as the first argument to the program:
+</p>
+
+<blockquote><pre class="code">c:\javaxml2\build&gt;java javaxml2.SAXTreeViewer ..\Ch03\xml\contents.xml </pre></blockquote>
+<blockquote><b>WARNING:</b> 
+Supplying an XML URI can be a rather strange task. In versions of
+Xerces before 1.1, a normal filename could be supplied (for example,
+on Windows, <em class="emphasis">..\xml\contents.xml</em>).
+However, this behavior changed in Xerces 1.1 and 1.2, and the URI had
+to be in this form: <em class="emphasis">file:///c:/javaxml2/xml/contents.xml</em>.
+However, in the latest versions of Xerces (from 1.3 up, as well as
+2.0), this behavior has moved back to accepting normal filenames. Be
+aware of these issues if you are using Xerces 1.1 through 1.2.
+</p>
+</blockquote>
+<p>The rather boring output shown in <a href="ch03_02.htm#javaxml2-CHP-3-FIG-1">Figure 3-1</a> may
+make you doubt that anything has happened. However, if you lean nice
+and close, you may hear your hard drive spin briefly (or you can just
+have faith in the bytecode). In fact, the XML document is parsed.
+However, no callbacks have been implemented to tell SAX to take
+action during the parsing; without these callbacks, a document is
+parsed quietly and without application intervention. Of course, we
+want to intervene in that process, so it's now time to look at
+creating some
+<a name="INDEX-239" /> <a name="INDEX-240" />
+<a name="INDEX-241" />parser <em class="filename">callback
+methods</em>. A callback method is a method that is not
+directly invoked by you or your application code. Instead, as the
+parser begins to work, it calls these methods at certain events,
+without any intervention. In other words, instead of your code
+calling <em class="emphasis">into</em> the parser, the parser calls
+<em class="emphasis">back</em> to yours. That allows you to
+programmatically insert behavior into the parsing process. This
+intervention is the most important part of using SAX. Parser
+callbacks let you insert action into the program flow, and turn the
+rather boring, quiet parsing of an XML document into an application
+that can react to the data, elements, attributes, and structure of
+the document being parsed, as well as interact with other programs
+and clients along the way.
+</p>
+
+<a name="javaxml2-CHP-3-FIG-1" /><div class="figure"><img height="148" alt="Figure 3-1" src="figs/javax_0301.gif" width="327" /></div><h4 class="objtitle">Figure 3-1. An uninteresting JTree</h4>
+
+</div>
+<a name="javaxml2-CHP-3-SECT-2.3" /><div class="sect2">
+<h3 class="sect2">3.2.3. Using an InputSource</h3>
+
+<p>I mentioned earlier that I would touch on using a
+<a name="INDEX-242" />SAX <tt class="literal">InputSource</tt> again,
+albeit briefly. The advantage to using an
+<tt class="literal">InputSource</tt> instead of directly supplying a URI is
+simple: it can provide more information to the parser. An
+<tt class="literal">InputSource</tt><a name="INDEX-243" />
+<a name="INDEX-244" />
+encapsulates information about a single object, the document to
+parse. In situations where a system identifier, public identifier, or
+stream may all be tied to one URI, using an
+<tt class="literal">InputSource</tt> for encapsulation can become very
+handy. The class has accessor and mutator methods for its system ID
+and public ID, a character encoding, a byte stream
+(<tt class="literal">java.io.InputStream</tt>), and a character stream
+(<tt class="literal">java.io.Reader</tt>). Passed as an argument to the
+<tt class="literal">parse( )</tt> method, SAX also guarantees that the
+parser will never modify the <tt class="literal">InputSource</tt>. The
+original input to a parser is still available unchanged after its use
+by a parser or XML-aware application. In our example, it's
+important because the XML document uses a relative path to the DTD in
+it:
+</p>
+
+<blockquote><pre class="code">&lt;!DOCTYPE Book SYSTEM "DTD/JavaXML.dtd"&gt;</pre></blockquote>
+
+<p>By using an <tt class="literal">InputSource</tt> and wrapping the supplied
+XML URI, you have set the <a name="INDEX-245" /> <a name="INDEX-246" />system
+ID of the document. This effectively sets up the path to the document
+for the parser and allows it to resolve all relative paths within
+that document, like the <em class="emphasis">JavaXML.dtd</em> file. If instead of setting this
+ID, you parsed an I/O stream, the DTD wouldn't be located (as
+it has no frame of reference); you could simulate this by changing
+the code in the <tt class="literal">buildTree(
+)</tt><a name="INDEX-247" /><a name="INDEX-248" /> method as shown here:
+</p>
+
+<blockquote><pre class="code">        // Parse
+        InputSource inputSource = 
+            new InputSource(new java.io.FileInputStream(
+                new java.io.File(xmlURI)));
+        reader.parse(inputSource);</pre></blockquote>
+
+<p>As a result, you would get the following exception when running the
+viewer:
+</p>
+
+<blockquote><pre class="code">C:\javaxml2\build&gt;java javaxml2.SAXTreeViewer ..\ch03\xml\contents.xml
+org.xml.sax.SAXParseException: File 
+  "file:///C:/javaxml2/build/DTD/JavaXML.dtd" not found.</pre></blockquote>
+
+<p>While this seems a little silly (wrapping a URI in a file and I/O
+stream), it's actually quite common to see people using I/O
+streams as input to parsers. Just be sure that you don't
+reference any other files in the XML and that you set a system ID for
+the XML stream (using the <tt class="literal">setSystemID( )</tt> method on
+<tt class="literal">InputSource</tt>). So the above code sample could be
+"fixed" by changing it to the following:
+</p>
+
+<blockquote><pre class="code">        // Parse
+        InputSource inputSource = 
+            new InputSource(new java.io.FileInputStream(
+                new java.io.File(xmlURI)));
+        inputSource.setSystemID(xmlURI);
+        reader.parse(inputSource);</pre></blockquote>
+
+<p>Always set a system ID. Sorry for the excessive detail; now you can
+bore coworkers with your knowledge about SAX
+<tt class="literal">InputSource</tt>s.
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch03_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">3. SAX</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">3.3. Content Handlers</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

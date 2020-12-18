@@ -1,0 +1,1366 @@
+<html><head><title>Input and Output (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch05_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">5.3. Input and Output</h2>
+
+<p><a name="INDEX-521" /> <a name="INDEX-522" />XSLT processors, like other XML tools,
+can read their <a name="INDEX-523" />input data from many different
+sources. In the most basic scenario, you will load a static
+stylesheet and XML document using the <tt class="literal">java.io.File</tt>
+<a name="INDEX-524" />
+<a name="INDEX-525" />class.
+More commonly, the XSLT stylesheet will come from a file, but the XML
+data will be generated dynamically as the result of a database query.
+In this case, it does not make sense to write the database query
+results to an XML file and then parse it into the XSLT processor.
+Instead, it is desirable to pipe the XML data directly into the
+processor using SAX or DOM. In fact, we will even see how to read
+nonXML data and transform it using XSLT.
+</p>
+
+<a name="javaxslt-CHP-5-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">5.3.1. System Identifiers, Files, and URLs</h3>
+
+<p>The simple examples presented <a name="INDEX-526" />earlier in this chapter introduced the
+concept of a <a name="INDEX-527" />system identifier. As mentioned
+before, system identifiers are nothing more than URIs and are used
+frequently by XML tools. For example,
+<tt class="literal">javax.xml.transform.Source</tt>,
+<a name="INDEX-528" />
+<a name="INDEX-529" />one
+of the key interfaces in JAXP, has the following API:
+</p>
+
+<blockquote><pre class="code">public interface Source {
+    String getSystemId( );
+    void setSystemId(String systemId);
+}</pre></blockquote>
+
+<p>The second method, <tt class="literal">setSystemId(
+)</tt><a name="INDEX-530" />,
+is crucial. By providing a URI to the <tt class="literal">Source</tt>, the
+XSLT processor can resolve URIs encountered in XSLT stylesheets. This
+allows XSLT code like this to work:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:import href="commonFooter.xslt"/&gt;</pre></blockquote>
+
+<p>When it <a name="INDEX-531" />comes to XSLT programming, you will use
+methods in <tt class="literal">java.io.File</tt> and
+<tt class="literal">java.net.URL</tt> to convert platform-specific
+<a name="INDEX-532" />file names into system IDs. These can
+then be used as parameters to any methods that expect a system ID as
+a parameter. For example, you would write the following code to
+convert a platform-specific filename into a system ID:
+</p>
+
+<blockquote><pre class="code">public static void main(String[] args) {
+    // assume that the first command-line arg contains a file name
+    // - on Windows, something like "C:\home\index.xml"
+    // - on Unix, something like "/usr/home/index.xml"
+    String fileName = args[0];
+    File fileObject = new File(fileName);
+    URL fileURL = fileObject.toURL( );
+    String systemID = fileURL.toExternalForm( );</pre></blockquote>
+
+<p>This code was written on several lines for clarity; it can be
+consolidated as follows:
+</p>
+
+<blockquote><pre class="code">String systemID = new File(fileName).toURL().toExternalForm( );</pre></blockquote>
+
+<p>Converting from a system identifier back to a filename or a
+<tt class="literal">File</tt> object can be accomplished with this code:
+</p>
+
+<blockquote><pre class="code">URL url = new URL(systemID);
+String fileName = url.getFile( );
+File fileObject = new File(fileName);</pre></blockquote>
+
+<p>And once again, this code can be condensed into a single line as
+follows:
+</p>
+
+<blockquote><pre class="code">File fileObject = new File((new URL(systemID)).getFile( ));</pre></blockquote>
+
+</div>
+<a name="javaxslt-CHP-5-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">5.3.2. JAXP I/O Design</h3>
+
+<p>The <tt class="literal">Source</tt><a name="INDEX-533" /> <a name="INDEX-534" /> and <tt class="literal">Result</tt>
+<a name="INDEX-535" />interfaces in
+<tt class="literal">javax.xml.transform</tt> provide the basis for all
+transformation input and output in JAXP 1.1. Regardless of whether a
+stylesheet is obtained via a URI, filename, or
+<tt class="literal">InputStream</tt>, its data is fed into JAXP via an
+implementation of the <tt class="literal">Source</tt> interface. The output
+is then sent to an implementation of the <tt class="literal">Result</tt>
+interface. The implementations provided by JAXP are shown in <a href="ch05_03.htm#javaxslt-CHP-5-FIG-3">Figure 5-3</a>. 
+</p>
+
+<a name="javaxslt-CHP-5-FIG-3" /><div class="figure"><img src="figs/jxt_0503.gif" alt="Figure 5-3" width="473" height="298" /></div><h4 class="objtitle">Figure 5-3. Source and Result interfaces</h4>
+
+<p>As you can see, JAXP is not particular about where it gets its data
+or sends its results. Remember that two instances of
+<tt class="literal">Source</tt> are always specified: one for the XML data
+and another for the XSLT stylesheet.
+</p>
+
+</div>
+<a name="javaxslt-CHP-5-SECT-3.3" /><div class="sect2">
+<h3 class="sect2">5.3.3. JAXP Stream I/O</h3>
+
+<p>As <a name="INDEX-536" /> <a name="INDEX-537" />shown in <a href="ch05_03.htm#javaxslt-CHP-5-FIG-3">Figure 5-3</a>,
+<tt class="literal">StreamSource</tt><a name="INDEX-538" /> is one of the implementations of the
+<tt class="literal">Source</tt> interface. In addition to the system
+identifiers that <tt class="literal">Source</tt> provides,
+<tt class="literal">StreamSource</tt> allows input to be obtained from a
+<tt class="literal">File</tt>, an <tt class="literal">InputStream</tt>, or a
+<tt class="literal">Reader</tt>. The <tt class="literal">SimpleJaxp</tt> class in
+<a href="ch05_02.htm#javaxslt-CHP-5-EX-3">Example 5-3</a> showed how to use
+<tt class="literal">StreamSource</tt> to read from a
+<tt class="literal">File</tt> object. There are also four constructors that
+allow you to construct a <tt class="literal">StreamSource</tt> from either
+an <tt class="literal">InputStream</tt> or <tt class="literal">Reader</tt>. The
+complete list of constructors is shown here:
+</p>
+
+<blockquote><pre class="code">public StreamSource( )
+public StreamSource(File f)
+public StreamSource(String systemId)
+public StreamSource(InputStream byteStream)
+public StreamSource(InputStream byteStream, String systemId)
+public StreamSource(Reader characterStream)
+public StreamSource(Reader characterStream, String systemId)</pre></blockquote>
+
+<p>For the constructors that take <tt class="literal">InputStream</tt> and
+<tt class="literal">Reader</tt> as arguments, the first argument provides
+either the XML data or the XSLT stylesheet. The second argument, if
+present, is used to resolve relative URI references in the document.
+As mentioned before, your XSLT stylesheet may include the following
+code:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:import href="commonFooter.xslt"/&gt;</pre></blockquote>
+
+<p>By providing a <a name="INDEX-539" />system identifier as a parameter to the
+<tt class="literal">StreamSource</tt>, you are telling the XSLT processor
+where to look for <em class="filename">commonFooter.xslt</em>. Without
+this parameter, you may encounter an error when the processor cannot
+resolve this URI. The simple fix is to call the <tt class="literal">setSystemId(
+)</tt><a name="INDEX-540" />
+method as follows:
+</p>
+
+<blockquote><pre class="code">// construct a Source that reads from an InputStream
+Source mySrc = new StreamSource(anInputStream);
+// specify a system ID (a String) so the Source can resolve relative URLs
+// that are encountered in XSLT stylesheets
+mySrc.setSystemId(aSystemId);</pre></blockquote>
+
+<p>The documentation for <tt class="literal">StreamSource</tt> also advises
+that <tt class="literal">InputStream</tt> is preferred to
+<tt class="literal">Reader</tt> because this allows the processor to
+properly handle the character encoding as specified in the XML
+declaration.
+</p>
+
+<p><tt class="literal">StreamResult</tt><a name="INDEX-541" /> is similar in functionality to
+<tt class="literal">StreamSource</tt>, although it is not necessary to
+resolve relative URIs. The available constructors are as follows:
+</p>
+
+<blockquote><pre class="code">public StreamResult( )
+public StreamResult(File f)
+public StreamResult(String systemId)
+public StreamResult(OutputStream byteStream)
+public StreamResult(Writer characterStream)</pre></blockquote>
+
+<p>Let's look at some of the other options for
+<tt class="literal">StreamSource</tt> and <tt class="literal">StreamResult</tt>.
+<a href="ch05_03.htm#javaxslt-CHP-5-EX-4">Example 5-4</a> is a modification of the
+<tt class="literal">SimpleJaxp</tt> program that was presented earlier. It
+<a name="INDEX-542" />downloads the XML specification from
+the W3C web site and stores it in a temporary file on your local
+disk. To download the file, construct a
+<tt class="literal">StreamSource</tt> with a system identifier as a
+parameter. The stylesheet is a simple one that merely performs an
+identity transformation, copying the unmodified XML data to the
+result tree. The result is then sent to a
+<tt class="literal">StreamResult</tt> using its <tt class="literal">File</tt>
+constructor.
+</p>
+
+<a name="javaxslt-CHP-5-EX-4" /><div class="example">
+<h4 class="objtitle">Example 5-4. Streams.java </h4>
+<blockquote><pre class="code">package chap5;
+
+import java.io.*;
+import javax.xml.transform.*;
+import javax.xml.transform.stream.*;
+
+/**
+ * A simple demo of JAXP 1.1 StreamSource and StreamResult. This 
+ * program downloads the XML specification from the W3C and prints
+ * it to a temporary file.
+ */
+public class Streams {
+
+    // an identity copy stylesheet
+    <tt class="userinput"><b>private static final String IDENTITY_XSLT =
+        "&lt;xsl:stylesheet xmlns:xsl='http://www.w3.org/1999/XSL/Transform'"
+        + " version='1.0'&gt;"
+        + "&lt;xsl:template match='/'&gt;&lt;xsl:copy-of select='.'/&gt;"
+        + "&lt;/xsl:template&gt;&lt;/xsl:stylesheet&gt;";</b></tt>
+
+    // the XML spec in XML format
+    // (using an HTTP URL rather than a file URL)
+    <tt class="userinput"><b>private static String xmlSystemId =
+            "http://www.w3.org/TR/2000/REC-xml-20001006.xml";</b></tt>
+
+    public static void main(String[] args) throws IOException,
+            TransformerException {
+
+        // show how to read from a system identifier and a Reader
+        <tt class="userinput"><b>Source xmlSource = new StreamSource(xmlSystemId);
+        Source xsltSource = new StreamSource(
+                new StringReader(IDENTITY_XSLT));</b></tt>
+
+        // send the result to a file
+        File resultFile = File.createTempFile("Streams", ".xml");
+        <tt class="userinput"><b>Result result = new StreamResult(resultFile);</b></tt>
+
+        System.out.println("Results will go to: "
+                + resultFile.getAbsolutePath( ));
+
+        // get the factory
+        TransformerFactory transFact = TransformerFactory.newInstance( );
+
+        // get a transformer for this particular stylesheet
+        <tt class="userinput"><b>Transformer trans = transFact.newTransformer(xsltSource);</b></tt>
+
+        // do the transformation
+        <tt class="userinput"><b>trans.transform(xmlSource, result);</b></tt>
+    }
+}</pre></blockquote>
+</div>
+
+<p>The "identity copy" stylesheet simply matches
+<tt class="literal">"/"</tt>, which is the document itself. It then uses
+<tt class="literal">&lt;xsl:copy-of select='.'/&gt;</tt> to select the
+document and copy it to the result tree. In this case, we coded our
+own stylesheet. You can also omit the XSLT stylesheet altogether as
+follows:
+</p>
+
+<blockquote><pre class="code">// construct a Transformer without any XSLT stylesheet
+Transformer trans = transFact.newTransformer( );</pre></blockquote>
+
+<p>In this case, the processor will provide its own stylesheet and do
+the same thing that our example does. This is useful when you need to
+use JAXP to convert a DOM tree to XML text for debugging purposes
+because the default <tt class="literal">Transformer</tt> will simply copy
+the XML <a name="INDEX-543" /> <a name="INDEX-544" />data without <a name="INDEX-545" />any
+transformation.
+</p>
+
+</div>
+<a name="javaxslt-CHP-5-SECT-3.4" /><div class="sect2">
+<h3 class="sect2">5.3.4. JAXP DOM I/O</h3>
+
+<p>In many <a name="INDEX-546" />cases, the fastest form of transformation
+available is to feed an instance of
+<tt class="literal">org.w3c.dom.Document</tt>
+<a name="INDEX-547" />
+<a name="INDEX-548" />directly
+into JAXP. Although the transformation is fast, it does take time to
+generate the DOM; <a name="INDEX-549" />DOM is
+also memory intensive, and may not be the best choice for large
+documents. In most cases, the DOM data will be generated dynamically
+as the result of a database query or some other operation (see <a href="ch01_01.htm">Chapter 1, "Introduction "</a>). Once the DOM is generated, simply wrap the
+<tt class="literal">Document</tt> object in a
+<tt class="literal">DOMSource</tt><a name="INDEX-550" /> as follows:
+</p>
+
+<blockquote><pre class="code">org.w3c.dom.Document domDoc = createDomDocument( );<tt class="userinput"><b>
+Source xmlSource = new javax.xml.transform.dom.DOMSource(domDoc);</b></tt></pre></blockquote>
+<p>The remainder of the transformation looks identical to the file-based
+transformation shown in <a href="ch05_03.htm#javaxslt-CHP-5-EX-4">Example 5-4</a>. JAXP needs only
+the alternate input Source object shown here to read from DOM.
+</p>
+
+</div>
+<a name="javaxslt-CHP-5-SECT-3.5" /><div class="sect2">
+<h3 class="sect2">5.3.5. JAXP SAX I/O</h3>
+
+<p>XSLT is <a name="INDEX-551" />
+<a name="INDEX-552" />designed
+to transform well-formed XML data into another format, typically
+HTML. But wouldn't it be nice if we could also use XSLT
+stylesheets to transform nonXML data into HTML? For example, most
+spreadsheets have the ability to export their data into Comma
+Separated Values (CSV) format, as shown here:
+</p>
+<blockquote><pre class="code">
+Burke,Eric,M
+Burke,Jennifer,L
+Burke,Aidan,G</pre></blockquote>
+
+<p>One approach is parsing the file into memory, using DOM to create an
+XML representation of the data, and then feeding that information
+into JAXP for transformation. This approach works but requires an
+intermediate programming step to convert the CSV file into a DOM
+tree. A better option is to write a custom SAX parser, feeding its
+output directly into JAXP. This avoids the overhead of constructing
+the DOM tree, offering better memory utilization and performance.
+</p>
+
+<a name="javaxslt-CHP-5-SECT-3.5.1" /><div class="sect3">
+<h3 class="sect3">5.3.5.1. The approach</h3>
+
+<p>It turns out that writing a SAX parser is quite easy.<a href="#FOOTNOTE-21">[21]</a> All a SAX parser
+does is read an XML file top to bottom and fire event notifications
+as various elements are encountered. In our custom parser, we will
+read the CSV file top to bottom, firing SAX events as we read the
+file. A program listening to those SAX events will not realize that
+the data file is CSV rather than XML; it sees only the events. <a href="ch05_03.htm#javaxslt-CHP-5-FIG-4">Figure 5-4</a> illustrates the conceptual model.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-21" /><p> [21] Our examples use SAX 2.</p> </blockquote>
+
+<a name="javaxslt-CHP-5-FIG-4" /><div class="figure"><img src="figs/jxt_0504.gif" alt="Figure 5-4" width="441" height="142" /></div><h4 class="objtitle">Figure 5-4. Custom SAX parser</h4>
+
+<p>In this model, the XSLT processor interprets the SAX events as XML
+data and uses a normal stylesheet to perform the transformation. The
+interesting aspect of this model is that we can easily write custom
+SAX parsers for other file formats, making XSLT a useful
+transformation language for just about any legacy application data.
+</p>
+
+<p>In SAX, <tt class="literal">org.xml.sax.XMLReader</tt> is a standard
+interface that parsers must implement. It works in conjunction with
+<tt class="literal">org.xml.sax.ContentHandler</tt>, which is the interface
+that listens to SAX events. For this model to work, your XSLT
+processor must implement the <tt class="literal">ContentHandler</tt>
+interface so it can listen to the SAX events that the
+<tt class="literal">XMLReader</tt> generates. In the case of JAXP,
+<tt class="literal">javax.xml.transform.sax.TransformerHandler</tt> is used
+for this purpose.
+</p>
+
+<p>Obtaining an instance of <tt class="literal">TransformerHandler</tt>
+requires a few extra programming steps. First, create a
+<tt class="literal">TransformerFactory</tt> as usual:
+</p>
+
+<blockquote><pre class="code">TransformerFactory transFact = TransformerFactory.newInstance( );</pre></blockquote>
+
+<p>As before, the <tt class="literal">TransformerFactory</tt> is the JAXP
+abstraction to some underlying XSLT processor. This underlying
+processor may not support SAX features, so you have to query it to
+determine if you can proceed:
+</p>
+
+<blockquote><pre class="code">if (transFact.getFeature(SAXTransformerFactory.FEATURE)) {</pre></blockquote>
+
+<p>If this returns <tt class="literal">false</tt>, you are out of luck.
+Otherwise, you can safely downcast to a
+<tt class="literal">SAXTransformerFactory</tt> and construct the
+<tt class="literal">TransformerHandler</tt> instance:
+</p>
+
+<blockquote><pre class="code">SAXTransformerFactory saxTransFact =
+            (SAXTransformerFactory) transFact;
+  // create a ContentHandler, don't specify a stylesheet.  Without
+  // a stylesheet, raw XML is sent to the output.
+  TransformerHandler transHand = saxTransFact.newTransformerHandler( );</pre></blockquote>
+
+<p>In the code shown here, a stylesheet was not specified. JAXP defaults
+to the identity transformation stylesheet, which means that the SAX
+events will be "transformed" into raw XML output. To
+specify a stylesheet that performs an actual transformation, pass a
+<tt class="literal">Source</tt> to the method as follows:
+</p>
+
+<blockquote><pre class="code">Source xsltSource = new StreamSource(myXsltSystemId);
+TransformerHandler transHand = saxTransFact.newTransformerHandler(
+        xsltSource);</pre></blockquote>
+
+</div>
+
+<a name="javaxslt-CHP-5-SECT-3.5.2" /><div class="sect3">
+<h3 class="sect3">5.3.5.2. Detailed CSV to SAX design</h3>
+
+<p>Before delving into the complete example program, let's step
+back and look at a more detailed design diagram. The conceptual model
+is straightforward, but quite a few classes and interfaces come into
+play. <a href="ch05_03.htm#javaxslt-CHP-5-FIG-5">Figure 5-5</a> shows the pieces necessary for
+SAX-based
+<a name="INDEX-553" />transformations.
+</p>
+
+<a name="javaxslt-CHP-5-FIG-5" /><div class="figure"><img src="figs/jxt_0505.gif" alt="Figure 5-5" width="482" height="342" /></div><h4 class="objtitle">Figure 5-5. SAX and XSLT transformations</h4>
+
+<p>This diagram certainly appears to be more complex than previous
+approaches, but is similar in many ways. In previous approaches, we
+used the <tt class="literal">TransformerFactory</tt> to create instances of
+<tt class="literal">Transformer</tt>; in the SAX approach, we start with a
+subclass of <tt class="literal">TransformerFactory</tt>. Before any work
+can be done, you must verify that your particular implementation
+supports SAX-based transformations. The reference implementation of
+JAXP does support this, although other implementations are not
+required to do so. In the following code fragment, the
+<tt class="literal">getFeature</tt> method of
+<tt class="literal">TransformerFactory</tt> will return
+<tt class="literal">true</tt> if you can safely downcast to a
+<tt class="literal">SAXTransformerFactory</tt> instance:
+</p>
+
+<blockquote><pre class="code">TransformerFactory transFact = TransformerFactory.newInstance( );
+if (transFact.getFeature(SAXTransformerFactory.FEATURE)) {
+    // downcast is allowed
+    SAXTransformerFactory saxTransFact = (SAXTransformerFactory) transFact;</pre></blockquote>
+
+<p>If <tt class="literal">getFeature</tt> returns <tt class="literal">false</tt>,
+your only option is to look for an implementation that does support
+SAX-based transformations. Otherwise, you can proceed to create an
+instance of <tt class="literal">TransformerHandler</tt>:
+</p>
+
+<blockquote><pre class="code">TransformerHandler transHand = saxTransFact.newTransformerHandler(myXsltSource);</pre></blockquote>
+
+<p>This object now represents your XSLT stylesheet. As <a href="ch05_03.htm#javaxslt-CHP-5-FIG-5">Figure 5-5</a> shows, <tt class="literal">TransformerHandler</tt>
+extends <tt class="literal">org.xml.sax.ContentHandler</tt>, so it knows
+how to listen to events from a SAX parser. The series of SAX events
+will provide the "fake XML" data, so the only remaining
+piece of the puzzle is to set the <tt class="literal">Result</tt> and tell
+the SAX parser to begin parsing. The
+<tt class="literal">TransformerHandler</tt> also provides a reference to a
+<tt class="literal">Transformer</tt>, which allows you to set output
+properties such as the character encoding, whether to indent the
+output or any other attributes of
+<tt class="literal">&lt;xsl:output&gt;</tt>.
+</p>
+
+</div>
+
+<a name="javaxslt-CHP-5-SECT-3.5.3" /><div class="sect3">
+<h3 class="sect3">5.3.5.3. Writing the custom parser</h3>
+
+<p>Writing the actual SAX parser sounds harder than it really is. The
+process basically involves implementing the
+<tt class="literal">org.xml.sax.XMLReader</tt> interface, which provides
+numerous methods you can safely ignore for most applications. For
+example, when parsing a CSV file, it is probably not necessary to
+deal with namespaces or validation. The code for
+<tt class="literal">AbstractXMLReader.java</tt> is shown in <a href="ch05_03.htm#javaxslt-CHP-5-EX-5">Example 5-5</a>. This is an abstract class that provides basic
+implementations of every method in the <tt class="literal">XMLReader</tt>
+interface except for the <tt class="literal">parse( )</tt> method. This
+means that all you need to do to write a parser is create a subclass
+and override this single method.
+</p>
+
+<a name="javaxslt-CHP-5-EX-5" /><div class="example">
+<h4 class="objtitle">Example 5-5. AbstractXMLReader.java </h4>
+<blockquote><pre class="code">package com.oreilly.javaxslt.util;
+
+import java.io.IOException;
+import java.util.*;
+import org.xml.sax.*;
+
+/**
+ * An abstract class that implements the SAX2 XMLReader interface. The
+ * intent of this class is to make it easy for subclasses to act as
+ * SAX2 XMLReader implementations. This makes it possible, for example, for
+ * them to emit SAX2 events that can be fed into an XSLT processor for
+ * transformation.
+ */
+public abstract class AbstractXMLReader implements org.xml.sax.XMLReader {
+    private Map featureMap = new HashMap( );
+    private Map propertyMap = new HashMap( );
+    private EntityResolver entityResolver;
+    private DTDHandler dtdHandler;
+    private ContentHandler contentHandler;
+    private ErrorHandler errorHandler;
+
+    /**
+     * The only abstract method in this class. Derived classes can parse
+     * any source of data and emit SAX2 events to the ContentHandler.
+     */
+    public abstract void parse(InputSource input) throws IOException,
+            SAXException;
+
+    public boolean getFeature(String name)
+            throws SAXNotRecognizedException, SAXNotSupportedException {
+        Boolean featureValue = (Boolean) this.featureMap.get(name);
+        return (featureValue == null) ? false
+                : featureValue.booleanValue( );
+    }
+
+    public void setFeature(String name, boolean value)
+            throws SAXNotRecognizedException, SAXNotSupportedException {
+        this.featureMap.put(name, new Boolean(value));
+    }
+
+    public Object getProperty(String name)
+            throws SAXNotRecognizedException, SAXNotSupportedException {
+        return this.propertyMap.get(name);
+    }
+
+    public void setProperty(String name, Object value)
+            throws SAXNotRecognizedException, SAXNotSupportedException {
+        this.propertyMap.put(name, value);
+    }
+
+    public void setEntityResolver(EntityResolver entityResolver) {
+        this.entityResolver = entityResolver;
+    }
+
+    public EntityResolver getEntityResolver( ) {
+        return this.entityResolver;
+    }
+
+    public void setDTDHandler(DTDHandler dtdHandler) {
+        this.dtdHandler = dtdHandler;
+    }
+
+    public DTDHandler getDTDHandler( ) {
+        return this.dtdHandler;
+    }
+
+    public void setContentHandler(ContentHandler contentHandler) {
+        this.contentHandler = contentHandler;
+    }
+
+    public ContentHandler getContentHandler( ) {
+        return this.contentHandler;
+    }
+
+    public void setErrorHandler(ErrorHandler errorHandler) {
+        this.errorHandler = errorHandler;
+    }
+
+    public ErrorHandler getErrorHandler( ) {
+        return this.errorHandler;
+    }
+
+    public void parse(String systemId) throws IOException, SAXException {
+        parse(new InputSource(systemId));
+    }
+}</pre></blockquote>
+</div>
+
+<p>Creating the subclass, <tt class="literal">CSVXMLReader</tt>, involves
+overriding the <tt class="literal">parse( )</tt> method and actually
+scanning through the CSV file, emitting SAX events as elements in the
+file are encountered. While the SAX portion is very easy, parsing the
+CSV file is a little more challenging. To make this class as flexible
+as possible, it was designed to parse through any CSV file that a
+spreadsheet such as Microsoft Excel can export. For simple data, your
+CSV file might look like this:
+</p>
+
+<blockquote><pre class="code">Burke,Eric,M
+Burke,Jennifer,L
+Burke,Aidan,G</pre></blockquote>
+
+<p>The XML representation of this file is shown in <a href="ch05_03.htm#javaxslt-CHP-5-EX-6">Example 5-6</a>. The only real drawback here is that CSV files
+are strictly positional, meaning that names are not assigned to each
+column of data. This means that the XML output merely contains a
+sequence of three <tt class="literal">&lt;value&gt;</tt> elements for each
+line, so your stylesheet will have to select items based on position.
+</p>
+
+<a name="javaxslt-CHP-5-EX-6" /><div class="example">
+<h4 class="objtitle">Example 5-6. Example XML output from CSV parser </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;csvFile&gt;
+  &lt;line&gt;
+    &lt;value&gt;Burke&lt;/value&gt;
+    &lt;value&gt;Eric&lt;/value&gt;
+    &lt;value&gt;M&lt;/value&gt;
+  &lt;/line&gt;
+  &lt;line&gt;
+    &lt;value&gt;Burke&lt;/value&gt;
+    &lt;value&gt;Jennifer&lt;/value&gt;
+    &lt;value&gt;L&lt;/value&gt;
+  &lt;/line&gt;
+  &lt;line&gt;
+    &lt;value&gt;Burke&lt;/value&gt;
+    &lt;value&gt;Aidan&lt;/value&gt;
+    &lt;value&gt;G&lt;/value&gt;
+  &lt;/line&gt;
+&lt;/csvFile&gt;</pre></blockquote>
+</div>
+
+<p>One enhancement would be to design the CSV parser so it could accept
+a list of meaningful column names as parameters, and these could be
+used in the XML that is generated. Another option would be to write
+an XSLT stylesheet that transformed this initial output into another
+form of XML that used meaningful column names. To keep the code
+example relatively manageable, these features were omitted from this
+implementation. But there are some complexities to the CSV file
+format that have to be considered. For example, fields that contain
+commas must be surrounded with quotes:
+</p>
+
+<blockquote><pre class="code">"Consultant,Author,Teacher",Burke,Eric,M
+Teacher,Burke,Jennifer,L
+None,Burke,Aidan,G</pre></blockquote>
+
+<p>To further complicate matters, fields may also contain quotes
+("). In this case, they are doubled up, much in the same way
+you use double backslash characters (\\) in Java to represent a
+single backslash. In the following example, the first column contains
+a single quote, so the entire field is quoted, and the single quote
+is doubled up:
+</p>
+
+<blockquote><pre class="code">"test""quote",Teacher,Burke,Jennifer,L</pre></blockquote>
+
+<p>This would be interpreted as:</p>
+
+<blockquote><pre class="code">test"quote,Teacher,Burke,Jennifer,L</pre></blockquote>
+
+<p>The code in <a href="ch05_03.htm#javaxslt-CHP-5-EX-7">Example 5-7</a> shows the complete
+implementation of the CSV parser.
+</p>
+
+<a name="javaxslt-CHP-5-EX-7" /><div class="example">
+<h4 class="objtitle">Example 5-7. CSVXMLReader.java </h4>
+<blockquote><pre class="code">package com.oreilly.javaxslt.util;
+
+import java.io.*;
+import java.net.URL;
+
+import org.xml.sax.*;
+import org.xml.sax.helpers.*;
+
+/**
+ * A utility class that parses a Comma Separated Values (CSV) file
+ * and outputs its contents using SAX2 events. The format of CSV that
+ * this class reads is identical to the export format for Microsoft
+ * Excel. For simple values, the CSV file may look like this:
+ * &lt;pre&gt;
+ * a,b,c
+ * d,e,f
+ * &lt;/pre&gt;
+ * Quotes are used as delimiters when the values contain commas:
+ * &lt;pre&gt;
+ * a,"b,c",d
+ * e,"f,g","h,i"
+ * &lt;/pre&gt;
+ * And double quotes are used when the values contain quotes. This parser
+ * is smart enough to trim spaces around commas, as well.
+ *
+ * @author Eric M. Burke
+ */
+public class CSVXMLReader extends AbstractXMLReader {
+
+    // an empty attribute for use with SAX
+    private static final Attributes EMPTY_ATTR = new AttributesImpl( );
+
+    /**
+     * Parse a CSV file. SAX events are delivered to the ContentHandler
+     * that was registered via &lt;code&gt;setContentHandler&lt;/code&gt;.
+     *
+     * @param input the comma separated values file to parse.
+     */
+    <tt class="userinput"><b>public void parse(InputSource input) throws IOException,
+            SAXException {
+        // if no handler is registered to receive events, don't bother
+        // to parse the CSV file
+        ContentHandler ch = getContentHandler( );
+        if (ch == null) {
+            return;
+        }</b></tt>
+
+        // convert the InputSource into a BufferedReader
+        BufferedReader br = null;
+        if (input.getCharacterStream( ) != null) {
+            br = new BufferedReader(input.getCharacterStream( ));
+        } else if (input.getByteStream( ) != null) {
+            br = new BufferedReader(new InputStreamReader(
+                    input.getByteStream( )));
+        } else if (input.getSystemId( ) != null) {
+            java.net.URL url = new URL(input.getSystemId( ));
+            br = new BufferedReader(new InputStreamReader(url.openStream( )));
+        } else {
+            <tt class="userinput"><b>throw new SAXException("Invalid InputSource object");</b></tt>
+        }
+
+        <tt class="userinput"><b>ch.startDocument( );</b></tt>
+
+        // emit &lt;csvFile&gt;
+        <tt class="userinput"><b>ch.startElement("","","csvFile",EMPTY_ATTR);</b></tt>
+
+        // read each line of the file until EOF is reached
+        String curLine = null;
+        while ((curLine = br.readLine( )) != null) {
+            curLine = curLine.trim( );
+            if (curLine.length( ) &gt; 0) {
+                // create the &lt;line&gt; element
+                <tt class="userinput"><b>ch.startElement("","","line",EMPTY_ATTR);</b></tt>
+                // output data from this line
+                parseLine(curLine, ch);
+                // close the &lt;/line&gt; element
+                <tt class="userinput"><b>ch.endElement("","","line");</b></tt>
+            }
+        }
+
+        // emit &lt;/csvFile&gt;
+        <tt class="userinput"><b>ch.endElement("","","csvFile");
+        ch.endDocument( );</b></tt>
+    }
+
+    // Break an individual line into tokens. This is a recursive function
+    // that extracts the first token, then recursively parses the
+    // remainder of the line.
+    private void parseLine(String curLine, ContentHandler ch)
+        throws IOException, SAXException {
+
+        String firstToken = null;
+        String remainderOfLine = null;
+        int commaIndex = locateFirstDelimiter(curLine);
+        if (commaIndex &gt; -1) {
+            firstToken = curLine.substring(0, commaIndex).trim( );
+            remainderOfLine = curLine.substring(commaIndex+1).trim( );
+        } else {
+            // no commas, so the entire line is the token
+            firstToken = curLine;
+        }
+
+        // remove redundant quotes
+        firstToken = cleanupQuotes(firstToken);
+
+        // emit the &lt;value&gt; element
+        <tt class="userinput"><b>ch.startElement("","","value",EMPTY_ATTR);
+        ch.characters(firstToken.toCharArray(), 0, firstToken.length( ));
+        ch.endElement("","","value");</b></tt>
+
+        // recursively process the remainder of the line
+        if (remainderOfLine != null) {
+            parseLine(remainderOfLine, ch);
+        }
+    }
+
+    // locate the position of the comma, taking into account that
+    // a quoted token may contain ignorable commas.
+    private int locateFirstDelimiter(String curLine) {
+        if (curLine.startsWith("\"")) {
+            boolean inQuote = true;
+            int numChars = curLine.length( );
+            for (int i=1; i&lt;numChars; i++) {
+                char curChar = curLine.charAt(i);
+                if (curChar == '"') {
+                    inQuote = !inQuote;
+                } else if (curChar == ',' &amp;&amp; !inQuote) {
+                    return i;
+                }
+            }
+            return -1;
+        } else {
+            return curLine.indexOf(',');
+        }
+    }
+
+    // remove quotes around a token, as well as pairs of quotes
+    // within a token.
+    private String cleanupQuotes(String token) {
+        StringBuffer buf = new StringBuffer( );
+        int length = token.length( );
+        int curIndex = 0;
+
+        if (token.startsWith("\"") &amp;&amp; token.endsWith("\"")) {
+            curIndex = 1;
+            length--;
+        }
+
+        boolean oneQuoteFound = false;
+        boolean twoQuotesFound = false;
+
+        while (curIndex &lt; length) {
+            char curChar = token.charAt(curIndex);
+            if (curChar == '"') {
+                twoQuotesFound = (oneQuoteFound) ? true : false;
+                oneQuoteFound = true;
+            } else {
+                oneQuoteFound = false;
+                twoQuotesFound = false;
+            }
+
+            if (twoQuotesFound) {
+                twoQuotesFound = false;
+                oneQuoteFound = false;
+                curIndex++;
+                continue;
+            }
+
+            buf.append(curChar);
+            curIndex++;
+        }
+
+        return buf.toString( );
+    }
+}</pre></blockquote>
+</div>
+
+<p><tt class="literal">CSVXMLReader</tt> is a subclass of
+<tt class="literal">AbstractXMLReader</tt>, so it must provide an
+implementation of the abstract <tt class="literal">parse</tt> method:
+</p>
+
+<blockquote><pre class="code">public void parse(InputSource input) throws IOException,
+            SAXException {
+        // if no handler is registered to receive events, don't bother
+        // to parse the CSV file
+        ContentHandler ch = getContentHandler( );
+        if (ch == null) {
+            return;
+        }</pre></blockquote>
+
+<p>The first thing this method does is check for the existence of a SAX
+<tt class="literal">ContentHandler</tt>. The base class,
+<tt class="literal">AbstractXMLReader</tt>, provides access to this object,
+which is responsible for listening to the SAX events. In our example,
+an instance of JAXP's <tt class="literal">TransformerHandler</tt> is
+used as the SAX <tt class="literal">ContentHandler</tt> implementation. If
+this handler is not registered, our <tt class="literal">parse</tt> method
+simply returns because nobody is registered to listen to the events.
+In a real SAX parser, the XML would be parsed anyway, which provides
+an opportunity to check for errors in the XML data. Choosing to
+return immediately was merely a performance optimization selected for
+this class.
+</p>
+
+<p>The SAX <tt class="literal">InputSource</tt> parameter allows our custom
+parser to locate the CSV file. Since an
+<tt class="literal">InputSource</tt> has many options for reading its data,
+parsers must check each potential source in the order shown here:
+</p>
+
+<blockquote><pre class="code">// convert the InputSource into a BufferedReader
+BufferedReader br = null;
+if (input.getCharacterStream( ) != null) {
+    br = new BufferedReader(input.getCharacterStream( ));
+} else if (input.getByteStream( ) != null) {
+    br = new BufferedReader(new InputStreamReader(
+            input.getByteStream( )));
+} else if (input.getSystemId( ) != null) {
+    java.net.URL url = new URL(input.getSystemId( ));
+    br = new BufferedReader(new InputStreamReader(url.openStream( )));
+} else {
+    throw new SAXException("Invalid InputSource object");
+}</pre></blockquote>
+
+<p>Assuming that our <tt class="literal">InputSource</tt> was valid, we can
+now begin parsing the CSV file and emitting SAX events. The first
+step is to notify the <tt class="literal">ContentHandler</tt> that a new
+document has begun:
+</p>
+
+<blockquote><pre class="code">ch.startDocument( );
+
+// emit &lt;csvFile&gt;
+ch.startElement("","","csvFile",EMPTY_ATTR);</pre></blockquote>
+
+<p>The XSLT processor interprets this to mean the following:</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;csvFile&gt;</pre></blockquote>
+
+<p>Our parser simply ignores many SAX 2 features, particularly XML
+namespaces. This is why many values passed as parameters to the
+various <tt class="literal">ContentHandler</tt> methods simply contain
+empty strings. The <tt class="literal">EMPTY_ATTR</tt> constant indicates
+that this XML element does not have any attributes.
+</p>
+
+<p>The CSV file itself is very straightforward, so we merely loop over
+every line in the file, emitting SAX events as we read each line. The
+<tt class="literal">parseLine</tt> method is a private helper method that
+does the actual CSV parsing:
+</p>
+
+<blockquote><pre class="code">// read each line of the file until EOF is reached
+String curLine = null;
+while ((curLine = br.readLine( )) != null) {
+    curLine = curLine.trim( );
+    if (curLine.length( ) &gt; 0) {
+        // create the &lt;line&gt; element
+        ch.startElement("","","line",EMPTY_ATTR);
+        parseLine(curLine, ch);
+        ch.endElement("","","line");
+    }
+}</pre></blockquote>
+
+<p>And finally, we must indicate that the parsing is complete:</p>
+
+<blockquote><pre class="code">// emit &lt;/csvFile&gt;
+ch.endElement("","","csvFile");
+ch.endDocument( );</pre></blockquote>
+
+<p>The remaining methods in <tt class="literal">CSVXMLReader</tt> are not
+discussed in detail here because they are really just responsible for
+breaking down each line in the CSV file and checking for commas,
+quotes, and other mundane parsing tasks. One thing worth noting is
+the code that emits text, such as the following:
+</p>
+
+<blockquote><pre class="code">&lt;value&gt;Some Text Here&lt;/value&gt;</pre></blockquote>
+
+<p>SAX parsers use the <tt class="literal">characters</tt> method on
+<tt class="literal">ContentHandler</tt> to represent text, which has this
+signature:
+</p>
+
+<blockquote><pre class="code">public void characters(char[] ch, int start, int length)</pre></blockquote>
+
+<p>Although this method could have been designed to take a
+<tt class="literal">String</tt>, using an array allows SAX parsers to
+preallocate a large character array and then reuse that buffer
+repeatedly. This is why an implementation of
+<tt class="literal">ContentHandler</tt> cannot simply assume that the
+entire <tt class="literal">ch</tt> array contains meaningful data. Instead,
+it must read only the specified number of characters beginning at the
+<tt class="literal">start</tt> position.
+</p>
+
+<p>Our parser uses a relatively straightforward approach, simply
+converting a <tt class="literal">String</tt> to a character array and
+passing that as a parameter to the <tt class="literal">characters</tt>
+method:
+</p>
+
+<blockquote><pre class="code">// emit the &lt;value&gt;text&lt;/value&gt; element
+ch.startElement("","","value",EMPTY_ATTR);
+ch.characters(firstToken.toCharArray(), 0, firstToken.length( ));
+ch.endElement("","","value");</pre></blockquote>
+
+</div>
+
+<a name="javaxslt-CHP-5-SECT-3.5.4" /><div class="sect3">
+<h3 class="sect3">5.3.5.4. Using the parser</h3>
+
+<p>To wrap things up, let's look at how you will actually use this
+CSV parser with an XSLT stylesheet. The code shown in <a href="ch05_03.htm#javaxslt-CHP-5-EX-8">Example 5-8</a> is a standalone Java application that allows
+you to perform XSLT
+<a name="INDEX-554" />transformations on CSV files. As the
+comments indicate, it requires the name of a CSV file as its first
+parameter and can optionally take the name of an XSLT stylesheet as
+its second parameter. All output is sent to
+<tt class="literal">System.out</tt>.
+</p>
+
+<a name="javaxslt-CHP-5-EX-8" /><div class="example">
+<h4 class="objtitle">Example 5-8. SimpleCSVProcessor.java </h4>
+<blockquote><pre class="code">package com.oreilly.javaxslt.util;
+
+import java.io.*;
+import javax.xml.transform.*;
+import javax.xml.transform.sax.*;
+import javax.xml.transform.stream.*;
+import org.xml.sax.*;
+
+/**
+ * Shows how to use the CSVXMLReader class. This is a command-line
+ * utility that takes a CSV file and optionally an XSLT file as
+ * command line parameters. A transformation is applied and the
+ * output is sent to System.out.
+ */
+public class SimpleCSVProcessor {
+
+    public static void main(String[] args) throws Exception {
+        if (args.length == 0) {
+            System.err.println("Usage: java "
+                    + SimpleCSVProcessor.class.getName( )
+                    + " &lt;csvFile&gt; [xsltFile]");
+            System.err.println(" - csvFile is required");
+            System.err.println(" - xsltFile is optional");
+            System.exit(1);
+        }
+
+        String csvFileName = args[0];
+        String xsltFileName = (args.length &gt; 1) ? args[1] : null;
+
+        TransformerFactory transFact = TransformerFactory.newInstance( );
+        if (transFact.getFeature(SAXTransformerFactory.FEATURE)) {
+            SAXTransformerFactory saxTransFact =
+                    (SAXTransformerFactory) transFact;
+            <tt class="userinput"><b>TransformerHandler transHand = null;
+            if (xsltFileName == null) {
+                transHand = saxTransFact.newTransformerHandler( );
+            } else {
+                transHand = saxTransFact.newTransformerHandler(
+                        new StreamSource(new File(xsltFileName)));
+            }</b></tt>
+
+            // set the destination for the XSLT transformation
+            transHand.setResult(new StreamResult(System.out));
+
+            <tt class="userinput"><b>// hook the CSVXMLReader to the CSV file
+            CSVXMLReader csvReader = new CSVXMLReader( );
+            InputSource csvInputSrc = new InputSource(
+                    new FileReader(csvFileName));
+
+            // attach the XSLT processor to the CSVXMLReader
+            csvReader.setContentHandler(transHand);
+            csvReader.parse(csvInputSrc);</b></tt>
+        } else {
+            System.err.println("SAXTransformerFactory is not supported.");
+            System.exit(1);
+        }
+    }
+}</pre></blockquote>
+</div>
+
+<p>As mentioned earlier in this chapter, the
+<tt class="literal">TransformerHandler</tt> is provided by JAXP and is an
+implementation of the <tt class="literal">org.xml.sax.ContentHandler</tt>
+interface. It is constructed by the
+<tt class="literal">SAXTransformerFactory</tt> as follows:
+</p>
+
+<blockquote><pre class="code">TransformerHandler transHand = null;
+if (xsltFileName == null) {
+    transHand = saxTransFact.newTransformerHandler( );
+} else {
+    transHand = saxTransFact.newTransformerHandler(
+            new StreamSource(new File(xsltFileName)));
+}</pre></blockquote>
+
+<p>When the XSLT stylesheet is not specified, the transformer performs
+an identity transformation. This is useful when you just want to see
+the raw XML output without applying a stylesheet. You will probably
+want to do this first to see how your XSLT will need to be written.
+If a stylesheet is provided, however, it is used for the
+transformation.
+</p>
+
+<p>The custom parser is then constructed as follows:</p>
+
+<blockquote><pre class="code">CSVXMLReader csvReader = new CSVXMLReader( );</pre></blockquote>
+
+<p>The location of the CSV file is then converted into a SAX
+<tt class="literal">InputSource</tt>:
+</p>
+
+<blockquote><pre class="code">InputSource csvInputSrc = new InputSource(
+        new FileReader(csvFileName));</pre></blockquote>
+
+<p>And finally, the XSLT processor is attached to our custom parser.
+This is accomplished by registering the
+<tt class="literal">TransformerHandler</tt> as the
+<tt class="literal">ContentHandler</tt> on <tt class="literal">csvReader</tt>. A
+single call to the <tt class="literal">parse</tt> method causes the parsing
+and transformation to occur:
+</p>
+
+<blockquote><pre class="code">// attach the XSLT processor to the CSVXMLReader
+csvReader.setContentHandler(transHand);
+csvReader.parse(csvInputSrc);</pre></blockquote>
+
+<p>For a simple test, assume that a list of presidents is available in
+CSV format:
+</p>
+
+<blockquote><pre class="code">Washington,George,,
+Adams,John,,
+Jefferson,Thomas,,
+Madison,James,,
+  etc...
+Bush,George,Herbert,Walker
+Clinton,William,Jefferson,
+Bush,George,W,</pre></blockquote>
+
+<p>To see what the XML looks like, invoke the program as follows:</p>
+
+<blockquote><pre class="code">java com.oreilly.javaxslt.util.SimpleCSVProcessor presidents.csv</pre></blockquote>
+
+<p>This will parse the CSV file and apply the identity transformation
+stylesheet, sending the following output to the console:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;csvFile&gt;
+  &lt;line&gt;
+    &lt;value&gt;Washington&lt;/value&gt;
+    &lt;value&gt;George&lt;/value&gt;
+    &lt;value/&gt;
+    &lt;value/&gt;
+  &lt;/line&gt;
+  &lt;line&gt;
+    etc...
+&lt;/csvFile&gt;</pre></blockquote>
+
+<p>Actually, the output is crammed onto a single long line, but it is
+broken up here to make it more readable. Any good XML editor
+application should provide a feature to pretty-print the XML as
+shown. In order to transform this into something useful, a stylesheet
+is required. The XSLT stylesheet shown in <a href="ch05_03.htm#javaxslt-CHP-5-EX-9">Example 5-9</a> takes any output from this program and
+converts it into an HTML table.
+</p>
+
+<a name="javaxslt-CHP-5-EX-9" /><div class="example">
+<h4 class="objtitle">Example 5-9. csvToHTMLTable.xslt </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;xsl:stylesheet
+    version="1.0"
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+  &lt;xsl:output method="html"/&gt;
+
+  &lt;xsl:template match="/"&gt;
+    &lt;table border="1"&gt;
+      &lt;xsl:apply-templates select="csvFile/line"/&gt;
+    &lt;/table&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="line"&gt;
+    &lt;tr&gt;
+      &lt;xsl:apply-templates select="value"/&gt;
+    &lt;/tr&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="value"&gt;
+    &lt;td&gt;
+      &lt;!-- If a value is empty, print a non-breaking space
+           so the HTML table looks OK --&gt;
+      &lt;xsl:if test=".=''"&gt;
+        &lt;xsl:text&gt; disable-output-escaping="yes"&gt;&amp;amp;nbsp;&lt;/xsl:text&gt;
+      &lt;/xsl:if&gt;
+      &lt;xsl:value-of select="."/&gt;
+    &lt;/td&gt;
+  &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+</div>
+
+<p>In order to apply this stylesheet, type the following command:</p>
+
+<blockquote><pre class="code">java com.oreilly.javaxslt.util.SimpleCSVProcessor presidents.csv csvToHTMLTable.xslt</pre></blockquote>
+
+<p>As before, the results are sent to <tt class="literal">System.out</tt> and
+contain code for an HTML table. This stylesheet will work with any
+CSV file parsed with <tt class="literal">SimpleCSVProcessor</tt>, not just
+<em class="filename">presidents.xml</em>. Now that the concept has been
+proved, you can add fancy formatting and custom output to the
+resulting HTML without altering any Java code -- just edit the
+stylesheet or write a new one.
+</p>
+
+</div>
+
+<a name="javaxslt-CHP-5-SECT-3.5.5" /><div class="sect3">
+<h3 class="sect3">5.3.5.5. Conclusion</h3>
+
+<p>Although writing a SAX parser and connecting it to JAXP does involve
+quite a few interrelated classes, the resulting application requires
+only two command-line arguments and will work with any CSV or XSLT
+file. What makes this example interesting is that the same approach
+will work with essentially any data source. The steps are broken down
+as follows:
+</p>
+
+<ol><li>
+<p>Create a custom SAX parser by implementing
+<tt class="literal">org.xml.sax.XMLReader</tt> or extending
+<tt class="literal">com.oreilly.javaxslt.util.AbstractXMLReader</tt>.
+</p>
+</li><li>
+<p>In your parser, emit the appropriate SAX events as you read your data.</p>
+</li><li>
+<p>Modify <tt class="literal">SimpleCSVProcessor</tt> to utilize your custom
+parser instead of <tt class="literal">CSVXMLReader</tt>.
+</p>
+</li></ol>
+<p>For example, you might want to write a custom parser that accepts a
+SQL statement as input rather than a CSV file. Your parser could then
+connect to a database, issue the query, and fire SAX events for each
+row in the <tt class="literal">ResultSet</tt>. This makes it very easy to
+extract data from any relational database without writing a lot of
+custom code. This also eliminates the intermediate step of JDOM or
+DOM production because the SAX events <a name="INDEX-555" /> <a name="INDEX-556" />are fed directly into JAXP for
+transformation.
+</p>
+
+</div>
+</div>
+<a name="javaxslt-CHP-5-SECT-3.6" /><div class="sect2">
+<h3 class="sect2">5.3.6. Feeding JDOM Output into JAXP</h3>
+
+<p>The DOM API is tedious to use, <a name="INDEX-557" /> <a name="INDEX-558" /> <a name="INDEX-559" />so many Java programmers opt for JDOM
+instead. The typical usage pattern is to generate XML dynamically
+using JDOM and then somehow transform that into a web page using
+XSLT. This presents a problem because JAXP does not provide any
+direct implementation of the <tt class="literal">javax.xml.Source</tt>
+interface that integrates with JDOM.<a href="#FOOTNOTE-22">[22]</a> There are at least
+three available options:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-22" /><p> [22] As this is being
+written, members of the JDOM community are writing a JDOM
+implementation of <tt class="literal">javax.xml.Source</tt> that will
+directly integrate with JAXP.</p> </blockquote>
+
+<ul><li>
+<p>Use <tt class="literal">org.jdom.output.SAXOutputter</tt> to
+<a name="INDEX-560" />pipe SAX 2 events from JDOM to JAXP.
+</p>
+</li><li>
+<p>Use <tt class="literal">org.jdom.output.DOMOutputter</tt> to
+<a name="INDEX-561" />convert the JDOM tree to a DOM tree, and
+then use <tt class="literal">javax.xml.transform.dom.DOMSource</tt> to read
+the data into JAXP.
+</p>
+</li><li>
+<p>Use <tt class="literal">org.jdom.output.XMLOutputter</tt> to
+<a name="INDEX-562" />serialize the JDOM tree to XML text, and
+then use <tt class="literal">java.xml.transform.stream.StreamSource</tt> to
+parse the XML back into JAXP.
+</p>
+</li></ul>
+<a name="javaxslt-CHP-5-SECT-3.6.1" /><div class="sect3">
+<h3 class="sect3">5.3.6.1. JDOM to SAX approach</h3>
+
+<p>The <a name="INDEX-563" />SAX approach is generally preferable to
+other approaches. Its primary advantage is that it does not require
+an intermediate transformation to convert the JDOM tree into a DOM
+tree or text. This offers the lowest memory utilization and
+potentially the fastest performance.
+</p>
+
+<p>In support of SAX, JDOM offers the
+<tt class="literal">org.jdom.output.SAXOutputter</tt>
+<a name="INDEX-564" />class. The following code fragment
+demonstrates its usage:
+</p>
+
+<blockquote><pre class="code">TransformerFactory transFact = TransformerFactory.newInstance( );
+if (transFact.getFeature(SAXTransformerFactory.FEATURE)) {
+    SAXTransformerFactory stf = (SAXTransformerFactory) transFact;
+    // the 'stylesheet' parameter is an instance of JAXP's
+    // javax.xml.transform.Templates interface
+    TransformerHandler transHand = stf.newTransformerHandler(stylesheet);
+
+    // result is a Result instance
+    transHand.setResult(result);<tt class="userinput"><b>
+    SAXOutputter saxOut = new SAXOutputter(transHand);</b></tt>
+    // the 'jdomDoc' parameter is an instance of JDOM's
+    // org.jdom.Document class. In contains the XML data
+    saxOut.output(jdomDoc);
+} else {
+    System.err.println("SAXTransformerFactory is not supported");
+}</pre></blockquote>
+
+</div>
+
+<a name="javaxslt-CHP-5-SECT-3.6.2" /><div class="sect3">
+<h3 class="sect3">5.3.6.2. JDOM to DOM approach</h3>
+
+<p>The <a name="INDEX-565" />DOM approach is generally a little slower
+and will not work if JDOM uses a different DOM implementation than
+JAXP. JDOM, like JAXP, can utilize different DOM implementations
+behind the scenes. If JDOM refers to a different version of DOM than
+JAXP, you will encounter exceptions when you try to perform the
+transformation. Since JAXP uses Apache's Crimson parser by
+default, you can configure JDOM to use Crimson with the
+<tt class="literal">org.jdom.adapters.CrimsonDOMAdapter</tt> class. The
+following code shows how to convert a JDOM Document into a DOM
+Document:
+</p>
+
+<blockquote><pre class="code">org.jdom.Document jdomDoc = createJDOMDocument( );
+// add data to the JDOM Document
+ ...
+
+// convert the JDOM Document into a DOM Document<tt class="userinput"><b>
+org.jdom.output.DOMOutputter domOut = new org.jdom.output.DOMOutputter(</b></tt><tt class="userinput"><b>
+        "org.jdom.adapters.CrimsonDOMAdapter");</b></tt>
+org.w3c.dom.Document domDoc = domOut.output(jdomDoc);</pre></blockquote>
+
+<p>The second line is highlighted because it is likely to give you the
+most problems. When JDOM converts its internal object tree into a DOM
+object tree, it must use some underlying DOM implementation. In many
+respects, JDOM is similar to JAXP because it delegates many tasks to
+underlying implementation classes. The
+<tt class="literal">DOMOutputter</tt> constructors are overloaded as
+follows:
+</p>
+
+<blockquote><pre class="code">// use the default adapter class
+public DOMOutputter( )
+
+// use the specified adapter class
+public DOMOutputter(String adapterClass)</pre></blockquote>
+
+<p>The first constructor shown here will use JDOM's default DOM
+parser, which is not necessarily the same DOM parser that JAXP uses.
+The second method allows you to specify the name of an adapter class,
+which must implement the
+<tt class="literal">org.jdom.adapters.DOMAdapter</tt> interface. JDOM
+includes standard adapters for all of the widely used DOM
+implementations, or you could write your own adapter class.
+</p>
+
+</div>
+
+<a name="javaxslt-CHP-5-SECT-3.6.3" /><div class="sect3">
+<h3 class="sect3">5.3.6.3. JDOM to text approach</h3>
+
+<p>In the final approach listed earlier, you can utilize
+<tt class="literal">java.io.StringWriter</tt>
+<a name="INDEX-566" />and
+<tt class="literal">java.io.StringReader</tt><a name="INDEX-567" />. First create the
+<a name="INDEX-568" />JDOM data as usual, then use
+<tt class="literal">org.jdom.output.XMLOutputter</tt> to
+<a name="INDEX-569" />convert
+the data into a <tt class="literal">String</tt> of XML:
+</p>
+
+<blockquote><pre class="code">StringWriter sw = new StringWriter( );
+org.jdom.output.XMLOutputter xmlOut
+        = new org.jdom.output.XMLOutputter("", false);
+xmlOut.output(jdomDoc, sw);</pre></blockquote>
+
+<p>The parameters for <tt class="literal">XMLOutputter</tt> allow you to
+specify the amount of indentation for the output along with a
+<tt class="literal">boolean</tt> flag indicating whether or not linefeeds
+should be included in the output. In the code example, no spaces or
+linefeeds are specified in order to minimize the size of the XML that
+is produced. Now that the <tt class="literal">StringWriter</tt> contains
+your XML, you can use a <tt class="literal">StringReader</tt> along with
+<tt class="literal">javax.xml.transform.stream.StreamSource</tt> to read
+the data into JAXP:
+</p>
+
+<blockquote><pre class="code">StringReader sr = new StringReader(sw.toString( ));
+Source xmlSource = new javax.xml.transform.stream.StreamSource(sr);</pre></blockquote>
+
+<p>The transformation can then proceed just as it did in <a href="ch05_03.htm#javaxslt-CHP-5-EX-4">Example 5-4</a>. The main drawback to this approach is that
+the XML, once converted to text form, must then be parsed back in by
+JAXP <a name="INDEX-570" />
+<a name="INDEX-571" />
+<a name="INDEX-572" />before the transformation
+<a name="INDEX-573" />can
+be applied.<a name="INDEX-574" /> <a name="INDEX-575" /> 
+</p>
+
+</div>
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch05_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">5.2. Introduction to JAXP 1.1</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">5.4. Stylesheet Compilation</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

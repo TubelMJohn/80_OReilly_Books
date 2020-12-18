@@ -1,0 +1,1644 @@
+<html><head><title>Java, XSLT, and WML (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch10_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch10_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">10.3. Java, XSLT, and WML</h2>
+
+<p>Unless a web application is limited to a corporate intranet, it must
+be designed to support a wide variety of device types. As the
+upcoming examples will demonstrate, wireless devices are far less
+consistent than web browsers. This amplifies the need for the clean
+separation between data and presentation that XML and XSLT offer,
+because many different presentation styles may be needed to take
+advantage of specific devices. Java servlets are used to tie
+everything together, detecting the type of client device and driving
+the XSLT transformation process.
+</p>
+
+<a name="javaxslt-CHP-10-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">10.3.1. A WML Example</h3>
+
+<p><a name="INDEX-1152" />WML is a relatively new XML-based
+markup language specifically designed for wireless devices. As such,
+it is compact, easy to parse, and optimized for small displays. WML
+is the product of the WAP Forum, an association consisting of over
+500 member companies that defines specifications for wireless
+devices. You can learn more about WML by downloading the
+specification from <a name="INDEX-1153" /> <a name="INDEX-1154" /><a href="http://www.wapforum.org">http://www.wapforum.org</a> or by reading
+<em class="emphasis">Learning WML and WMLScript</em> by Martin Frost
+(O'Reilly).
+</p>
+
+<p>First of all, WML is an XML-based markup language.<a href="#FOOTNOTE-54">[54]</a> This means that, unlike HTML, all WML
+documents must be well-formed and valid. For instance, all tags must
+be lowercase and nested properly, and attribute values must be
+quoted. <a href="ch10_03.htm#javaxslt-CHP-10-EX-1">Example 10-1</a> lists a WML document.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-54" /><p> [54] WML documents are XML documents that conform to one of the WML
+DTDs.</p> </blockquote>
+
+<a name="javaxslt-CHP-10-EX-1" /><div class="example">
+<h4 class="objtitle">Example 10-1. A very simple WML page </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE wml PUBLIC "-//WAPFORUM//DTD WML 1.1//EN"
+        "http://www.wapforum.org/DTD/wml_1.1.xml"&gt;
+&lt;wml&gt;
+  &lt;card id="home" title="Name Entry"&gt;
+    &lt;p&gt;Enter your first name:
+      &lt;input name="firstName"/&gt;
+    &lt;/p&gt;
+    &lt;p&gt;Enter your age:
+      <tt class="userinput"><b>&lt;input name="age" format="*N"/&gt;</b></tt>
+    &lt;/p&gt;
+    <tt class="userinput"><b>&lt;do type="accept"&gt;
+      &lt;go href="#hello"/&gt;
+    &lt;/do&gt;</b></tt>
+  &lt;/card&gt;
+  &lt;card id="hello" title="Hello"&gt;
+    &lt;p&gt;
+    <tt class="userinput"><b>Hello there, $(firstName:e)!</b></tt>
+    &lt;/p&gt;
+    &lt;p&gt;
+    You claim to be &lt;em&gt;$(age:e)&lt;/em&gt; years
+    old...can this possibly be true?
+    &lt;/p&gt;
+    <tt class="userinput"><b>&lt;p&gt;Click &lt;a href="#home"&gt;here&lt;/a&gt; to</b></tt> 
+       change your answer.&lt;/p&gt;
+  &lt;/card&gt;
+&lt;/wml&gt;</pre></blockquote>
+</div>
+
+<p>This particular WML document adheres to Version 1.1 of the WML
+specification, as indicated by the document type declaration. Unlike
+HTML, the <a name="INDEX-1155" />
+<a name="INDEX-1156" />root element is
+<tt class="literal">&lt;wml&gt;</tt><a name="INDEX-1157" />
+<a name="INDEX-1158" />, which is commonly
+known as a
+<em class="emphasis">deck</em><a name="INDEX-1159" />.
+The WML deck contains one or more
+<tt class="literal">&lt;card&gt;</tt><a name="INDEX-1160" />
+<a name="INDEX-1161" /> elements, each of
+which represents a single screen that is displayed on the device.
+Grouping cards into decks increases performance because the wireless
+device can make fewer requests to the server as the user navigates
+from card to card.
+</p>
+
+<p>The first card in this example prompts the user to enter his first
+name and age. Unlike HTML form techniques, these values are stored in
+the WML variables <tt class="literal">firstName</tt> and
+<tt class="literal">age</tt>. This is much better than posting a form to
+the server because of the limited bandwidth available to wireless
+devices. The age field illustrates another interesting feature of WML
+that does not exist in HTML:
+</p>
+
+<blockquote><pre class="code">&lt;input name="age" format="*N"/&gt;</pre></blockquote>
+
+<p>The <tt class="literal">format</tt><a name="INDEX-1162" /> attribute shown here indicates that the
+user can enter any number of numeric digits or decimal
+points.<a href="#FOOTNOTE-55">[55]</a> Formats for date entry, telephone numbers, and other
+known patterns can also be configured using simple pattern strings
+defined by the WML specification. This is a big advantage over
+traditional web techniques that require scripting language support to
+perform client-side validation. <a href="ch10_03.htm#javaxslt-CHP-10-TABLE-1">Table 10-1</a> lists
+all of the format patterns supported by WML 1.1.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-55" /><p> [55] Not all devices support this feature.</p>
+</blockquote>
+
+<a name="javaxslt-CHP-10-TABLE-1" /><h4 class="objtitle">Table 10-1. WML format strings </h4><table border="1" cellpadding="3">
+
+
+
+<tr>
+<td>
+<p>Format</p>
+</td>
+<td>
+<p>Displays</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">A</pre></blockquote>
+</td>
+<td>
+<p>Uppercase letters, symbols, and punctuation characters; not numbers.</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">a</pre></blockquote>
+</td>
+<td>
+<p>Lowercase letters, symbols, and punctuation characters; not numbers.</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">N</pre></blockquote>
+</td>
+<td>
+<p>Any number.</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">n</pre></blockquote>
+</td>
+<td>
+<p>Any number, symbol, or punctuation character.</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">X</pre></blockquote>
+</td>
+<td>
+<p>Same as <tt class="literal">A</tt>, but includes numbers.</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">x</pre></blockquote>
+</td>
+<td>
+<p>Same as <tt class="literal">a</tt>, but includes numbers.</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">M</pre></blockquote>
+</td>
+<td>
+<p>Any character, but the device should try to default to uppercase
+entry.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">m</pre></blockquote>
+</td>
+<td>
+<p>Any character, but the device should try to default to lowercase
+entry.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">*f</pre></blockquote>
+</td>
+<td>
+<p>Any number of the specified characters; <tt class="literal">f</tt> is one
+of the format codes shown in this table. Must appear at the end of
+the format string.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">nf</pre></blockquote>
+</td>
+<td>
+<p><tt class="literal">n</tt> is a number from 1 to 9, specifying the number
+of characters that can be entered. <tt class="literal">f</tt> is one of the
+format codes shown in this table. Must appear at the end of the
+format string.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<blockquote><pre class="code">\c</pre></blockquote>
+</td>
+<td>
+<p>Displays a specific character in the field. For instance,
+<tt class="literal">NNN\-NN\-NNNN</tt> specifies a data format for U.S.
+social security numbers, allowing the user to enter a number such as
+333-22-4444.
+</p>
+</td>
+</tr>
+
+</table><p>
+
+<p>The first card in <a href="ch10_03.htm#javaxslt-CHP-10-EX-1">Example 10-1</a> finishes with a
+<tt class="literal">&lt;do&gt;</tt> tag:
+</p>
+
+<blockquote><pre class="code">&lt;do type="accept"&gt;
+  &lt;go href="#hello"/&gt;
+&lt;/do&gt;</pre></blockquote>
+
+<p>This causes a button to appear, which acts like a hyperlink to the
+<tt class="literal">#hello</tt> URL when the user clicks on it. This is a
+reference to the second card in the deck. Therefore, the server is
+not contacted when this particular button is clicked. <a href="ch10_03.htm#javaxslt-CHP-10-FIG-2">Figure 10-2</a> shows how one particular device displays the
+first and second cards.
+</p>
+
+<a name="javaxslt-CHP-10-FIG-2" /><div class="figure"><img src="figs/jxt_1002.gif" alt="Figure 10-2" width="481" height="473" /></div><h4 class="objtitle">Figure 10-2. Cell phone simulator</h4>
+
+<p>As you can see in the picture, the second card displays the values
+that were entered in the first card.<a href="#FOOTNOTE-56">[56]</a> Here is some of the
+code again:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-56" /><p> [56] Notice that this
+particular device does not honor the <tt class="literal">&lt;em&gt;</tt>
+tag when the age is displayed.</p> </blockquote>
+
+<blockquote><pre class="code">Hello there, $(firstName:e)!</pre></blockquote>
+
+<p>This demonstrates how to utilize WML variables, something that is not
+possible with HTML. The <tt class="literal">:e</tt> at the end of the
+variable name is optional and instructs the device to perform URL
+escaping of the text before displaying it. This is useful if the user
+enters spaces and other characters such as <tt class="literal">&lt;</tt>
+that may cause problems with the WML.
+</p>
+
+<p>Hyperlinks in WML look just like hyperlinks in HTML:</p>
+
+<blockquote><pre class="code">&lt;p&gt;Click &lt;a href="#home"&gt;here&lt;/a&gt; to </pre></blockquote>
+
+<p>The trickiest part about WML is the wide variety of devices that may
+be in use. <a href="ch10_03.htm#javaxslt-CHP-10-FIG-3">Figure 10-3</a> shows these same two cards on
+a cellular phone that has a smaller display.
+</p>
+
+<a name="javaxslt-CHP-10-FIG-3" /><div class="figure"><img src="figs/jxt_1003.gif" alt="Figure 10-3" width="311" height="545" /></div><h4 class="objtitle">Figure 10-3. Another cell phone simulator</h4>
+
+<p>As you can see, the first card does not fit on the display, so the
+user has to scroll. On the second card, the phone honors the emphasis
+(<tt class="literal">&lt;em&gt;</tt>) tag when displaying the age, while
+the first browser in <a href="ch10_03.htm#javaxslt-CHP-10-FIG-2">Figure 10-2</a> does not. While
+differences like these should diminish as vendors have more time to
+implement the complete WML specification, there are no guarantees as
+to how buttons and <tt class="literal">&lt;input&gt;</tt> fields will be
+displayed. In many cases, <tt class="literal">&lt;do&gt;</tt> tags are
+mapped to physical buttons on the cell phone keypad rather than
+displayed as buttons on the screen.<a name="INDEX-1163" /> 
+</p>
+
+<a name="javaxslt-CHP-10-SECT-3.1.1" /><div class="sect3">
+<h3 class="sect3">10.3.1.1. WMLScript and WBMP</h3>
+
+<p>Because of bandwidth constraints, scripting capability is critical
+for wireless devices. WAP defines a scripting language called
+<a name="INDEX-1164" />WMLScript, which
+is tightly integrated with WML and features a syntax that is very
+similar to JavaScript. With WMLScript, form validation and
+lightweight processing can be performed on the client device, greatly
+reducing the number of requests to a server.
+</p>
+
+<p><a name="INDEX-1165" />Wireless Bitmap (WBMP) is a very simple
+image format that, as expected, is optimized for small devices. WBMP
+files are black and white and can be created with a number of free
+tools. There is even a free web site at <a name="INDEX-1166" /><a href="http://www.teraflops.com/wbmp">http://www.teraflops.com/wbmp</a> that will
+convert GIF, JPEG, and BMP images to WBMP using a browser-based
+interface.
+</p>
+
+<p>Again, refer to <em class="emphasis">Learning WML &amp; WMLScript</em> for
+the complete story on these technologies.
+</p>
+
+</div>
+</div>
+<a name="javaxslt-CHP-10-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">10.3.2. Servlets and WML</h3>
+
+<p><a name="INDEX-1167" />Servlets are important to
+wireless developers because they can detect the type of client
+device. Different XSLT stylesheets can then be selected for regular
+web browsers, sophisticated PDAs, and simple cell phones.
+</p>
+
+<a name="javaxslt-CHP-10-SECT-3.2.1" /><div class="sect3">
+<h3 class="sect3">10.3.2.1. Identifying the client</h3>
+
+<p>Detecting the type of client is the most important role of the
+servlet. There are two <a name="INDEX-1168" />HTTP
+header values that are typically used for this purpose:
+<tt class="literal">User-Agent</tt><a name="INDEX-1169" /> and
+<tt class="literal">Accept</tt><a name="INDEX-1170" />. The text in <a href="ch10_03.htm#javaxslt-CHP-10-EX-2">Example 10-2</a> shows what an HTTP header looks like for the
+Ericsson R520m cell phone simulator.
+</p>
+
+<a name="javaxslt-CHP-10-EX-2" /><div class="example">
+<h4 class="objtitle">Example 10-2. Example HTTP header </h4>
+<blockquote><pre class="code">GET / HTTP/1.1
+Host: 25.12.44.22
+<tt class="userinput"><b>Accept: application/vnd.wap.wmlc, application/vnd.wap.wbxml,
+application/vnd.wap.wmlscriptc, */*, text/vnd.wap.wml, application/xml, text/xml,
+text/vnd.wap.wmlscript
+User-Agent: EricssonR520/R1A</b></tt>
+Accept-Charset: *</pre></blockquote>
+</div>
+
+<p>The HTTP header is text, and each line after the first consists of a
+<tt class="literal">name:value</tt> pair. The <tt class="literal">Accept</tt>
+header indicates the MIME content types that this device knows how to
+display, so searching for <tt class="literal">text/vnd.wap.wml</tt> is a
+simple way to detect if the client device supports WML. If the client
+accepts this MIME type, it could be a wireless device.
+</p>
+<blockquote><b>WARNING:</b> 
+
+Some browsers may also know how to display <em class="emphasis">text/vnd.wap.wml</em>. The Accept header is not a completely reliable way to determine the client type.
+</p></blockquote>
+<p>The <tt class="literal">User-Agent</tt> header definitively identifies the
+device. However, vendors do not consistently follow standards. <a href="ch10_03.htm#javaxslt-CHP-10-TABLE-2">Table 10-2</a> lists several user agents reported by various
+cell phone simulators.
+</p>
+
+<a name="javaxslt-CHP-10-TABLE-2" /><h4 class="objtitle">Table 10-2. Sample user agents </h4><table border="1" cellpadding="3">
+
+
+
+<tr>
+<th>
+<p>Simulator type</p>
+</th>
+<th>
+<p>User-Agent</p>
+</th>
+</tr>
+
+
+<tr>
+<td>
+<p>Ericsson R320s</p>
+</td>
+<td>
+<p>EricssonR320/R1A</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Ericsson R380s</p>
+</td>
+<td>
+<p>R380 2.1 WAP1.1</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Ericsson R520m</p>
+</td>
+<td>
+<p>EricssonR520/R1A</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Motorola</p>
+</td>
+<td>
+<p>Motorola VoxGateway/2.0</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Nokia</p>
+</td>
+<td>
+<p>Nokia-WAP-Toolkit/2.1</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>Openwave</p>
+</td>
+<td>
+<p>OWG1 UP/4.1.20a UP.Browser/4.1.20a-XXXX UP.Link/4.1.HTTP-DIRECT</p>
+</td>
+</tr>
+
+</table><p>
+
+<p>In general, a model number follows the vendor name. However, the
+Ericsson R380s does not follow this convention. As mentioned in <a href="ch08_01.htm">Chapter 8, "Additional Techniques"</a>, almost every web browser reports a
+<tt class="literal">User-Agent</tt> that begins with the text
+"Mozilla," which can be used to identify a web browser
+rather than a wireless device.
+</p>
+
+<p>From the servlet, it is quite easy to get to these HTTP headers:</p>
+
+<blockquote><pre class="code">protected void doGet(HttpServletRequest req, HttpServletResponse res) 
+        throws IOException, ServletException {
+    String userAgent = req.getHeader("User-Agent");
+    String accept = req.getHeader("Accept");
+
+    if (userAgent != null) {
+        ...</pre></blockquote>
+
+<p>A more complete example is presented in the section "Movie
+Theater Example."
+</p>
+
+</div>
+
+<a name="javaxslt-CHP-10-SECT-3.2.2" /><div class="sect3">
+<h3 class="sect3">10.3.2.2. Setting the content type</h3>
+
+<p><a name="INDEX-1171" />Once the client type has been identified
+as either a web browser or a specific type of wireless device, the
+response must be sent back. <a href="ch10_03.htm#javaxslt-CHP-10-TABLE-3">Table 10-3</a> lists the
+three most common content types a servlet will encounter.
+</p>
+
+<a name="javaxslt-CHP-10-TABLE-3" /><h4 class="objtitle">Table 10-3. MIME content types </h4><table border="1" cellpadding="3">
+
+
+
+
+<tr>
+<th>
+<p>MIME type</p>
+</th>
+<th>
+<p>Extension</p>
+</th>
+<th>
+<p>Description</p>
+</th>
+</tr>
+
+
+<tr>
+<td>
+<p><tt class="literal">text/vnd.wap.wml</tt></p>
+</td>
+<td>
+<p><em class="emphasis">.wml</em></p>
+</td>
+<td>
+<p>WML source code</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">text/vnd.wap.wmlscript</tt></p>
+</td>
+<td>
+<p><em class="emphasis">.wmls</em></p>
+</td>
+<td>
+<p>WMLScript source code</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">image/vnd.wap.wbmp</tt></p>
+</td>
+<td>
+<p><em class="emphasis">.wmlc</em></p>
+</td>
+<td>
+<p>Wireless Bitmaps</p>
+</td>
+</tr>
+
+</table><p>
+
+<p>This simply means that before sending a WML response back to the
+client device, the following code must be present in the servlet:
+</p>
+
+<blockquote><pre class="code">public void doGet(HttpServletRequest req, HttpServletResponse res) ... {<tt class="userinput"><b>
+    res.setContentType("text/vnd.wap.wml");</b></tt>
+    // now obtain a PrintWriter or OutputStream and perform 
+    // the XSLT transformation...</pre></blockquote>
+
+<p>For dynamically generated pages, this is all that must be done. If a
+web application also consists of static resources such as WMLScript
+files and WBMP images, the web application deployment descriptor
+should also be updated. <a href="ch10_03.htm#javaxslt-CHP-10-EX-3">Example 10-3</a> lists some
+additional content that should be added to the
+<a name="INDEX-1172" />
+<a name="INDEX-1173" />deployment descriptor.
+</p>
+
+<a name="javaxslt-CHP-10-EX-3" /><div class="example">
+<h4 class="objtitle">Example 10-3. Deployment descriptor MIME mappings </h4>
+<blockquote><pre class="code">  &lt;mime-mapping&gt;
+    &lt;extension&gt;.wml&lt;/extension&gt;
+    &lt;mime-type&gt;text/vnd.wap.wml&lt;/mime-type&gt;
+  &lt;/mime-mapping&gt;
+  &lt;mime-mapping&gt;
+    &lt;extension&gt;.wmls&lt;/extension&gt;
+    &lt;mime-type&gt;text/vnd.wap.wmlscript&lt;/mime-type&gt;
+  &lt;/mime-mapping&gt;
+  &lt;mime-mapping&gt;
+    &lt;extension&gt;.wmlc&lt;/extension&gt;
+    &lt;mime-type&gt;image/vnd.wap.wbmp&lt;/mime-type&gt;
+  &lt;/mime-mapping&gt;</pre></blockquote>
+</div>
+
+<p>This effectively tells the web server to use the specified MIME type
+whenever the client requests files with the listed extensions.
+</p>
+
+</div>
+</div>
+<a name="javaxslt-CHP-10-SECT-3.3" /><div class="sect2">
+<h3 class="sect2">10.3.3. Movie Theater Example</h3>
+
+<p>Admittedly, this is a crash course introduction to WML; hopefully a
+more complete example will clarify some of the concepts.
+</p>
+
+<a name="javaxslt-CHP-10-SECT-3.3.1" /><div class="sect3">
+<h3 class="sect3">10.3.3.1. Storyboard</h3>
+
+<p><a name="INDEX-1174" />This
+example consists of three WML decks and several cards. Through this
+interface, users can select their city, select a particular movie
+theater within that city, and finally view showtimes for that
+theater. The diagram in <a href="ch10_03.htm#javaxslt-CHP-10-FIG-4">Figure 10-4</a> contains the
+storyboard for this application, showing how each screen links to the
+next.
+</p>
+
+<a name="javaxslt-CHP-10-FIG-4" /><div class="figure"><img src="figs/jxt_1004.gif" alt="Figure 10-4" width="375" height="195" /></div><h4 class="objtitle">Figure 10-4. Storyboard</h4>
+
+<p>As the illustration indicates, the first deck contains a splash
+screen that displays for 1.5 seconds. This takes advantage of a WML
+timer, automatically displaying the city selection page after the
+timer expires. From this page, the user can select from a list of
+cities.
+</p>
+
+<p>The second deck consists of a single card, which shows a list of
+theaters for the current city. Once the user clicks on a particular
+city, the third deck is displayed. This deck may have many cards,
+depending on how many movies are showing in that particular theater.
+The user can browse from movie to movie without requesting additional
+data from the server.
+</p>
+
+<p>For the servlet to dynamically build the appropriate decks and cards,
+each page requires certain parameters. These parameters are passed
+along to the XSLT stylesheet so it can select the appropriate data
+from the XML file. <a href="ch10_03.htm#javaxslt-CHP-10-TABLE-4">Table 10-4</a> lists the required
+parameters for each deck. These will appear in each of the WML files,
+as well as in the servlet and XSLT stylesheets. If any parameter is
+invalid or missing, the application merely returns the user to the
+home page.
+</p>
+
+<a name="javaxslt-CHP-10-TABLE-4" /><h4 class="objtitle">Table 10-4. Required parameters </h4><table border="1" cellpadding="3">
+
+
+
+
+<tr>
+<th>
+<p>Deck</p>
+</th>
+<th>
+<p>Parameters</p>
+</th>
+<th>
+<p>Notes</p>
+</th>
+</tr>
+
+
+<tr>
+<td>
+<p>1</p>
+</td>
+<td>
+<p><tt class="literal">none</tt></p>
+</td>
+<td>
+<p>Shows all cities</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>2</p>
+</td>
+<td>
+<p><tt class="literal">action=theaters</tt></p>
+&nbsp;
+<p><tt class="literal">city=</tt><em class="replaceable"><tt>city_id</tt></em></p>
+</td>
+<td>
+<p>Shows theaters for a single city</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>3</p>
+</td>
+<td>
+<p><tt class="literal">action=showtimes</tt></p>
+&nbsp;
+<p><tt class="literal">city=</tt><em class="replaceable"><tt>city_id</tt></em></p>
+&nbsp;
+<p><tt class="literal">theater=</tt><em class="replaceable"><tt>theater_id</tt></em></p>
+</td>
+<td>
+<p>Shows all movies for a specific theater in the given city</p>
+</td>
+</tr>
+
+</table><p>
+
+</div>
+
+<a name="javaxslt-CHP-10-SECT-3.3.2" /><div class="sect3">
+<h3 class="sect3">10.3.3.2. XML data</h3>
+
+<p><a name="INDEX-1175" />To keep things simple for the
+theater owners, this application produces all pages from a single XML
+datafile on the server. The DTD for this file is shown in <a href="ch10_03.htm#javaxslt-CHP-10-EX-4">Example 10-4</a>. 
+</p>
+
+<a name="javaxslt-CHP-10-EX-4" /><div class="example">
+<h4 class="objtitle">Example 10-4. Movie theater DTD </h4>
+<blockquote><pre class="code">&lt;!ELEMENT movies (moviedef+, city+)&gt;
+<tt class="userinput"><b>&lt;!ELEMENT moviedef (shortName, longName)&gt;</b></tt>
+&lt;!ELEMENT city (name, theater+)&gt;
+&lt;!ELEMENT name (#PCDATA)&gt;
+&lt;!ELEMENT shortName (#PCDATA)&gt;
+&lt;!ELEMENT longName (#PCDATA)&gt;
+&lt;!ELEMENT theater (name, movie+)&gt;
+<tt class="userinput"><b>&lt;!ELEMENT movie (times)&gt;</b></tt>
+&lt;!ELEMENT times (#PCDATA)&gt;
+&lt;!ATTLIST city
+  id ID #REQUIRED
+&gt;
+<tt class="userinput"><b>&lt;!ATTLIST movie
+  ref IDREF #REQUIRED
+&gt;
+&lt;!ATTLIST moviedef
+  id ID #REQUIRED
+&gt;</b></tt>
+&lt;!ATTLIST theater
+  id ID #REQUIRED
+&gt;</pre></blockquote>
+</div>
+
+<p>It is worth pointing out the difference between a
+<tt class="literal">&lt;moviedef&gt;</tt> and
+<tt class="literal">&lt;movie&gt;</tt> element. Basically, a
+<tt class="literal">&lt;moviedef&gt;</tt> defines a short and long
+description for a movie in a single place. Since the same movie is
+likely to be listed in many different theaters, it makes sense to
+define the <tt class="literal">&lt;moviedef&gt;</tt> once, and then refer
+to it from other parts of the document using
+<tt class="literal">&lt;movie&gt;</tt> elements.
+</p>
+
+<p><a href="ch10_03.htm#javaxslt-CHP-10-EX-5">Example 10-5</a> contains a portion of an example XML
+datafile that adheres to this DTD. This is the data displayed in the
+upcoming screen shots.<a name="INDEX-1176" />
+</p>
+
+<a name="javaxslt-CHP-10-EX-5" /><div class="example">
+<h4 class="objtitle">Example 10-5. Movie theater XML datafile </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;?xml-stylesheet type="text/xsl" href="../xslt/wml/showtimes.xslt"?&gt;
+&lt;movies&gt;
+  &lt;!-- all movies --&gt;
+  &lt;moviedef id="star_wars1"&gt;
+    &lt;shortName&gt;Star Wars Ep 1&lt;/shortName&gt;
+    &lt;longName&gt;Star Wars Episode I: The Phantom Menace&lt;/longName&gt;
+  &lt;/moviedef&gt;
+  &lt;moviedef id="star_wars4"&gt;
+    &lt;shortName&gt;Star Wars&lt;/shortName&gt;
+    &lt;longName&gt;Star Wars: A New Hope&lt;/longName&gt;
+  &lt;/moviedef&gt;
+  &lt;moviedef id="star_wars5"&gt;
+    &lt;shortName&gt;Emp Strikes Back&lt;/shortName&gt;
+    &lt;longName&gt;The Empire Strikes Back&lt;/longName&gt;
+  &lt;/moviedef&gt;
+  ...additional moviedef elements
+
+  &lt;city id="stl"&gt;
+    &lt;name&gt;St. Louis&lt;/name&gt;
+    &lt;theater id="westolive16"&gt;
+      &lt;name&gt;West Olive 16&lt;/name&gt;
+      &lt;movie ref="star_wars1"&gt;
+        &lt;times&gt;10:15a, 3:30, 12:30, 5:45, 7:15, 10:30&lt;/times&gt;
+      &lt;/movie&gt;
+      &lt;movie ref="star_wars4"&gt;
+        &lt;times&gt;1:30, 4:00, 6:00&lt;/times&gt;
+      &lt;/movie&gt;
+      &lt;movie ref="star_wars5"&gt;
+        &lt;times&gt;2:30, 4:10, 6:20&lt;/times&gt;
+      &lt;/movie&gt;
+      &lt;movie ref="back2future3"&gt;
+        &lt;times&gt;4:00, 6:00, 8:00, 10:00&lt;/times&gt;
+      &lt;/movie&gt;
+    &lt;/theater&gt;
+    &lt;theater id="stcharles18"&gt;
+      &lt;name&gt;St. Charles 18&lt;/name&gt;
+      &lt;movie ref="star_wars4"&gt;
+        &lt;times&gt;10:15a, 3:30, 12:30, 5:45, 7:15, 10:30&lt;/times&gt;
+      &lt;/movie&gt;
+      &lt;movie ref="star_wars5"&gt;
+        &lt;times&gt;1:30, 4:00, 6:00&lt;/times&gt;
+      &lt;/movie&gt;
+      &lt;movie ref="back2future2"&gt;
+        &lt;times&gt;4:00, 6:00, 8:00, 10:00&lt;/times&gt;
+      &lt;/movie&gt;
+    &lt;/theater&gt;
+    
+    ... additional theater elements
+  &lt;/city&gt;
+
+  ... additional city elements
+    
+&lt;/movies&gt;</pre></blockquote>
+</div>
+
+<p>As you can see in the XML, nothing in the data indicates that the
+output must be WML. In fact, this application can support both XHTML
+and WML output via different XSLT stylesheets. Of course, WML support
+is the primary goal of this application. Therefore,
+<tt class="literal">&lt;shortName&gt;</tt> is included to support wireless
+devices. If this were targeted towards only web browsers, this
+element would not be required.
+</p>
+
+</div>
+
+<a name="javaxslt-CHP-10-SECT-3.3.3" /><div class="sect3">
+<h3 class="sect3">10.3.3.3. WML prototypes and screen shots</h3>
+
+<p>When using <a name="INDEX-1177" /> <a name="INDEX-1178" />XSLT
+to produce XHTML or WML, it is a good idea to start with prototypes.
+This is because XSLT adds a level of indirection that makes it hard
+to visualize the result. It is much easier to simply create static
+WML first, test it using a simulator, and then develop the XSLT
+stylesheets once everything is working.
+</p>
+
+<p><a href="ch10_03.htm#javaxslt-CHP-10-EX-6">Example 10-6</a> lists the first WML deck used in this
+example. As mentioned earlier, this deck contains two cards, the
+first of which is a splash screen that displays for 1.5
+seconds.<a name="INDEX-1179" />
+</p>
+
+<a name="javaxslt-CHP-10-EX-6" /><div class="example">
+<h4 class="objtitle">Example 10-6. Home page WML </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE wml PUBLIC "-//WAPFORUM//DTD WML 1.1//EN"
+"http://www.wapforum.org/DTD/wml_1.1.xml"&gt;
+&lt;wml&gt;
+  <tt class="userinput"><b>&lt;card ontimer="#home" title="ABC Theaters" id="splash"&gt;
+    &lt;timer value="15"/&gt;</b></tt>
+    &lt;p align="center"&gt;
+      &lt;big&gt;Welcome to ABC Theaters&lt;/big&gt;
+    &lt;/p&gt;
+    &lt;p&gt;Mmmm...Popcorn...&lt;/p&gt;
+    <tt class="userinput"><b>&lt;do type="accept"&gt;
+      &lt;go href="#home"/&gt;
+    &lt;/do&gt;</b></tt>
+  &lt;/card&gt;
+  &lt;card newcontext="true" title="Home" id="home"&gt;
+    &lt;p align="center"&gt;Please select your city:
+      <tt class="userinput"><b>&lt;select multiple="false" name="city"&gt;
+        &lt;option value="chi"&gt;Chicago&lt;/option&gt;
+        &lt;option value="stl"&gt;St. Louis&lt;/option&gt;
+        &lt;option value="seb"&gt;Sebastopol&lt;/option&gt;
+      &lt;/select&gt;</b></tt>
+    &lt;/p&gt;
+    &lt;p&gt;
+      &lt;em&gt;
+        <tt class="userinput"><b>&lt;a href="movieguide?action=theaters&amp;amp;city=$(city)"&gt;Show Theaters...&lt;/a&gt;</b></tt>
+      &lt;/em&gt;
+    &lt;/p&gt;
+  &lt;/card&gt;
+&lt;/wml&gt;</pre></blockquote>
+</div>
+
+<p>The <tt class="literal">ontimer</tt> attribute of the first card indicates
+the URL to load when the
+<tt class="literal">&lt;timer&gt;</tt><a name="INDEX-1180" />
+<a name="INDEX-1181" />
+element expires. The timer value is 15, meaning 15 tenths of a
+second, or 1.5 seconds. This first card also contains a
+<tt class="literal">&lt;do&gt;</tt> element, allowing the user to click on
+a button to jump to the home page if she does not want to wait for
+the timer to expire. Like XHTML, the <tt class="literal">&lt;p&gt;</tt>
+element indicates a paragraph of text, causing text to appear on the
+next line of the display.
+</p>
+
+<p>The next card contains a
+<tt class="literal">&lt;select&gt;</tt><a name="INDEX-1182" />
+<a name="INDEX-1183" /> element, allowing
+the user to select from a list of cities. The value of the selection
+is assigned to the <tt class="literal">city</tt> variable, making it easy
+to submit the information to the server with the
+<tt class="literal">&lt;a&gt;</tt> tag:
+</p>
+
+<blockquote><pre class="code">&lt;a href="movieguide?action=theaters&amp;amp;city=$(city)"&gt;Show Theaters...&lt;/a&gt;</pre></blockquote>
+
+<p>This is actually the final URL used by the finished application,
+rather than a prototype URL. During the prototyping phase, the
+following link is more appropriate:
+</p>
+
+<blockquote><pre class="code">&lt;a href="theaters.wml"&gt;Show Theaters...&lt;/a&gt;</pre></blockquote>
+
+<p>By using URLs to static WML files, it is at least possible to
+navigate from page to page before the servlet is written. <a href="ch10_03.htm#javaxslt-CHP-10-FIG-5">Figure 10-5</a> shows how these first two pages look on a cell
+phone simulator.
+</p>
+
+<a name="javaxslt-CHP-10-FIG-5" /><div class="figure"><img src="figs/jxt_1005.gif" alt="Figure 10-5" width="236" height="400" /></div><h4 class="objtitle">Figure 10-5. Home page output</h4>
+
+<p>The image to the left shows the splash screen, which is replaced by
+the image on the right after 1.5 seconds. On this particular phone,
+the user navigates with the up and down arrows, making selections by
+clicking on the telephone's YES button.
+</p>
+
+<p>The next WML page, shown in <a href="ch10_03.htm#javaxslt-CHP-10-EX-7">Example 10-7</a>, shows a
+list of theaters for the current city. In this example, the list uses
+a series of hyperlinks. This can also be done using a
+<tt class="literal">&lt;select&gt;</tt> tag, as shown in the previous
+example. However, the user can see the entire list when hyperlinks
+and <tt class="literal">&lt;br/&gt;</tt> tags are used. Of course, on
+smaller displays the user will typically have to scroll down to see
+all items.
+</p>
+
+<a name="javaxslt-CHP-10-EX-7" /><div class="example">
+<h4 class="objtitle">Example 10-7. Theater listing WML </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE wml PUBLIC "-//WAPFORUM//DTD WML 1.1//EN"
+    "http://www.wapforum.org/DTD/wml_1.1.xml"&gt;
+&lt;wml&gt;
+  &lt;card title="Theaters" id="theaters"&gt;
+    &lt;p&gt;
+      &lt;big&gt;St. Louis&lt;/big&gt;
+    &lt;/p&gt;
+    &lt;p&gt;Select a theater:&lt;/p&gt;
+    &lt;p&gt;
+      <tt class="userinput"><b>&lt;a href="movieguide?action=showtimes&amp;amp;city=stl&amp;amp;theater=westolive16"&gt;
+            West Olive 16&lt;/a&gt;
+      &lt;br/&gt;
+      &lt;a href="movieguide?action=showtimes&amp;amp;city=stl&amp;amp;theater=stcharles18"&gt;
+            St. Charles 18&lt;/a&gt;
+      &lt;br/&gt;
+      &lt;a href="movieguide?action=showtimes&amp;amp;city=stl&amp;amp;theater=ofallon"&gt;
+            O'Fallon Cine&lt;/a&gt;
+      &lt;br/&gt;</b></tt>
+    &lt;/p&gt;
+    &lt;p&gt;
+      &lt;em&gt;
+        <tt class="userinput"><b>&lt;a href="movieguide"&gt;Change city...&lt;/a&gt;</b></tt>
+      &lt;/em&gt;
+    &lt;/p&gt;
+  &lt;/card&gt;
+&lt;/wml&gt;</pre></blockquote>
+</div>
+
+<p>This WML file is shown on the left side of <a href="ch10_03.htm#javaxslt-CHP-10-FIG-6">Figure 10-6</a> using a different cell phone simulator. On the
+right side of this figure, an XHTML representation of the same data
+is shown in a web browser. These images were generated using the same
+servlet and XML datafile but different XSLT stylesheets.
+</p>
+
+<a name="javaxslt-CHP-10-FIG-6" /><div class="figure"><img src="figs/jxt_1006.gif" alt="Figure 10-6" width="405" height="400" /></div><h4 class="objtitle">Figure 10-6. Theater listing output</h4>
+
+<p>The final deck is shown in <a href="ch10_03.htm#javaxslt-CHP-10-EX-8">Example 10-8</a>. As mentioned
+earlier, this consists of several cards, one per movie.
+</p>
+
+<a name="javaxslt-CHP-10-EX-8" /><div class="example">
+<h4 class="objtitle">Example 10-8. Showtimes WML </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE wml PUBLIC "-//WAPFORUM//DTD WML 1.1//EN" "http://www.wapforum.org/DTD/wml_
+1.1.xml"&gt;
+&lt;wml&gt;
+  <tt class="userinput"><b>&lt;template&gt;
+    &lt;do name="common_prev" label="Back" type="prev"&gt;
+      &lt;prev/&gt;
+    &lt;/do&gt;
+  &lt;/template&gt;
+  &lt;card title="Movies" id="movies"&gt;
+    &lt;do name="common_prev" type="prev"&gt;
+      &lt;noop/&gt;
+    &lt;/do&gt;</b></tt>
+    &lt;p&gt;
+      &lt;big&gt;O'Fallon Cine&lt;/big&gt;
+    &lt;/p&gt;
+    &lt;p&gt;Select a movie:&lt;/p&gt;
+    &lt;p&gt;
+      &lt;a href="#jones1"&gt;Raiders Lost Ark&lt;/a&gt;
+      &lt;br/&gt;
+      &lt;a href="#jones2"&gt;Temple of Doom&lt;/a&gt;
+      &lt;br/&gt;
+      &lt;a href="#back2future2"&gt;Back 2 Future 2&lt;/a&gt;
+      &lt;br/&gt;
+    &lt;/p&gt;
+    &lt;p&gt;
+      &lt;em&gt;
+        &lt;a href="movieguide?action=theaters&amp;amp;city=stl"&gt;Change theater...&lt;/a&gt;
+      &lt;/em&gt;
+    &lt;/p&gt;
+  &lt;/card&gt;
+  &lt;card title="Showtimes" id="jones1"&gt;
+    &lt;p&gt;
+      &lt;em&gt;Raiders of the Lost Ark&lt;/em&gt;
+    &lt;/p&gt;
+    &lt;p&gt;10:15a, 3:30, 12:30, 5:45, 7:15, 10:30&lt;/p&gt;
+  &lt;/card&gt;
+  &lt;card title="Showtimes" id="jones2"&gt;
+    &lt;p&gt;
+      &lt;em&gt;Indiana Jones and The Temple of Doom&lt;/em&gt;
+    &lt;/p&gt;
+    &lt;p&gt;1:30, 4:00, 6:00&lt;/p&gt;
+  &lt;/card&gt;
+  &lt;card title="Showtimes" id="back2future2"&gt;
+    &lt;p&gt;
+      &lt;em&gt;Back to the Future 2&lt;/em&gt;
+    &lt;/p&gt;
+    &lt;p&gt;4:00, 6:00, 8:00, 10:00&lt;/p&gt;
+  &lt;/card&gt;
+&lt;/wml&gt;</pre></blockquote>
+</div>
+
+<p>This WML file illustrates how to define and use a
+<tt class="literal">&lt;template&gt;</tt><a name="INDEX-1184" />, which is
+a piece of reusable markup that can be shared by all cards in the
+deck. This particular template defines a Back button displayed on
+each instance of the <tt class="literal">Showtimes</tt> card, allowing the
+user to easily return to the list of movies.
+</p>
+
+<p>Since the Back button should not appear on the movie list card, it is
+<em class="emphasis">shadowed</em> as follows:
+</p>
+
+<blockquote><pre class="code">&lt;do name="common_prev" type="prev"&gt;
+  &lt;noop/&gt;
+&lt;/do&gt;</pre></blockquote>
+
+<p>The <tt class="literal">&lt;noop/&gt;</tt> element stands for "No
+Operation" and effectively removes the
+<tt class="literal">&lt;do&gt;</tt> element defined by the
+<tt class="literal">common_prev</tt> template. When cards define elements
+with the same names as templates, the card elements take precedence.
+The card can choose to modify the behavior of the template or simply
+suppress it with the <tt class="literal">&lt;noop/&gt;</tt> tag as shown
+here.
+</p>
+
+<p>The screen shot shown in <a href="ch10_03.htm#javaxslt-CHP-10-FIG-7">Figure 10-7</a> illustrates how
+these cards look in a cell phone. As shown, the Back button does not
+appear in the list of movies but does appear in the
+<tt class="literal">Showtimes</tt> card.
+</p>
+
+<a name="javaxslt-CHP-10-FIG-7" /><div class="figure"><img src="figs/jxt_1007.gif" alt="Figure 10-7" width="374" height="400" /></div><h4 class="objtitle">Figure 10-7. Showtimes WML output</h4>
+
+<p>The final screen shot, shown in <a href="ch10_03.htm#javaxslt-CHP-10-FIG-8">Figure 10-8</a>, shows
+how a web browser takes advantage of its large display area by
+displaying all of the information in a single table. Once again, this
+is accomplished with a different XSLT stylesheet that converts the
+XML to XHTML instead of WML.
+</p>
+
+<a name="javaxslt-CHP-10-FIG-8" /><div class="figure"><img src="figs/jxt_1008.gif" alt="Figure 10-8" width="481" height="271" /></div><h4 class="objtitle">Figure 10-8. Showtimes XHTML output</h4>
+
+<p>Although WML does define a <tt class="literal">&lt;table&gt;</tt> element,
+it has almost no chance of fitting on a cell phone display and is not
+widely supported by currently available devices.
+</p>
+
+</div>
+
+<a name="javaxslt-CHP-10-SECT-3.3.4" /><div class="sect3">
+<h3 class="sect3">10.3.3.4. Servlet implementation</h3>
+
+<p><a name="INDEX-1185" /> <a name="INDEX-1186" />This application uses a
+single servlet, listed in <a href="ch10_03.htm#javaxslt-CHP-10-EX-9">Example 10-9</a>. This servlet
+has three primary functions:
+</p>
+
+<ul><li>
+<p>Parse request parameters and determine which page to display next.</p>
+</li><li>
+<p>Identify the client type.</p>
+</li><li>
+<p>Perform the appropriate XSLT transformation.</p>
+</li></ul>
+<a name="javaxslt-CHP-10-EX-9" /><div class="example">
+<h4 class="objtitle">Example 10-9. MovieServlet.java </h4>
+<blockquote><pre class="code">package chap10;
+
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import javax.xml.transform.*;
+import javax.xml.transform.stream.*;
+
+/**
+ * A servlet that shows schedules for movie theaters in various
+ * cities. Supports normal web browser clients as well as WAP-enabled
+ * PDAs and cell phones.
+ */
+public class MovieServlet extends HttpServlet {
+
+    // currently supports two types of clients; could be expanded later
+    private static final int XHTML_CLIENT_TYPE = 1;
+    private static final int WML_CLIENT_TYPE = 2;
+
+    // three pages in this web app
+    private static final int HOME_PAGE = 100;
+    private static final int THEATERS_PAGE = 101;
+    private static final int SHOWTIMES_PAGE = 102;
+
+    /**
+     * This servlet supports GET and POST.
+     */
+    public void doGet(HttpServletRequest req, HttpServletResponse res)
+            throws IOException, ServletException {
+        doPost(req, res);
+    }
+
+    public void doPost(HttpServletRequest req, HttpServletResponse res)
+            throws IOException, ServletException {
+        try {
+            String action = req.getParameter("action");
+            String city = req.getParameter("city");
+            String theater = req.getParameter("theater");
+
+            // default to the home page
+            int pageToShow = HOME_PAGE;
+
+            if ("theaters".equals(action) &amp;&amp; city != null) {
+                // city is a required parameter for a theater list
+                pageToShow = THEATERS_PAGE;
+            } else if ("showtimes".equals(action) &amp;&amp; city != null
+                    &amp;&amp; theater != null) {
+                // city and theater are required parameters for showtimes
+                pageToShow = SHOWTIMES_PAGE;
+            }
+
+            // set the content type of the response
+            <tt class="userinput"><b>int clientType = determineClientType(req);</b></tt>
+            switch (clientType) {
+            case XHTML_CLIENT_TYPE:
+                <tt class="userinput"><b>res.setContentType("text/html");</b></tt>
+                break;
+            case WML_CLIENT_TYPE:
+                <tt class="userinput"><b>res.setContentType("text/vnd.wap.wml");</b></tt>
+                break;
+            default:
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                return;
+            }
+
+            <tt class="userinput"><b>File xsltFile = locateStylesheet(req, clientType, pageToShow);</b></tt>
+
+            // prepare for the transformation using JAXP
+            TransformerFactory transFact = TransformerFactory.newInstance( );
+            Transformer trans = transFact.newTransformer(
+                    new StreamSource(xsltFile));
+
+            // pass parameters to the XSLT stylesheet
+            if (city != null) {
+                trans.setParameter("city_id", city);
+            }
+            if (theater != null) {
+                trans.setParameter("theater_id", theater);
+            }
+
+            // all pages, both WML and XHTML, share the exact same
+            // XML data file
+            InputStream xmlIn = getServletContext( ).getResourceAsStream(
+                    "/WEB-INF/xml/movies.xml");
+
+            // do the transformation
+            trans.transform(new StreamSource(xmlIn),
+                    new StreamResult(res.getOutputStream( )));
+        } catch (TransformerException te) {
+            throw new ServletException(te);
+        }
+    }
+
+    /**
+     * @param clientType one of the constants defined in this class, either
+     *        WML_CLIENT_TYPE or XHTML_CLIENT_TYPE.
+     * @param pageToShow one of the _PAGE constants defined by this class.
+     * @return a file representing the appropriate XSLT stylesheet.
+     */
+    private File locateStylesheet(HttpServletRequest req,
+            int clientType, int pageToShow) {
+        String xsltDir = null;
+        switch (clientType) {
+        case WML_CLIENT_TYPE:
+            <tt class="userinput"><b>xsltDir = "wml";</b></tt>
+            break;
+        case XHTML_CLIENT_TYPE:
+            <tt class="userinput"><b>xsltDir = "xhtml";</b></tt>
+            break;
+        default:
+            throw new IllegalArgumentException("Illegal clientType: "
+                    + clientType);
+        }
+
+        String xsltName = null;
+        switch (pageToShow) {
+        case HOME_PAGE:
+            xsltName = "home.xslt";
+            break;
+        case THEATERS_PAGE:
+            xsltName = "theaters.xslt";
+            break;
+        case SHOWTIMES_PAGE:
+            xsltName = "showtimes.xslt";
+            break;
+        default:
+            throw new IllegalArgumentException("Illegal pageToShow: "
+                    + pageToShow);
+        }
+
+        // locate a platform-dependent path
+        <tt class="userinput"><b>String fullPath = getServletContext( ).getRealPath(
+                "/WEB-INF/xslt/" + xsltDir + "/" + xsltName);</b></tt>
+        return new File(fullPath);
+    }
+
+    /**
+     * Determines the type of user agent.
+     *
+     * @return either XHTML_CLIENT_TYPE or WML_CLIENT_TYPE.
+     */
+    <tt class="userinput"><b>private int determineClientType(HttpServletRequest req) {
+        // first check for normal web browsers that claim to be
+        // mozilla-compliant
+        String userAgent = req.getHeader("User-Agent");
+        if (userAgent != null
+                &amp;&amp; userAgent.toLowerCase( ).startsWith("mozilla")) {
+            return XHTML_CLIENT_TYPE;
+        }
+
+        // if the client accepts wml, it must be a WAP-compatible device
+        String accept = req.getHeader("Accept");
+        if (accept != null &amp;&amp; accept.indexOf("text/vnd.wap.wml") &gt; -1) {
+            return WML_CLIENT_TYPE;
+        }
+
+        // otherwise, default to XHTML
+        return XHTML_CLIENT_TYPE;
+    }</b></tt>
+}</pre></blockquote>
+</div>
+
+<p>This servlet determines the client type by looking at the HTTP
+<tt class="literal">User-Agent</tt> and <tt class="literal">Accept</tt> headers.
+This logic is encapsulated in the <tt class="literal">determineClientType(
+)</tt> method, which first checks the
+<tt class="literal">User-Agent</tt> for Mozilla-compatible browsers such as
+Microsoft Internet Explorer and Netscape Navigator. If the client is
+not one of these browsers, it then checks the
+<tt class="literal">Accept</tt> header for
+<tt class="literal">text/vnd.wap.wml</tt>. If both tests fail, the servlet
+defaults to XHTML because the device did not claim to accept the WML
+content type.
+</p>
+
+<p>Once the client browser type is identified, the HTTP
+<tt class="literal">Content-Type</tt> response header is set to the
+appropriate MIME type:
+</p>
+
+<blockquote><pre class="code">switch (clientType) {
+case XHTML_CLIENT_TYPE:<tt class="userinput"><b>
+    res.setContentType("text/html");</b></tt>
+    break;
+case WML_CLIENT_TYPE:<tt class="userinput"><b>
+    res.setContentType("text/vnd.wap.wml");</b></tt>
+    break;
+default:
+    res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+    return;
+}</pre></blockquote>
+
+<p>The default case will occur only if the servlet has a bug. Therefore,
+it simply causes the code to fail with an internal server error. A
+helper method called <tt class="literal">locateStylesheet( )</tt> is then
+used to locate the appropriate XSLT stylesheet:
+</p>
+
+<blockquote><pre class="code">File xsltFile = locateStylesheet(req, clientType, pageToShow);</pre></blockquote>
+
+<p>In this application, there are two sets of XSLT stylesheets. One
+resides in a directory named <em class="emphasis">wml</em>, and another
+resides in a directory named <em class="emphasis">xhtml</em>. Just like
+examples shown in previous chapters,
+<tt class="literal">ServletContext</tt> is utilized to locate these files
+in a portable manner:
+</p>
+
+<blockquote><pre class="code">String fullPath = getServletContext( ).getRealPath(
+        "/WEB-INF/xslt/" + xsltDir + "/" + xsltName);</pre></blockquote>
+
+<p>Last but not least, the XSLT transformation is performed using the
+JAXP API.<a name="INDEX-1187" /> <a name="INDEX-1188" /> 
+</p>
+
+</div>
+
+<a name="javaxslt-CHP-10-SECT-3.3.5" /><div class="sect3">
+<h3 class="sect3">10.3.3.5. XSLT stylesheets</h3>
+
+<p><a name="INDEX-1189" /> <a name="INDEX-1190" />This application consists of six
+XSLT stylesheets. Three of these stylesheets are listed here and are
+used to generate the three WML decks. The other three are used to
+generate XHTML and can be downloaded along with the rest of the
+examples in this book. The first stylesheet, shown in <a href="ch10_03.htm#javaxslt-CHP-10-EX-10">Example 10-10</a>, is responsible for creating the home
+deck.<a name="INDEX-1191" />
+</p>
+
+<a name="javaxslt-CHP-10-EX-10" /><div class="example">
+<h4 class="objtitle">Example 10-10. Home page XSLT </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!--
+***********************************************************************
+** Produces the home page for WML-enabled devices.
+********************************************************************--&gt;
+&lt;xsl:stylesheet version="1.0" 
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+  <tt class="userinput"><b>&lt;xsl:output method="xml" 
+  version="1.0" encoding="UTF-8" indent="yes"
+   doctype-public="-//WAPFORUM//DTD WML 1.1//EN" 
+   doctype-system="http://www.wapforum.org/DTD/wml_1.1.xml"/&gt;</b></tt>
+  &lt;!--
+  *********************************************************************
+  ** The main template; creates the deck and the home card.
+  ******************************************************************--&gt;
+  &lt;xsl:template match="/movies"&gt;
+    &lt;wml&gt;
+    
+      &lt;!-- call a template to produce the splash screen --&gt;
+      &lt;xsl:call-template name="createSplashCard"/&gt;
+      
+      &lt;card id="home" title="Home" newcontext="true"&gt;
+        &lt;p align="center"&gt;
+          Please select your city:
+          &lt;select name="city" multiple="false"&gt;
+            &lt;xsl:apply-templates select="city"/&gt;
+          &lt;/select&gt;
+        &lt;/p&gt;
+        
+        &lt;p&gt;
+          &lt;em&gt;
+            <tt class="userinput"><b>&lt;a href="movieguide?action=theaters&amp;amp;city=$(city)"
+                &gt;Show Theaters...&lt;/a&gt;</b></tt>
+          &lt;/em&gt;
+        &lt;/p&gt;
+      &lt;/card&gt;
+    &lt;/wml&gt;
+  &lt;/xsl:template&gt;
+  
+  &lt;!--
+  *********************************************************************
+  ** Produce a single &lt;option&gt; element for a city
+  ******************************************************************--&gt;
+  &lt;xsl:template match="city"&gt;
+    &lt;option value="{@id}"&gt;
+      &lt;xsl:value-of select="name"/&gt;
+    &lt;/option&gt;
+  &lt;/xsl:template&gt;
+  
+  &lt;!--
+  *********************************************************************
+  ** Create the splash screen.
+  ******************************************************************--&gt;
+  &lt;xsl:template name="createSplashCard"&gt;
+    &lt;card id="splash" title="ABC Theaters" ontimer="#home"&gt;
+      &lt;timer value="15"/&gt;
+      &lt;p align="center"&gt;
+        &lt;big&gt;Welcome to ABC Theaters&lt;/big&gt;
+      &lt;/p&gt;
+      &lt;p&gt;Mmmm...Popcorn...&lt;/p&gt;
+      &lt;do type="accept"&gt;
+        &lt;go href="#home"/&gt;
+      &lt;/do&gt;
+    &lt;/card&gt;
+  &lt;/xsl:template&gt;
+  
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+</div>
+
+<p><a name="INDEX-1192" />This
+is actually a very simple stylesheet. The critical feature is the
+<tt class="literal">&lt;xsl:output&gt;</tt> element, which specifies the
+XML output method and the WML DTD. This application adheres to
+Version 1.1 of WML for maximum compatibility with existing cell
+phones, although newer versions of WML are available. For these
+versions, use the newer DTDs found at <a href="http://www.wapforum.org">http://www.wapforum.org</a>.
+</p>
+
+<p>The only marginally difficult part of the stylesheet is the following
+line:
+</p>
+
+<blockquote><pre class="code">&lt;a href="movieguide?action=theaters&amp;amp;city=$(city)"&gt;
+    Show Theaters...&lt;/a&gt;</pre></blockquote>
+
+<p>This creates the hyperlink to the next deck, passing parameters for
+the <tt class="literal">action</tt> and <tt class="literal">city</tt>. The
+ampersand character (<tt class="literal">&amp;</tt>) must be written as
+<tt class="literal">&amp;amp;</tt> for the XML parser to handle this
+attribute correctly. Although the <tt class="literal">$(city)</tt> syntax
+looks a lot like an XSLT Attribute Value Template, it is actually a
+WML variable.<a href="#FOOTNOTE-57">[57]</a> This is how the
+selected city is sent to the servlet when the user clicks on the
+hyperlink. With ordinary XHTML, this can only be accomplished using a
+form or a scripting language.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-57" /><p> [57] Recall from <a href="ch02_01.htm">Chapter 2, "XSLT Part 1 -- The Basics"</a> that XSLT AVTs are written like
+<tt class="literal">{$var}</tt>.</p> </blockquote>
+
+<p>The stylesheet shown in <a href="ch10_03.htm#javaxslt-CHP-10-EX-11">Example 10-11</a> is responsible
+for creating a list of theaters in a city. <a name="INDEX-1193" />
+</p>
+
+<a name="javaxslt-CHP-10-EX-11" /><div class="example">
+<h4 class="objtitle">Example 10-11. Movie listing XSLT </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!--
+***********************************************************************
+** Produces a list of theaters for WML-enabled devices.
+********************************************************************--&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+  <tt class="userinput"><b>&lt;xsl:param name="city_id" select="'stl'"/&gt;</b></tt>
+  
+  &lt;xsl:output method="xml" 
+  version="1.0" encoding="UTF-8" indent="yes"
+   doctype-public="-//WAPFORUM//DTD WML 1.1//EN" 
+   doctype-system="http://www.wapforum.org/DTD/wml_1.1.xml"/&gt;
+  
+  &lt;!--
+  *********************************************************************
+  ** The main template; creates the deck and the theaters card.
+  ******************************************************************--&gt;
+  &lt;xsl:template match="/movies"&gt;
+    &lt;wml&gt;
+      &lt;card id="theaters" title="Theaters"&gt;
+        &lt;!-- select the appropriate city --&gt;
+        <tt class="userinput"><b>&lt;xsl:apply-templates select="city[@id=$city_id]"/&gt;</b></tt>
+        &lt;p&gt;
+          &lt;em&gt;
+            &lt;a href="movieguide"&gt;Change city...&lt;/a&gt;
+          &lt;/em&gt;
+        &lt;/p&gt;
+      &lt;/card&gt;
+    &lt;/wml&gt;
+  &lt;/xsl:template&gt;
+  
+  &lt;!--
+  *********************************************************************
+  ** Show details for a city.
+  ******************************************************************--&gt;
+  &lt;xsl:template match="city"&gt;
+    &lt;p&gt;
+      &lt;big&gt;&lt;xsl:value-of select="name"/&gt;&lt;/big&gt;
+    &lt;/p&gt;
+    &lt;p&gt;Select a theater:&lt;/p&gt;
+    &lt;p&gt;
+      &lt;!-- show a list of all theaters in this city --&gt;
+      &lt;xsl:apply-templates select="theater"/&gt;
+    &lt;/p&gt;
+  &lt;/xsl:template&gt;
+      
+  &lt;!--
+  *********************************************************************
+  ** Create a link for an individual theater.
+  ******************************************************************--&gt;
+  &lt;xsl:template match="theater"&gt;
+      &lt;a href="movieguide?action=showtimes&amp;amp;city={
+             $city_id}&amp;amp;theater={@id}"&gt;
+        &lt;xsl:value-of select="name"/&gt;
+      &lt;/a&gt;
+      &lt;br/&gt;
+  &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+</div>
+
+<p><a name="INDEX-1194" />Unlike the first stylesheet, this
+one requires a parameter for the city:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:param name="city_id" select="'stl'"/&gt;</pre></blockquote>
+
+<p>For testing purposes, the parameter defaults to
+<tt class="literal">stl</tt>, but in the real application it should always
+be passed from the servlet. This is necessary because one big XML
+file contains data for all cities. This parameter allows the
+stylesheet to extract information from this file for a single city.
+For example, the first <tt class="literal">&lt;xsl:apply-templates&gt;</tt>
+uses a predicate to select the city whose <tt class="literal">id</tt>
+attribute matches the <tt class="literal">city_id</tt> stylesheet
+parameter:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:apply-templates select="city[@id=$city_id]"/&gt;</pre></blockquote>
+
+<p>The remainder of this stylesheet is very basic, simply outputting a
+list of theaters in the city. The final stylesheet, shown in <a href="ch10_03.htm#javaxslt-CHP-10-EX-12">Example 10-12</a>, creates a list of showtimes for a movie
+theater. This is the most complex stylesheet merely because it
+produces multiple cards.<a name="INDEX-1195" /> 
+</p>
+
+<a name="javaxslt-CHP-10-EX-12" /><div class="example">
+<h4 class="objtitle">Example 10-12. Showtimes XSLT </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!--
+***********************************************************************
+** Produces a list of showtimes for WML-enabled devices.
+********************************************************************--&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+  &lt;xsl:param name="city_id" select="'stl'"/&gt;
+  &lt;xsl:param name="theater_id" select="'ofallon'"/&gt;
+  
+  &lt;xsl:output method="xml" 
+  version="1.0" encoding="UTF-8" indent="yes"
+   doctype-public="-//WAPFORUM//DTD WML 1.1//EN" 
+   doctype-system="http://www.wapforum.org/DTD/wml_1.1.xml"/&gt;
+
+  &lt;!--
+  *********************************************************************
+  ** The main template; creates the deck and the movies card.
+  ******************************************************************--&gt;  
+  &lt;xsl:template match="/movies"&gt;
+    &lt;wml&gt;
+      &lt;!-- generate the WML template --&gt;
+      <tt class="userinput"><b>&lt;template&gt;
+        &lt;do type="prev" label="Back" name="common_prev"&gt;
+          &lt;prev/&gt;
+        &lt;/do&gt;
+      &lt;/template&gt;</b></tt>
+      
+      &lt;card id="movies" title="Movies"&gt;
+        &lt;!-- shadow the template in this card --&gt;
+        <tt class="userinput"><b>&lt;do type="prev" name="common_prev"&gt;
+          &lt;noop/&gt;
+        &lt;/do&gt;</b></tt>
+        
+        &lt;!-- select the theater that matches the city_id and
+             theater_id stylesheet parameters --&gt;
+        <tt class="userinput"><b>&lt;xsl:apply-templates 
+          select="city[@id=$city_id]/theater[@id=$theater_id]"/&gt;</b></tt>
+      &lt;/card&gt;
+      
+      &lt;!-- generate more cards, one per movie --&gt;
+      <tt class="userinput"><b>&lt;xsl:apply-templates 
+          select="city[@id=$city_id]/theater[@id=$theater_id]/movie"
+            mode="createCard"/&gt;</b></tt>
+
+    &lt;/wml&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;!--
+  *********************************************************************
+  ** Show more information about a theater.
+  ******************************************************************--&gt;  
+  &lt;xsl:template match="theater"&gt;
+    &lt;p&gt;
+      &lt;big&gt;
+        &lt;xsl:value-of select="name"/&gt;
+      &lt;/big&gt;
+    &lt;/p&gt;
+    &lt;p&gt;Select a movie:&lt;/p&gt;
+    &lt;p&gt;
+      &lt;xsl:apply-templates select="movie"/&gt;
+    &lt;/p&gt;
+    
+    &lt;p&gt;
+      &lt;em&gt;
+        &lt;a href="movieguide?action=theaters&amp;amp;city={$city_id}"&gt;
+                Change theater...&lt;/a&gt;
+      &lt;/em&gt;
+    &lt;/p&gt;
+  &lt;/xsl:template&gt;
+  
+  &lt;!--
+  *********************************************************************
+  ** Show more information about a movie in the main card.
+  ******************************************************************--&gt;  
+   &lt;xsl:template match="movie"&gt;
+    &lt;xsl:variable  name="curId" select="@ref"/&gt;
+    &lt;!-- the hyperlink text is the shortName from the &lt;moviedef&gt; --&gt;
+    &lt;a href="#{$curId}"&gt;
+      &lt;xsl:value-of select="/movies/moviedef[@id=$curId]/shortName"/&gt;
+    &lt;/a&gt;
+    &lt;br/&gt;
+  &lt;/xsl:template&gt;    
+
+  &lt;!--
+  *********************************************************************
+  ** Create a card for a movie that lists showtimes.
+  ******************************************************************--&gt;  
+  &lt;xsl:template match="movie" mode="createCard"&gt;
+    &lt;xsl:variable  name="curId" select="@ref"/&gt;
+
+    &lt;card id="{$curId}" title="Showtimes"&gt;
+      &lt;p&gt;
+        &lt;em&gt;
+          &lt;xsl:value-of select="/movies/moviedef[@id=$curId]/longName"/&gt;
+        &lt;/em&gt;
+      &lt;/p&gt;
+      &lt;p&gt;
+        &lt;xsl:value-of select="times"/&gt;
+      &lt;/p&gt;
+    &lt;/card&gt;
+  &lt;/xsl:template&gt;      
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+</div>
+
+<p><a name="INDEX-1196" />As
+described earlier in this chapter, this deck creates a template that
+defines a Back button visible on all but the first card. The template
+is produced just before the first card, which also happens to be the
+one card that shadows the template with a
+<tt class="literal">&lt;noop/&gt;</tt> element.
+</p>
+
+<p>The following <tt class="literal">&lt;xsl:apply-templates&gt;</tt> element
+selects the correct city and theater based on the stylesheet
+parameters <tt class="literal">city_id</tt> and
+<tt class="literal">theater_id</tt>:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:apply-templates 
+   select="city[@id=$city_id]/theater[@id=$theater_id]"/&gt;</pre></blockquote>
+
+<p>Although this syntax was covered in detail back in <a href="ch02_01.htm">Chapter 2, "XSLT Part 1 -- The Basics"</a>, here is a quick review of how it works:
+</p>
+
+<ol><li>
+<p>Select all <tt class="literal">&lt;city&gt;</tt> children of the
+<tt class="literal">&lt;movies&gt;</tt> element.
+</p>
+</li><li>
+<p>Use the predicate <tt class="literal">[@id=$city_id]</tt> to narrow this
+list down to the correct city.
+</p>
+</li><li>
+<p>Select all <tt class="literal">&lt;theater&gt;</tt> children of the
+<tt class="literal">&lt;city&gt;</tt>.
+</p>
+</li><li>
+<p>Use the predicate <tt class="literal">[@id=$theater_id]</tt> to narrow this
+list down to a single <tt class="literal">&lt;theater&gt;</tt>.
+</p>
+</li></ol>
+<p>After the home card is created,
+<tt class="literal">&lt;xsl:apply-templates&gt;</tt> is used to create one
+card per movie:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:apply-templates 
+   select="city[@id=$city_id]/theater[@id=$theater_id]/movie"
+   mode="createCard"/&gt;</pre></blockquote>
+
+<p>This uses template modes, a technique covered in <a href="ch03_01.htm">Chapter 3, "XSLT Part 2 -- Beyond the Basics"</a>. It causes the following template to be
+instantiated, since it has a matching mode:
+</p>
+
+<a name="INDEX-1197" /><a name="INDEX-1198" /><blockquote><pre class="code">&lt;xsl:template match="movie" mode="createCard"&gt;
+  ...produce a card containing showtimes for a movie
+&lt;/xsl:template&gt;
+</pre></blockquote>
+
+</div>
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch10_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch10_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">10.2. The Wireless Architecture</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">10.4. The Future of Wireless</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

@@ -1,0 +1,961 @@
+<?label 10.4. DBI?><html><head><title>DBI (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch10_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch11_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">10.4. DBI</h2>
+
+
+<p>The <a name="INDEX-2109" />DBI module is the most flexible way
+to link <a name="INDEX-2110" />
+<a name="INDEX-2111" />Perl to databases. Applications
+that use relatively standard SQL calls can merely drop in a new DBI
+database driver whenever a programmer wishes to support a new
+database. Nearly all the major relational database engines have
+<a name="INDEX-2112" />a DBI
+driver on CPAN. Although database-specific modules such as Sybperl
+and Oraperl still exist, they are being rapidly superseded by the use
+of DBI for most database tasks.</p>
+
+
+<p>DBI supports a rich set of features. However, you need to use only a
+subset in order to accomplish most of what a simple database
+application requires. This section will cover how to create tables as
+well as insert, update, delete, and select data in those tables.
+Finally, we will pull it all together with an example of an address
+book.</p>
+
+
+<p>While DBI supports concepts such as bind parameters and stored
+procedures, the behavior of these features is usually specific to the
+database they are being used with. In addition, some drivers may
+support database-specific extensions which are not guaranteed to
+exist in each database driver implementation. In this section we will
+focus on covering an overview of DBI features that are universally
+implemented across all DBI drivers.</p>
+
+
+<a name="ch10-18-fm2xml" /><div class="sect2">
+<h3 class="sect2">10.4.1. Using DBI</h3>
+
+
+<p>In the examples here, we will use the <a name="INDEX-2113" />
+<a name="INDEX-2114" /> <a name="INDEX-2,115" />DBD::CSV DBI driver. DBI drivers are
+preceded with "DBD" (database driver) followed by the
+actual driver name. In this case, <a name="INDEX-2116" />
+<a name="INDEX-2117" /> <a name="INDEX-2,118" />
+<a name="INDEX-2119" />CSV is short for "Comma Separated
+Value," otherwise known as a comma-delimited flat text file.
+The reason the examples use DBD::CSV is that this driver is the
+simplest in terms of feature availability, and also DBD::CSV does not
+require you to know how to set up a relational database engine such
+as Sybase, Oracle, PostgreSQL, or MySQL.</p>
+
+
+<p>If you are using Perl on Unix, the DBD::CSV driver may be found on
+CPAN and should be easily compiled for your platform by following the
+instructions. If you are using Perl on <a name="INDEX-2120" />
+<a name="INDEX-2121" />
+<a name="INDEX-2122" /> <a name="INDEX-2,123" />Win32 from ActiveState, we recommend
+using ActiveState's PPM (Perl Package Manager) to download the
+DBD::CSV binaries from the ActiveState package repository for Win32
+(refer to <a href="appb_01.htm">Appendix B, "Perl Modules"</a>).</p>
+
+
+<a name="ch10-19-fm2xml" /><div class="sect3">
+<h3 class="sect3">10.4.1.1. Connecting to DBI</h3>
+
+
+<p>To connect to a <a name="INDEX-2124" />
+<a name="INDEX-2125" />
+<a name="INDEX-2126" />DBI database, you
+need to issue the <em class="emphasis">connect</em> method. A database
+handle that represents the connection is returned from the
+<em class="emphasis">connect</em> statement if successful:</p>
+
+
+<blockquote><pre class="code">use DBI;
+
+my $dbh = DBI-&gt;connect("DBI:CSV:f_dir=/usr/local/apache/data/stats")
+      or die "Cannot connect: " . $DBI::errstr;</pre></blockquote>
+
+
+<p>The <em class="emphasis">use</em>
+<a name="INDEX-2127" /> <a name="INDEX-2,128" /> statement
+tells Perl which library to load for accessing DBI. Finally, the
+<em class="emphasis">connect</em> statement takes the string that has been
+passed to it and determines the database <a name="INDEX-2129" />driver to load, which in this case is
+DBD::CSV. The rest of the string contains database driver specific
+information such as username and password. In the case of DBD::CSV,
+there is no username and password; we need to specify only a
+directory where files representing database tables will be stored.</p>
+
+
+<p>When you are finished with the database handle, remember to
+disconnect from the database:</p>
+
+
+<blockquote><pre class="code">$dbh-&gt;disconnect;</pre></blockquote>
+</div>
+
+
+
+<a name="ch10-20-fm2xml" /><div class="sect3">
+<h3 class="sect3">10.4.1.2. Database manipulation</h3>
+
+
+<p>Database manipulation in <a name="INDEX-2130" />
+<a name="INDEX-2131" />DBI is quite simple. All you need to do is
+pass the <em class="emphasis">create table, insert, update,</em> or
+<em class="emphasis">delete</em> statement to the <em class="emphasis">do</em>
+method on the database handle. Immediately, the command will be
+executed:</p>
+
+
+<blockquote><pre class="code">$dbh-&gt;do( "insert into Player_Info values ('Hakeem Olajuwon', 10, 27, 11, 4, 2)")
+      or die "Cannot do: " . $dbh-&gt;errstr(  );</pre></blockquote>
+</div>
+
+
+
+<a name="ch10-21-fm2xml" /><div class="sect3">
+<h3 class="sect3">10.4.1.3. Database querying</h3>
+
+
+<p>Querying a
+<a name="INDEX-2132" />
+<a name="INDEX-2133" />
+<a name="INDEX-2134" /> <a name="INDEX-2,135" />database with DBI
+involves a few more commands since there are many ways in which you
+might want to retrieve data. The first step is to pass the SQL query
+to a <tt class="command">prepare</tt> command. This will create a statement
+handle that is used to fetch the results:</p>
+
+
+<blockquote><pre class="code">my $sql = "select * from Player_Info";
+my $sth = $dbh-&gt;prepare($sql) 
+           or die "Cannot prepare: " . $dbh-&gt;errstr(  );
+ $sth-&gt;execute(  ) or die "Cannot execute: " . $sth-&gt;errstr(  );
+
+my @row;
+while (@row = $sth-&gt;fetchrow_array(  )) {
+  print join(",", @row) . "\n";
+}
+$sth-&gt;finish(  );</pre></blockquote>
+
+
+<p>Once the <em class="emphasis">prepare</em> command has been issued, the
+<tt class="command">execute</tt>
+<a name="INDEX-2136" /> <a name="INDEX-2,137" /> command is used to start
+the query. Since a query expects return results, we use a
+<a name="INDEX-2138" />while loop to get each database
+record. The
+<tt class="command">fetchrow_array</tt>
+<a name="INDEX-2139" />
+<a name="INDEX-2140" /> command is used to fetch each row
+that is returned as an array of fields.</p>
+
+
+<p>Finally, we clean up the statement handle by issuing the
+<tt class="command">finish</tt> method. Note that in most cases we do not
+have to explicitly call the <tt class="command">finish</tt> method. It is
+implicitly called by virtue of the fact that we have retrieved all
+the results. However, if the logic of your program decided to stop
+retrieving records before the entire statement had finished being
+retrieved, then calling <tt class="command">finish</tt> is necessary in
+order to flush out the statement handle.</p>
+</div>
+</div>
+
+
+
+
+<a name="ch10-22-fm2xml" /><div class="sect2">
+<h3 class="sect2">10.4.2. DBI Address Book</h3>
+
+
+<p>Most companies with an intranet have an online <a name="INDEX-2141" /> <a name="INDEX-2,142" />address book for looking up phone
+numbers and other employee details. Here, we'll use DBI to
+implement a full address book against any database that supports SQL.</p>
+
+
+<a name="ch10-23-fm2xml" /><div class="sect3">
+<h3 class="sect3">10.4.2.1.  Address book database creation script</h3>
+
+
+<p>There are two scripts we need to take a look at. The first is not a
+web script. It is a simple script that creates the
+<a name="INDEX-2143" />
+<a name="INDEX-2144" /> <a name="INDEX-2,145" />address table for the
+<a name="INDEX-2146" />address book CGI to access:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+
+use DBI;
+
+my $dbh = DBI-&gt;connect("DBI:CSV:f_dir=/usr/local/apache/data/address_book")
+      or die "Cannot connect: " . $DBI::errstr;
+my $sth = $dbh-&gt;prepare(qq`
+     CREATE TABLE address 
+     (lname    CHAR(15),
+      fname    CHAR(15),
+      dept     CHAR(35),
+      phone    CHAR(15),
+      location CHAR(15))`)
+      or die "Cannot prepare: " . $dbh-&gt;errstr(  );
+$sth-&gt;execute(  ) or die "Cannot execute: " . $sth-&gt;errstr(  );
+$sth-&gt;finish(  );
+
+$dbh-&gt;disconnect(  );</pre></blockquote>
+
+
+<p>As you can see, this script puts together the DBI concepts of
+connecting to a database and submitting a table creation command.
+There is one twist though. Although it was previously demonstrated
+that the table creation could be accomplished through a simple
+<tt class="command">do</tt>
+<a name="INDEX-2147" /> method on the
+database handle, the DBI code we used is similar to the DBI commands
+used to query a database.</p>
+
+
+<p>In this case, we prepare the <em class="emphasis">create
+table</em>
+<a name="INDEX-2148" /> statement first, and then execute it as
+part of a statement handle. Although it is quick and easy to use the
+single <tt class="command">do</tt> method, breaking up the code like this
+allows us to
+<a name="INDEX-2149" />
+<a name="INDEX-2150" /> <a name="INDEX-2,151" />troubleshoot errors at different levels
+of the SQL submission. Adding this extra troubleshooting code can be
+very useful in a script that you need to support in production.</p>
+
+
+<p>The final result is a table called <em class="emphasis">address</em> in
+the <em class="filename">/usr/local/apache/data/address_book
+</em>directory. The address table consists of five fields:
+<tt class="literal">lname</tt> (last name), <tt class="literal">fname</tt> (first
+name), <tt class="literal">dept</tt> (department),
+<tt class="literal">phone</tt>, and <tt class="literal">location</tt>.</p>
+</div>
+
+
+
+<a name="ch10-24-fm2xml" /><div class="sect3">
+<h3 class="sect3">10.4.2.2. Address book CGI script</h3>
+
+
+<p>The <a name="INDEX-2152" />address book <a name="INDEX-2,153" /> <a name="INDEX-2,154" />CGI script is a self-contained program
+that displays query screens as well as allows the users to modify the
+data in the address book in any fashion they like. The default screen
+consists of a list of form fields representing fields in the database
+you might wish to query on (see <a href="ch10_04.htm#ch10-26687">Figure 10-1</a>). If the
+Maintain Database button is selected, a new workflow is presented to
+the user for adding, modifying, or deleting address book records (see
+<a href="ch10_04.htm#ch10-34507">Figure 10-2</a>).</p>
+
+
+<a name="ch10-26687" /><div class="figure"><img width="481" src="figs/cgi2.1001.gif" height="327" alt="Figure 10-1" /></div><h4 class="objtitle">Figure 10-1. Address book main page</h4>
+
+<a name="ch10-34507" /><div class="figure"><img width="481" src="figs/cgi2.1002.gif" height="181" alt="Figure 10-2" /></div><h4 class="objtitle">Figure 10-2. 
+Address book maintenance page</h4>
+
+<p>Here's the beginning of the code for the address book CGI
+script:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+
+use DBI;
+use CGI;
+use CGI::Carp qw(fatalsToBrowser);
+use vars qw($DBH $CGI $TABLE @FIELD_NAMES @FIELD_DESCRIPTIONS);
+
+$DBH = DBI-&gt;connect("DBI:CSV:f_dir=/usr/local/apache/data/address_book")
+      or die "Cannot connect: " . $DBI::errstr;
+
+@FIELD_NAMES = ("fname", "lname", "phone",
+                "dept", "location");
+
+@FIELD_DESCRIPTIONS = ("First Name", "Last Name", "Phone",
+                       "Department", "Location");
+
+$TABLE = "address";
+
+$CGI = new CGI(  );</pre></blockquote>
+
+
+<p>The <tt class="literal">use</tt>
+<a name="INDEX-2156" />
+<a name="INDEX-2157" />
+<a name="INDEX-2158" />
+<a name="INDEX-2159" /><tt class="command">
+</tt><tt class="literal">vars</tt> statement declares all the global
+variables we will use in the program. Then, we initialize the global
+variables for use. First,
+<tt class="literal">$DBH</tt>
+<a name="INDEX-2160" />
+<a name="INDEX-2161" />
+<a name="INDEX-2162" /> contains the database handle to be used
+throughout the program. Then, <tt class="literal">@FIELD_NAMES</tt> and
+<tt class="literal">@FIELD_DESCRIPTIONS</tt> contains a list of the
+<a name="INDEX-2163" />field names in the database as
+well as their descriptive names for display to a user.
+<tt class="literal">@FIELD_NAMES</tt> also doubles as a list of what the
+form variable names that correspond to database fields will be
+called.
+<tt class="literal">$TABLE</tt>
+<a name="INDEX-2164" /> simply contains the
+table name.</p>
+
+
+<p>Finally, <tt class="literal">$CGI</tt>
+<a name="INDEX-2165" /> is a CGI object that contains the
+information about data that was sent to the CGI script. In this
+program, we will make heavy use of the parameters that are sent in
+order to determine the logical flow of the program. For example, all
+the <a name="INDEX-2166" />submit
+buttons on a form will be labelled with the prefix
+"submit_" plus an action. This will be used to determine
+which button was pressed and hence which action we would like the CGI
+script to perform.</p>
+
+
+<blockquote><pre class="code">if ($CGI-&gt;param( "submit_do_maintenance" ) ) {
+  displayMaintenanceChoices( $CGI );
+}
+elsif ( $CGI-&gt;param( "submit_update" ) ) {
+  doUpdate( $CGI, $DBH );
+}
+elsif ( $CGI-&gt;param( "submit_delete" ) ) {
+  doDelete( $CGI, $DBH );
+}
+elsif ( $CGI-&gt;param( "submit_add" ) ) {
+  doAdd( $CGI, $DBH );
+}
+elsif ( $CGI-&gt;param( "submit_enter_query_for_delete" ) ) {
+  displayDeleteQueryScreen( $CGI );
+}
+elsif ( $CGI-&gt;param( "submit_enter_query_for_update" ) ) {
+  displayUpdateQueryScreen( $CGI );
+}
+elsif ( $CGI-&gt;param( "submit_query_for_delete" ) ) {
+  displayDeleteQueryResults( $CGI, $DBH );
+}
+elsif ( $CGI-&gt;param( "submit_query_for_update" ) ) {
+  displayUpdateQueryResults( $CGI, $DBH );
+}
+elsif ( $CGI-&gt;param( "submit_enter_new_address" ) ) {
+  displayEnterNewAddressScreen( $CGI );
+}
+elsif ( $CGI-&gt;param( "submit_query" ) ) {
+  displayQueryResults( $CGI, $DBH );
+}
+else {
+  displayQueryScreen( $CGI );
+}</pre></blockquote>
+
+
+<p>As we just described, we are using the
+<tt class="literal">$CGI</tt>
+<a name="INDEX-2167" /> variable to determine the flow of
+control through the CGI script. This big
+<em class="emphasis">if</em>
+<a name="INDEX-2168" /> block may look a bit
+messy, but the reality is that you only need to go to one spot in
+this program to see a description of what the entire program does.
+From this <em class="emphasis">if</em> block, we know that the program
+deals with displaying the query screen by default, but based on other
+parameters may display a <a name="INDEX-2169" /> <a name="INDEX-2,170" /> <a name="INDEX-2,171" /> <a name="INDEX-2,172" /> <a name="INDEX-2,173" />new address screen,
+update query screen, delete query screen, and various query result
+screens, as well as various data modification result screens.</p>
+
+
+<blockquote><pre class="code">sub displayQueryScreen {
+  my $cgi = shift;
+
+  print $cgi-&gt;header(  );
+
+print qq`
+&lt;HTML&gt;
+&lt;HEAD&gt;
+&lt;TITLE&gt;Address Book&lt;/TITLE&gt;
+&lt;/HEAD&gt;
+
+&lt;BODY BGCOLOR = "FFFFFF" TEXT = "000000"&gt;
+
+&lt;CENTER&gt;
+&lt;H1&gt;Address Book&lt;/H1&gt; 
+&lt;/CENTER&gt;
+&lt;HR&gt;
+
+&lt;FORM METHOD=POST&gt;
+
+&lt;H3&gt;&lt;STRONG&gt;Enter Search criteria: &lt;/STRONG&gt;&lt;/H3&gt;
+&lt;TABLE&gt;
+&lt;TR&gt;
+  &lt;TD ALIGN="RIGHT"&gt;First Name:&lt;/TD&gt;
+  &lt;TD&gt;&lt;INPUT TYPE="text" NAME="fname"&gt;&lt;/TD&gt;
+&lt;/TR&gt;
+&lt;TR&gt;
+  &lt;TD ALIGN="RIGHT"&gt;Last Name:&lt;/TD&gt;
+  &lt;TD&gt;&lt;INPUT TYPE="text" NAME="lname"&gt;&lt;/TD&gt;
+&lt;/TR&gt;
+&lt;TR&gt;
+  &lt;TD ALIGN="RIGHT"&gt;Phone:&lt;/TD&gt;
+  &lt;TD&gt;&lt;INPUT TYPE="text" NAME="PHONE"&gt;&lt;/TD&gt;
+&lt;/TR&gt;
+&lt;TR&gt;
+  &lt;TD ALIGN="RIGHT"&gt;Department:&lt;/TD&gt;
+  &lt;TD&gt;&lt;INPUT TYPE="text" NAME="dept"&gt;&lt;/TD&gt;
+&lt;/TR&gt;
+&lt;TR&gt;
+  &lt;TD ALIGN="RIGHT"&gt;Location:&lt;/TD&gt;
+  &lt;TD&gt;&lt;INPUT TYPE="text" NAME="location"&gt;&lt;/TD&gt;
+&lt;/TR&gt;
+&lt;/TABLE&gt;
+&lt;P&gt;
+
+&lt;INPUT TYPE="checkbox" NAME="exactmatch"&gt;
+  &lt;STRONG&gt; Perform Exact Match&lt;/STRONG&gt; 
+  (Default search is case sensitive against partial word matches)
+ &lt;P&gt;
+&lt;INPUT TYPE="submit" name="submit_query" value="Do Search"&gt;
+&lt;INPUT TYPE="submit" name="submit_do_maintenance" value="Maintain Database"&gt;
+&lt;INPUT TYPE="reset" value="Clear Criteria Fields"&gt;
+&lt;/FORM&gt;
+
+&lt;P&gt;&lt;HR&gt;
+
+&lt;/BODY&gt;&lt;/HTML&gt;
+`;
+
+} # end of displayQueryScreen
+
+
+sub displayMaintenanceChoices {
+  my $cgi = shift;
+  my $message = shift;
+
+  if ($message) {
+    $message = $message . "\n&lt;HR&gt;\n";
+  }
+
+  print $cgi-&gt;header(  );
+
+  print qq`&lt;HTML&gt;
+&lt;HEAD&gt;&lt;TITLE&gt;Address Book Maintenance&lt;/TITLE&gt;&lt;/HEAD&gt;
+ 
+&lt;BODY BGCOLOR="FFFFFF"&gt;
+&lt;CENTER&gt;
+&lt;H1&gt;Address Book Maintenance&lt;/H1&gt;
+&lt;HR&gt;
+$message
+&lt;P&gt;
+
+&lt;FORM METHOD=POST&gt;
+
+&lt;INPUT TYPE="SUBMIT" NAME="submit_enter_new_address" VALUE="New Address"&gt;
+&lt;INPUT TYPE="SUBMIT" NAME="submit_enter_query_for_update" VALUE="Update Address"&gt;
+&lt;INPUT TYPE="SUBMIT" NAME="submit_enter_query_for_delete" VALUE="Delete Address"&gt;
+&lt;INPUT TYPE="SUBMIT" NAME="submit_nothing" VALUE="Search Address"&gt;
+
+&lt;/FORM&gt;
+&lt;/CENTER&gt;
+&lt;HR&gt;
+&lt;/BODY&gt;&lt;/HTML&gt;`;
+
+} # end of displayMaintenanceChoices
+
+sub displayAllQueryResults {
+  my $cgi = shift;
+  my $dbh = shift;
+  my $op  = shift;
+
+  my $ra_query_results = getQueryResults($cgi, $dbh);
+
+  print $cgi-&gt;header(  );
+
+  my $title;
+  my $extra_column = "";
+  my $form = "";
+  my $center = "";
+  if ($op eq "SEARCH") {
+    $title = "AddressBook Query Results";
+    $center = "&lt;CENTER&gt;";
+  } elsif ($op eq "UPDATE") {
+    $title = "AddressBook Query Results For Update";
+    $extra_column = "&lt;TH&gt;Update&lt;/TH&gt;";
+    $form = qq`&lt;FORM METHOD="POST"&gt;`;
+  } else {
+    $title = "AddressBook Query Results For Delete";
+    $extra_column = "&lt;TH&gt;Delete&lt;/TH&gt;";
+    $form = qq`&lt;FORM METHOD="POST"&gt;`;
+  }
+
+  print qq`&lt;HTML&gt;
+&lt;HEAD&gt;&lt;TITLE&gt;$title&lt;/TITLE&gt;&lt;/HEAD&gt;
+&lt;BODY BGCOLOR="WHITE"&gt;
+$center
+&lt;H1&gt;Query Results&lt;/H1&gt;
+&lt;HR&gt;
+$form
+&lt;TABLE BORDER=1&gt;
+`;
+
+  print "&lt;TR&gt;$extra_column" 
+        . join("\n", map("&lt;TH&gt;" . $_ . "&lt;/TH&gt;", @FIELD_DESCRIPTIONS))
+        . "&lt;/TR&gt;\n";
+
+  
+  my $row;
+  foreach $row (@$ra_query_results) { 
+    print "&lt;TR&gt;";
+    if ($op eq "SEARCH") {
+      print join("\n", map("&lt;TD&gt;" . $_ . "&lt;/TD&gt;", @$row));
+    } elsif ($op eq "UPDATE") {
+      print qq`\n&lt;TD ALIGN="CENTER"&gt;
+            &lt;INPUT TYPE="radio" NAME="update_criteria" VALUE="` .
+            join("|", @$row) . qq`"&gt;&lt;/TD&gt;\n`;
+      print join("\n", map("&lt;TD&gt;" . $_ . "&lt;/TD&gt;", @$row));
+    } else { # delete
+      print qq`\n&lt;TD ALIGN="CENTER"&gt;
+            &lt;INPUT TYPE="radio" NAME="delete_criteria" VALUE="` .
+            join("|", @$row) . qq`"&gt;&lt;/TD&gt;\n`;
+      print join("\n", map("&lt;TD&gt;" . $_ . "&lt;/TD&gt;", @$row));
+    }
+    print "&lt;/TR&gt;\n";
+  }
+
+  print qq"&lt;/TABLE&gt;\n";
+
+  if ($op eq "UPDATE") {
+    my $address_table = getAddressTableHTML(  );
+
+    print qq`$address_table
+      &lt;INPUT TYPE="submit" NAME="submit_update" VALUE="Update Selected Row"&gt;
+      &lt;INPUT TYPE="submit" NAME="submit_do_maintenance" VALUE="Maintain Database"&gt;
+      &lt;/FORM&gt;
+      `;
+  } elsif ($op eq "DELETE") {
+    print qq`&lt;P&gt;
+      &lt;INPUT TYPE="submit" NAME="submit_delete" VALUE="Delete Selected Row"&gt;
+      &lt;INPUT TYPE="submit" NAME="submit_do_maintenance" VALUE="Maintain Database"&gt;
+      &lt;/FORM&gt;
+      `;
+  } else {
+    print "&lt;/CENTER&gt;";
+  }
+
+  print "&lt;/BODY&gt;&lt;/HTML&gt;\n";
+
+}
+
+sub getQueryResults {
+  my $cgi = shift;
+  my $dbh = shift;
+
+  my @query_results;
+  my $field_list = join(",", @FIELD_NAMES);
+  my $sql = "SELECT $field_list FROM $TABLE";
+
+  my %criteria = (  );
+
+  my $field;  
+  foreach $field (@FIELD_NAMES) {
+    if ($cgi-&gt;param($field)) {
+      $criteria{$field} = $cgi-&gt;param($field);
+    }
+  }
+
+  # build up where clause
+  my $where_clause;
+  if ($cgi-&gt;param('exactmatch')) {
+    $where_clause = join(" and ", 
+                    map ($_ 
+                         . " = \"" 
+                         . $criteria{$_} . "\"", (keys %criteria)));
+  } else {
+    $where_clause = join(" and ", 
+                    map ($_ 
+                         . " like \"%"
+                         . $criteria{$_} . "%\"", (keys %criteria)));
+
+  }
+  $where_clause =~ /(.*)/;
+  $where_clause = $1;
+
+  $sql = $sql . " where " . $where_clause if ($where_clause);
+  
+  my $sth = $dbh-&gt;prepare($sql) 
+           or die "Cannot prepare: " . $dbh-&gt;errstr(  );
+  $sth-&gt;execute(  ) or die "Cannot execute: " . $sth-&gt;errstr(  );
+
+  my @row;
+  while (@row = $sth-&gt;fetchrow_array(  )) {
+    my @record = @row;
+    push(@query_results, \@record);    
+  }
+  $sth-&gt;finish(  );
+
+  return \@query_results;
+
+} # end of getQueryResults
+
+sub displayQueryResults {
+  my $cgi = shift;
+  my $dbh = shift;
+
+  displayAllQueryResults($cgi,$dbh,"SEARCH");
+
+} # end of displayQueryResults
+
+sub displayUpdateQueryResults {
+  my $cgi = shift;
+  my $dbh = shift;
+
+  displayAllQueryResults($cgi,$dbh,"UPDATE");
+
+} # end of displayUpdateQueryResults 
+
+sub displayDeleteQueryResults {
+  my $cgi = shift;
+  my $dbh = shift;
+
+  displayAllQueryResults($cgi, $dbh, "DELETE");
+
+} # end of displayDeleteQueryResults
+
+sub doAdd {
+  my $cgi = shift;
+  my $dbh = shift;
+
+  my @value_array = (  );
+  my @missing_fields = (  );
+
+  my $field;
+  foreach $field (@FIELD_NAMES){
+    my $value = $cgi-&gt;param($field);
+    if ($value) {
+      push(@value_array, "'" . $value . "'");
+    } else {
+      push(@missing_fields, $field);
+    }
+  }
+
+  my $value_list = "(" . join(",", @value_array) . ")";
+  $value_list =~ /(.*)/;
+  $value_list = $1;
+  my $field_list = "(" . join(",", @FIELD_NAMES) . ")";
+
+  if (@missing_fields &gt; 0) {
+    my $error_message = 
+      qq`&lt;STRONG&gt; Some Fields (` . join(",", @missing_fields) .
+      qq`) Were Not
+            Entered!
+            Address Not Inserted.
+         &lt;/STRONG&gt;`;
+    displayErrorMessage($cgi, $error_message);
+
+  } else {
+
+    my $sql = qq`INSERT INTO $TABLE $field_list VALUES $value_list`;
+    my $sth = $dbh-&gt;prepare($sql) 
+           or die "Cannot prepare: " . $dbh-&gt;errstr(  );
+    $sth-&gt;execute(  ) or die "Cannot execute: " . $sth-&gt;errstr(  );
+    $sth-&gt;finish(  );
+    
+    displayMaintenanceChoices($cgi,"Add Was Successful!");    
+
+  }
+
+} # end of doAdd
+
+sub doDelete {
+  my $cgi = shift;
+  my $dbh = shift;
+
+  my $delete_criteria = $cgi-&gt;param("delete_criteria");
+  if (!$delete_criteria) {
+    my $error_message = 
+      "&lt;STRONG&gt;You didn't select a record to delete!&lt;/STRONG&gt;";
+    displayErrorMessage($cgi, $error_message);
+  } else {
+
+    my %criteria = (  );
+
+    my @field_values = split(/\|/, $delete_criteria);  
+    for (1..@FIELD_NAMES) {
+      $criteria{$FIELD_NAMES[$_ - 1]} = 
+        $field_values[$_ - 1];
+    }
+
+    # build up where clause
+    my $where_clause;
+    $where_clause = join(" and ", 
+                    map ($_ 
+                         . " = \"" 
+                         . $criteria{$_} . "\"", (keys %criteria)));
+    $where_clause =~ /(.*)/;
+    $where_clause = $1;
+
+
+    my $sql = qq`DELETE FROM $TABLE WHERE $where_clause`;
+    my $sth = $dbh-&gt;prepare($sql) 
+           or die "Cannot prepare: " . $dbh-&gt;errstr(  );
+    $sth-&gt;execute(  ) or die "Cannot execute: " . $sth-&gt;errstr(  );
+    $sth-&gt;finish(  );
+    
+    displayMaintenanceChoices($cgi,"Delete Was Successful!");    
+
+  }
+
+} # end of doDelete
+
+sub doUpdate {
+  my $cgi = shift;
+  my $dbh = shift;
+
+  my $update_criteria = $cgi-&gt;param("update_criteria");
+  if (!$update_criteria) {
+    my $error_message = 
+      "&lt;STRONG&gt;You didn't select a record to update!&lt;/STRONG&gt;";
+    displayErrorMessage($cgi, $error_message);
+  } else {
+
+    # build up set logic
+    my $set_logic = "";
+    my %set_fields = (  );
+    my $field;
+    foreach $field (@FIELD_NAMES) {
+      my $value = $cgi-&gt;param($field);
+      if ($value) {
+        $set_fields{$field} = $value;
+      }
+    }
+    $set_logic = join(", ", 
+                 map ($_ . " = \"" . $set_fields{$_} . "\"",
+                 (keys %set_fields)));
+    $set_logic = " SET $set_logic" if ($set_logic);
+    $set_logic =~ /(.*)/;
+    $set_logic = $1;
+
+    my %criteria = (  );
+
+    my @field_values = split(/\|/, $update_criteria);  
+    for (1..@FIELD_NAMES) {
+      $criteria{$FIELD_NAMES[$_ - 1]} = 
+        $field_values[$_ - 1];
+    }
+
+    # build up where clause
+    my $where_clause;
+    $where_clause = join(" and ", 
+                    map ($_ 
+                         . " = \"" 
+                         . $criteria{$_} . "\"", (keys %criteria)));
+    $where_clause =~ /(.*)/;
+    $where_clause = $1;
+
+
+    my $sql = qq`UPDATE $TABLE $set_logic` .
+                  qq` WHERE $where_clause`;
+
+    my $sth = $dbh-&gt;prepare($sql) 
+           or die "Cannot prepare: " . $dbh-&gt;errstr(  );
+    $sth-&gt;execute(  ) or die "Cannot execute: " . $sth-&gt;errstr(  );
+    $sth-&gt;finish(  );
+    
+    displayMaintenanceChoices($cgi,"Update Was Successful!");    
+
+  }
+
+} # end of doUpdate
+
+sub displayEnterNewAddressScreen {
+  my $cgi = shift;
+
+  displayNewDeleteUpdateScreen($cgi, "ADD");
+
+} # end of displayEnterNewAddressScreen
+
+sub displayUpdateQueryScreen {
+  my $cgi = shift;
+ 
+  displayNewDeleteUpdateScreen($cgi, "UPDATE");
+
+} # end of displayUpdateQueryScreen
+
+sub displayDeleteQueryScreen {
+  my $cgi = shift;
+
+  displayNewDeleteUpdateScreen($cgi, "DELETE");
+
+} # end of displayDeleteQueryScreen
+
+sub displayNewDeleteUpdateScreen {
+  my $cgi       = shift;
+  my $operation = shift;
+
+  my $address_op = "Enter New Address";
+  $address_op = "Enter Search Criteria For Deletion" if ($operation eq "DELETE");
+  $address_op = "Enter Search Criterio For Updates" if ($operation eq "UPDATE");
+
+  print $cgi-&gt;header(  );
+
+# Prints out the header
+print qq`
+&lt;HTML&gt;&lt;HEAD&gt;
+&lt;TITLE&gt;Address Book Maintenance&lt;/TITLE&gt;
+&lt;/HEAD&gt;
+ 
+&lt;BODY BGCOLOR="FFFFFF"&gt;
+ 
+&lt;H1&gt;$address_op&lt;/H1&gt;
+
+&lt;HR&gt;
+&lt;P&gt;
+&lt;FORM METHOD=POST&gt;
+`;
+
+if ($operation eq "ADD") {
+  print "Enter The New Information In The Form Below\n";
+} elsif ($operation eq "UPDATE") {
+  print "Enter Criteria To Query On In The Form Below.&lt;P&gt;\nYou will then be 
+  able to choose entries to modify from the resulting list.\n";
+} else {
+  print "Enter Criteria To Query On In The Form Below.&lt;P&gt;\nYou will then be 
+  able to choose entries to delete from the resulting list.\n"
+}
+
+my $address_table = getAddressTableHTML(  );
+print qq`
+&lt;HR&gt;
+&lt;P&gt;
+
+$address_table
+`;
+
+if ($operation eq "ADD") {
+      print qq`
+      &lt;P&gt;
+      &lt;INPUT TYPE="submit" NAME="submit_add" 
+      VALUE="Add This New Address"&gt;&lt;P&gt;
+      `; 
+} elsif ($operation eq "UPDATE") {
+      print qq`      &lt;INPUT TYPE="checkbox" NAME="exactsearch"&gt;
+      &lt;STRONG&gt;Perform Exact Search&lt;/STRONG&gt;
+      &lt;P&gt;
+      &lt;INPUT TYPE="submit" NAME="submit_query_for_update"
+      VALUE="Query For Modification"&gt;
+      &lt;P&gt;
+      `;
+} else {
+      print qq`
+      &lt;INPUT TYPE="checkbox" NAME="exactsearch"&gt;
+      &lt;STRONG&gt;Perform Exact Search&lt;/STRONG&gt;
+      &lt;P&gt;
+      &lt;INPUT TYPE="submit" NAME="submit_query_for_delete"
+      VALUE="Query For List To Delete"&gt;
+      &lt;P&gt;
+      `;
+}
+
+# print the HTML footer.
+
+print qq`
+&lt;INPUT TYPE="reset" VALUE="Clear Form"&gt;
+&lt;/FORM&gt;
+&lt;/BODY&gt;&lt;/HTML&gt; 
+`;
+
+} # end of displayNewUpdateDeleteScreen
+sub displayErrorMessage {
+  my $cgi = shift;
+  my $error_message = shift;
+
+
+  print $cgi-&gt;header(  );
+
+  print qq`
+&lt;HTML&gt;
+&lt;HEAD&gt;&lt;TITLE&gt;Error Message&lt;/TITLE&gt;&lt;/HEAD&gt;
+&lt;BODY BGCOLOR="WHITE"&gt;
+&lt;H1&gt;Error Occurred&lt;/H1&gt;
+&lt;HR&gt;
+$error_message
+&lt;HR&gt;
+&lt;/BODY&gt;
+&lt;/HTML&gt;
+`;
+
+} # end of displayErrorMessage
+
+sub getAddressTableHTML {
+
+return qq`
+&lt;TABLE&gt;
+&lt;TR&gt;
+  &lt;TD ALIGN="RIGHT"&gt;First Name:&lt;/TD&gt;
+  &lt;TD&gt;&lt;INPUT TYPE="text" NAME="fname"&gt;&lt;/TD&gt;
+&lt;/TR&gt;
+&lt;TR&gt;
+  &lt;TD ALIGN="RIGHT"&gt;Last Name:&lt;/TD&gt;
+  &lt;TD&gt;&lt;INPUT TYPE="text" NAME="lname"&gt;&lt;/TD&gt;
+&lt;/TR&gt;
+&lt;TR&gt;
+  &lt;TD ALIGN="RIGHT"&gt;Phone:&lt;/TD&gt;
+  &lt;TD&gt;&lt;INPUT TYPE="text" NAME="phone"&gt;&lt;/TD&gt;
+&lt;/TR&gt;
+&lt;TR&gt;
+  &lt;TD ALIGN="RIGHT"&gt;Department:&lt;/TD&gt;
+  &lt;TD&gt;&lt;INPUT TYPE="text" NAME="dept"&gt;&lt;/TD&gt;
+&lt;/TR&gt;
+&lt;TR&gt;
+  &lt;TD ALIGN="RIGHT"&gt;Location:&lt;/TD&gt;
+  &lt;TD&gt;&lt;INPUT TYPE="text" NAME="location"&gt;&lt;/TD&gt;
+&lt;/TR&gt;
+&lt;/TABLE&gt;
+`;
+
+} # end of <a name="INDEX-2174" />get<a name="INDEX-2,175" /><a name="INDEX-2,176" />Address<a name="INDEX-2,177" /><a name="INDEX-2,178" />TableHTML</pre></blockquote>
+
+
+<p>You probably noticed that the style of this CGI script is different
+from other examples in this book. We have already seen scripts that
+use CGI.pm, Embperl, and HTML::Template. This script uses quoted
+HTML; you can compare it against other examples to help you choose
+the style that you prefer.</p>
+
+
+<p>Likewise, this CGI script is one long file. The advantage is that all
+of the logic is present within this file. The disadvantage is that it
+can be difficult to read through such a long listing. We'll
+discuss the pros and cons of unifying applications versus breaking
+them into components in <a href="ch16_01.htm">Chapter 16, "Guidelines for Better CGI Applications"</a>.</p>
+</div>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch10_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch11_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">10.3. Introduction to SQL</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">11. Maintaining State</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

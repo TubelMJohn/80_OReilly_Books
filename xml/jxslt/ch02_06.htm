@@ -1,0 +1,197 @@
+<html><head><title>Outputting Dynamic Attributes (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch03_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">2.6. Outputting Dynamic Attributes</h2>
+
+<p>Let's assume we have an XML document that lists books in a
+personal library, and we want to create an HTML document with links
+to these books on <em class="emphasis">Amazon.com</em>. In order to
+generate the hyperlink, the <tt class="literal">href</tt> attribute must
+contain the ISBN of the book, which can be found in our original XML
+data. An example of the URL we would like to generate is as follows:
+</p>
+
+<blockquote><pre class="code">&lt;a href="http://www.amazon.com/exec/obidos/ASIN/0596000162"&gt;Java and XML&lt;/a&gt;</pre></blockquote>
+
+<p>One thought is to include <tt class="literal">&lt;xsl:value-of
+select="isbn"/&gt;</tt> directly inside of the attribute.
+However, XML does not allow you to insert the less-than
+(<tt class="literal">&lt;</tt>) character inside of an attribute value:
+</p>
+
+<blockquote><pre class="code">&lt;!-- won't work... --&gt;
+&lt;a href="&lt;xsl:value-of select="isbn"/&gt;"&gt;Java and XML&lt;/a&gt;</pre></blockquote>
+
+<p>We also need to consider that the attribute value is dynamic rather
+than static. XSLT does not automatically recognize content of the
+<tt class="literal">href="..."</tt> attribute as an XPath expression, since
+the <tt class="literal">&lt;a&gt;</tt> tag is not part of XSLT. There are
+two possible solutions to this problem.
+</p>
+
+<a name="javaxslt-CHP-2-SECT-6.1" /><div class="sect2">
+<h3 class="sect2">2.6.1. &lt;xsl:attribute&gt;</h3>
+
+<p>In the first approach,
+<tt class="literal">&lt;xsl:attribute&gt;</tt><a name="INDEX-283" />
+<a name="INDEX-284" /> is used to add one
+or more attributes to elements. In the following template, an
+<tt class="literal">href</tt> attribute is added to an
+<tt class="literal">&lt;a&gt;</tt> element:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:template match="book"&gt;
+  &lt;li&gt;
+    &lt;a&gt;  &lt;!-- the href attribute is generated below --&gt;
+      &lt;xsl:attribute name="href"&gt;
+        &lt;xsl:text&gt;http://www.amazon.com/exec/obidos/ASIN/&lt;/xsl:text&gt;
+        &lt;xsl:value-of select="@isbn"/&gt;
+      &lt;/xsl:attribute&gt;
+      &lt;xsl:value-of select="title"/&gt;
+    &lt;/a&gt;
+  &lt;/li&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+
+<p>The <tt class="literal">&lt;li&gt;</tt> tag is used because this is part of
+a larger stylesheet that presents a bulleted list of links to each
+book. The <tt class="literal">&lt;a&gt;</tt> tag, as you can see, is
+missing its <tt class="literal">href</tt> attribute. The
+<tt class="literal">&lt;xsl:attribute&gt;</tt> element adds the missing
+<tt class="literal">href</tt>. Any child content of
+<tt class="literal">&lt;xsl:attribute&gt;</tt> is added to the attribute
+value. Because we do not want to introduce any unnecessary
+whitespace, <tt class="literal">&lt;xsl:text&gt;</tt> is used. Finally,
+<tt class="literal">&lt;xsl:value-of&gt;</tt> is used to select the
+<tt class="literal">isbn</tt> attribute.
+</p>
+
+</div>
+<a name="javaxslt-CHP-2-SECT-6.2" /><div class="sect2">
+<h3 class="sect2">2.6.2. Attribute Value Templates</h3>
+
+<p>Using <tt class="literal">&lt;xsl:attribute&gt;</tt> can be quite complex
+for a simple attribute value. Fortunately, XSLT provides a much
+simpler syntax called <a name="INDEX-285" />attribute value templates (AVT). The
+next example uses an AVT to achieve the identical result:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:template match="book"&gt;
+  &lt;li&gt;
+    &lt;a href="http://www.amazon.com/exec/obidos/ASIN/{@isbn}"&gt;
+      &lt;xsl:value-of select="title"/&gt;
+    &lt;/a&gt;
+  &lt;/li&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+
+<p>The curly braces (<tt class="literal">{})</tt><a name="INDEX-286" /> inside of the attribute value cause the
+magic to happen. Normally, when the stylesheet encounters attribute
+values for HTML elements, it treats them as static text. The braces
+tell the processor to treat a portion of the attribute dynamically.
+</p>
+
+<p>In the case of <tt class="literal">{@isbn}</tt>, the contents of the curly
+braces is treated exactly as <tt class="literal">&lt;xsl:value-of
+select="@isbn"/&gt;</tt> in the previous approach.
+This is obviously much simpler. The text inside of the
+<tt class="literal">{}</tt> characters can be any location path, so you are
+not limited to selecting attributes. For example, to select the title
+of the book, simply change the value to <tt class="literal">{title}</tt>.
+</p>
+
+<p>So where do you use AVTs and where don't you? Well, whenever
+you need to treat an attribute value as an XPath expression rather
+than static text, you may need to use an AVT. But for standard XSLT
+elements, such as <tt class="literal">&lt;xsl:template</tt>
+<tt class="literal">match="pattern"&gt;</tt>, you don't
+need to use the AVT syntax. For nonXSLT elements, such as any HTML
+tag, AVT syntax is required.
+</p>
+
+</div>
+<a name="javaxslt-CHP-2-SECT-6.3" /><div class="sect2">
+<h3 class="sect2">2.6.3. &lt;xsl:attribute-set&gt;</h3>
+
+<p>There are times when you may want to define a group of attributes
+that can be reused. For this task, XSLT provides the
+<tt class="literal">&lt;xsl:attribute-set&gt;</tt><a name="INDEX-287" />
+<a name="INDEX-288" /> element. Using
+this element allows you to define a named group of attributes that
+can be referenced from other points in a stylesheet. The following
+stylesheet fragment shows how to define an attribute set:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:attribute-set name="body-style"&gt;
+  &lt;xsl:attribute name="bgcolor"&gt;yellow&lt;/xsl:attribute&gt;
+  &lt;xsl:attribute name="text"&gt;green&lt;/xsl:attribute&gt;
+  &lt;xsl:attribute name="link"&gt;navy&lt;/xsl:attribute&gt;
+  &lt;xsl:attribute name="vlink"&gt;red&lt;/xsl:attribute&gt;
+&lt;/xsl:attribute-set&gt;</pre></blockquote>
+
+<p>This is a "<a name="INDEX-289" />
+<a name="INDEX-290" />top level element," which means
+that it can occur as a direct child of the
+<tt class="literal">&lt;xsl:stylesheet&gt;</tt> element. The definition of
+an attribute set does not have to come before templates that use it.
+The attribute set can be referenced from another
+<tt class="literal">&lt;xsl:attribute-set&gt;</tt>, from
+<tt class="literal">&lt;xsl:element&gt;</tt>, or from
+<tt class="literal">&lt;xsl:copy&gt;</tt> elements. We will talk about
+<tt class="literal">&lt;xsl:copy&gt;</tt> in the next chapter, but here is
+how <tt class="literal">&lt;xsl:element&gt;</tt><a name="INDEX-291" />
+<a name="INDEX-292" /> is used:
+</p>
+
+<a name="INDEX-293" /><blockquote><pre class="code">&lt;xsl:template match="/"&gt;
+  &lt;html&gt;
+    &lt;head&gt;
+      &lt;title&gt;Demo of attribute-set&lt;/title&gt;
+    &lt;/head&gt;<tt class="userinput"><b>
+    &lt;xsl:element name="body" use-attribute-sets="body-style"&gt;</b></tt>
+      &lt;h1&gt;Books in my library...&lt;/h1&gt;
+      &lt;ul&gt;
+        &lt;xsl:apply-templates select="library/book"/&gt;
+      &lt;/ul&gt;<tt class="userinput"><b>
+    &lt;/xsl:element&gt;</b></tt>
+  &lt;/html&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+
+<p>As you can probably guess, the code shown here will output an HTML
+body tag that looks like this:
+</p>
+
+<blockquote><pre class="code">&lt;body bgcolor="yellow" text="green" link="navy" vlink="red"&gt;
+...body content
+&lt;/body&gt;</pre></blockquote>
+
+<p>In this particular example, the
+<tt class="literal">&lt;xsl:attribute-set&gt;</tt> was used only once, so
+its value is minimal. It is possible for one stylesheet to include
+another, however, as we will see in the next chapter. In this way,
+you can define the <tt class="literal">&lt;xsl:attribute-set&gt;</tt> in a
+fragment of XSLT included in many other stylesheets. Changes to the
+shared fragment are immediately reflected in all of your other
+stylesheets.
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch03_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">2.5. Looping and Sorting</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">3. XSLT Part 2 -- Beyond the Basics</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

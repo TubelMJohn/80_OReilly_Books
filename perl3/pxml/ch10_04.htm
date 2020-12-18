@@ -1,0 +1,158 @@
+<html><head><title>A Comics Index (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch10_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="index/index.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">10.4. A Comics Index</h2>
+
+<p>XSLT is one thing, but the potential for Perl, XML, and the Web
+working together is as unlimited as, well, anything else you might
+choose to do with Perl and the Web. Sometimes you
+can't just toss refactored XML at your clients, but
+must write Perl that wrings interesting information out of XML
+documents and builds something Webbish out of the results. We did a
+little of that in the previous example, mixing the raw XSLT usage
+when transforming the DocBook documents with index page generation.
+</p>
+
+<p>Since we've gone through all the trouble of covering
+syndication-enabling XML technologies such as RSS and ComicsML in
+this chapter and <a href="ch09_01.htm">Chapter 9, "RSS, SOAP, and Other XML Applications "</a>, let's
+write a little program that uses web syndication. To prove (or
+perhaps belabor) a point, we'll construct a simple
+CGI program that builds an index of the user's
+favorite online comics (which, in our fantasy world, all have
+ComicsML documents associated with them):
+</p>
+
+<blockquote><pre class="code">#!/usr/bin/perl
+
+# A very simple ComicsML muncher; given a list of URLs pointing to
+# ComicsML documents, fetch them, flatten their strips into one list,
+# and then build a web page listing, linking to, and possibly
+# displaying these strips, sorted with newest first.
+
+use warnings;
+use strict;
+
+use XML::ComicsML;                # ...so that we can build ComicsML objects
+use CGI qw(:standard);
+use LWP;
+use Date::Manip;             # Cuz we're too bloody lazy to do our own date math
+
+# Let's assume that the URLs of my favorite Internet funnies' ComicsML
+# documents live in a plaintext file on disk, with one URL per line
+# (What, no XML? For shame...)
+
+my $url_file = $ARGV[0] or die "Usage: $0 url-file\n";
+
+my @urls;                        # List of ComicsML URLs
+open (URLS, $url_file) or die "Can't read $url_file: $!\n";
+while (&lt;URLS&gt;) { chomp; push @urls, $_; }
+close (URLS) or die "Can't close $url_file: $!\n";
+
+# Make an LWP user agent
+my $ua = LWP::UserAgent-&gt;new;
+my $parser = XML::ComicsML-&gt;new;
+
+my @strips; # This will hold objects representing comic strips
+
+foreach my $url (@urls) {
+  my $request = HTTP::Request-&gt;new(GET=&gt;$url);
+  my $result = $ua-&gt;request($request);
+  my $comic;                        # Will hold the comic we'll get back
+  if ($result-&gt;is_success) {
+    # Let's see if the ComicsML parser likes it.
+    unless ($comic = $parser-&gt;parse_string($result-&gt;content)) {
+      # Doh, this is not a good XML document.
+      warn "The document at $url is not good XML!\n";
+      next;
+    }
+  } else {
+    warn "Error at $url: " . $result-&gt;status_line . "\n";
+    next;
+  }
+  # Now peel all the strips out of the comic, pop each into a little
+  # hashref along with some information about the comic itself.
+  foreach my $strip ($comic-&gt;strips) {
+    push (@strips, {strip=&gt;$strip, comic_title=&gt;$comic-&gt;title, comic_url=&gt;$comic-&gt;url});
+  }
+}
+
+# Sort the list of strips by date.  (We use Date::Manip's exported
+# UnixDate function here, to turn their unweildy Gregorian calendar
+# dates into nice clean Unixy ones)
+my @sorted = sort {UnixDate($$a{strip}-&gt;date, "%s") &lt;=&gt; UnixDate($$b{strip}-&gt;date, "%s")} @strips;
+
+# Now we build a web page!
+
+print header;
+print start_html("Latest comix");
+print h1("Links to new comics...");
+
+# Go through the sorted list in reverse, to get the newest at the top.
+foreach my $strip_info (reverse(@sorted)) {
+  my ($title, $url, $svg);
+  my $strip = $$strip_info{strip};
+  $title = join (" - ", $strip-&gt;title, $strip-&gt;date);
+  # Hyperlink the title to a URL, if there is one provided
+  if ($url = $strip-&gt;url) {
+    $title = "&lt;a href='$url'&gt;$title&lt;/a&gt;";
+  }
+
+  # Give similar treatment to the comics' title and URL
+  my $comic_title = $$strip_info{comic_title};
+  if ($$strip_info{comic_url}) {
+    $comic_title = "&lt;a href='$$strip_info{comic_url}'&gt;$comic_title&lt;/a&gt;";
+  }
+
+  # Print the titles
+  print p("&lt;b&gt;$comic_title&lt;/b&gt;: $title");
+  
+  print "&lt;hr /&gt;";
+}
+
+print end_html;</pre></blockquote>
+
+<p>Given the trouble we went through with that
+<tt class="literal">Apache::DocBook</tt> trifle a little earlier, this
+program might seem a tad too simple; it performs no caching, it
+contains no governors for how many strips it will process, and its
+sense of web page layout isn't much to write home
+about. For a quick hack, though, it works great and demonstrates the
+benefit of using helper modules like
+<tt class="literal">XML::ComicsML</tt>.
+</p>
+
+<p>Our whirlwind tour of the world of Perl and XML ends here. As we said
+at the start of this book, the relationship between these two
+technologies is still young, and it only just started to reach for
+its full potential while we were writing this book, as new parsers
+like <tt class="literal">XML::LibXML</tt> and philosophies like PerlSAX2
+emerged onto the scene during that time. We hope that we have given
+you enough information and encouragement to become part of this
+scene, as it will continue to unfold in increasingly interesting
+directions in the coming years.
+</p>
+
+<p><tt class="literal">&lt;aloha&gt;Happy hacking!&lt;/aloha&gt;</tt></p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch10_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="index/index.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">10.3. Converting XML to HTML with XSLT </td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">Index</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

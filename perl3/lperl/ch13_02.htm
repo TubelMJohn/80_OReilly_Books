@@ -1,0 +1,119 @@
+<html><head><title>Renaming Files (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch13_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch13_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">13.2. Renaming Files</h2>
+
+<p>Giving an existing
+<a name="INDEX-885" />file
+a new name is simple with the
+<tt class="literal">rename</tt><a name="INDEX-886" /> function:
+</p>
+
+<blockquote><pre class="code">rename "old", "new";</pre></blockquote>
+
+<p>This is similar to the Unix
+<i class="command">mv</i><a name="INDEX-887" /> command, taking a file named
+<em class="filename">old</em> and giving it the name
+<em class="filename">new</em> in the same directory. You can even move
+things around:
+</p>
+
+<blockquote><pre class="code">rename "over_there/some/place/some_file", "some_file";</pre></blockquote>
+
+<p>This moves a file called <tt class="literal">some_file</tt> from another
+directory into the current directory, provided the user running the
+program has the appropriate permissions.<a href="#FOOTNOTE-284">[284]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-284" /><p>[284]And the
+files must reside on the same filesystem. We'll see why this
+rule exists a little later in this chapter.</p> </blockquote>
+
+<p>Like most functions that request something of the operating system,
+<tt class="literal">rename</tt> returns false if it fails, and sets
+<tt class="literal">$!</tt> with the operating system error, so you can
+(and often should) use <tt class="literal">or die</tt> (or <tt class="literal">or
+warn</tt>) to report this to the user.
+</p>
+
+<p>One frequent<a href="#FOOTNOTE-285">[285]</a> question in
+the Unix shell-usage newsgroups is how to rename everything that ends
+with "<tt class="literal">.old</tt><a name="INDEX-888" /> <a name="INDEX-889" />" to the
+same name with "<tt class="literal">.new</tt>". Here's
+how to do it in Perl nicely:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-285" /><p>[285]This isn't just any old frequent
+question; the question of renaming a batch of files at once is the
+<em class="emphasis">most</em>frequent question asked in these newsgroups.
+And that's why it's the <em class="emphasis">first</em>
+question answered in the FAQs for those newsgroups. And
+yet, it stays in first place. Hmmm.</p> </blockquote>
+
+<blockquote><pre class="code">foreach my $file (glob "*.old") {
+  my $newfile = $file;
+  $newfile =~ s/\.old$/.new/;
+  if (-e $newfile) {
+    warn "can't rename $file to $newfile: $newfile exists\n";
+  } elsif (rename $file, $newfile) {
+    ## success, do nothing
+  } else {
+    warn "rename $file to $newfile failed: $!\n";
+  }
+}</pre></blockquote>
+
+<p>The check for the existence of <tt class="literal">$newfile</tt> is needed
+because <tt class="literal">rename</tt> will happily rename a file right
+over the top of an existing file, presuming the user has permission
+to remove the destination filename. We put the check in so that
+it's less likely that we'll lose information this way. Of
+course, if you <em class="emphasis">wanted</em> to replace existing files
+like <em class="filename">wilma.new</em>, you wouldn't bother
+testing with <tt class="literal">-e</tt> first.
+</p>
+
+<p>Those first two lines inside the loop can be combined (and often are)
+to simply be:
+</p>
+
+<blockquote><pre class="code">(my $newfile = $file) =~ s/\.old$/.new/;</pre></blockquote>
+
+<p>This works to declare <tt class="literal">$newfile</tt>, copy its initial
+value from <tt class="literal">$file</tt>, then select
+<tt class="literal">$newfile</tt> to be modified by the substitution. You
+can read this as "transform <tt class="literal">$file</tt> to
+<tt class="literal">$newfile</tt> using this replacement on the
+right." And yes, because of precedence, those parentheses are
+required.
+</p>
+
+<p>Also, some programmers seeing this substitution for the first time
+wonder why the backslash is needed on the left, but not on the right.
+The two sides aren't symmetrical: the left part of a
+substitution is a regular expression, and the right part is a
+double-quotish string. So we use the pattern
+<tt class="literal">/\.old$/</tt> to mean "<tt class="literal">.old</tt>
+anchored at the end of the string" (anchored at the end,
+because we don't want to rename the <em class="emphasis">first</em>
+occurrance of <tt class="literal">.old</tt> in a file called
+<em class="filename">betty.old.old</em>), but on the right we can simply
+write <tt class="literal">.new</tt> to make the replacement.
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch13_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch13_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">13. Manipulating Files and Directories</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">13.3. Links and Files</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

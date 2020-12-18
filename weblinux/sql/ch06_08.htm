@@ -1,0 +1,289 @@
+<?label 6.8. Extended Functionality
+?><html><head><title>Extended Functionality
+ (MySQL &amp; mSQL)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Randy Jay Yarger, George Reese and Tim King" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924347L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="MySQL &amp; mSQL" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="MySQL and mSQL" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_07.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">MySQL &amp; mSQL</a></td><td width="172" valign="top" align="right"><a href="ch07_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<a name="INDEX-540" /><a name="INDEX-541" /><h2 class="sect1">6.8. Extended Functionality
+</h2>
+
+
+
+
+
+<p>Both MySQL and mSQL have a few quirky extensions that do not really
+have counterparts in the other database engine. Most of MySQL's
+extensions are generally in line with the ANSI SQL standard.
+mSQL's extensions are simply related to special variables you
+can access while working with an mSQL database.</p>
+
+
+
+
+
+<a name="ch06-24-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.8.1. MySQL Features</h3>
+
+
+
+
+
+<p>MySQL goes well beyond mSQL's support for SQL by supporting
+functions and a limited concept of outer joins. Functions in SQL are
+similar to functions in other programming languages like C and Perl.
+The function takes zero or more arguments and returns some value. For
+example, the function <tt class="literal">SQRT(16)</tt> returns 4. Within a
+MySQL <tt class="literal">SELECT</tt> statement, functions may be used in
+either of two places:</p>
+
+
+
+
+
+<dl>
+<dt><b>As a value to be retrieved</b></dt>
+<dd><p>This form involves a function in the place of a column in the list of
+columns to be retrieved. The return value of the function, evaluated
+for each selected row, is part of the returned result set as if it
+were a column in the database. For example:</p></dd>
+
+</dl>
+
+
+
+
+
+<blockquote><pre class="code"># Select the name of each event as well as the date of the event
+# formatted in a human-readable form for all events more
+# recent than the given time. The FROM_UnixTIME() function
+# transforms a standard Unix time value into a human
+# readable form.
+SELECT name, FROM_UnixTIME(date) 
+FROM events
+WHERE time &gt; 90534323
+
+# Select the title of a paper, the full text of the paper,
+# and the length (in bytes) of the full text for all 
+# papers authored by Stacie Sheldon.
+# The LENGTH() function returns the character length of
+# a given string.
+SELECT title, text, LENGTH(text)
+FROM papers
+WHERE author = 'Stacie Sheldon'</pre></blockquote>
+
+
+
+
+
+<dl>
+<dt><b>As part of a <em class="replaceable">WHERE</em> clause</b></dt>
+<dd><p>This form involves a function in the place of a constant when
+evaluating a <tt class="literal">WHERE</tt> clause. The value of the
+function is used for comparison for each row of the table. For
+example:</p></dd>
+
+</dl>
+
+
+
+
+
+<blockquote><pre class="code"># Randomly select the name of an entry from a pool of 35
+# entries. The RAND() function generates a random number
+# between 0 and 1 (multiplied by 34 to make it between 0 
+# and 34 and incremented by 1 to make it between 1 and
+# 35). The ROUND() function returns the given number 
+# rounded to the nearest integer, resulting in a whole
+# number between 1 and 35, which should match one of
+# the ID numbers in the table.
+SELECT name 
+FROM entries 
+WHERE id = ROUND( (RAND()*34) + 1 )
+
+# You may use functions in both the value list and the
+# WHERE clause. This example selects the name and date
+# of each event less than a day old. The UNIX_TIMESTAMP()
+# function, with no arguments, returns the current time 
+# in Unix format.
+SELECT name, FROM_UnixTIME(date)
+FROM events
+WHERE time &gt; (Unix_TIMESTAMP() - (60 * 60 * 24) )
+
+# You may also use the value of a table field within
+# a function. This example returns the name of anyone 
+# who used their name as their password. The ENCRYPT()
+# function returns a Unix password-style encryption
+# of the given string using the supplied 2-character salt.
+# The LEFT() function returns the left-most n characters 
+# of the given string.
+SELECT name
+FROM people
+WHERE password = ENCRYPT(name, LEFT(name, 2))</pre></blockquote>
+
+
+
+
+
+<p>Finally, MySQL supports a more powerful joining than the simple inner
+joins we have used so far. Specifically, MySQL supports something
+called a <em class="emphasis">left outer join</em> (also known as simply
+<em class="emphasis">outer join</em>). This type of join is similar to an
+inner join, except that it includes data in the first column named
+that does not match any in the second column. If you remember our
+author and book tables from earlier in the chapter, you will remember
+that our join would not list any authors who did not have a book in
+our database. It is common that you may want to show entries from one
+table that have no corresponding data in the table to which you are
+joining. That is where an outer join comes into play:</p>
+
+
+
+
+
+<blockquote><pre class="code">SELECT book.title, author.name 
+FROM author
+LEFT JOIN book ON book.author = author.id</pre></blockquote>
+
+
+
+
+
+<p>Note that a outer join uses the keyword
+<tt class="literal">ON</tt>
+<a name="INDEX-542" /> instead of <tt class="literal">WHERE</tt>.
+The results of our query would look like this:</p>
+
+
+
+
+
+<blockquote><pre class="code">+----------------+----------------+
+| book.title     | author.name    |
++----------------+----------------+
+| The Green Mile | Stephen King   |
+| Guards, Guards!| Terry Pratchett|
+| Imzadi         | Peter David    |
+| Gold           | Isaac Asimov   |
+| Howling Mad    | Peter David    |
+| NULL           | Neil Gaiman    |
++----------------+----------------+</pre></blockquote>
+
+
+
+
+
+<p>MySQL takes this concept one step further through the use of a
+natural outer join. A natural outer join will combine the rows from
+two tables where the two tables have identical column names with
+identical types and the values in those columns are identical:</p>
+
+
+
+
+
+<blockquote><pre class="code">SELECT my_prod.name 
+FROM my_prod
+NATURAL LEFT JOIN their_prod</pre></blockquote>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch06-25-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.8.2. mSQL Features</h3>
+
+
+
+
+
+<p>
+<a name="INDEX-543" />mSQL has five
+"<a name="INDEX-544" />system variables" that you can
+include in any query. We have already covered one of those values,
+<tt class="literal">_seq</tt>. The others are:</p>
+
+
+
+
+
+<dl>
+<dt><b>
+<a name="INDEX-545" />_rowid</b></dt>
+<dd><p>A unique identifier corresponding to a row of data being returned.
+You can use it with subsequent <tt class="literal">UPDATE</tt> or
+<tt class="literal">DELETE</tt> statements to improve efficiency. This
+approach, however, is definitely not recommended because multiple
+clients can mess each other up. Specifically, two clients can select
+the same row. The first one deletes it and then a third client
+inserts a new row. The new row can have the same
+<tt class="literal">_rowid</tt> value as the deleted row. If the second
+client then tries to update or delete using that
+<tt class="literal">_rowid</tt>, it will affect data it did not intend to
+affect.</p></dd>
+
+
+
+
+
+<dt><b>
+<a name="INDEX-546" />_timestamp</b></dt>
+<dd><p>The time when the row in question was last modified. Under the
+current version of mSQL, this value is in the standard Unix time
+format. This behavior may change in future versions, so you should
+only use this value to compare with timestamps in other rows.</p></dd>
+
+
+
+
+
+<dt><b>_sysdate</b></dt>
+<dd><p>Returns the current time on the mSQL server. This time can be used to
+ensure that all times used in the database are synchronized even if
+the clients are on systems with varying times. This time is given in
+the standard Unix format and will be the same no matter which table
+you select it from.</p></dd>
+
+
+
+
+
+<dt><b>
+<a name="INDEX-547" />_user</b></dt>
+<dd><p>This value holds the name of the user for the current client
+connection. As with <tt class="literal">_sysdate</tt>, this value is not
+dependent on the table from which you choose to select it.<a name="INDEX-548" /></p></dd>
+
+</dl>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_07.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch07_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">6.7. Queries</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">7. Other Mid-Range Database Engines</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

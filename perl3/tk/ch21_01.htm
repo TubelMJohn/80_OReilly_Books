@@ -1,0 +1,842 @@
+<html><head><title>C Widget Internals (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch20_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch21_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 21. C Widget Internals</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#mastperltk-CHP-21-SECT-1">The Tk::Square Widget</a><br />
+<a href="ch21_02.htm">Interfacing tkSquare.c with Perl/Tk</a><br />
+<a href="ch21_03.htm">Building and Testing Tk::Square</a><br />
+<a href="ch21_04.htm">How Not to Port Tk::Square</a><br /></p></div>
+
+<p><a name="INDEX-3094" /></a><a name="INDEX-3095" /></a>Chances are you'll never have
+to deal with Tk widgets at the C level, because the existing toolkit
+is so rich, and because you can quickly and efficiently build new
+mega-widgets using the powerful techniques described in <a href="ch14_01.htm">Chapter 14, "Creating Custom Widgets in Pure Perl/Tk"</a>. But there may come a time when you have to
+leave the cozy world of Perl and delve into C, perhaps because of
+efficiency considerations, or a missing system call, or maybe because
+you have an existing Tcl/Tk C widget you'd like to port to
+Perl/Tk.
+</p>
+
+<p>In this chapter, we'll closely examine a simple (but real) C
+widget and see how to package, build, test, and install it. This is a
+Unix-centric chapter, because we have no Win32 development
+environment. But the porting essentials are still relevant.
+</p>
+<div class="sect1"><a name="mastperltk-CHP-21-SECT-1" /></a>
+<h2 class="sect1">21.1. The Tk::Square Widget</h2>
+
+<p><a name="INDEX-3096" /></a><a name="INDEX-3097" /></a>The Tcl/Tk
+distribution contains a Square widget that demonstrates the basic
+structure of a C widget. It's a simple square of variable size
+and color that can be moved around a window by dragging it with a
+mouse. It has a keyboard binding to an "a" that starts
+and stops an animation that varies the widget's size over time,
+so that it appears to throb.
+</p>
+
+<a name="mastperltk-CHP-21-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">21.1.1. Tcl/Tk Example</h3>
+
+<p>Although Perl/Tk code produced <a href="ch21_01.htm#mastperltk-CHP-21-FIG-1">Figure 21-1</a>, this
+Tcl/Tk example creates an identical window. The square widget,
+<tt class="literal">.s</tt>, is packed, assigned three bindings, and given
+the keyboard focus. The mouse button bindings move the square to the
+cursor's current position, and the "a" binding
+toggles the animation's state. In the Perl/Tk version,
+we'll see how to move the bindings into the Tk::Square class
+proper (seems reasonable, since it's unclear exactly what a
+square widget should do anyway).
+</p>
+
+<blockquote><pre class="code">square .s
+pack .s -expand yes -fill both
+
+bind .s &lt;1&gt; {move %x %y}
+bind .s &lt;B1-Motion&gt; {move %x %y}
+bind .s a animate
+focus .s </pre></blockquote>
+
+<a name="mastperltk-CHP-21-FIG-1" /></a><div class="figure"><img src="figs/mptk.2101.gif" alt="Figure 21-1" width="171" height="149" /></div><h4 class="objtitle">Figure 21-1. A Tk::Square with a raised relief</h4>
+
+<p>This procedure moves the square to a given position. The (x, y)
+coordinate comes from the <tt class="literal">%x</tt> and
+<tt class="literal">%y</tt> binding codes, analogous to the
+<tt class="literal">$Tk::event-&gt;x</tt> and
+<tt class="literal">$Tk::event-&gt;y</tt> calls. The
+<tt class="literal">size</tt> method returns the pixel length of the
+square's side, and the <tt class="literal">position</tt> method
+actually repositions the square.
+</p>
+
+<blockquote><pre class="code">proc move {x y} {
+    set a [.s size]
+    .s position [expr $x-($a/2)] [expr $y-($a/2)]
+}</pre></blockquote>
+
+<p>These procedures start and stop a 30-millisecond timer event that
+makes the square throb, cyclically changing its size from small to
+large. Trying to translate this Tcl/Tk code directly to Perl/Tk leads
+to deep recursion in the <tt class="literal">timer</tt> procedure, but
+we'll see the Perlish way around this problem in a later
+section. Note that <tt class="literal">size</tt> is a dual-purpose get/get
+command.
+</p>
+
+<a name="INDEX-3098" /></a><blockquote><pre class="code">set inc 0
+proc animate {} {
+    global inc
+    if {$inc == 0} {
+        set inc 3
+        timer
+    } else {
+        set inc 0
+    }
+}
+
+proc timer {} {
+    global inc
+    set s [.s size]
+    if {$inc == 0} return
+    if {$s &gt;= 40} {set inc -3}
+    if {$s &lt;= 10} {set inc 3}
+    .s size [expr {$s+$inc}]
+    after 30 timer
+}</pre></blockquote>
+
+</div>
+<a name="mastperltk-CHP-21-SECT-1.2" /></a><div class="sect2">
+<h3 class="sect2">21.1.2. Overview of the Perl/Tk Distribution</h3>
+
+<p><a name="INDEX-3099" /></a><a name="INDEX-3100" /></a>A global view of the Perl/Tk
+distribution will prove useful as we develop C widgets, primarily
+because we need to pattern our new widgets' directory
+structures after the Perl/Tk core structure. There are also
+similarities in filenames and file contents we can use. The entire
+distribution is quite intimidating when you first see it, so
+let's weed out the chaff and see what's really important.
+</p>
+
+<p>Perl/Tk for Unix is distributed as a gzipped tar file, which, after
+unpacking, leaves us with a distribution directory containing 201
+files.<a href="#FOOTNOTE-57">[57]</a></p><blockquote class="footnote"> <a name="FOOTNOTE-57" /></a><p> [57] Tk 800.017 was used for this test.</p>
+</blockquote>
+
+<p>If we eliminate all the <em class="emphasis">demo</em> and
+<em class="emphasis">test</em> programs, we're down to 161 files.
+Now get rid of all the <em class="emphasis">bug</em> programs,
+miscellaneous scripts Nick uses for routine maintenance and
+debugging, change logs, widget demos, tests, and README files, and
+we're down to 43 files, the heart of Tk extension for Perl:
+</p>
+
+<blockquote><pre class="code">drwxr-xr-x  2 bug  users     65 Jan 18 14:45 Bitmap
+drwxr-xr-x  2 bug  users     98 Jan 18 14:45 Canvas
+drwxr-xr-x  2 bug  users     91 Jan 18 14:45 Compound
+drwxr-xr-x  3 bug  users    101 Jan 18 14:45 Contrib
+drwxr-xr-x  4 bug  users   4096 Jan 18 14:45 DragDrop
+drwxr-xr-x  2 bug  users     63 Jan 18 14:45 Entry
+drwxr-xr-x  3 bug  users   4096 Jan 18 14:45 Event
+drwxr-xr-x  3 bug  users     27 Jan 18 13:11 Extensions
+drwxr-xr-x  2 bug  users     80 Jan 18 14:45 HList
+drwxr-xr-x  2 bug  users     57 Jan 18 14:45 IO
+drwxr-xr-x  2 bug  users     84 Jan 18 14:45 InputO
+drwxr-xr-x  2 bug  users     67 Jan 18 14:45 Listbox
+-r--r--r--  1 bug  users  32646 Jan  8 07:21 MANIFEST
+-r--r--r--  1 bug  users   3964 Dec 12 08:58 Makefile.PL
+drwxr-xr-x  2 bug  users     73 Jan 18 14:45 Menubutton
+drwxr-xr-x  2 bug  users     78 Jan 18 14:45 Mwm
+drwxr-xr-x  2 bug  users     67 Jan 18 14:45 NBFrame
+drwxr-xr-x  2 bug  users     63 Jan 18 14:45 Photo
+drwxr-xr-x  2 bug  users     63 Jan 18 14:45 Scale
+drwxr-xr-x  2 bug  users     71 Jan 18 14:45 Scrollbar
+drwxr-xr-x  2 bug  users     63 Jan 18 14:45 TList
+drwxr-xr-x  3 bug  users     89 Jan 18 14:45 Text
+drwxr-xr-x  2 bug  users   4096 Jan 18 14:45 TixGrid
+drwxr-xr-x  2 bug  users     65 Jan 18 14:45 TixPixmap
+drwxr-xr-x  4 bug  users   4096 Jan 18 14:45 Tixish
+drwxr-xr-x  3 bug  users   4096 Jan 18 14:45 Tk
+-r--r--r--  1 bug  users  14457 Dec 23 17:22 Tk.pm
+drwxr-xr-x  2 bug  users    100 Jan 18 14:45 WinPhoto
+drwxr-xr-x  3 bug  users   4096 Jan 18 14:45 Xlib
+-r--r--r--  1 bug  users   2029 Jul 27 14:20 chnGlue.c
+-r--r--r--  1 bug  users   2944 Jul 27 14:20 evtGlue.c
+-r--r--r--  1 bug  users  18202 Dec 12 08:58 objGlue.c
+drwxr-xr-x  6 bug  users   4096 Jan 18 14:45 pTk
+drwxr-xr-x  5 bug  users   4096 Jan 18 14:45 pod
+-r--r--r--  1 bug  users    910 Jul 27 14:21 tixGlue.c
+-r--r--r--  1 bug  users 104480 Jan  5 15:14 tkGlue.c
+-r--r--r--  1 bug  users   2061 Nov 19 07:30 tkGlue.def
+-r--r--r--  1 bug  users     55 Nov 20 16:19 tkGlue.exc
+-r--r--r--  1 bug  users   3744 Dec 19 10:49 tkGlue.h
+-r--r--r--  1 bug  users   1418 Dec 19 10:49 tkGlue.m
+-r--r--r--  1 bug  users   1780 Dec 19 10:49 tkGlue.t
+-r--r--r--  1 bug  users    562 Jul 27 14:21 tkGlue_f.c
+-r--r--r--  1 bug  users    327 Jul 27 14:21 tkGlue_f.h</pre></blockquote>
+
+<p><a name="INDEX-3101" /></a><a name="INDEX-3102" /></a><a name="INDEX-3103" /></a>There are lots of familiar terms
+and widget names in that list, mostly directories containing
+<em class="emphasis">.xs</em>, <em class="emphasis">.pm</em>, and
+<em class="emphasis">make</em> files. Then there are the
+<em class="emphasis">glue</em> files that act as intermediaries between
+the Tcl C code and Perl. <em class="emphasis">Tk.pm</em> is important
+because it acts as the lowest Tk base class, even more basic than
+<em class="emphasis">Widget.pm</em>. And of course, where would we be
+without the <em class="emphasis">pod</em> directory of documentation?
+Important as these files and directories are, for our current task,
+this is all we are interested in:
+</p>
+
+<blockquote><pre class="code">-r--r--r--  1 bug  users  32646 Jan  8 07:21 MANIFEST
+-r--r--r--  1 bug  users   3964 Dec 12 08:58 Makefile.PL
+drwxr-xr-x  6 bug  users   4096 Jan 18 14:45 pTk</pre></blockquote>
+
+<p><a name="INDEX-3104" /></a><a name="INDEX-3105" /></a><a name="INDEX-3106" /></a>The <em class="emphasis">MANIFEST</em> is a
+MakeMaker utility file that lists the files and directories that must
+be in the distribution for Perl/Tk to build and function properly.
+<em class="emphasis">Makefile.PL</em> is an actual Perl program that uses
+MakeMaker commands to produce a customized
+<em class="emphasis">Makefile</em> suitable for maintaining, building, and
+installing a Perl extension. The <em class="emphasis">pTk</em> directory
+contains most of the Perl-ized C source code, and its
+subdirectory <em class="emphasis">pTk/mTk</em> ("m" for munge,
+modify, or mainline) contains the original Tcl/Tk (and Tix) C source
+code, with minimal hand edits.
+</p>
+
+<p>We are going to build a parallel directory structure outside the
+Perl/Tk distribution (named <em class="emphasis">Tk-Square-1.0</em>),
+assemble required components, and port Tk::Square there (see <a href="ch21_01.htm#mastperltk-CHP-21-FIG-2">Figure 21-2</a>). And although, in practice, you
+shouldn't actually merge the code with the Perl/Tk core,
+we'll still review the requisite steps.
+</p>
+
+<a name="mastperltk-CHP-21-FIG-2" /></a><div class="figure"><img src="figs/mptk.2102.gif" alt="Figure 21-2" width="223" height="263" /></div><h4 class="objtitle">Figure 21-2. Tk::Square directory structure parallels core Tk</h4>
+
+</div>
+<a name="mastperltk-CHP-21-SECT-1.3" /></a><div class="sect2">
+<h3 class="sect2">21.1.3. Layout of a Typical C Widget</h3>
+
+<p><a name="INDEX-3107" /></a>Let's see how real C widgets are
+written. Typical Tcl/Tk widgets begin life in the directory
+<em class="emphasis">pTk/mTk/generic</em>, so we want to store
+<em class="emphasis">tkSquare.c</em>, the Tk::Square Tcl C source code, in
+a similar location. In its raw form, this C code has no hope of
+interfacing with Perl, but there's a tiny translator that
+handles the grunt work. The program,
+<em class="emphasis">pTk/Tcl-pTk</em>, works best on Tcl/Tk 8 source
+files, but can be of use even for Tix and Tcl/Tk 3/4 source
+files.<a href="#FOOTNOTE-58">[58]</a> We don't usually run
+this program by hand, because the build process does it for us
+automatically. The translated source file is stored in the
+<em class="emphasis">pTk</em> directory.<a href="#FOOTNOTE-59">[59]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-58" /></a><p> [58] Unfortunately it only makes simple syntax
+changes. The Tcl/Tk API changed so radically for Tk 8 that
+you'll be forced to make many more changes by hand. Common
+items include font structure and method changes, and API calls whose
+names changed from Tk_ to Tcl_ when the Tk event loop was moved into
+Tcl. Your best source of information will be the Perl/Tk discussion
+group and mailing list.</p> </blockquote><blockquote class="footnote"> <a name="FOOTNOTE-59" /></a><p> [59] Essentially,
+<em class="emphasis">make</em> runs
+<em class="emphasis">Tcl-pTk</em>/<em class="emphasis">mTk/generic/tkSquare.c
+tkSquare.c</em>.</p> </blockquote>
+
+<p>But the translator most likely won't do a perfect job, so any
+hand edits we make must be done to
+<em class="emphasis">pTk/mTk/generic/tkSquare.c</em>, and the
+<em class="emphasis">make</em> repeated. For instance, the Tcl name for
+the widget creation subroutine is <tt class="literal">SquareCmd</tt>, but
+the Perl/Tk convention requires it be
+<tt class="literal">Tk_SquareCmd</tt>. And the original include directives:
+</p>
+
+<blockquote><pre class="code">/*#include "tkPort.h"*/
+/*#include "tk.h"*/</pre></blockquote>
+
+<p>will not work and must be replaced with the following (it's
+critical to have all these includes in the proper order):
+</p>
+
+<blockquote><pre class="code">#include "tkPort.h"
+#include "default.h"
+#include "tkInt.h"
+#include "tkVMacro.h"</pre></blockquote>
+
+<p>To fully understand the following code, you should be familiar with
+Xlib programming and the Tk toolkit library. All the Tk documents
+have been podified and are located in the directory
+<em class="emphasis">pod/pTk</em>. Note that this code is the fully
+functioning Perl/Tk version, not the original Tcl/Tk source.
+</p>
+
+<a name="mastperltk-CHP-21-SECT-1.3.1" /></a><div class="sect3">
+<h3 class="sect3">21.1.3.1. Tk::Square instance structure</h3>
+
+<p>Every Tk::Square instance is in reality modeled by a C Square
+structure. The widget creation subroutine,
+<tt class="literal">Tk_SquareCmd</tt>, mallocs memory for the structure,
+then initializes its members. Although programming at the C level is
+not object oriented, we can think of the Square structure as an
+object that maintains the widget's entire state. During widget
+destruction, we must release the structure's allocated memory.
+</p>
+
+<blockquote><pre class="code">typedef struct {
+    Tk_Window tkwin;        /* Window that embodies the square.  NULL
+                             * means window has been deleted but
+                             * widget record hasn't been cleaned up yet. */
+    Display *display;       /* X's token for the window's display. */
+    Tcl_Interp *interp;     /* Interpreter associated with widget. */
+    Tcl_Command widgetCmd;  /* Token for square's widget command. */
+    int x, y;               /* Position of square's upper-left corner
+                             * within widget. */
+    int size;               /* Width and height of square. */
+
+    int borderWidth;        /* Width of 3-D border around whole widget. */
+    Tk_3DBorder bgBorder;   /* Used for drawing background. */
+    Tk_3DBorder fgBorder;   /* For drawing square. */
+    int relief;             /* Indicates whether window as a whole is
+                             * raised, sunken, or flat. */
+    GC gc;                  /* Graphics context for copying from
+                             * off-screen pixmap onto screen. */
+    int doubleBuffer;       /* Non-zero means double-buffer redisplay
+                             * with pixmap;  zero means draw straight
+                             * onto the display. */
+    int updatePending;      /* Non-zero means a call to SquareDisplay
+                             * has already been scheduled. */
+} Square;</pre></blockquote>
+
+</div>
+
+<a name="mastperltk-CHP-21-SECT-1.3.2" /></a><div class="sect3">
+<h3 class="sect3">21.1.3.2. Tk::Square configuration specifications</h3>
+
+<p><a name="INDEX-3108" /></a>The following table of
+configuration specifications should look strikingly familiar. Yes,
+here we define the legal widget options, which can appear on the
+widget creation command, or <tt class="literal">cget</tt> and
+<tt class="literal">configure</tt> methods. The first element of each
+option describes what it is, followed by the option name, resource DB
+name, resource DB class, and default value (the same as a
+<tt class="literal">ConfigSpecs</tt> entry for a Perl mega-widget).
+</p>
+
+<p><a name="INDEX-3109" /></a>One interesting
+option is <tt class="literal">-dbl</tt>, which specifies how the widget is
+displayed. For efficiency, and to reduce flicker, widgets are often
+double buffered; that is, drawn in an off-screen pixmap and then
+displayed. If <tt class="literal">-dbl</tt> is disabled (false), the widget
+is drawn directly to the screen.
+</p>
+
+<blockquote><pre class="code">static Tk_ConfigSpec configSpecs[] = {
+    {TK_CONFIG_BORDER, "-background", "background", "Background",
+            "#d9d9d9", Tk_Offset(Square, bgBorder), TK_CONFIG_COLOR_ONLY},
+    {TK_CONFIG_BORDER, "-background", "background", "Background",
+            "white", Tk_Offset(Square, bgBorder), TK_CONFIG_MONO_ONLY},
+    {TK_CONFIG_SYNONYM, "-bd", "borderWidth", NULL,
+            NULL, 0, 0},
+    {TK_CONFIG_SYNONYM, "-bg", "background", NULL,
+            NULL, 0, 0},
+    {TK_CONFIG_PIXELS, "-borderwidth", "borderWidth", "BorderWidth",
+            "2", Tk_Offset(Square, borderWidth), 0},
+    {TK_CONFIG_INT, "-dbl", "doubleBuffer", "DoubleBuffer",
+            "1", Tk_Offset(Square, doubleBuffer), 0},
+    {TK_CONFIG_SYNONYM, "-fg", "foreground", NULL,
+            NULL, 0, 0},
+    {TK_CONFIG_BORDER, "-foreground", "foreground", "Foreground",
+            "#b03060", Tk_Offset(Square, fgBorder), TK_CONFIG_COLOR_ONLY},
+    {TK_CONFIG_BORDER, "-foreground", "foreground", "Foreground",
+            "black", Tk_Offset(Square, fgBorder), TK_CONFIG_MONO_ONLY},
+    {TK_CONFIG_RELIEF, "-relief", "relief", "Relief",
+            "raised", Tk_Offset(Square, relief), 0},
+    {TK_CONFIG_END, NULL, NULL, NULL,
+             NULL, 0, 0}
+};</pre></blockquote>
+
+</div>
+
+<a name="mastperltk-CHP-21-SECT-1.3.3" /></a><div class="sect3">
+<h3 class="sect3">21.1.3.3. Tk::Square instance constructor</h3>
+
+<p><a name="INDEX-3110" /></a>All C widgets have a creation
+command of the form <tt class="literal">'Tk_'</tt> <tt class="literal">.</tt>
+<tt class="literal">$widget_class</tt> <tt class="literal">.</tt>
+<tt class="literal">'Cmd'</tt>, in this case,
+<tt class="literal">Tk_SquareCmd</tt>. When an object of class Square is
+instantiated, the subroutine is called and it allocates, initializes,
+and configures a <tt class="literal">Square</tt> struct, and returns a
+standard Tcl integer result. The next section describes how the
+function is advertised so the rest of Tk can see it, and we can
+create widgets.
+</p>
+
+<p><a name="INDEX-3111" /></a><a name="INDEX-3112" /></a>In Tcl, the
+<tt class="literal">ClientData</tt> parameter is a single word that can
+hold an integer or pointer value. Its interpretation is application
+specific, and Tk uses it to hold various data, such as the
+<tt class="literal">Tk_Window</tt> or <tt class="literal">Square</tt> struct
+pointers. If this were Tcl/Tk code, <tt class="literal">Tcl_Interp</tt>
+would point to an instance of the <em class="emphasis">wish</em>
+interpreter, but in Perl/Tk, it's a private Perl
+object<a href="#FOOTNOTE-60">[60]</a> that should be left
+alone. Arguments are passed just like shell command-line arguments,
+with an argument count and a pointer to a list of strings.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-60" /></a><p> [60] As of Tk 800.018, it maps
+<tt class="literal">Tk_Window</tt> pathnames to Perl objects and is subject
+to change without notice.</p> </blockquote>
+
+<blockquote><pre class="code">int
+Tk_SquareCmd(clientData, interp, argc, args)
+    ClientData clientData;   /* Main window associated with
+                              * interpreter. */
+    Tcl_Interp *interp;      /* Current interpreter. */
+    int argc;                /* Number of arguments. */
+    Arg *args;               /* Argument strings. */
+{
+    Tk_Window mainw = (Tk_Window) clientData;
+    Square *squarePtr;
+    Tk_Window tkwin;
+    char *name;
+
+    if (argc &lt; 2) {
+        Tcl_AppendResult(interp, "wrong # args: should be \"",
+                LangString(args[0]), " pathName ?options?\"",  NULL);
+        return TCL_ERROR;
+    }</pre></blockquote>
+
+<p><a name="INDEX-3113" /></a>Create the
+Square's window and initialize its class, used for resource
+database lookups. The window isn't visible on the display,
+because it hasn't been mapped by a geometry manager. Note how
+users can change the widget's class by using
+<tt class="literal">-class</tt>.
+</p>
+
+<blockquote><pre class="code">    tkwin = Tk_CreateWindowFromPath(interp, mainw, LangString(args[1]), 
+            NULL);
+    if (tkwin == NULL) {
+        return TCL_ERROR;
+    }
+    name = "Square";
+    if ((argc&gt;3) &amp;&amp; !strcmp(LangString(args[2]),"-class")) {
+        argc -= 2;
+        args += 2;
+        name = LangString(args[1]);
+    }
+    Tk_SetClass(tkwin, name);</pre></blockquote>
+
+<p>Allocate the <tt class="literal">Square</tt> structure and initialize it:</p>
+
+<blockquote><pre class="code">    squarePtr = (Square *) ckalloc(sizeof(Square));
+    squarePtr-&gt;tkwin = tkwin;
+    squarePtr-&gt;display = Tk_Display(tkwin);
+    squarePtr-&gt;interp = interp;
+    squarePtr-&gt;widgetCmd = Lang_CreateWidget(interp,squarePtr-&gt;tkwin, 
+            SquareWidgetCmd, (ClientData) squarePtr,
+            SquareCmdDeletedProc);
+
+    squarePtr-&gt;x = 0;
+    squarePtr-&gt;y = 0;
+    squarePtr-&gt;size = 20;
+    squarePtr-&gt;borderWidth = 0;
+    squarePtr-&gt;bgBorder = NULL;
+    squarePtr-&gt;fgBorder = NULL;
+    squarePtr-&gt;relief = TK_RELIEF_FLAT;
+    squarePtr-&gt;gc = None;
+    squarePtr-&gt;doubleBuffer = 1;
+    squarePtr-&gt;updatePending = 0;</pre></blockquote>
+
+<p>Register the event processing subroutine
+<tt class="literal">SquareEventProc</tt> and the events that interest it.
+The <tt class="literal">ExposureMask</tt> bit selects Expose events, and
+the <tt class="literal">StructureNotifyMask</tt> bit selects both
+ConfigureNotify and DestroyNotify events. When
+<tt class="literal">SquareEventProc</tt> is called, its
+<tt class="literal">ClientData</tt> argument is the widget's
+structure pointer, <tt class="literal">squarePtr</tt>.
+</p>
+
+<blockquote><pre class="code">    Tk_CreateEventHandler(squarePtr-&gt;tkwin,
+        ExposureMask|StructureNotifyMask,
+        SquareEventProc, (ClientData) squarePtr);</pre></blockquote>
+
+<p>Perform the initial widget configuration, using values from
+<tt class="literal">argc</tt> and resource database lookups.
+</p>
+
+<a name="INDEX-3114" /></a><blockquote><pre class="code">    if (SquareConfigure(interp, squarePtr, argc-2, args+2, 0) != TCL_OK) {
+        Tk_DestroyWindow(squarePtr-&gt;tkwin);
+        return TCL_ERROR;
+    }
+
+    Tcl_ArgResult(interp,LangWidgetArg(interp,squarePtr-&gt;tkwin));
+    return TCL_OK;
+}</pre></blockquote>
+
+</div>
+
+<a name="mastperltk-CHP-21-SECT-1.3.4" /></a><div class="sect3">
+<h3 class="sect3">21.1.3.4. Tk::Square method processors</h3>
+
+<p><a name="INDEX-3115" /></a>Now that we can create a Tk::Square
+widget, we need to write C code to handle method calls against it.
+Every C widget has a subroutine name of the form
+<tt class="literal">$widget_class.'WidgetCmd'</tt>; in this case,
+<tt class="literal">SquareWidgetCmd</tt>.
+</p>
+
+<blockquote><pre class="code">static int
+SquareWidgetCmd(clientData, interp, argc, args)
+    ClientData clientData;          /* Information about square widget. */
+    Tcl_Interp *interp;             /* Current interpreter. */
+    int argc;                       /* Number of arguments. */
+    Arg *args;                      /* Argument strings. */
+{
+    Square *squarePtr = (Square *) clientData;
+    int result = TCL_OK;
+    size_t length;
+    char c;
+
+    if (argc &lt; 2) {
+        Tcl_AppendResult(interp, "wrong # args: should be \"",
+                LangString(args[0]), " option ?arg arg ...?\"", NULL);
+        return TCL_ERROR;
+    }
+    Tcl_Preserve((ClientData) squarePtr);
+    c = LangString(args[1])[0];
+    length = strlen(LangString(args[1]));</pre></blockquote>
+
+<p><a name="INDEX-3116" /></a><a name="INDEX-3117" /></a><a name="INDEX-3118" /></a><a name="INDEX-3119" /></a>Here is the method processing code for
+the <tt class="literal">cget</tt>, <tt class="literal">configure</tt>,
+<tt class="literal">position</tt>, and <tt class="literal">size</tt> methods.
+Hopefully the code is obvious.
+</p>
+
+<blockquote><pre class="code">    if ((c == 'c') &amp;&amp;
+            (strncmp(LangString(args[1]), "cget", length) == 0) &amp;&amp; 
+            (length &gt;= 2)) {
+        if (argc != 3) {
+            Tcl_AppendResult(interp, "wrong # args: should be \"",
+                    LangString(args[0]), " cget option\"", NULL);
+            goto error;
+        }
+        result = Tk_ConfigureValue(interp, squarePtr-&gt;tkwin, configSpecs,
+                (char *) squarePtr, LangString(args[2]), 0);
+    } else if ((c == 'c') &amp;&amp;
+            (strncmp(LangString(args[1]), "configure", length) == 0) &amp;&amp;
+            (length &gt;= 2)) {
+        if (argc == 2) {
+            result = Tk_ConfigureInfo(interp, squarePtr-&gt;tkwin,
+                     configSpecs, (char *) squarePtr, NULL, 0);
+        } else if (argc == 3) {
+            result = Tk_ConfigureInfo(interp, squarePtr-&gt;tkwin,
+                     configSpecs, (char *) squarePtr,
+                     LangString(args[2]), 0);
+        } else {
+            result = SquareConfigure(interp, squarePtr, argc-2, args+2,
+                    TK_CONFIG_ARGV_ONLY);
+        }
+    } else if ((c == 'p') &amp;&amp;
+            (strncmp(LangString(args[1]), "position", length) == 0)) {
+        if ((argc != 2) &amp;&amp; (argc != 4)) {
+            Tcl_AppendResult(interp, "wrong # args: should be \"",
+                    LangString(args[0]), " position ?x y?\"", NULL);
+            goto error;
+        }
+        if (argc == 4) {
+            if ((Tk_GetPixels(interp, squarePtr-&gt;tkwin, LangString(args[2]),
+                    &amp;squarePtr-&gt;x) != TCL_OK) || (Tk_GetPixels(interp,
+                    squarePtr-&gt;tkwin, LangString(args[3]), &amp;squarePtr-&gt;y) 
+                    != TCL_OK)) {
+                goto error;
+            }
+            KeepInWindow(squarePtr);
+        }
+        Tcl_IntResults(interp,2,0, squarePtr-&gt;x, squarePtr-&gt;y);
+    } else if ((c == 's') &amp;&amp;
+            (strncmp(LangString(args[1]), "size", length) == 0)) {
+        if ((argc != 2) &amp;&amp; (argc != 3)) {
+            Tcl_AppendResult(interp, "wrong # args: should be \"",
+                    LangString(args[0]), " size ?amount?\"", NULL);
+            goto error;
+        }
+        if (argc == 3) {
+            int i;
+
+            if (Tk_GetPixels(interp, squarePtr-&gt;tkwin, LangString(args[2]), 
+                    &amp;i) != TCL_OK) {
+                goto error;
+            }
+            if ((i &lt;= 0) || (i &gt; 100)) {
+                Tcl_AppendResult(interp, "bad size \"", LangString(args[2]),
+                        "\"", NULL);
+               goto error;
+            }
+            squarePtr-&gt;size = i;
+            KeepInWindow(squarePtr);
+        }
+        Tcl_IntResults(interp,1,0, squarePtr-&gt;size);
+    } else {
+        Tcl_AppendResult(interp, "bad option \"", LangString(args[1]),
+                "\": must be cget, configure, position, or size", NULL);
+        goto error;
+    }</pre></blockquote>
+
+<p>Queue a <tt class="literal">DoWhenIdle</tt> callback to display the Square
+unless an update is already pending.
+</p>
+
+<a name="INDEX-3120" /></a><blockquote><pre class="code">    if (!squarePtr-&gt;updatePending) {
+        Tcl_DoWhenIdle(SquareDisplay, (ClientData) squarePtr);
+        squarePtr-&gt;updatePending = 1;
+    }
+    Tcl_Release((ClientData) squarePtr);
+    return result;
+
+    error:
+    Tcl_Release((ClientData) squarePtr);
+    return TCL_ERROR;
+}</pre></blockquote>
+
+</div>
+
+<a name="mastperltk-CHP-21-SECT-1.3.5" /></a><div class="sect3">
+<h3 class="sect3">21.1.3.5. Tk::Square option configurator</h3>
+
+<p>Subroutine <tt class="literal">SquareConfigure</tt> handles all
+configuration requests for a Tk::Square widget:
+</p>
+
+<blockquote><pre class="code">static int
+SquareConfigure(interp, squarePtr, argc, args, flags)
+    Tcl_Interp *interp;      /* Used for error reporting. */
+    Square *squarePtr;       /* Information about widget. */
+    int argc;                /* Number of valid entries in args. */
+    Arg *args;               /* Arguments. */
+    int flags;               /* Flags to pass to
+                              * Tk_ConfigureWidget. */
+{
+    if (Tk_ConfigureWidget(interp, squarePtr-&gt;tkwin, configSpecs,
+            argc, args, (char *) squarePtr, flags) != TCL_OK) {
+        return TCL_ERROR;
+    }</pre></blockquote>
+
+<p>Set the window's background color. If double buffering, create
+a graphics context:
+</p>
+
+<blockquote><pre class="code">    Tk_SetWindowBackground(squarePtr-&gt;tkwin,
+            Tk_3DBorderColor(squarePtr-&gt;bgBorder)-&gt;pixel);
+    if ((squarePtr-&gt;gc == None) &amp;&amp; (squarePtr-&gt;doubleBuffer)) {
+        XGCValues gcValues;
+        gcValues.function = GXcopy;
+        gcValues.graphics_exposures = False;
+        squarePtr-&gt;gc = Tk_GetGC(squarePtr-&gt;tkwin,
+                GCFunction|GCGraphicsExposures, &amp;gcValues);
+    }</pre></blockquote>
+
+<p>Set the window's geometry and queue a DoWhenIdle event to
+display it:
+</p>
+
+<blockquote><pre class="code">    Tk_GeometryRequest(squarePtr-&gt;tkwin, 200, 150);
+    Tk_SetInternalBorder(squarePtr-&gt;tkwin, squarePtr-&gt;borderWidth);
+    if (!squarePtr-&gt;updatePending) {
+        Tcl_DoWhenIdle(SquareDisplay, (ClientData) squarePtr);
+        squarePtr-&gt;updatePending = 1;
+    }
+    return TCL_OK;
+}</pre></blockquote>
+
+</div>
+
+<a name="mastperltk-CHP-21-SECT-1.3.6" /></a><div class="sect3">
+<h3 class="sect3">21.1.3.6. Tk::Square event handler</h3>
+
+<p><a name="INDEX-3121" /></a><a name="INDEX-3122" /></a>Subroutine
+<tt class="literal">SquareEventProc</tt> is invoked by Tk's event
+dispatcher, based on the events selected when
+<tt class="literal">Tk_SquareCmd</tt> queued this handler. If you've
+run the square demonstration program and tried to drag the square
+outside its window, then you've noticed that you can't.
+That's because the ConfigureNotify event makes calls to
+<tt class="literal">KeepInWindow</tt>, the subroutine that enforces that
+rule.
+</p>
+
+<blockquote><pre class="code">static void
+SquareEventProc(clientData, eventPtr)
+    ClientData clientData;   /* Information about window. */
+    XEvent *eventPtr;        /* Information about event. */
+{
+    Square *squarePtr = (Square *) clientData;
+
+    if (eventPtr-&gt;type == Expose) {
+        if (!squarePtr-&gt;updatePending) {
+            Tcl_DoWhenIdle(SquareDisplay, (ClientData) squarePtr);
+            squarePtr-&gt;updatePending = 1;
+        }
+    } else if (eventPtr-&gt;type == ConfigureNotify) {
+        KeepInWindow(squarePtr);
+        if (!squarePtr-&gt;updatePending) {
+            Tcl_DoWhenIdle(SquareDisplay, (ClientData) squarePtr);
+            squarePtr-&gt;updatePending = 1;
+        }
+    } else if (eventPtr-&gt;type == DestroyNotify) {
+        if (squarePtr-&gt;tkwin != NULL) {
+            squarePtr-&gt;tkwin = NULL;
+            Lang_DeleteWidget(squarePtr-&gt;interp, squarePtr-&gt;widgetCmd);
+        }
+        if (squarePtr-&gt;updatePending) {
+            Tcl_CancelIdleCall(SquareDisplay, (ClientData) squarePtr);
+        }
+        Tcl_EventuallyFree((ClientData) squarePtr, SquareDestroy);
+    }
+}
+
+static void
+KeepInWindow(squarePtr)
+    register Square *squarePtr;         /* Pointer to widget record. */
+{
+    int i, bd;
+    bd = 0;
+    if (squarePtr-&gt;relief != TK_RELIEF_FLAT) {
+        bd = squarePtr-&gt;borderWidth;
+    }
+    i = (Tk_Width(squarePtr-&gt;tkwin) - bd) - (squarePtr-&gt;x + squarePtr-&gt;size);
+    if (i &lt; 0) {
+        squarePtr-&gt;x += i;
+    }
+    i = (Tk_Height(squarePtr-&gt;tkwin) - bd) - (squarePtr-&gt;y + squarePtr-&gt;size);
+    if (i &lt; 0) {
+        squarePtr-&gt;y += i;
+    }
+    if (squarePtr-&gt;x &lt; bd) {
+        squarePtr-&gt;x = bd;
+    }
+    if (squarePtr-&gt;y &lt; bd) {
+        squarePtr-&gt;y = bd;
+    }
+}</pre></blockquote>
+
+</div>
+
+<a name="mastperltk-CHP-21-SECT-1.3.7" /></a><div class="sect3">
+<h3 class="sect3">21.1.3.7. Tk::Square drawing handler</h3>
+
+<p><a name="INDEX-3123" /></a>Subroutine
+<tt class="literal">SquareDisplay</tt> runs as a DoWhenIdle handler. This
+is the code responsible for displaying the widget. Note that a
+Drawable is either the actual display or an off-screen pixmap.
+</p>
+
+<blockquote><pre class="code">static void
+SquareDisplay(clientData)
+    ClientData clientData;      /* Information about window. */
+{
+    Square *squarePtr = (Square *) clientData;
+    Tk_Window tkwin = squarePtr-&gt;tkwin;
+    Pixmap pm = None;
+    Drawable d;
+
+    squarePtr-&gt;updatePending = 0;
+    if (!Tk_IsMapped(tkwin)) {
+        return;
+    }</pre></blockquote>
+
+<p>If required, create the off-screen pixmap for double-buffering:</p>
+
+<blockquote><pre class="code">if (squarePtr-&gt;doubleBuffer) {
+        pm = Tk_GetPixmap(Tk_Display(tkwin), Tk_WindowId(tkwin),
+                Tk_Width(tkwin), Tk_Height(tkwin),
+                DefaultDepthOfScreen(Tk_Screen(tkwin)));
+        d = pm;
+    } else {
+        d = Tk_WindowId(tkwin);
+    }</pre></blockquote>
+
+<p>Redraw the widget's background and border, and display the
+square:
+</p>
+
+<blockquote><pre class="code">    Tk_Fill3DRectangle(tkwin, d, squarePtr-&gt;bgBorder, 0, 0, Tk_Width(tkwin),
+            Tk_Height(tkwin), squarePtr-&gt;borderWidth, squarePtr-&gt;relief);
+
+    Tk_Fill3DRectangle(tkwin, d, squarePtr-&gt;fgBorder, squarePtr-&gt;x,
+            squarePtr-&gt;y, squarePtr-&gt;size, squarePtr-&gt;size,
+            squarePtr-&gt;borderWidth, TK_RELIEF_RAISED);</pre></blockquote>
+
+<p>Copy the pixmap to the display if double buffering:</p>
+
+<blockquote><pre class="code">    if (squarePtr-&gt;doubleBuffer) {
+        XCopyArea(Tk_Display(tkwin), pm, Tk_WindowId(tkwin), squarePtr-&gt;gc,
+                0, 0, (unsigned) Tk_Width(tkwin), (unsigned) Tk_Height(tkwin),
+                0, 0);
+        Tk_FreePixmap(Tk_Display(tkwin), pm);
+    }
+}</pre></blockquote>
+
+</div>
+
+<a name="mastperltk-CHP-21-SECT-1.3.8" /></a><div class="sect3">
+<h3 class="sect3">21.1.3.8. Tk::Square destructor</h3>
+
+<p><a name="INDEX-3124" /></a>Subroutine
+<tt class="literal">SquareCmdDeletedProc</tt> is called by core Tk to
+destroy a Tk::Square widget:
+</p>
+
+<blockquote><pre class="code">static void
+SquareCmdDeletedProc(clientData)
+    ClientData clientData;    /* Pointer to widget record for widget. */
+{
+    Square *squarePtr = (Square *) clientData;
+    Tk_Window tkwin = squarePtr-&gt;tkwin;
+
+    if (tkwin != NULL) {
+        squarePtr-&gt;tkwin = NULL;
+        Tk_DestroyWindow(tkwin);
+    }
+}</pre></blockquote>
+
+<p>Subroutine <tt class="literal">SquareDestroy</tt> is called in response to
+a DestroyNotify event and frees the <tt class="literal">Square</tt>
+structure and any graphics context.
+</p>
+
+<a name="INDEX-3125" /></a><blockquote><pre class="code">static void
+SquareDestroy(memPtr)
+    char *memPtr;        /* Info about square widget. */
+{
+    Square *squarePtr = (Square *) memPtr;
+
+    Tk_FreeOptions(configSpecs, (char *) squarePtr, squarePtr-&gt;display, 0);
+    if (squarePtr-&gt;gc != None) {
+        Tk_FreeGC(squarePtr-&gt;display, squarePtr-&gt;gc);
+    }
+    ckfree((char *) squarePtr);
+}</pre></blockquote>
+
+</div>
+</div>
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch20_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch21_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">20.3. TclRobots</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">21.2. Interfacing tkSquare.c with Perl/Tk</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

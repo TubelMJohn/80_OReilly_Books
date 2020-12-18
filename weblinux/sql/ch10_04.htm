@@ -1,0 +1,464 @@
+<?label 10.4. MysqlPerl?><html><head><title>MysqlPerl (MySQL &amp; mSQL)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Randy Jay Yarger, George Reese and Tim King" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924347L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="MySQL &amp; mSQL" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="MySQL and mSQL" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch10_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">MySQL &amp; mSQL</a></td><td width="172" valign="top" align="right"><a href="ch11_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<a name="INDEX-697" /><h2 class="sect1">10.4. MysqlPerl</h2>
+
+
+
+
+
+<p>Monty <a name="INDEX-698" />Widenius, the author of MySQL, also wrote
+the Perl interface to MySQL, <em class="emphasis">Mysql.pm</em>. This was
+based on the mSQL module, <em class="emphasis">Msql.pm</em>. Thus, the
+interfaces of the two modules are almost identical. In fact, we
+recently converted an entire site from mSQL to MySQL by running
+"perl -e 's/^Msql/Mysql/" *.cgi" in every
+directory containing a CGI. This covers 95% of the work involved. Of
+course, this does not give you any of the advantages of MySQL, but it
+is a quick and easy way to start down the road to MySQL. Mysql.pm is
+maintained as part of msql-mysql-modules by Jochen Wiedmann.</p>
+
+
+
+
+
+<a name="ch10-6-fm2xml" /><blockquote><h4 class="objtitle">NOTE</h4>
+
+<p>One of the largest differences between MySQL and mSQL is the way they
+handle sequences. In mSQL, a sequence is defined on a table with a
+command like <tt class="literal">CREATE SEQUENCE on
+</tt>
+<a name="INDEX-699" /><em class="replaceable">tablename</em>.
+The sequence value is then read as if it were a normal table value
+with the command <tt class="literal">SELECT _seq from
+</tt><em class="replaceable">tablename</em>. MySQL adds the flag
+<tt class="literal">AUTO_INCREMENT</tt> to the primary key. Whenever a null
+value is inserted into this field, it is automatically incremented.
+Both MySQL and mSQL allow only one sequence per table. For a full
+discussion on sequences in MySQL and mSQL, see <a href="ch06_01.htm">Chapter 6, "SQL According to MySQL and mSQL"</a>.</p>
+</blockquote>
+
+
+
+
+
+<p>As an example of some of the features of
+<em class="emphasis">Mysql.pm</em>, let's go back to the tests
+example. Now that we have <em class="emphasis">subject.cgi</em> taken care
+of, the next step is the table of student information. The structure
+of the students table is as follows:</p>
+
+
+
+
+
+<blockquote><pre class="code">CREATE TABLE student (
+  id INT NOT NULL auto_increment,
+  first VARCHAR(50),
+  middle VARCHAR(50),
+  last VARCHAR(50),
+  ext VARCHAR(50),
+  subjects VARCHAR(100),
+  age INT,
+  sex INT,
+  address BLOB,
+  city VARCHAR(50),
+  state VARCHAR(5),
+  zip VARCHAR(10),
+  phone VARCHAR(10),
+  PRIMARY KEY (id)
+)</pre></blockquote>
+
+
+
+
+
+<p>All of the information used by the <em class="emphasis">subject.cgi</em>
+program is in this table, as well as other information pertaining to
+the student. The program that handles this table,
+<em class="emphasis">student.cgi</em> must perform all of the functions
+that <em class="emphasis">subject.cgi</em> did for the
+<tt class="literal">subject</tt> table.</p>
+
+
+
+
+
+<a name="ch10-7-fm2xml" /><blockquote><h4 class="objtitle">NOTE</h4>
+
+<p>It is not possible to access a mSQL database with the
+<em class="emphasis">Mysql.pm</em> module, or MySQL with
+<em class="emphasis">Msql.pm</em>. The <em class="emphasis">student.cgi</em>
+program expects to find a MySQL version of the subjects table.
+Likewise, the <em class="emphasis">subject.cgi</em> program expects an
+mSQL version of the students table.</p>
+</blockquote>
+
+
+
+
+
+<p>To illustrate the operation of <em class="emphasis">Mysql.pm</em>, we will
+examine in detail the portion of <em class="emphasis">student.cgi</em>
+that enables a user to change the information about a student. Just
+like the "add" action in the <em class="emphasis">Msql.pm</em>
+example was broken up into four separate functions, the
+"change" action here is separated into three individual
+functions.</p>
+
+
+
+
+
+<p>The first function, change, prints out a form that allows the user to
+search for a student to change, as shown in the following:</p>
+
+
+
+
+
+<blockquote><pre class="code">sub change {
+   print header, start_html('title'=&gt;'Student Change Search',
+      'BGCOLOR'=&gt;'white');
+   &amp;print_form('search2','Search for a Student to Change',1);
+   print &lt;&lt;END_OF_HTML;
+&lt;p&gt;
+&lt;INPUT TYPE=HIDDEN NAME="subaction" VALUE="change2"&gt;
+&lt;INPUT TYPE=SUBMIT VALUE=" Search for Students "&gt;
+ &lt;INPUT TYPE=SUBMIT NAME="all" VALUE=" View all Students "&gt;
+ &lt;INPUT TYPE=RESET&gt;
+&lt;/form&gt;&lt;/body&gt;&lt;/html&gt;
+END_OF_HTML
+}</pre></blockquote>
+
+
+
+
+
+<p>The form used for searching for a student to "change" is
+so similar to the form used to searching for a student to
+"view" and the one to "add" a student that a
+single function, <tt class="literal">print_form</tt>, is used for all three
+purposes, as shown in the following:</p>
+
+
+
+
+
+<blockquote><pre class="code">sub print_form {
+   my ($action,$message,$any) = @_;
+
+   print &lt;&lt;END_OF_HTML;
+&lt;FORM METHOD=post ACTION="students.cgi"&gt;
+&lt;INPUT TYPE=HIDDEN NAME="action" VALUE="$action"&gt;
+&lt;H1&gt;$message&lt;/h1&gt;
+END_OF_HTML
+   if ($any) {
+      print &lt;&lt;END_OF_HTML;
+&lt;p&gt;Search for &lt;SELECT NAME="bool"&gt;
+&lt;OPTION VALUE="or"&gt;any
+&lt;OPTION VALUE="and"&gt;all
+&lt;/select&gt; of your choices.
+END_OF_HTML
+   }
+   print &lt;&lt;END_OF_HTML;
+&lt;p&gt;
+First: &lt;INPUT NAME="first" SIZE=20&gt;
+ Middle: &lt;INPUT NAME="middle" SIZE=10&gt;
+ Last: &lt;INPUT NAME="last" SIZE=20&gt;
+ Jr./III/etc.: &lt;INPUT NAME="ext" SIZE=5&gt;
+&lt;br&gt;
+Address: &lt;INPUT NAME="address" SIZE=40&gt;&lt;br&gt;
+City: &lt;INPUT NAME="city" SIZE=20&gt; 
+ State: &lt;INPUT NAME="state" SIZE=5&gt;
+ ZIP: &lt;INPUT NAME="zip" SIZE=10&gt;&lt;br&gt;
+Phone: &lt;INPUT NAME="phone" SIZE=15&gt;&lt;br&gt;
+Age: &lt;INPUT NAME="age" SIZE=5&gt; Sex: &lt;SELECT NAME="sex"&gt;
+END_OF_HTML
+   if ($any) {
+      print &lt;&lt;END_OF_HTML;
+&lt;OPTION VALUE=""&gt;Doesn't Matter
+END_OF_HTML
+   }
+   print &lt;&lt;END_OF_HTML;
+&lt;OPTION VALUE="1"&gt;Male
+&lt;OPTION VALUE="2"&gt;Female
+&lt;/select&gt;&lt;br&gt;
+&lt;p&gt;
+Enrolled in:&lt;br&gt;
+END_OF_HTML
+   &amp;print_subjects("MULTIPLE SIZE=5");
+
+}</pre></blockquote>
+
+
+
+
+
+<p>By using three parameters, this function customizes a form template
+so that it can be used for several very different purposes. Notice
+that this helper function calls another helper function,
+<tt class="literal">print_subjects</tt>. This function queries the
+<tt class="literal">subject</tt> table as seen in the
+<em class="emphasis">Msql.pm</em> example and prints out a list of all of
+the available subjects.</p>
+
+
+
+
+
+<blockquote><pre class="code">sub print_subjects {
+   my $modifier = "";
+   $modifier = shift if @_;
+   print qq%&lt;SELECT NAME="subjects" $modifier&gt;\n%;
+   my $out = $dbh-&gt;query("select * from subject order by name");
+   while(my(%keys)=$out-&gt;fetchhash) {
+      print qq%&lt;OPTION VALUE="$keys{'id'}"&gt;$keys{'name'}\n%;
+   }
+   print "&lt;/select&gt;\n";
+}</pre></blockquote>
+
+
+
+
+
+<p>The search parameters entered in this first form are then sent to the
+<tt class="literal">search2</tt> function, which actually performs the
+search. This is actually the function written to search for a student
+to view. Since its function is exactly what we need, we can
+piggy-back off of it as long as we tell it that we want to go to the
+next change function, <tt class="literal">change2</tt>, after the search.
+That is why we have the hidden variable
+<tt class="literal">subaction=change2</tt> in the form. It tells
+<tt class="literal">search2</tt>, as shown in the following, where to send
+the user next:</p>
+
+
+
+
+
+<blockquote><pre class="code">sub search2 {
+   my $out = $dbh-&gt;query(&amp;make_search_query);
+   my $hits = $out-&gt;numrows;
+   my $subaction = "view";
+   $subaction = param('subaction') if param('subaction');
+   print header, start_html('title'=&gt;'Student Search Result',
+      'BGCOLOR'=&gt;'white');
+
+   if (not $hits) {
+      print &lt;&lt;END_OF_HTML;
+&lt;H1&gt;No students found&lt;/h1&gt;
+&lt;p&gt;
+No students matched your criteria.
+END_OF_HTML
+   } else {
+      print &lt;&lt;END_OF_HTML;
+&lt;H1&gt;$hits students found&lt;/h1&gt;
+&lt;p&gt;
+&lt;UL&gt;
+END_OF_HTML
+      while(my(%fields)=$out-&gt;fetchhash) {
+         print qq%&lt;LI&gt;
+&lt;A HREF="students.cgi?action=$subaction&amp;id=$fields{'id'}"&gt;$fields{'first'}
+ $fields{'middle'} $fields{'last'}%;
+         print ", $fields{'ext'}" if $fields{'ext'};
+         print "\n&lt;/a&gt;";
+      }
+   }
+   print &lt;&lt;END_OF_HTML;
+&lt;/ul&gt;
+&lt;p&gt;
+&lt;A HREF="students.cgi?action=search"&gt;Search&lt;/a&gt; again.
+&lt;/body&gt;&lt;/html&gt;
+END_OF_HTML
+}</pre></blockquote>
+
+
+
+
+
+<p>With help from the <tt class="literal">make_search_query</tt> function,
+this function first searches for students that match the search term.
+It then displays a list of the matches from which the user can
+select. The ID number of the selected entry is then sent to the
+<tt class="literal">change2</tt> function, as shown in the following:</p>
+
+
+
+
+
+<blockquote><pre class="code">sub change2 {
+      my $out = $dbh-&gt;query("select * from student where id=$id");
+        
+      my($did,$first,$middle,$last,$ext,$subjects,$age,$sex,$address,
+         $city,$state,$zip,$phone) = $out-&gt;fetchrow;
+
+      my @subjects = split(/:/,$subjects);
+      shift @subjects;
+      my $name = "$first $middle $last";
+      if ($ext) { $name .= ", $ext"; }
+
+      print header, start_html('title'=&gt;"$name",'BGCOLOR'=&gt;'white');
+      print &lt;&lt;END_OF_HTML;
+&lt;H1&gt;$name&lt;/h1&gt;
+&lt;p&gt;
+&lt;FORM ACTION="students.cgi" METHOD=POST&gt;
+&lt;INPUT TYPE=HIDDEN NAME="action" VALUE="change3"&gt;
+&lt;INPUT TYPE=HIDDEN NAME="id" VALUE="$id"&gt;
+First: &lt;INPUT NAME="first" VALUE="$first" SIZE=20&gt;
+Middle: &lt;INPUT NAME="middle" VALUE="$middle" SIZE=10&gt;
+Last: &lt;INPUT NAME="last" VALUE="$last" SIZE=20&gt;
+Jr./III/etc.: &lt;INPUT NAME="ext" VALUE="$ext" SIZE=5&gt;
+&lt;br&gt;
+Address: &lt;INPUT NAME="address" VALUE="$address" SIZE=40&gt;&lt;br&gt;
+City: &lt;INPUT NAME="city" VALUE="$city" SIZE=20&gt; 
+State: &lt;INPUT NAME="state" VALUE="$state" SIZE=5&gt;
+ZIP: &lt;INPUT NAME="zip" VALUE="$zip" SIZE=10&gt;&lt;br&gt;
+Phone: &lt;INPUT NAME="phone" VALUE="$phone" SIZE=15&gt;&lt;br&gt;
+Age: &lt;INPUT NAME="age" VALUE="$age" SIZE=5&gt; Sex: 
+END_OF_HTML
+      my %sexes = ( '1' =&gt; 'Male',
+         '2' =&gt; 'Female'
+      );
+      print popup_menu('name'=&gt;'sex',
+         'values'=&gt;['1','2'],
+         'default'=&gt;"$sex",
+         'labels'=&gt;\%sexes);
+      print &lt;&lt;END_OF_HTML;
+&lt;p&gt;
+Enrolled in:&lt;br&gt;
+END_OF_HTML
+      my @ids = ();
+      my %subjects = ();
+      my $out2 = $dbh-&gt;query("select id,name from subject order by name");
+      while(my($id,$subject)=$out2-&gt;fetchrow) { 
+         push(@ids,$id); 
+         $subjects{"$id"} = $subject;
+      }
+      print scrolling_list('name'=&gt;'subjects',
+         'values'=&gt;[@ids],
+         'default'=&gt;[@subjects],
+         'size'=&gt;5,
+         'multiple'=&gt;'true',
+         'labels'=&gt;\%subjects);
+      print &lt;&lt;END_OF_HTML;
+&lt;p&gt;
+&lt;INPUT TYPE=SUBMIT VALUE=" Change Student "&gt;
+ &lt;INPUT TYPE=SUBMIT NAME="delete" VALUE=" Delete Student "&gt;
+ &lt;INPUT TYPE=RESET&gt;
+&lt;/form&gt;&lt;/body&gt;&lt;/html&gt;
+END_OF_HTML
+}</pre></blockquote>
+
+
+
+
+
+<p>The primary purpose of this function is to print out a form very
+similar to the one generated from <tt class="literal">print_from</tt>.
+However, the values of this form must have the values of the chosen
+student preinserted as default values. This way, the user can edit
+whichever fields of the student he or she wishes without changing the
+rest.</p>
+
+
+
+
+
+<p>A couple of functions provided by the
+<em class="emphasis">CGI.pm</em>
+<a name="INDEX-700" /> module come in very handy when printing
+form with default values. Most importantly, the function
+<tt class="literal">CGI::scrolling_list</tt> prints out an HTML
+<tt class="literal">&lt;SELECT&gt;</tt> block with the parameters you
+provide. Among other parameters, the function takes the parameters
+<tt class="literal">values</tt>, <tt class="literal">default</tt>, and
+<tt class="literal">labels</tt> which are references to the values of each
+<tt class="literal">&lt;OPTION&gt;</tt> tag, the ones which should be
+preselected and the labels that user sees respectively.</p>
+
+
+
+
+
+<p>The output of this function is a complete set of information, just as
+if it were coming from an add form. The difference is that the data
+is for a student which already exists in the database. The
+<tt class="literal">change3</tt> function accepts this data and updates the
+student, as shown in the following:</p>
+
+
+
+
+
+<blockquote><pre class="code">sub change3 {
+   if (param('delete')) { &amp;delete2($id); }
+   else {
+      my $query = "update student set ";
+      my @query = ();
+      foreach ('first', 'middle', 'last', 'ext', 'address', 'city',
+         'state', 'zip', 'phone') {
+         if (param($_)) { push(@query,"$_ = ". 
+            $dbh-&gt;quote(param($_))); 
+         }
+      }
+      push(@query,"age=".param('age')) if param('age');
+      push(@query,"sex=".param('sex')) if param('sex');
+        
+      my $subjects = "':";
+      $subjects .= join(":",param('subjects'));
+      $subjects .= ":" unless $subjects eq "':";
+      $subjects .= "'";
+      push(@query,"subjects=$subjects");
+
+      $query .= join(", ",@query) . " where id=$id";
+      $dbh-&gt;query($query);
+
+      print header, start_html('title'=&gt;'Student Changed',
+         'BGCOLOR'=&gt;'white');
+      # Print success form
+      ...   
+   }
+}</pre></blockquote>
+
+
+
+
+
+<p>Note that if the user chose the "Delete" button on the
+change page, this function automatically passes the ball to the
+delete function. This is one major advantage of integrating several
+functions into one program. If no user interaction is required, you
+can skip from function to function without sending redirect messages
+to the user.<a name="INDEX-701" /></p>
+
+
+
+
+
+<p>The rest of this function is fairly straightforward. The information
+about the student is gathered into an
+<tt class="literal">UPDATE</tt>
+<a name="INDEX-702" /> query, which is sent to the MySQL
+server. A success page is then sent to the user.</p>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch10_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch11_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">10.3. Msql.pm</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">11. Python</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

@@ -1,0 +1,140 @@
+<html><head><title>A Drawing Program Example (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch09_20.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch10_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">9.21. A Drawing Program Example</h2>
+
+<p>The Canvas widget is very versatile and can be useful for displaying
+different types of items. One of the first things that comes to mind
+when people think of a Canvas is a drawing program. To save you the
+trouble, here is a rudimentary drawing program called Quick Draw you
+can use to draw rectangles, ovals, and lines. You can also change the
+thickness of the objects before you draw them. It requires only a
+tiny bit of error-checking to make it a slicker program. Here's
+the code:
+</p>
+
+<blockquote><pre class="code">use Tk;
+
+$mw = MainWindow-&gt;new;
+$mw-&gt;title("Quick Draw");
+
+$f = $mw-&gt;Frame(-relief =&gt; 'groove', 
+                -bd =&gt; 2, 
+                -label =&gt; "Draw:")-&gt;pack(-side =&gt; 'left', -fill =&gt; 'y');
+$draw_item = "rectangle";
+$f-&gt;Radiobutton(-variable =&gt; \$draw_item,
+                -text =&gt; "Rectangle",
+                -value =&gt; "rectangle",
+                -command =&gt; \&amp;bind_start)-&gt;pack(-anchor =&gt; 'w');
+$f-&gt;Radiobutton(-variable =&gt; \$draw_item,
+                -text =&gt; "Oval",
+                -value =&gt; "oval",
+                -command =&gt; \&amp;bind_start)-&gt;pack(-anchor =&gt; 'w');
+$f-&gt;Radiobutton(-variable =&gt; \$draw_item,
+                -text =&gt; "Line",
+                -value =&gt; "line",
+                -command =&gt; \&amp;bind_start)-&gt;pack(-anchor =&gt; 'w');
+$f-&gt;Label(-text =&gt; "Line Width:")-&gt;pack(-anchor =&gt; 'w');
+$thickness = 1;
+$f-&gt;Entry(-textvariable =&gt; \$thickness)-&gt;pack(-anchor =&gt; 'w');
+
+$c = $mw-&gt;Scrolled("Canvas", -cursor =&gt; "crosshair")-&gt;pack(
+              -side =&gt; "left", -fill =&gt; 'both', -expand =&gt; 1);
+$canvas = $c-&gt;Subwidget("canvas");
+
+&amp;bind_start( );
+
+MainLoop;
+
+sub bind_start {
+  # If there is a "Motion" binding, we need to allow the user
+  # to finish drawing the item before rebinding Button-1
+  # this fcn gets called when the finish drawing the item again
+  @bindings = $canvas-&gt;bind("&lt;Motion&gt;");
+  return if ($#bindings &gt;= 0);
+    
+  if ($draw_item eq "rectangle"||$draw_item eq "oval"||$draw_item eq "line") {
+    $canvas-&gt;bind("&lt;Button-1&gt;", [\&amp;start_drawing, Ev('x'), Ev('y')]);
+  }
+}
+
+sub start_drawing {
+  my ($canv, $x, $y) = @_;
+  $x = $canv-&gt;canvasx($x);
+  $y = $canv-&gt;canvasy($y);
+  
+  # Do a little error checking
+  $thickness = 1 if ($thickness !~ /[0-9]+/);
+
+  if ($draw_item eq "rectangle") {
+    $canvas-&gt;createRectangle($x, $y, $x, $y, 
+       -width =&gt; $thickness, -tags =&gt; "drawmenow");
+  } elsif ($draw_item eq "oval") {
+    $canvas-&gt;createOval($x, $y, $x, $y,
+       -width =&gt; $thickness, -tags =&gt; "drawmenow");
+  } elsif ($draw_item eq "line") {
+    $canvas-&gt;createLine($x, $y, $x, $y, 
+       -width =&gt; $thickness, -tags =&gt; "drawmenow");
+  }
+  
+  $startx = $x; $starty = $y;
+  # Map the Button-1 binding to &amp;end_drawing instead of start drawing
+  $canvas-&gt;bind("&lt;Motion&gt;", [\&amp;size_item, Ev('x'), Ev('y')]);
+  $canvas-&gt;bind("&lt;Button-1&gt;", [\&amp;end_drawing, Ev('x'), Ev('y')]);
+}
+
+sub size_item {
+  my ($canv, $x, $y) = @_;
+  $x = $canv-&gt;canvasx($x);
+  $y = $canv-&gt;canvasy($y);
+
+  $canvas-&gt;coords("drawmenow", $startx, $starty, $x, $y);
+}
+
+sub end_drawing {
+  my ($canv, $x, $y) = @_;
+  $x = $canv-&gt;canvasx($x);
+  $y = $canv-&gt;canvasy($y);
+
+  # finalize the size of the item, and remove the tag from the item
+  $canvas-&gt;coords("drawmenow", $startx, $starty, $x, $y);
+  $canvas-&gt;dtag("drawmenow");
+  
+  # remove motion binding.
+  $canvas-&gt;CanvasBind("&lt;Motion&gt;", "");
+  &amp;bind_start( );
+}</pre></blockquote>
+
+<p>Note that we didn't set the <tt class="literal">-scrollregion</tt> at
+all, so as to create a limitless drawing space for the user. (This
+was the easiest way to provide this functionality: do nothing!)
+It's a cute little program that demonstrates how to use
+<tt class="literal">bind</tt> and a few of the Canvas methods. <a href="ch09_21.htm#mastperltk-CHP-9-FIG-8">Figure 9-8</a> shows a screenshot of the application after a
+few items have been drawn on it.<a name="INDEX-1504" /><a name="INDEX-1505" /><a name="INDEX-1506" /> 
+</p>
+
+<a name="mastperltk-CHP-9-FIG-8" /><div class="figure"><img src="figs/mptk.0908.gif" alt="Figure 9-8" width="399" height="314" /></div><h4 class="objtitle">Figure 9-8. Quick Draw application screen</h4>
+
+
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch09_20.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch10_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">9.20. Scanning</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">10. The Scale Widget</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

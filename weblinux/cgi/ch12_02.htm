@@ -1,0 +1,320 @@
+<?label 12.2. Searching One by One, Take Two?><html><head><title>Searching One by One, Take Two (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch12_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch12_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">12.2. Searching One by One, Take Two</h2>
+
+
+<p>The search engine we will create in this <a name="INDEX-2366" /> <a name="INDEX-2,367" />
+<a name="INDEX-2368" /> <a name="INDEX-2,369" />section is much improved. It no longer
+depends on <tt class="command">fgrep</tt> to carry out the search, which
+also means that we no longer have to use the shell. And thus, we will
+not run into an internal glob limit.</p>
+
+
+<p>In addition, this application returns the matched content and
+highlights the query, which makes it much more useful as well.</p>
+
+
+<p>How does it work? It creates a list of all the HTML files in the
+specified directory using Perl's own functions, and then
+iterates over each file searching for a line that contains a match
+for the query. All matches are stored in an array and are later
+converted to HTML.</p>
+
+
+<p><a href="ch12_02.htm#ch12-33630">Example 12-2</a> contains the new program.</p>
+
+
+
+<a name="ch12-33630" /><div class="example">
+<h4 class="objtitle">Example 12-2. grep_search2.cgi </h4>
+<a name="INDEX-2370" /><a name="INDEX-2,371" />
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use CGI;
+use CGIBook::Error;
+
+my $DOCUMENT_ROOT = $ENV{DOCUMENT_ROOT};
+my $VIRTUAL_PATH  = "";
+
+my $q           = new CGI;
+my $query       = $q-&gt;param( "query" );
+
+if ( defined $query and length $query ) {
+    error( $q, "Please specify a valid query!" );
+}
+
+$query = quotemeta( $query );
+my $results = search( $q, $query );
+
+print $q-&gt;header( "text/html" ),
+      $q-&gt;start_html( "Simple Perl Search" ),
+      $q-&gt;h1( "Search for: $query" ),
+      $q-&gt;ul( $results || "No matches found" ),
+      $q-&gt;end_html;
+
+
+sub search {
+    my( $q, $query ) = @_;
+    my( %matches, @files, @sorted_paths, $results );
+    
+    local( *DIR, *FILE );
+    
+    opendir DIR, $DOCUMENT_ROOT or
+        error( $q, "Cannot access search dir!" );
+        
+    @files = grep { -T "$DOCUMENT_ROOT/$_" } readdir DIR;
+    close DIR;
+    
+    foreach ( @files ) {
+        my $full_path = "$DOCUMENT_ROOT/$_";
+        
+        open FILE, $full_path or
+            error( $q, "Cannot process $file!" );
+        
+        while ( &lt;FILE&gt; ) {
+            if ( /$query/io ) {
+                $_ = html_escape( $_ );
+                s|$query|&lt;B&gt;$query&lt;/B&gt;|gio;
+                push @{ $matches{$full_path}{content} }, $_;
+                $matches{$full_path}{file} = $file;
+                $matches{$full_path}{num_matches}++;
+            }
+        }
+        close FILE;
+    }
+    
+    @sorted_paths = sort {
+                        $matches{$b}{num_matches} &lt;=&gt;
+                        $matches{$a}{num_matches} ||
+                        $a cmp $b
+                    } keys %matches;
+    
+    foreach $full_path ( @sorted_paths ) {
+        my $file        = $matches{$full_path}{file};
+        my $num_matches = $matches{$full_path}{num_matches};
+        
+        my $link = $q-&gt;a( { -href =&gt; "$VIRTUAL_PATH/$file" }, $file );
+        my $content = join $q-&gt;br, @{ $matches{$full_path}{content} };
+        
+        $results .= $q-&gt;p( $q-&gt;b( $link ) . " ($num_matches matches)" .
+                           $q-&gt;br . $content
+                    );
+    }
+    
+    return $results;
+}
+
+
+sub html_escape {
+    my( $text ) = @_;
+    
+    $text =~ s/&amp;/&amp;amp;/g;
+    $text =~ s/&lt;/&amp;lt;/g;
+    $text =~ s/&gt;/&amp;gt;/g;
+}<a name="INDEX-2372" />
+<a name="INDEX-2373" /></pre></blockquote>
+</div>
+
+
+<p>This program starts out like our previous example. Since we are
+searching for the query without exposing it to the shell, we no
+longer have to strip out any characters from the query. Instead we
+escape any characters that may be interpreted in a regular expression
+by calling <a name="INDEX-2374" />
+<a name="INDEX-2375" />Perl's
+<tt class="function">quotemeta</tt> function.</p>
+
+
+<p>The
+<tt class="function">opendir</tt>
+<a name="INDEX-2376" />
+<a name="INDEX-2377" /> function opens the specified
+directory and returns a handle that we can use to get a list of all
+the files in that directory. It's a waste of time to search
+through <a name="INDEX-2378" />
+<a name="INDEX-2379" /> <a name="INDEX-2,380" />binary files, such as sounds and
+images, so we use Perl's <tt class="function">grep</tt> function
+(not to be confused with the Unix <tt class="command">grep</tt> and
+<tt class="command">fgrep</tt> applications) to filter them out.</p>
+
+
+<p>In this context, the <tt class="command">grep</tt> function iterates over a
+list of filenames returned by <tt class="function">readdir
+</tt> -- setting <tt class="literal">$_</tt> for each
+element -- and evaluates the expression specified within the
+braces, returning only the elements for which the expression is true.</p>
+
+
+<p>We are using <tt class="function">readdir</tt> in an array context so that
+we can pass the list of all files in the directory to
+<tt class="function">grep</tt> for processing. But there is a problem with
+this approach. The <tt class="function">readdir</tt> function simply
+returns the name of the file and not the full path, which means that
+we have to construct a full path before we can pass it to the
+<tt class="function">-T</tt>
+<a name="INDEX-2381" /> <a name="INDEX-2,382" />
+<a name="INDEX-2383" /> operator. We use the
+<tt class="literal">$DOCUMENT_ROOT</tt>
+<a name="INDEX-2384" /> variable to create the full
+path to the file.</p>
+
+
+<p>The <tt class="function">-T</tt> operator returns true if the file is a
+text file. After <tt class="function">grep</tt> finishes processing all
+the files, <tt class="literal">@files</tt> will contain a list of all the
+text files.</p>
+
+
+<p>We iterate through the <tt class="literal">@files</tt> array, setting
+<tt class="literal">$file</tt> to the current value each time through the
+loop. We proceed to open the file, making sure to return an error if
+we cannot open it, and iterate through it one line at a time.</p>
+
+
+<p>The <tt class="literal">%matches</tt> hash contains three elements:
+<em class="emphasis">file</em> to store the name of the file,
+<em class="emphasis">num_matches</em> to store the number of matches, and
+a <em class="emphasis">content</em> array to hold all the lines containing
+matches. We need the filename for output purposes.</p>
+
+
+<p>We use a simple case-insensitive
+<a name="INDEX-2385" />regex to search for the query. The
+<tt class="literal">o</tt> option compiles the regex only once, which
+greatly improves the speed of the search. Note that this will cause
+problems for scripts running under <em class="emphasis">mod_perl</em> or
+FastCGI, which we'll discuss later in <a href="ch17_01.htm">Chapter 17, "Efficiency and Optimization"</a>.</p>
+
+
+<p>If the line contains a match, we escape characters that could be
+mistaken for HTML tags. We then bold the matched text, increment the
+match counter by the number of matches, and push that line onto that
+file's content array.</p>
+
+
+<p>After we have finished looking through the files, we sort the results
+by the number of matches found in decreasing order and then
+alphabetically by path for those who have the same number of matches.</p>
+
+
+<p>To generate our results, we walk through our sorted list. For each
+file, we create a link and display the number of matches and all the
+lines that matched the query. Since the content exists as individual
+elements in an array, we <em class="emphasis">join</em> all the elements
+together into one large string delimited by an HTML break tag.</p>
+
+
+<p>Now, let us improve on this application a bit by allowing users to
+specify regular expression searches. We will not present the entire
+application, since it is very similar to the one we have just
+covered.</p>
+
+
+<a name="ch12-1-fm2xml" /><div class="sect2">
+<h3 class="sect2">12.2.1. Regex-Based Search Engine</h3>
+
+
+<p>By allowing users to <a name="INDEX-2386" /> <a name="INDEX-2,387" />specify
+regular expressions in their search, we make the search engine much
+more powerful. For example, a user who wants to search for the recipe
+for Zwetschgendatschi (a Bavarian plum cake) from your online
+collection, but is not sure of the exact spelling, could simply enter
+<em class="emphasis">Zwet.+?chi</em> to find it.</p>
+
+
+<p>In order to implement this functionality, we have to add several
+pieces to the search engine.</p>
+
+
+<p>First, we need to modify the <a name="INDEX-2388" />HTML file to provide an option for
+the user to turn the functionality on or off:</p>
+
+
+<blockquote><pre class="code">Regex Searching: 
+    &lt;INPUT TYPE="radio" NAME="regex" VALUE="on"&gt;On
+    &lt;INPUT TYPE="radio" NAME="regex" VALUE="off" CHECKED&gt;Off</pre></blockquote>
+
+
+<p>Then, we need to check for this value in the application and act
+accordingly. Here is the beginning of the new search script:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+
+my $q     = new CGI;
+my $regex = $q-&gt;param( "regex" );
+my $query = $q-&gt;param( "query" );
+
+unless ( defined $query and length $query ) {
+    error( $q, "Please specify a query!" );
+}
+
+if ( $regex eq "on" ) {
+    eval { /$query/o };
+    error( $q, "Invalid Regex") if $@;
+}
+else {
+    $query = quotemeta $query;
+}
+
+my $results = search( $q, $query );
+
+print $q-&gt;header( "text/html" ),
+      $q-&gt;start_html( "Simple Perl Regex Search" ),
+      $q-&gt;h1( "Search for: $query" ),
+      $q-&gt;ul( $results || "No matches found" ),
+      $q-&gt;end_html;
+.
+.</pre></blockquote>
+
+
+<p>The rest of the code remains the same. What we are doing differently
+here is checking if the user chose the "regex" option and
+if so, evaluating the user-specified regex at runtime using the
+<tt class="function">eval</tt>
+<a name="INDEX-2389" />
+<a name="INDEX-2390" /> function. We can check
+to see whether the regex is invalid by looking at the value stored in
+<tt class="literal">$@</tt>. Perl sets this variable if there is an error
+in the evaluated code. If the regex is valid, we can go ahead and use
+it directly, without quoting the specified metacharacters. If the
+"regex" option was not requested, we perform the search
+as before.</p>
+
+
+<p>As you can see, both of these applications are much improved over the
+first one, but neither one of them is perfect. Since both of them are
+based on a linear search algorithm, the search process will be slow
+when dealing with directories that contain many files. They also
+search only one directory. They could be modified to recurse down
+through subdirectories, but that would decrease the performance even
+more. In the next section, we will look at an index-based approach
+that calls for creating a dictionary of relevant words in advance,
+and then searching it rather than the <a name="INDEX-2391" /> <a name="INDEX-2,392" /> <a name="INDEX-2,393" /> <a name="INDEX-2,394" />actual files.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch12_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch12_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">12. Searching the Web Server</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">12.3. Inverted Index Search</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

@@ -1,0 +1,266 @@
+<?label 6.2. Handling LONG/LOB Data ?><html><head><title>Handling LONG/LOB Data  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch06_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">6.2. Handling LONG/LOB Data </h2>
+
+
+
+<p>The <a name="INDEX-780" /> <a name="INDEX-781" />
+<a name="INDEX-782" /> <a name="INDEX-783" />DBI requires some additional
+information to allow you to query back LONG/LOB (long/large object)
+datatypes from a database. As we discussed earlier in the section on
+the <tt class="literal">LongReadLen</tt> and
+<tt class="literal">LongTruncLen</tt> attributes, the DBI is unable to
+determine how large a buffer to allocate when fetching columns
+containing LOB data. Therefore, we cannot simply issue a
+<tt class="literal">SELECT</tt> statement and expect it to work.</p>
+
+
+
+<p>Selecting LOB data is straightforward and essentially identical to
+selecting any other column of another datatype, with the important
+exception that you should set at least the
+<tt class="literal">LongReadLen</tt>
+<a name="INDEX-784" />
+attribute value prior to preparing the statement that will return the
+LOB. For example:</p>
+
+
+
+<blockquote><pre class="code">### We're not expecting binary data of more than 512 KB...
+$dbh-&gt;{LongReadLen} = 512 * 1024;
+
+### Select the raw media data from the database
+$sth = $dbh-&gt;prepare( "
+            SELECT mega.name, med.media_data
+            FROM megaliths mega, media med
+            WHERE mega.id = med.megaliths_id
+       " );
+$sth-&gt;execute();
+while ( ($name, $data) = $sth-&gt;fetchrow_array ) {
+    ...
+}</pre></blockquote>
+
+
+
+<p>Without the all-important setting of <tt class="literal">LongReadLen</tt>,
+the
+<tt class="literal">fetchrow_array()</tt>
+<a name="INDEX-785" />
+<a name="INDEX-786" />
+call would likely fail when fetching the first row, because the
+default value for <tt class="literal">LongReadLen</tt> is very
+small -- typically 80 or less.</p>
+
+
+
+<p>What happens if there's a rogue column in the database that is
+longer than <tt class="literal">LongReadLen</tt>? How would the code in the
+previous example cope? What would happen?</p>
+
+
+
+<p>When the length of the fetched LOB data exceeds the value of
+<tt class="literal">LongReadLen</tt>, an error occurs
+<em class="emphasis">unless</em> you have set the
+<tt class="literal">LongTruncOk</tt>
+<a name="INDEX-787" />
+attribute to a true value. The DBI defaults
+<tt class="literal">LongTruncOk</tt> to false to ensure that accidental
+truncation is an error.</p>
+
+
+
+<p>But there's a potential problem here if
+<tt class="literal">RaiseError</tt>
+<a name="INDEX-788" /> <a name="INDEX-789" />
+is not enabled. How does the snippet of code above behave if it tries
+to fetch a row with a LOB field that exceeds the value of
+<tt class="literal">LongReadLen</tt>? The
+<tt class="literal">fetchrow_array()</tt> returns an empty list if
+there's an error when trying to fetch a row. But
+<tt class="literal">fetchrow_array()</tt> also returns an empty list when
+there's no more data to fetch. The <tt class="literal">while</tt>
+loop will simply end and any code following it will be executed. If
+the loop should have fetched 50 records it might stop after 45 if the
+46th record was too big. Without error checking, you may never
+realize that you're missing some rows! The same applies to
+loops using other <tt class="literal">fetchrow</tt> methods such as
+<tt class="literal">fetchrow_hashref()</tt>.</p>
+
+
+
+<p>Few people remember to check for errors after
+<a name="INDEX-790" />fetch loops and
+that's a common cause of problems with code that handles
+LONG/LOB fields. Even when not handling special datatypes it's
+<em class="emphasis">always</em> a good idea to check for errors after
+fetch loops, or let the DBI do it for you by enabling
+<tt class="literal">RaiseError</tt>, as we discussed in <a href="ch04_01.htm">Chapter 4, "Programming with the DBI "</a>.</p>
+
+
+
+<p>Getting back to our little snippet of code, let's assume that
+we <em class="emphasis">are</em> happy for values longer than
+<tt class="literal">LongReadLen</tt> to be silently truncated without
+causing an error. The following code stub would correctly handle this
+eventuality:</p>
+
+
+
+<blockquote><pre class="code">### We are interested in the first 512 KB of data
+$dbh-&gt;{LongReadLen} = 512 * 1024;
+$dbh-&gt;{LongTruncOk} = 1;    ### We're happy to truncate any excess
+
+### Select the raw media data from the database
+$sth = $dbh-&gt;prepare( "
+            SELECT mega.name, med.media_data
+            FROM megaliths mega, media med
+            WHERE mega.id = med.megaliths_id
+          " );
+$sth-&gt;execute();
+while ( ($name, $data) = $sth-&gt;fetchrow_arrayref ) {
+    ...
+}</pre></blockquote>
+
+
+
+<p>The only change, apart from comments, is the addition of a line
+setting the <tt class="literal">LongTruncOk</tt> attribute to a true value.</p>
+
+
+
+<p>The ability to <a name="INDEX-791" />
+<a name="INDEX-792" /> <a name="INDEX-793" />truncate LOB data when overly large is
+quite useful for text and some forms of binary data, but not for
+others. Storing streaming media that is interpreted on a temporal
+basis doesn't unduly suffer from being truncated, as you will
+be able to view or listen to the stream up until the point of
+truncation. However, binary files such as ZIP files that store a
+checksum at the very end will be rendered useless when truncated.
+With this sort of data, it's not recommended that
+<tt class="literal">LongTruncOk</tt> be enabled, as it will allow
+truncated, and hence corrupted, data to be returned with no
+indication that there's a problem. In that situation, you
+won't be able to determine whether or not the column contains
+corrupted data, or if the column has been chopped by DBI. Caveat
+emptor!</p>
+
+
+
+<p>One thing to be aware of when writing portable code to fetch LOB data
+from a database is that the format of that data may vary on a
+per-database and datatype basis. For example, in Oracle, a column
+with a LONG RAW datatype, rather than a simple LONG type, is passed
+to and from the database encoded as a pair of hexadecimal digits for
+each byte. So after fetching the hex string, you'd need to
+decode it using <tt class="literal">unpack("H*",...)</tt> to get the
+original binary value. For historical reasons, for these datatypes,
+the <tt class="literal">LongReadLen</tt> attribute refers to the length of
+the binary data, so hex-encoded strings up to twice that length may
+be 
+<a name="INDEX-794" />fetched.</p>
+
+
+
+<p>The DBI currently defines
+<a name="INDEX-795" />no
+way to fetch LONG/LOB values <em class="emphasis">piece-wise</em>, in
+other words, piece-by-piece. That means you're limited to
+fetching values that will fit into your available memory. It also
+means you can't <em class="emphasis">stream</em> the data out while
+still fetching it from the database. Some drivers do implement an
+unofficial <tt class="literal">blob_read()</tt> method, so take a look at
+your driver documentation if you need piece-wise fetches.</p>
+
+
+
+<a name="ch06-8-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.2.1. Inserting and Updating LONG/LOB Columns </h3>
+
+
+
+<p>Some databases let you insert into LONG/LOB columns using SQL
+statements with literal strings, like this:</p>
+
+
+
+<blockquote><pre class="code">INSERT INTO table_name (key_num, long_description) VALUES (42, '...')</pre></blockquote>
+
+
+
+<p>Ignoring portability for the moment, that's fine for simple
+short textual strings, but soon runs into problems for anything else.
+Firstly, most databases have a limit on the maximum length of an SQL
+statement, and it's usually far shorter than the maximum length
+of a LONG/LOB column. Secondly, most databases have limits on which
+characters can be included in literal strings. The DBD driver's
+<tt class="literal">quote()</tt> method will do its best, but it's
+often not possible to put all possible binary data values into a
+string. Finally, coming back to portability, many databases are
+strict about data typing and just don't let you assign literal
+strings to LONG/LOB columns.</p>
+
+
+
+<p>So how do we avoid these problems? Here's
+<a name="INDEX-796" />where
+<em class="emphasis">placeholders</em> come to our aid once again. We
+discussed placeholders in some detail in <a href="ch05_01.htm">Chapter 5, "Interacting with the Database "</a>
+so we'll only cover LONG/LOB issues here.</p>
+
+
+
+<p>To use placeholders, we'd implement the statement above using
+the DBI as:</p>
+
+
+
+<blockquote><pre class="code">use DBI qw(:sql_types);
+
+$sth = $dbh-&gt;prepare( "
+    INSERT INTO table_name (key_num, long_description) VALUES (?, ?)
+" );
+$sth-&gt;bind_param( 1, 42 );
+$sth-&gt;bind_param( 2, $long_description, SQL_LONGVARCHAR);
+$sth-&gt;execute();</pre></blockquote>
+
+
+
+<p>Passing <tt class="literal">SQL_LONGVARCHAR</tt> as the optional TYPE
+parameter to <tt class="literal">bind_
+param()</tt>
+<a name="INDEX-797" />
+<a name="INDEX-798" />
+gives the driver a strong hint that you're binding a LONG/LOB
+type. Some drivers don't need the hint but it's always a
+good idea to include it.</p>
+
+
+
+<p>The DBI currently defines no way to insert or update LONG/LOB values
+<em class="emphasis">piece-wise</em>, in other words, piece by piece. That
+means you're limited to handling values that will fit into your
+available <a name="INDEX-799" /> <a name="INDEX-800" /> <a name="INDEX-801" /> <a name="INDEX-802" />memory.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch06_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">6. Advanced DBI </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">6.3. Transactions, Locking, and Isolation </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

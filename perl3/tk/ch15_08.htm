@@ -1,0 +1,153 @@
+<html><head><title>Synthesizing Virtual Events (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_07.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch15_09.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">15.8. Synthesizing Virtual Events</h2>
+
+<p><a name="INDEX-2505" /><a name="INDEX-2506" />Tk supports a generic
+<tt class="literal">event</tt> command to define, generate, query, and
+delete virtual events. These are events that we make (or are made on
+our behalf) above and beyond those in Tk. We've mentioned the
+<tt class="literal">eventGenerate</tt> method previously, which generates
+events just as if they'd come from the window system. Using
+<tt class="literal">eventGenerate</tt>, we can simulate a person typing
+characters and clicking buttons, as well as invoking other real and
+virtual events.
+</p>
+
+<p><a name="INDEX-2507" />The following
+code "types" the characters "Hello Perl/Tk"
+in the Entry widget <tt class="literal">$e</tt>. It's important to
+note that the Entry widget must have the keyboard focus, otherwise
+the data falls into the bit bucket. The <tt class="literal">update</tt>
+command is also important, as it ensures that all events have been
+processed. <tt class="literal">$evar</tt> is the Entry's
+<tt class="literal">-textvariable</tt> and, if all goes well, it will
+contain the "typed" characters.
+</p>
+
+<blockquote><pre class="code">my %keysyms = (' ' =&gt; 'space', '/' =&gt; 'slash');
+my $evar;
+my $e = $mw-&gt;Entry(-textvariable =&gt; \$evar)-&gt;pack;
+
+$b = $mw-&gt;Button(
+    -text    =&gt; 'Show $evar',
+    -command =&gt; sub {print "$evar\n"},
+)-&gt;pack;
+
+$e-&gt;focus;
+$mw-&gt;update;			# prevents lost characters</pre></blockquote>
+
+<p><a href="ch15_08.htm#mastperltk-CHP-15-FIG-8">Figure 15-8</a> shows the outcome. </p>
+
+<a name="mastperltk-CHP-15-FIG-8" /><div class="figure"><img src="figs/mptk.1508.gif" alt="Figure 15-8" width="120" height="39" /></div><h4 class="objtitle">Figure 15-8. Data synthesized by eventGenerate</h4>
+
+<p>Here's the input loop. Most of the characters in the string
+<tt class="literal">"Hello Perl/Tk"</tt> are their own keysyms, but for
+those that aren't, we provide a mapping through the hash
+<tt class="literal">%keysysms</tt>.
+</p>
+
+<blockquote><pre class="code">foreach (split '', 'Hello Perl/Tk') {
+    $_ = $keysyms{$_} if exists $keysyms{$_};
+    $e-&gt;eventGenerate('&lt;KeyPress&gt;', -keysym =&gt; $_);
+    $mw-&gt;idletasks;
+    $mw-&gt;after(200);
+}</pre></blockquote>
+
+<p>After a short delay, we enter the Button's space, press it, and
+release it. The release event invokes the Button's callback,
+which prints <tt class="literal">"Hello Perl/Tk"</tt>.
+</p>
+
+<blockquote><pre class="code">$mw-&gt;after(1000);
+
+$b-&gt;eventGenerate('&lt;Enter&gt;');
+$b-&gt;eventGenerate('&lt;ButtonPress-1&gt;');
+$b-&gt;eventGenerate('&lt;ButtonRelease-1&gt;');</pre></blockquote>
+
+<p>We create a virtual event using <tt class="literal">eventAdd</tt>. Once a
+virtual event is defined, we must create an actual binding to trigger
+the event. The following code creates the virtual event
+<tt class="literal">&lt;&lt;Gromit&gt;&gt;</tt>. Notice that virtual event
+names are surrounded by double angle brackets to distinguish them
+from real event names.
+</p>
+
+<p>The <tt class="literal">&lt;&lt;Gromit&gt;&gt;</tt> virtual event is bound
+to the real event, <tt class="literal">&lt;KeyPress&gt;</tt>. Once defined,
+we bind <tt class="literal">&lt;&lt;Gromit&gt;&gt;</tt> to the subroutine
+<tt class="literal">look_for_gromit</tt>, which simply searches for the
+string <tt class="literal">"Gromit"</tt> (in this case, from an Entry
+widget).
+</p>
+
+<p>We call <tt class="literal">bindDump</tt> and <tt class="literal">eventInfo</tt>
+to display interesting binding and event information.
+</p>
+
+<blockquote><pre class="code">my $e = $mw-&gt;Entry-&gt;pack;
+$e-&gt;focus;
+$e-&gt;eventAdd('&lt;&lt;Gromit&gt;&gt;' =&gt; '&lt;KeyPress&gt;');
+$e-&gt;bind('&lt;&lt;Gromit&gt;&gt;' =&gt; \&amp;look_for_gromit);
+
+&amp;bindDump($e);
+print $e-&gt;eventInfo, "\n";
+
+sub look_for_gromit {
+    my $text = $_[0]-&gt;get;
+    print "Found Gromit in '$text'\n" if $text =~ /Gromit/i;
+}		    </pre></blockquote>
+
+<p><a href="ch15_08.htm#mastperltk-CHP-15-FIG-9">Figure 15-9</a> shows the Entry and what we typed in it.</p>
+
+<a name="mastperltk-CHP-15-FIG-9" /><div class="figure"><img src="figs/mptk.1509.gif" alt="Figure 15-9" width="118" height="17" /></div><h4 class="objtitle">Figure 15-9. Searching for Gromit</h4>
+
+<p>As soon as we type the <tt class="literal">t</tt> and <tt class="literal">!</tt>
+characters, <tt class="literal">look_for_gromit</tt> prints this:
+</p>
+
+<blockquote><pre class="code">Found Gromit in '123gROMit'
+Found Gromit in '123gROMit!'</pre></blockquote>
+
+<p>This is an excerpt from the <tt class="literal">bindDump</tt> output,
+showing the Entry widget's instance bindings.
+</p>
+
+<blockquote><pre class="code">2. Binding tag '.entry' has these bindings:
+                    &lt;&lt;Gromit&gt;&gt; : Tk::Callback=ARRAY(0x82d5160)
+                                   CODE(0x8270928)</pre></blockquote>
+
+<p><a name="INDEX-2508" />The
+<tt class="literal">eventInfo</tt> method can return the event
+descriptor(s) associated with a virtual event. If no virtual event is
+specified, it returns a list of all virtual events.
+</p>
+
+<blockquote><pre class="code">&lt;&lt;LeftTab&gt;&gt;&lt;&lt;Copy&gt;&gt;&lt;&lt;Gromit&gt;&gt;&lt;&lt;Undo&gt;&gt;&lt;&lt;Cut&gt;&gt;&lt;&lt;Redo&gt;&gt;&lt;&lt;Paste&gt;&gt;</pre></blockquote>
+
+<p><a name="INDEX-2509" />There's also an
+<tt class="literal">eventDelete</tt> method to remove an event descriptor
+from a virtual event or delete a virtual event entirely.<a name="INDEX-2510" />
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_07.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch15_09.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">15.7. Splash Screens</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">15.9. Coexisting with Other GUI Main Loops</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

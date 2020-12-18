@@ -1,0 +1,223 @@
+<?label 9.7. procmail?><html><head><title>procmail (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch09_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch10_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">9.7. procmail</h2>
+
+
+<p>If your CGI scripts send out email,
+<tt class="command">procmail</tt>
+<a name="INDEX-1926" />
+<a name="INDEX-1927" /> <a name="INDEX-1,928" /> is a very
+handy tool to learn, but it is only available for Unix. If you are on
+a Unix system and you do not have it, you can download it from
+<a href="http://www.procmail.org">http://www.procmail.org</a>.
+<tt class="command">procmail</tt> is a <a name="INDEX-1929" />filtering application that allows you
+to automatically process email based on virtually any criteria.
+It's not simple, of course; few powerful tools are. And again,
+like the other tools presented in this chapter, we won't be
+able to discuss it in great detail here. Instead, we'll look at
+a couple configurations that should handle your basic needs. If you
+want to learn more, you can find links to several useful resources
+including quick-start guides and FAQs at <a href="http://www.iki.fi/era/procmail/">http://www.iki.fi/era/procmail/</a>. Also,
+don't forget to review the manpage; most of these online
+resources assume you have done this already. You may not normally
+enjoy reading manpages, but the <tt class="command">procmail</tt> man pages
+are very well written and include numerous examples.</p>
+
+
+<p>In order to run <tt class="command">procmail</tt>, you need to
+<a name="INDEX-1930" />create two files in your home directory
+(or the home directory of the user whose mail you want to forward).
+The first file,
+<em class="filename">.forward</em>
+<a name="INDEX-1931" />, is used by <tt class="command">sendmail</tt>
+when it delivers mail to your account. That file should be set up to
+it to direct <tt class="command">sendmail</tt> to run
+<tt class="command">procmail</tt>, and <tt class="command">procmail</tt> uses the
+<em class="filename">.procmailrc</em>
+<a name="INDEX-1932" /> file to process the message. It is
+possible to have <tt class="command">procmail</tt> set up as the mail
+transport agent on your system, instead of
+<tt class="command">sendmail</tt>; in that case, you do not need the
+<em class="filename">.forward</em> file. Check with your system
+administrator to see if this is the case.</p>
+
+
+<p>Your <em class="filename">.forward</em> file needs to include only the
+following line:</p>
+
+
+<blockquote><pre class="code">"|IFS=' '&amp;&amp;exec /usr/local/bin/procmail -f-||exit 75 #YOUR_USERNAME"</pre></blockquote>
+
+
+<p>All of the quotes are necessary, there is only one space between the
+single quotes, you must supply the full path to
+<tt class="command">procmail</tt>, and you should of course replace
+<tt class="literal">YOUR_USERNAME</tt> with your own username (or something
+to make this line different from the line in other users'
+<em class="filename">.forward</em> files).</p>
+
+
+<a name="ch09-7-fm2xml" /><div class="sect2">
+<h3 class="sect2">9.7.1. Autoreply from nobody</h3>
+
+
+<p>Now all we need to do is create a <em class="filename">.procmailrc</em>
+file. The <em class="filename">.procmailrc</em> file contains rules and a
+command to execute if the rule matches. In this example, we will
+create only one rule that sends an <a name="INDEX-1933" />
+<a name="INDEX-1934" />autoreply to all
+incoming messages. This would be handy if messages sent to the user
+that the web server runs as are not redirected. If your web server
+runs as a valid user named <em class="emphasis">nobody</em>, you could
+place this in <em class="emphasis">nobody</em>'s home directory.
+Here is the<a name="INDEX-1935" />
+<em class="filename">.procmailrc</em> file:</p>
+
+
+<blockquote><pre class="code">## This is your email address
+EMAIL_ADDRESS=nobody@your-domain.com
+
+## Uncomment and edit this line if sendmail isn't at /usr/lib/sendmail
+#SENDMAIL=/path/to/sendmail
+
+## If we get a message, verify that it wasn't sent by a mail daemon
+## or isn't one of our marked messages. If not, then reply to it using
+## the contents of the autoreply.txt file as the body of the message
+## and mark the message by adding an X-Loop header.
+:0 h
+* !^FROM_DAEMON
+* !^X-Loop: $EMAIL_ADDRESS
+| ( formail -r -A"X-Loop: $EMAIL_ADDRESS"; \
+    cat "$HOME/autoreply.txt"            ) | $SENDMAIL -t
+
+## Throw away the messages we're not replying to
+:0
+/dev/null</pre></blockquote>
+
+
+<p>We'll briefly review what this file does. For more detailed
+information, refer to one of the references listed earlier. First, it
+sets the <tt class="literal">$EMAIL_ADDRESS</tt> variable to the email
+address of the account receiving this mail. Next, it should specify
+the <a name="INDEX-1936" />path to sendmail if it is something
+other than the path that <tt class="command">procmail</tt> defaults to
+(typically either <em class="filename">/usr/lib/sendmail</em> or
+<em class="filename">/usr/sbin/sendmail </em>). The remaining lines are
+rules.</p>
+
+
+<p>All rules start with <tt class="literal">:0</tt>. The first rule also has
+an <tt class="literal">h</tt> option indicating that we are only interested
+in the message headers of the incoming message; its body will not be
+included in our reply. All the lines that begin with
+<tt class="literal">*</tt>
+<a name="INDEX-1937" /> <a name="INDEX-1,938" /> are conditions. Basically, any
+message that doesn't look like it was generated by a daemon
+process (this includes bounced mail, mailing lists, etc.) and
+doesn't include an
+<em class="emphasis">X-Loop</em>
+<a name="INDEX-1939" /> header with our email address in it
+should be processed by this rule. We'll see why we check for
+this header in a moment.</p>
+
+
+<p>The message is processed by piping the headers through
+<tt class="command">formail</tt>
+<a name="INDEX-1940" />, a helper application
+included with <tt class="command">procmail</tt>. It constructs a
+<a name="INDEX-1941" />reply to the given headers and adds an
+<em class="emphasis">X-Loop</em> header containing our email address. The
+reason for adding this to our replies and checking for it in incoming
+messages is to avoid endless loops. If our CGI script sends a message
+that bounces (because of an invalid email address, a full account,
+etc.) and comes back to us, and we automatically reply to it, our
+reply will also bounce. This could go on forever, but if we add an
+<em class="emphasis">X-Loop</em> header, that should be maintained within
+replies so we will know if we see it that we have already replied to
+this message and to not process another reply. The check for whether
+the message was generated by a daemon should actually prevent us from
+replying to a bounce, but the daemon check isn't foolproof, so
+the <em class="emphasis">X-Loop</em> check is a good way to be safe.</p>
+
+
+<p><tt class="command">formail</tt> takes care of the headers for us, and then
+we <tt class="command">cat</tt> the contents of the
+<em class="filename">autoreply.txt</em> file in our home directory. You
+should create a message in this file appropriate to your site, saying
+something to the effect that this email address is not used and
+providing an alternative email address to the recipient. The final
+results of both the headers and the body are piped to
+<tt class="command">sendmail,</tt> which reads the headers and delivers our
+new reply.</p>
+
+
+<p>The remaining rule in the file has no conditions. It catches all
+messages that are not processed by the preceding rule, in other
+words, all messages that are sent by daemons or that have already
+been replied to. These messages are simply discarded by moving them
+to <em class="filename">/dev/null</em>.</p>
+</div>
+
+
+
+
+<a name="ch09-8-fm2xml" /><div class="sect2">
+<h3 class="sect2">9.7.2. Forwarding to Another User</h3>
+
+
+<p>It is also possible to simply
+<a name="INDEX-1942" />
+<a name="INDEX-1943" />forward all messages to another user.
+There are better alternatives than <tt class="command">procmail</tt> for
+doing this. Specifically, <tt class="command">sendmail</tt> allows aliases
+to be created to redirect mail sent from one email address to
+another. However, if you cannot get your system administrator to
+create an alias for you, here is a <em class="filename">.procmail</em>
+file that forwards all incoming mail to another email address:</p>
+
+
+<blockquote><pre class="code">## This is the email address to forward to
+FORWARD_TO=webmaster@your-domain.com
+
+## Uncomment and edit this line if sendmail isn't at /usr/lib/sendmail
+#SENDMAIL=/path/to/sendmail
+
+## Forward all messages
+:0
+! $FORWARD_TO</pre></blockquote>
+
+
+<p>As you can see, <em class="emphasis">procmail</em> provides you with a
+number of options for automatically processing email. In one of our
+examples earlier, we piped the headers of incoming messages through
+<tt class="command">formail</tt>. We could have just as easily
+<a name="INDEX-1944" />piped the headers, the body, or
+the whole message through a Perl script and thus be able to react to
+every email that arrives. For example, you might want to flag or
+delete a database record when mail you send to that user is returned
+as undeliverable. That's just one example; you can probably
+think 
+<a name="INDEX-1945" /> <a name="INDEX-1,946" /> <a name="INDEX-1,947" />of others specific to <a name="INDEX-1,948" /> <a name="INDEX-1,949" />your site.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch09_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch10_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">9.6. Perl Mailers</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">10. Data Persistence</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

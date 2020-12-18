@@ -1,0 +1,302 @@
+<html><head><title>Composite Mega-Widgets (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch14_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">14.4. Composite Mega-Widgets</h2>
+
+<p><a name="INDEX-2247" /><a name="INDEX-2248" />There are several composite
+mega-widgets in the Perl/Tk distribution; DialogBox and LabEntry are
+two simple ones. Before we delve into derived mega-widgets,
+here's a final, more complex composite.
+</p>
+
+<a name="mastperltk-CHP-14-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">14.4.1. Tk::Thermometer</h3>
+
+<p><a name="INDEX-2249" /><a name="INDEX-2250" />This Thermometer widget is Frame-based
+and capable of displaying temperature in Kelvin, Celsius, or
+Fahrenheit. The default temperature scale is Kelvin, but is easily
+changed when the widget is instantiated.
+</p>
+
+<blockquote><pre class="code">my $therm = $mw-&gt;Thermometer(
+    -label  =&gt; 'Reactants Temp',
+    -tscale =&gt; 'Celsius',
+)-&gt;pack;
+$therm-&gt;set(-273);</pre></blockquote>
+
+<p><a href="ch14_04.htm#mastperltk-CHP-14-FIG-9">Figure 14-9</a> shows the results of these statements.
+The mega-widget consists of a Scale widget packed on the left side of
+the Frame and three Radiobuttons packed vertically on the right.
+Instead of labeling the Radiobuttons with text, Pixmap images are
+used. Notice that the entire mega-widget is a uniform, white
+background color. This is because the configuration specifications
+were cleverly devised so that the Frame, Scale, and Radiobuttons all
+receive -<tt class="literal">background</tt> <tt class="literal">configure</tt>
+requests. Other configuration specifications define the default look
+of the mega-widget, from its width and height to the size of the
+slider. The beauty of using configuration specifications is that none
+of this is hardcoded in the mega-widget. Users are free to make
+changes as they see fit, either during widget creation or in later
+calls to <tt class="literal">configure</tt>.
+</p>
+
+<a name="mastperltk-CHP-14-FIG-9" /><div class="figure"><img src="figs/mptk.1409.gif" alt="Figure 14-9" width="93" height="209" /></div><h4 class="objtitle">Figure 14-9.  A Frame-based Thermometer widget</h4>
+
+<p>The module, <em class="filename">Thermometer.pm</em>, begins in the
+standard fashion by declaring the version, class name, required
+widgets, and base class, as well as building a constructor.
+</p>
+
+<blockquote><pre class="code">$Tk::Thermometer::VERSION = '1.0';
+
+package Tk::Thermometer;
+
+use Tk::widgets qw/Radiobutton Scale/;
+use base qw/Tk::Frame/;
+use strict;
+
+Construct Tk::Widget 'Thermometer';</pre></blockquote>
+
+<p>Here we declare two class variables<a href="#FOOTNOTE-35">[35]</a> that manage data available to the entire
+class.</p><blockquote class="footnote"><a name="FOOTNOTE-35" /><p> [35] This book is not about object-oriented techniques. Package-scoped lexicals are fine for this example, but you may find ideas in <em class="emphasis">perltoot</em> more to your liking.</p></blockquote>
+
+<p> <tt class="literal">%PIXMAPS</tt> stores the three Radiobutton
+Pixmap images. These images are created once during class
+initialization and shared by all Thermometer instances.
+<tt class="literal">@TSCALES</tt> is an array of supported temperature
+scales.
+</p>
+
+<blockquote><pre class="code">my %PIXMAPS;                           # images for the class
+my @TSCALES = qw/Kelvin Celsius Fahrenheit/;</pre></blockquote>
+
+<p>We don't have any class bindings, but
+<tt class="literal">ClassInit</tt> is a perfect place to create all our
+images (see <a href="ch17_01.htm">Chapter 17, "Images and Animations"</a>) and store their references
+in a hash indexed by temperature scale name.
+</p>
+
+<blockquote><pre class="code">sub ClassInit {
+
+    my($class, $mw) = @_;
+    $class-&gt;SUPER::ClassInit($mw);
+    
+    foreach my $unit (@TSCALES) {
+        $PIXMAPS{$unit} = $mw-&gt;Pixmap(-file =&gt; "images/$unit.xpm");
+    }
+
+} # end ClassInit
+
+sub Populate {
+
+    my($self, $args) = @_;
+
+    $self-&gt;SUPER::Populate($args);</pre></blockquote>
+
+<p><tt class="literal">Component</tt> creates the vertical Scale widget and
+advertises it with the name <tt class="literal">"scale"</tt>, which we then
+pack left.
+</p>
+
+<blockquote><pre class="code">    my $scale = $self-&gt;Component(qw/Scale scale -orient vertical/);
+    $scale-&gt;pack(qw/-side left -fill both -expand 1/);</pre></blockquote>
+
+<p><a name="INDEX-2251" />Each Thermometer object holds two
+instance variables that store the old and new temperature scales.
+When a Radiobutton is pushed, changing the temperature scale, the
+current temperature is converted from the old to the new units. These
+two variables determine the name of the conversion subroutine.
+</p>
+
+<blockquote><pre class="code">    $self-&gt;{tscale} = $self-&gt;{old_tscale} = $TSCALES[0];</pre></blockquote>
+
+<p><a name="INDEX-2252" />The
+<tt class="literal">highlightthickness</tt> borders surrounding the
+subwidgets create visual boundaries that detract from the overall
+appearance of the mega-widget. The
+<tt class="literal">@highlightthickness</tt> array stores a list of widgets
+whose -<tt class="literal">highlightthickness</tt> options we wish to
+configure, beginning with the Scale widget.
+</p>
+
+<blockquote><pre class="code">    my @highlightthickness = $scale;</pre></blockquote>
+
+<p><a name="INDEX-2253" /><a name="INDEX-2254" />Create a Radiobutton for each
+temperature scale and label it with a Pixmap. The current (or new)
+temperature scale is stored in the instance variable pointed to by
+-<tt class="literal">variable</tt>. When the Radiobutton is selected, the
+instance variable is updated with the new temperature scale and the
+-<tt class="literal">command</tt> callback is invoked. Also, add the
+Radiobutton to the <tt class="literal">@highlightthickness array.</tt>
+</p>
+
+<blockquote><pre class="code">    foreach my $unit (@TSCALES) {
+        my $r = $self-&gt;Component('Radiobutton' =&gt; "radiobutton-$unit",
+            -image    =&gt; $PIXMAPS{$unit},
+            -variable =&gt; \$self-&gt;{tscale},
+            -value    =&gt; $unit,
+            -command  =&gt; [$self =&gt; 'tscale', $unit],
+        )-&gt;pack(-side =&gt; 'top');
+        push @highlightthickness, $r;
+    }</pre></blockquote>
+
+<p><a name="INDEX-2255" /><a name="INDEX-2256" />The following
+<tt class="literal">ConfigSpecs</tt> call has several interesting features.
+To color the entire background, we need to specify SELF (the Frame)
+and DESCENDANTS (all widgets descended from the Frame: the Scale and
+Radiobuttons).
+</p>
+
+<p><a name="INDEX-2257" /><a name="INDEX-2258" /><a name="INDEX-2259" /><a name="INDEX-2260" /><a name="INDEX-2261" />The -<tt class="literal">from</tt>,
+-<tt class="literal">length</tt>, -<tt class="literal">sliderlength</tt>,
+-<tt class="literal">to</tt>, and -<tt class="literal">width</tt> options all
+apply to only the Scale widget.
+</p>
+
+<p>The -<tt class="literal">highlightthickness</tt> option applies to all
+subwidgets in the array <tt class="literal">@highlightthickness</tt>, which
+includes the Scale and Radiobuttons. But for this mega-widget,
+that's the same as saying DESCENDANTS, so we could have saved
+some code.
+</p>
+
+<p><a name="INDEX-2262" />The
+<tt class="literal">-tscale</tt> option invokes the like-named method
+<tt class="literal">tscale</tt>. The method is supplied two arguments: the
+mega-widget reference and the new <tt class="literal">-tscale</tt> value (a
+temperature scale). We'll look at subroutine
+<tt class="literal">tscale</tt> shortly.
+</p>
+
+<p>Any other mega-widget options default to the Scale.</p>
+
+<p><a name="INDEX-2263" />In all cases, Perl/Tk uses the default
+<tt class="literal">ConfigSpecs</tt> value for options omitted by the user.
+</p>
+
+<blockquote><pre class="code">    $self-&gt;ConfigSpecs(
+        -background   =&gt;
+          [['DESCENDANTS', 'SELF'], 'background', 'Background', 'white'],
+        -from         =&gt; [$scale, qw/from From 500/],
+        -highlightthickness =&gt; 
+          [[@highlightthickness], qw/highlightThickness HighlightThickness 0/],
+        -length       =&gt; [$scale, qw/length Length 200/],
+        -tscale       =&gt; [qw/METHOD tscale Tscale/, $TSCALES[0]],
+        -sliderlength =&gt; [$scale, qw/sliderLength SliderLength 10/],
+        -to           =&gt; [$scale, qw/to To 0/],
+        -width        =&gt; [$scale, qw/width Width 10/],
+        'DEFAULT'     =&gt; [$scale],
+    );
+    $self-&gt;Delegates('DEFAULT' =&gt; $scale);
+
+} # end Populate</pre></blockquote>
+
+<p>When the Thermometer's temperature scale is changed, either
+programmatically by a <tt class="literal">configure(-tscale =&gt;
+$new_tscale)</tt> call or a Radiobutton click, we must convert
+the Scale's temperature value to the new units. The Thermometer
+class has various methods for converting from one temperature scale
+to another, having names of the form
+<tt class="literal">"old_scale2new_scale"</tt>. All we need do is get the
+Scale's current temperature value, convert it to the new units,
+and update the Scale. Notice the use of <tt class="literal">Subwidget</tt>
+to fetch the advertised Scale widget reference.
+</p>
+
+<p><tt class="literal">tscale</tt> is called also on <tt class="literal">cget</tt>
+requests, so the subroutine both sets and gets the temperature scale.
+</p>
+
+<a name="INDEX-2264" /><a name="INDEX-2265" /><a name="INDEX-2266" /><blockquote><pre class="code">sub tscale {
+
+    # The temperature scale has changed - update the thermometer's
+    # lower bound and reset the current temperature in the new scale.
+
+    my($self, $new_tscale) = @_;
+
+    if ($#_ &gt; 0) {
+        my $old_tscale = $self-&gt;{old_tscale};
+        return if $new_tscale eq $old_tscale;
+
+        my $subr = "${old_tscale}2${new_tscale}";
+        $self-&gt;{tscale} = $self-&gt;{old_tscale} = $new_tscale;
+        my $scale = $self-&gt;Subwidget('scale');
+        $scale-&gt;set( $self-&gt;$subr( $scale-&gt;get ) );
+    } else {
+        $self-&gt;{tscale};    # cget( ) requests here
+    }
+
+} # end tscale
+
+# Scale conversion data and subroutines.
+#
+#   Temperature     Kelvin   Celsius   Fahrenheit
+#
+#   Absolute Zero        0   -273.16      -459.69
+#   Freezing        273.16         0           32
+#   Boiling         373.16       100          212
+
+use constant ABSZ_CELSIUS    =&gt; -273.16;
+use constant ABSZ_FAHRENHEIT =&gt; -459.69;
+use constant ABSZ_KELVIN     =&gt; 0;
+use constant FREZ_FAHRENHEIT =&gt; 32;
+use constant FIVE_NINTHS     =&gt; 5.0 / 9.0;
+use constant NINE_FIFTHS     =&gt; 9.0 / 5.0;
+
+# All conversion subroutines are called with two arguments, the
+# mega-widget reference, and the temperature in the old scale.
+
+sub Kelvin2Celsius {
+    $_[0]-&gt;configure(-to =&gt; ABSZ_CELSIUS);
+    $_[1] + ABSZ_CELSIUS;
+}
+
+sub Kelvin2Fahrenheit {
+    $_[0]-&gt;configure(-to =&gt; ABSZ_FAHRENHEIT);
+    NINE_FIFTHS * ( $_[1] + ABSZ_CELSIUS ) + FREZ_FAHRENHEIT;
+}
+
+sub Celsius2Kelvin {
+    $_[0]-&gt;configure(-to =&gt; ABSZ_KELVIN);
+    $_[1] - ABSZ_CELSIUS;
+}
+
+sub Celsius2Fahrenheit {
+    $_[0]-&gt;configure(-to =&gt; ABSZ_FAHRENHEIT);
+    NINE_FIFTHS * $_[1] + FREZ_FAHRENHEIT;
+}
+
+sub Fahrenheit2Kelvin {
+    $_[0]-&gt;configure(-to =&gt; ABSZ_KELVIN);
+    FIVE_NINTHS * ( $_[1] - FREZ_FAHRENHEIT ) - ABSZ_CELSIUS;
+}
+
+sub Fahrenheit2Celsius {
+    $_[0]-&gt;configure(-to =&gt; ABSZ_CELSIUS);
+    FIVE_NINTHS * ( $_[1] - FREZ_FAHRENHEIT );
+}
+
+1;</pre></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch14_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">14.3. Mega-Widget Implementation Details</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">14.5. Derived Mega-Widgets</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

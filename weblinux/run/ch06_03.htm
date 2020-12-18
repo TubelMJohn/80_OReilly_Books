@@ -1,0 +1,235 @@
+<?label 6.3. Device Files?><html><head><title>Device Files (Running Linux)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Running Linux" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm" /></td><td width="172" valign="top" align="right"><a href="ch07_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">6.3. Device Files</h2>
+
+<p><a name="INDEX-1517" />
+<a name="INDEX-1518" />
+Device files allow user programs to access hardware devices on the system
+through the kernel. They are not "files" per se, but look like files
+from the program's point of view: you can read from them, write to them,
+<em class="emphasis">mmap()</em> onto them, and so forth. When you access such a device
+"file," the kernel recognizes the I/O request and passes it a 
+device driver, which performs some operation,
+such as reading data from a serial port, or sending data to a sound card.</p>
+
+<p>Device files (although inappropriately named, we will continue to use this
+term) provide a convenient way to access system resources without requiring 
+the applications programmer to know how the underlying device works.
+Under Linux, as with most Unix systems, device drivers themselves are
+part of the kernel. In the section "<a href="ch07_04.htm#x-100-3-sec-sysadm-kernel-build">Section 7.4.2, "Building the Kernel"</a>" in
+<a href="ch07_01.htm">Chapter 7, "Upgrading Software and the Kernel"</a>, we show you how to build your own kernel, including only those device
+drivers for the hardware on your system.</p>
+
+<p> 
+<a name="INDEX-1519" />
+Device files are located in the directory <em class="filename">/dev</em> on nearly all Unix-like
+systems. Each device on the system should have a corresponding 
+entry in <em class="filename">/dev</em>. For example, <em class="filename">/dev/ttyS0</em> corresponds to the first 
+serial port, known as COM1 under <span class="acronym">MS-DOS</span>; <em class="filename">/dev/hda2</em> corresponds
+to the second partition on the first <span class="acronym">IDE</span> drive. In fact, there should be
+entries in <em class="filename">/dev</em> for devices you do not have. The device
+files are generally created during system installation and include 
+every possible device driver. They don't necessarily correspond to the 
+actual hardware on your system.</p>
+
+<p> 
+<a name="INDEX-1520" />
+<a name="INDEX-1521" />
+There are a number of pseudo-devices in <em class="filename">/dev</em> that
+don't correspond to any actual peripheral. For example, <em class="filename">/dev/null</em>
+acts as a byte sink; any write request to <em class="filename">/dev/null</em> will
+succeed, but the data written will be ignored.
+Similarly, we've already demonstrated the use of <em class="filename">/dev/zero</em> to
+create a swap file; any read request on <em class="filename">/dev/zero</em> simply returns
+null bytes.</p>
+
+<p>When using <tt class="command">ls -l</tt> to list device files in <em class="filename">/dev</em>, you'll
+see something like the following:
+<blockquote><pre class="code">brw-rw----   1 root     disk       3,   0 May 19  1994 /dev/hda</pre></blockquote>
+
+<a name="INDEX-1522" />
+This is <em class="filename">/dev/hda</em>, which corresponds to the first <span class="acronym">IDE</span> drive.
+First of all, note that the first letter of the permissions field is
+<tt class="literal">b</tt>, which means this is a block device file. 
+(Recall that normal files have a - in this first column,
+directories a <tt class="literal">d</tt>, and so on.) Device files are
+denoted either by <tt class="literal">b</tt>, for block devices, or <tt class="literal">c</tt>,
+for character devices. A block device is usually a peripheral such
+as a hard drive: data is read and written to the device as entire 
+blocks (where the block size is determined by the device; it may not
+be 1024 bytes as we usually call "blocks" under Linux), and the 
+device may be accessed randomly. In contrast, character devices are
+usually read or written sequentially, and I/O may be done as single
+bytes. An example of a character device is a serial port.</p>
+
+<?troff .Nd 10?><p><a name="INDEX-1523" />
+<a name="INDEX-1524" />
+Also, note that the size field in the <tt class="command">ls -l</tt> listing is replaced
+by two numbers, separated by a comma. The first value is the 
+<em class="emphasis">major device number</em> and the second is the <em class="emphasis">minor
+device number</em>. When a device file is accessed by a program, 
+the kernel receives the I/O request in terms of the major and minor
+numbers of the device. The major number generally specifies
+a particular driver within the kernel, and the minor
+number specifies a particular device handled by that driver.
+For example, all serial port devices have the same major number,
+but different minor numbers. The kernel uses the major number to
+redirect an I/O request to the appropriate driver, and the
+driver uses the minor number to figure out which specific device to 
+access. In some cases, minor numbers can also be used for accessing
+specific functions of a device.</p>
+
+<p><a name="INDEX-1525" />
+The naming convention used by files in <em class="filename">/dev</em> is, to put it
+bluntly, a complete mess. Because the kernel itself doesn't care
+what filenames are used in <em class="filename">/dev</em> (it cares only about the major
+and minor numbers), the distribution maintainers, applications programmers,
+and device driver writers are free to choose names for a device file.
+Often, the person writing a device driver will suggest a name for the
+device, and later the name will be changed to accommodate other, similar
+devices. This can cause confusion and inconsistency as the system 
+develops; hopefully, you won't encounter this problem unless you're
+working with newer device drivers--those that are under testing.</p>
+
+<p>At any rate, the device files included in your original distribution
+should be accurate for the kernel version and device drivers included
+with that distribution. When you upgrade your kernel, or add additional
+device drivers (see the section "<a href="ch07_04.htm#x-100-3-sec-sysadm-kernel">Section 7.4, "Building a New Kernel"</a>"
+
+ in <a href="ch07_01.htm">Chapter 7, "Upgrading Software and the Kernel"</a>), you may
+<a name="INDEX-1526" />
+need to add a device file using the <tt class="command">mknod</tt> command. The format
+of this command is:
+
+
+<blockquote><pre class="code">mknod -m <em class="replaceable">permissions</em> <em class="replaceable">name</em> <em class="replaceable">type</em> <em class="replaceable">major</em> <em class="replaceable">minor</em></pre></blockquote>
+
+
+
+where:</p>
+
+<ul><li><p> <em class="replaceable">name</em> is the full pathname of the device to create, such
+as <em class="filename">/dev/rft0</em>.</p></li><li><p> <em class="replaceable">type</em> is either <tt class="literal">c</tt> for a character device or
+<tt class="literal">b</tt> for a block device.</p></li><li><p> <em class="replaceable">major</em> is the major number of the device.</p></li><li><p> <em class="replaceable">minor</em> is the minor number of the device.</p></li><li><p> <span class="option">-m</span> <em class="replaceable">permissions</em> is an optional argument that sets the
+permission bits of the new device file to <em class="replaceable">permissions</em>.</p></li></ul><p />
+
+<p>For example, let's say you're adding a new device driver to the kernel,
+and the documentation says that you need to create the block device 
+<em class="filename">/dev/bogus</em>, major number 42, minor number 0. You would use
+the command:
+
+<blockquote><pre class="code">mknod /dev/bogus b 42 0</pre></blockquote>
+
+<?troff .Nd 10?></p>
+
+<p><a name="INDEX-1527" />
+<a name="INDEX-1528" />
+Making devices is even easier with the shell script
+<tt class="command">/dev/MAKEDEV</tt> that comes with many distributions--you 
+specify only the kind of device you want, and
+<tt class="command">MAKEDEV</tt> finds out the major and minor numbers for
+you.</p>
+
+<p>If you don't specify the <span class="option">-m</span> <em class="replaceable">permissions</em> argument, the
+new device is given the permissions for a newly created file, 
+modified by your current umask--usually 0644. To set the
+permissions for <em class="filename">/dev/bogus</em> to 0666 instead, we use:
+
+<blockquote><pre class="code">mknod -m 666 /dev/bogus b 42 0</pre></blockquote>
+
+
+You can also use <tt class="command">chmod</tt> to set the permissions for a device file 
+after creation.</p>
+
+<p><a name="INDEX-1529" />
+Why are device permissions important? Like any file, the permissions for 
+a device file control who may access the raw device and how. As we saw 
+in the previous example, the device file for <em class="filename">/dev/hda</em> has permissions 0660, which means 
+that only the owner and users in the file's group (here, the group disk 
+is used) may read and write directly to this device. (Permissions are
+
+introduced in "<a href="ch04_13.htm#x-100-3-basic-permission-intro">Section 4.13, "File Ownership and Permissions"</a>" in
+<a href="ch04_01.htm">Chapter 4, "Basic Unix
+ Commands
+ and Concepts"</a>.)</p>
+
+<p>In general, you don't 
+want to give any user direct read and write access to certain 
+devices--especially those devices corresponding to disk drives and 
+partitions. Otherwise, anyone could, say, run <tt class="command">mkfs</tt> on a drive partition 
+and completely destroy all data on the system.</p>
+
+<p>In the case of drives and partitions, write access is required to 
+corrupt data in this way, but read access is a also breach of
+security; given
+read access to a raw device file corresponding to a disk partition, a 
+user could peek in on other user's files. Likewise, the device file 
+<em class="filename">/dev/mem</em> corresponds to the system's physical memory (it's generally 
+used only for extreme debugging purposes). Given read access, clever users 
+could spy on other users' passwords, including the one belonging to root, as they are 
+entered at login time.</p>
+
+<p>Be sure that the permissions for any device you add to the system
+correspond to how the device can and should be accessed by users. Devices
+such as serial ports, sound cards, and virtual consoles are generally
+safe for mortals to have access to, but most other devices on the system
+should be limited to use by root (and programs running setuid
+as root).</p>
+
+<p><a name="INDEX-1530" />
+Many files found in <em class="filename">/dev</em> are actually symbolic links 
+(created using <tt class="command">ln -s</tt>, in the usual way) to another device file. 
+These links make it easier to access certain devices by using a
+more common name. For example, if you have a serial mouse, that mouse
+might be accessed through one of the device files <em class="filename">/dev/ttyS0</em>,
+<em class="filename">/dev/ttyS1</em>, <em class="filename">/dev/ttyS2</em>, or <em class="filename">/dev/ttyS3</em>, depending on
+which serial port the mouse is attached to. Many people create 
+a link named <em class="filename">/dev/mouse</em> to the appropriate serial device, as in:
+<a name="INDEX-1531" />
+
+<blockquote><pre class="code">ln -s /dev/ttyS2 /dev/mouse</pre></blockquote>
+
+
+In this way, we can access the mouse from <em class="filename">/dev/mouse</em>, instead of
+having to remember which serial port it is on. This convention is
+also used for devices such as <em class="filename">/dev/cdrom</em> and <em class="filename">/dev/modem</em>. 
+These files are usually symbolic links to a device file in <em class="filename">/dev</em>
+corresponding to the actual <span class="acronym">CD-ROM</span> or modem device.</p>
+
+<p><a name="INDEX-1532" />
+To remove a device file, just use <tt class="command">rm</tt>, as in:
+
+<blockquote><pre class="code">rm /dev/bogus</pre></blockquote>
+
+
+Removing a device file does not remove the corresponding device
+driver from memory or from the kernel; it simply leaves you with no
+means to talk to a particular device driver. Similarly, adding
+a device file does not add a device driver to the system; in fact,
+you can add device files for drivers that don't even exist. 
+Device files simply provide a "hook" into a particular device driver
+should such a driver exist in the kernel.</p>
+
+<a name="INDEX-1533" /><a name="INDEX-1534" />
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch07_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">6.2. Managing Swap Space</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">7. Upgrading Software and the Kernel</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

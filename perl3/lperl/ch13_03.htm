@@ -1,0 +1,314 @@
+<html><head><title>Links and Files (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch13_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch13_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">13.3. Links and Files</h2>
+
+<p><a name="INDEX-890" />To
+understand more about what's going on with files and
+directories, it helps to understand the
+<a name="INDEX-891" />Unix model of files and
+directories, even if your non-Unix system doesn't work in
+exactly this way. As usual, there's more to the story than
+we're able to explain here, so check any good book on Unix
+internal details if you need the full story.
+</p>
+
+<p>A <em class="firstterm">mounted volume</em><a name="INDEX-892" /> is a hard disk drive (or something else
+that works more-or-less like that, such as a disk partition, a floppy
+disk, a CD-ROM, or a DVD-ROM). It may contain any number of files and
+directories. Each file is stored in a numbered
+<em class="firstterm">inode</em><a name="INDEX-893" />,
+which we can think of as a particular piece of disk real estate. One
+file might be stored in inode 613, while another is in inode 7033.
+</p>
+
+<p>To locate a particular file, though, we'll have to look it up
+in a directory. A
+<a name="INDEX-894" />directory is a
+special kind of file, maintained by the system. Essentially, it is a
+table of filenames and their inode numbers.<a href="#FOOTNOTE-286">[286]</a> Along with the other things in the
+directory, there are always two special directory entries. One is
+<tt class="literal">.</tt> (called "<a name="INDEX-895" />dot"), which is the name of
+that very directory; and the other is
+<tt class="literal">..</tt><a name="INDEX-896" /> <a name="INDEX-897" />
+("dot-dot"), which is the directory one step higher in
+the hierarchy (i.e., the directory's parent
+directory).<a href="#FOOTNOTE-287">[287]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-286" /><p>[286]On Unix
+systems (others don't generally have inodes, hard links, and
+such), you can use the <i class="command">ls </i>command's
+<em class="emphasis">-i</em> option to see files' inode numbers. Try
+a command like <i class="command">ls -ail</i>. When two or more inode
+numbers are the same for multiple items on a given filesystem,
+there's really just one file involved, one piece of the
+disk.</p> </blockquote><blockquote class="footnote"> <a name="FOOTNOTE-287" /><p>[287]The Unix system <em class="emphasis">root</em>
+directory has no parent. In that directory, <tt class="literal">..</tt> is
+the same directory as <tt class="literal">.</tt>, which is the system
+<em class="emphasis">root</em> directory itself. </p> </blockquote>
+
+<p><a href="ch13_03.htm#lperl3-CHP-13-FIG-1">Figure 13-1</a> provides an illustration of two inodes.
+One is for a file called <em class="filename">chicken</em>, and the other
+is Barney's directory of poems,
+<em class="filename">/home/barney/poems</em>, which contains that file.
+The file is stored in inode 613, while the directory is stored in
+inode 919. (The directory's own name,
+<em class="filename">poems</em>, doesn't appear in the illustration,
+because that's stored in another directory.) The directory
+contains entries for three files (including
+<em class="filename">chicken</em>) and two directories (one of which is
+the reference back to the directory itself, in inode 919), along with
+each item's inode number.
+</p>
+
+<a name="lperl3-CHP-13-FIG-1" /><div class="figure"><img height="134" alt="Figure 13-1" src="figs/lrnp_1301.gif" width="342" /></div><h4 class="objtitle">Figure 13-1. The chicken before the egg</h4>
+
+<p>When it's time to make a new file in a given directory, the
+system adds an entry with the file's name and the number of a
+new inode. How can the system tell that a particular inode is
+available, though? Each inode holds a number called its
+<em class="firstterm">link count</em><a name="INDEX-898" />. The link count is always zero if the
+inode isn't listed in any directory, so any inode with a link
+count of zero is available for new file storage. When the inode is
+added to a directory, the link count is incremented; when the listing
+is removed, the link count is decremented. For the file
+<em class="filename">chicken</em> as illustrated above, the inode count of
+1 is shown in the box above the inode's data.
+</p>
+
+<p>But some inodes have more than one listing. For example, we've
+already seen that each directory entry includes <tt class="literal">.</tt>,
+which points back to that directory's own inode. So the link
+count for a directory should always be at least two: its listing in
+its parent directory and its listing in itself. In addition, if it
+has subdirectories, each of those will add a link, since each will
+contain <tt class="literal">..</tt>.<a href="#FOOTNOTE-288">[288]</a> In <a href="ch13_03.htm#lperl3-CHP-13-FIG-1">Figure 13-1</a>, the directory's inode count of
+<tt class="literal">2</tt> is shown in the box above its data. A link count
+is the number of true names for the inode.<a href="#FOOTNOTE-289">[289]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-288" /><p>[288]This implies that the
+link count of a directory is always equal to two plus the number of
+directories it contains. On some systems that's true, in fact,
+but some other systems work differently. </p> </blockquote><blockquote class="footnote"> <a name="FOOTNOTE-289" /><p>[289]In the
+traditional output of <i class="command">ls -l</i>, the number of hard
+links to the item appears just to the right of the permission flags
+(like "<tt class="literal">-rwxr-xr-x</tt>"). Now you know why
+this number is more than one for directories and nearly always
+<tt class="literal">1</tt> for ordinary files.</p> </blockquote>
+
+<p>Could an ordinary file inode have more than one listing in the
+directory? It certainly could. Suppose that, working in the directory
+shown above, Barney uses the Perl's
+<tt class="literal">link</tt><a name="INDEX-899" /> function to create a new link:
+</p>
+
+<blockquote><pre class="code">link "chicken", "egg"
+  or warn "can't link chicken to egg: $!";</pre></blockquote>
+
+<p>This is similar to typing "<tt class="literal">ln chicken
+egg</tt>" at the Unix shell prompt. If
+<tt class="literal">link</tt> succeeds, it returns true. If it fails, it
+returns false and sets <tt class="literal">$!</tt>, which Barney is
+checking in the error message. After this runs, the name
+<em class="filename">egg</em> is another name for the file
+<em class="filename">chicken</em>, and vice versa; neither name is
+"more real" than the other, and (as you may have guessed)
+it would take some detective work to find out which came first. <a href="ch13_03.htm#lperl3-CHP-13-FIG-2">Figure 13-2</a> shows a picture of the new situation, where
+there are two links to inode 613.
+</p>
+
+<a name="lperl3-CHP-13-FIG-2" /><div class="figure"><img height="134" alt="Figure 13-2" src="figs/lrnp_1302.gif" width="342" /></div><h4 class="objtitle">Figure 13-2. The egg is linked to the chicken</h4>
+
+<p>These two filenames are thus talking about the same place on the
+disk. If the file <em class="filename">chicken</em> holds 200 bytes of
+data, <em class="filename">egg</em> holds the same 200 bytes, for a total
+of 200 bytes (since it's really just one file with two names).
+If Barney appends a new line of text to file
+<em class="filename">egg</em>, that line will also appear at the end of
+<em class="filename">chicken.</em><a href="#FOOTNOTE-290">[290]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-290" /><p>[290]If you experiment with
+making links and changing text files, be aware that most text editors
+don't edit the file "in place" but instead save a
+modified copy. If Barney were to edit <em class="filename">egg </em>with a
+text editor, he'd most likely end up with a new file called
+<em class="filename">egg </em>and the old file called
+<em class="filename">chicken</em> -- two separate files, rather than
+two links to the same file.</p> </blockquote>
+
+<p>Now, if Barney were to accidentally (or intentionally) delete
+<em class="filename">chicken</em>, that data will not be
+lost -- it's still available under the name
+<em class="filename">egg</em>. And vice versa: if he were to delete
+<em class="filename">egg</em>, he'd still have
+<em class="filename">chicken</em>. Of course, if he deletes both of them,
+the data will be lost.<a href="#FOOTNOTE-291">[291]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-291" /><p>[291]Although the system
+won't necessarily overwrite this inode right away,
+there's no easy way in general to get the data back once the
+link count has gone to zero. Have you made a backup recently?</p>
+</blockquote>
+
+<p>There's another rule about the links in directory listings: the
+inode numbers in a given directory listing all refer to inodes on
+that same mounted volume.<a href="#FOOTNOTE-292">[292]</a> This rule ensures
+that if the physical medium (the diskette, perhaps) is moved to
+another machine, all of the directories stick together with their
+files. That's why you can use <tt class="literal">rename</tt> to move
+a file from one directory to another, but only if both directories
+are on the same filesystem (mounted volume). If they were on
+different disks, the inode's data would have to be relocated,
+which is too complex an operation for a simple system call.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-292" /><p>[292]The one exception is the
+special <tt class="literal">..</tt> entry in the volume's
+<em class="emphasis">root</em> directory, which refers to the directory in
+which that volume is mounted. </p> </blockquote>
+
+<p>And yet another restriction on links is that they can't make
+new names for directories. That's because the directories are
+arranged in a hierarchy. If you were able to change that, utility
+programs like <i class="command">find</i> and <i class="command">pwd</i>
+could easily become lost trying to find their way around the
+filesystem.
+</p>
+
+<p>So, links can't be added to directories, and they can't
+cross from one mounted volume to another. Fortunately, there's
+a way to get around these restrictions on links, by using a new and
+different kind of link: a <em class="firstterm">symbolic
+link</em><a name="INDEX-900" /> <a name="INDEX-901" />.<a href="#FOOTNOTE-293">[293]</a> A
+symbolic link (also called a <em class="firstterm">soft
+link</em><a name="INDEX-902" />
+<a name="INDEX-903" /> to distinguish it from the
+true or <em class="firstterm">hard links</em><a name="INDEX-904" /> <a name="INDEX-905" /> that
+we've been talking about up to now) is a special entry in a
+directory that tells the system to look elsewhere. Let's say
+that Barney (working in the same directory of poems as before)
+creates a symbolic link with Perl's
+<tt class="literal">symlink</tt><a name="INDEX-906" /> function, like this:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-293" /><p>[293]Some
+veryold Unix systems don't support
+symlinks, but those are pretty rare nowadays.</p> </blockquote>
+
+<blockquote><pre class="code">symlink "dodgson", "carroll"
+  or warn "can't symlink dodgson to carroll: $!";</pre></blockquote>
+
+<p>This is similar to what would happen if Barney used the command
+"<i class="command">ln -s dodgson carroll</i>" from the
+shell. <a href="ch13_03.htm#lperl3-CHP-13-FIG-3">Figure 13-3</a> shows a picture of the result,
+including the poem in inode 7033.
+</p>
+
+<a name="lperl3-CHP-13-FIG-3" /><div class="figure"><img height="146" alt="Figure 13-3" src="figs/lrnp_1303.gif" width="318" /></div><h4 class="objtitle">Figure 13-3. A symlink to inode 7033</h4>
+
+<p>Now if Barney chooses to read
+<em class="filename">/home/barney/poems/carroll</em>, he gets the same
+data as if he had opened
+<em class="filename">/home/barney/poems/dodgson</em>, because the system
+follows the symbolic link automatically. But that new name
+isn't the "real" name of the file, because (as you
+can see in the diagram) the link count on inode 7033 is still just
+one. That's because the symbolic link simply tells the system,
+"If you got here looking for <em class="filename">carroll</em>, now
+you want to go off to find something called
+<em class="filename">dodgson</em> instead."
+</p>
+
+<p>A symbolic link can freely cross mounted filesystems or provide a new
+name for a directory, unlike a hard link. In fact, a symbolic link
+could point to any filename, one in this directory or in another
+one -- or even to a file that doesn't exist! But that also
+means that a soft link can't keep data from being lost as a
+hard link can, since the symlink doesn't contribute to the link
+count. If Barney were to delete <em class="filename">dodgson</em>, the
+system would no longer be able to follow the soft link.<a href="#FOOTNOTE-294">[294]</a> Even though there would still
+be an entry called <em class="filename">carroll</em>, trying to read from
+it would give an error like <tt class="literal">file not found</tt>. The
+file test <tt class="literal">-l 'carroll'</tt> would report true, but
+<tt class="literal">-e 'carroll'</tt> would be false: it's a symlink,
+but it doesn't exist.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-294" /><p>[294]Deleting <em class="filename">carroll </em>would merely remove the
+symlink, of course.</p> </blockquote>
+
+<p>Since a soft link could point to a file that doesn't yet exist,
+it could be used when creating a file as well. Barney has most of his
+files in his home directory, <em class="filename">/home/barney</em>, but
+he also needs frequent access to a directory with a long name that is
+difficult to type:
+<em class="filename">/usr/local/opt/system/httpd/root-dev/users/staging/barney/cgi-bin</em>.
+So he sets up a symlink named
+<em class="filename">/home/barney/my_stuff</em>, which points to that long
+name, and now it's easy for him to get to it. If he creates a
+file (from his home directory) called
+<em class="filename">my_stuff/bowling</em>, that file's real name is
+<em class="filename">/usr/local/opt/system/httpd/root-dev/users/staging/barney/cgi-bin/bowling</em>.
+Next week, when the system administrator moves these files of
+Barney's to
+<em class="filename">/usr/local/opt/internal/httpd/www-dev/users/staging/barney/cgi-bin</em>,
+Barney just repoints the one symlink, and now he and all of his
+programs can still find his files with ease.
+</p>
+
+<p>It's normal for either <em class="filename">/usr/bin/perl</em> or
+<em class="filename">/usr/local/bin/perl</em> (or both) to be symbolic
+links to the true Perl binary on your system. This makes it easy to
+switch to a new version of Perl. Say you're the system
+administrator, and you've built the new Perl. Of course, your
+older version is still running, and you don't want to disrupt
+anything. When you're ready for the switch, you simply move a
+symlink or two, and now every program that begins with
+<tt class="literal">#!/usr/bin/perl</tt> will automatically use the new
+version. In the unlikely case that there's some problem,
+it's a simple thing to replace the old symlinks and have the
+older Perl running the show again. (But, like any good admin, you
+notified your users to test their code with the new
+<em class="filename">/usr/bin/perl-7.2</em> well in advance of the switch,
+and you told them that they can keep using the older one during the
+next month's grace period by changing their programs'
+first lines to <tt class="literal">#!/usr/bin/perl-6.1</tt>, if they need
+to.)
+</p>
+
+<p>Perhaps suprisingly, both hard and soft links are very useful. Many
+non-Unix operating systems have neither, and the lack is sorely felt.
+On some non-Unix systems, symbolic links may be implemented as a
+"shortcut" or an "alias" -- check the
+<em class="emphasis">perlport</em> manpage for the latest details.
+</p>
+
+<p>To find out where a symbolic link is pointing, use the
+<tt class="literal">readlink</tt> function. This will tell you where the
+symlink leads, or it will return <tt class="literal">undef</tt> if its
+argument wasn't a symlink:
+</p>
+
+<blockquote><pre class="code">my $where = readlink "carroll";             # Gives "dodgson"
+
+my $perl = readlink "/usr/local/bin/perl";  # Maybe tells where perl is</pre></blockquote>
+
+<p>You can remove either kind of link with
+<tt class="literal">unlink</tt> -- and now you see where that operation
+gets its name. <tt class="literal">unlink</tt> simply removes the directory
+entry associated with the given filename, decrementing the link count
+and thus possibly freeing the inode.<a name="INDEX-907" />
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch13_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch13_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">13.2. Renaming Files</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">13.4. Making and Removing Directories</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

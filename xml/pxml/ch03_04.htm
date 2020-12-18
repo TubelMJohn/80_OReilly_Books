@@ -1,0 +1,210 @@
+<html><head><title>Putting Parsers to Work (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch03_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">3.4. Putting Parsers to Work</h2>
+
+<p>Enough<a name="INDEX-238" />
+tinkering with the parser's internal details. We
+want to see what you can do with the stuff you get from parsers.
+We've already seen an example of a complete,
+parser-built tree structure in <a href="ch03_02.htm#perlxml-CHP-3-EX-3">Example 3-3</a>, so
+let's do something with the other type.
+We'll take an XML event stream and make it drive
+processing by plugging it into some code to handle the events. It may
+not be the most useful tool in the world, but it will serve well
+enough to show you how real-world XML processing programs are
+written.
+</p>
+
+<p><tt class="literal">XML::Parser</tt><a name="INDEX-239" />
+(with <a name="INDEX-240" />Expat running underneath) is at the input
+end of our program. Expat subscribes to the event-based parsing
+school we described earlier. Rather than loading your whole XML
+document into memory and then turning around to see what it hath
+wrought, it stops every time it encounters a discrete chunk of data
+or markup, such as an angle-bracketed tag or a literal string inside
+an element. It then checks to see if our program wants to react to it
+in any way.
+</p>
+
+<p>Your first responsibility is to give the parser an interface to the
+pertinent bits of code that handle events. Each type of event is
+handled by a different subroutine, or
+<em class="emphasis">handler</em><a name="INDEX-241" />.
+We register our handlers with the parser by setting the
+<tt class="literal">Handlers</tt> option at initialization time. <a href="ch03_04.htm#perlxml-CHP-3-EX-5">Example 3-5</a> shows the entire process.
+</p>
+
+<a name="perlxml-CHP-3-EX-5" /><div class="example">
+<h4 class="objtitle">Example 3-5. A stream-based XML processor </h4>
+<blockquote><pre class="code">use XML::Parser;
+
+# initialize the parser
+my $parser = XML::Parser-&gt;new( Handlers =&gt; 
+                                     {
+                                      Start=&gt;\&amp;handle_start,
+                                      End=&gt;\&amp;handle_end,
+                                     });
+$parser-&gt;parsefile( shift @ARGV );
+
+my @element_stack;                # remember which elements are open
+
+# process a start-of-element event: print message about element
+#
+sub handle_start {
+    my( $expat, $element, %attrs ) = @_;
+
+    # ask the expat object about our position
+    my $line = $expat-&gt;current_line;
+
+    print "I see an $element element starting on line $line!\n";
+
+    # remember this element and its starting position by pushing a
+    # little hash onto the element stack
+    push( @element_stack, { element=&gt;$element, line=&gt;$line });
+
+    if( %attrs ) {
+        print "It has these attributes:\n";
+        while( my( $key, $value ) = each( %attrs )) {
+            print "\t$key =&gt; $value\n";
+        }
+    }
+}
+
+# process an end-of-element event
+#
+sub handle_end {
+    my( $expat, $element ) = @_;
+
+    # We'll just pop from the element stack with blind faith that
+    # we'll get the correct closing element, unlike what our
+    # homebrewed well-formedness did, since XML::Parser will scream
+    # bloody murder if any well-formedness errors creep in.
+    my $element_record = pop( @element_stack );
+    print "I see that $element element that started on line ",
+          $$element_record{ line }, " is closing now.\n";
+}</pre></blockquote>
+</div>
+
+<p>It's easy to see how this process works.
+We've written two handler subroutines called
+<tt class="literal">handle_start( )</tt> and <tt class="literal">handle_end(
+)</tt> and <em class="emphasis">registered</em> each with a
+particular event in the call to <tt class="literal">new( )</tt>. When we
+call <tt class="literal">parse( )</tt>, the parser knows it has handlers
+for a start-of-element event and an end-of-element event. Every time
+the parser trips over an element start tag, it calls the first
+handler and gives it information about that element (element name and
+attributes). Similarly, any end tag it encounters leads to a call of
+the other handler with similar element-specific information.
+</p>
+
+<p>Note that the parser also gives each handler a reference called
+<tt class="literal">$expat</tt>. This is a reference to the
+<tt class="literal">XML::Parser::Expat</tt> object, a low-level interface
+to Expat. It has access to interesting information that might be
+useful to a program, such as line numbers and element depth.
+We've taken advantage of this fact, using the line
+number to dazzle users with our amazing powers of document analysis.
+</p>
+
+<p>Want to see it run? Here's how the output looks
+after processing the customer database document from <a href="ch01_02.htm#perlxml-CHP-1-EX-1">Example 1-1</a>: 
+</p>
+
+<blockquote><pre class="code">I see a spam-document element starting on line 1!
+It has these attributes:
+        version =&gt; 3.5
+        timestamp =&gt; 2002-05-13 15:33:45
+I see a customer element starting on line 3!
+I see a first-name element starting on line 4!
+I see that the first-name element that started on line 4 is closing now.
+I see a surname element starting on line 5!
+I see that the surname element that started on line 5 is closing now.
+I see a address element starting on line 6!
+I see a street element starting on line 7!
+I see that the street element that started on line 7 is closing now.
+I see a city element starting on line 8!
+I see that the city element that started on line 8 is closing now.
+I see a state element starting on line 9!
+I see that the state element that started on line 9 is closing now.
+I see a zip element starting on line 10!
+I see that the zip element that started on line 10 is closing now.
+I see that the address element that started on line 6 is closing now.
+I see a email element starting on line 12!
+I see that the email element that started on line 12 is closing now.
+I see a age element starting on line 13!
+I see that the age element that started on line 13 is closing now.
+I see that the customer element that started on line 3 is closing now.
+  [... snipping other customers for brevity's sake ...]
+I see that the spam-document element that started on line 1 is closing now.</pre></blockquote>
+
+<p>Here we used the element stack again. We didn't
+actually need to store the elements' names
+ourselves; one of the methods you can call on the
+<tt class="literal">XML::Parser::Expat</tt> object returns the current
+<em class="emphasis">context list</em><a name="INDEX-242" />, a newest-to-oldest ordering of all
+elements our parser has probed into. However, a stack proved to be a
+useful way to store additional information like line numbers. It
+shows off the fact that you can let events build up structures of
+arbitrary complexity -- the
+"memory" of the
+document's past.
+</p>
+
+<p>There are many more event types than we handle here. We
+don't do anything with character data, comments, or
+processing instructions, for example. However, for the purpose of
+this example, we don't need to go into those event
+types. We'll have more exhaustive examples of event
+processing in the next chapter, anyway.
+</p>
+
+<p>Before we close the topic of event processing, we want to mention one
+thing: the Simple API for XML processing, more commonly known as
+<a name="INDEX-243" />
+<a name="INDEX-244" />SAX. It's
+very similar to the event processing model we've
+seen so far, but the difference is that it's a
+W3C-supported standard. Being a W3C-supported standard means that it
+has a standardized, canonical set of events. How these events should
+be presented for processing is also standardized. The cool thing
+about it is that with a standard interface, you can hook up different
+program components like Legos and it will all work. If you
+don't like one parser, just plug in another (and
+sophisticated tools like the<a name="INDEX-245" /> <tt class="literal">XML::SAX</tt> module
+family can even help you pick a parser based on the features you
+need). Get your XML data from a database, a file, or your
+mother's shopping list; it
+shouldn't matter where it comes from. SAX is very
+exciting for the Perl community because we've long
+been criticized for our lack of standards compliance and general
+barbarism. Now we can be criticized for only one of those things. You
+can expect a nice, thorough discussion on SAX (specifically,
+<a name="INDEX-246" />PerlSAX,
+our<a name="INDEX-247" />
+beloved<a name="INDEX-248" /> language's
+mutation thereof) in <a href="ch05_01.htm">Chapter 5, "SAX"</a>.
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch03_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">3.3. Stream-Based Versus Tree-Based Processing</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">3.5. XML::LibXML</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

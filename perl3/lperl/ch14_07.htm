@@ -1,0 +1,189 @@
+<html><head><title>Sending and Receiving Signals (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch14_08.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">14.7. Sending and Receiving Signals</h2>
+
+<p><a name="INDEX-988" /> <a name="INDEX-989" />A Unix signal is a tiny
+message sent to a process. It can't say much; it's like a
+car horn honking -- does that honk you hear mean "look
+out -- the bridge collapsed" or "the light has
+changed -- get going" or "stop
+driving -- you've got a baby on the roof" or
+"hello, world"? Well, fortunately, Unix signals are a
+little easier to interpret than that, because there's a
+different one for each of these situations.<a href="#FOOTNOTE-325">[325]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-325" /><p>[325]Well, not
+exactly these situations, but analogous Unix-like ones. For these,
+the signals are <tt class="literal">SIGHUP</tt>,
+<tt class="literal">SIGCONT</tt>, <tt class="literal">SIGINT</tt>, and the fake
+<tt class="literal">SIGZERO</tt> (signal number zero).</p> </blockquote>
+
+<p>Different signals are identified by a name (such as
+<tt class="literal">SIGINT</tt><a name="INDEX-990" />,
+meaning "interrupt signal") and a corresponding small
+integer (in the range from 1 to 16, 1 to 32, or 1 to 63, depending on
+your Unix flavor). Signals are typically sent when a significant
+event happens, such as pressing the interrupt character (typically
+Control-C) on the terminal, which sends a <tt class="literal">SIGINT</tt>
+to all the processes attached to that terminal.<a href="#FOOTNOTE-326">[326]</a> Some signals are sent automatically by the
+system, but they can also come from another process.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-326" /><p>[326]And
+you thought that pressing Control-C stopped your program. Actually,
+it simply sends the <tt class="literal">SIGINT</tt> signal, and that stops
+the program by default. As we'll see later in this chapter, you
+can make a program that does something different when
+<tt class="literal">SIGINT</tt> comes in, rather than stopping at
+once.</p> </blockquote>
+
+<p>You can send signals from your Perl process to another process, but
+you have to know the target's process ID number. How to figure
+that out is a bit complicated,<a href="#FOOTNOTE-327">[327]</a> but let's say
+you know that you want to send a <tt class="literal">SIGINT</tt> to process
+4201. That's easy enough:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-327" /><p>[327]Usually you have the
+process ID because it's a child process you produced with
+<tt class="literal">fork</tt>, or you found it in a file or from an
+external program. Using an external program can be difficult and
+problematic, which is why many long-running programs save their own
+current process ID into a file, usually described in the
+program's documentation.</p> </blockquote>
+
+<blockquote><pre class="code">kill 2, 4201 or die "Cannot signal 4201 with SIGINT: $!";</pre></blockquote>
+
+<p>It's named "kill" because one of the primary
+purposes of signals is to stop a process that's gone on long
+enough. You can also use the string <tt class="literal">'INT'</tt> in place
+of the <tt class="literal">2</tt> there, because signal number
+<tt class="literal">2</tt> is <tt class="literal">SIGINT</tt>. If the process no
+longer exists,<a href="#FOOTNOTE-328">[328]</a>
+you'll get a false return value, so you can also use this
+technique to see whether a process is still alive. A special signal
+number of <tt class="literal">0</tt> says "just check to see whether
+I <em class="emphasis">could</em> send a signal if I wanted to, but I
+don't want to, so don't actually send anything." So
+a process probe might look like:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-328" /><p>[328]Sending a signal will also fail if
+you're not the superuser and it's someone else's
+process. It would be rude to send <tt class="literal">SIGINT</tt> to
+someone else's programs, anyway.</p> </blockquote>
+
+<blockquote><pre class="code">unless (kill 0, $pid) {
+  warn "$pid has gone away!";
+}</pre></blockquote>
+
+<p>Perhaps a little more interesting than sending signals is catching
+signals. Why might you want to do this? Well, suppose you have a
+program that creates files in<em class="filename"> /tmp</em>, and you
+normally delete those files at the end of the program. If someone
+presses Control-C during the execution, that leaves trash in
+<em class="filename">/tmp</em>, a very unpolite thing to do. To fix this,
+create a signal handler that takes care of the cleanup:
+</p>
+
+<blockquote><pre class="code">my $temp_directory = "/tmp/myprog.$$"; # create files below here
+mkdir $temp_directory, 0700 or die "Cannot create $temp_directory: $!";
+
+sub clean_up {
+  unlink glob "$temp_directory/*";
+  rmdir $temp_directory;
+}
+
+sub my_int_handler {
+  &amp;clean_up;
+  die "interrupted, exiting...\n";
+}
+
+$SIG{'INT'} = 'my_int_handler';
+.
+.   # Time passes, the program runs, creates some temporary
+.   # files in the temp directory, maybe somone presses Control-C
+.
+# Now it's the end of normal execution
+&amp;clean_up;</pre></blockquote>
+
+<p>The assignment into the special <tt class="literal">%SIG</tt> hash
+activates the handler (until revoked). The key is the name of the
+signal (without the constant SIG prefix), and the value is a
+string<a href="#FOOTNOTE-329">[329]</a> naming the
+subroutine, without the ampersand. From then on, if a
+<tt class="literal">SIGINT</tt> comes along, Perl stops whatever it's
+doing and jumps immediately to the subroutine. Our subroutine cleans
+up the <a name="INDEX-991" />temp files and then exits. (And if nobody
+presses Control-C, we'll still call
+<tt class="literal">&amp;clean_up</tt> at the end of normal execution.)
+</p><blockquote class="footnote"> <a name="FOOTNOTE-329" /><p>[329]The value can also be a subroutine reference,
+but we're not doing those here.</p> </blockquote>
+
+<p>If the subroutine returns rather than exiting, execution resumes
+right where it was interrupted. This can be useful if the interrupt
+needs to actually interrupt something rather than causing it to stop.
+For example, suppose processing each line of a file takes a few
+seconds, which is pretty slow, and you want to abort the overall
+processing when an interrupt is processed, but not in the middle of
+processing a line. Just set a flag in the interrupt procedure, and
+check it at the end of each line's processing:
+</p>
+
+<blockquote><pre class="code">my $int_count;
+sub my_int_handler { $int_count++ }
+$SIG{'INT'} = 'my_int_handler';
+...
+$int_count = 0;
+while (&lt;SOMEFILE&gt;) {
+  ... some processing that takes a few seconds ...
+  if ($int_count) {
+    # interrupt was seen!
+    print "[processing interrupted...]\n";
+    last;
+  }
+}</pre></blockquote>
+
+<p>Now as each line is processed, the value of
+<tt class="literal">$int_count</tt> will be <tt class="literal">0</tt> if no one
+has pressed Control-C, and so the loop continues to the next item.
+However, if an interrupt comes in, the interrupt handler increments
+the <tt class="literal">$int_count</tt> flag, breaking out of the loop when
+checked at the end.
+</p>
+
+<p>So, you can either set a flag or break out of the program, and that
+covers most of what you'll need from catching signals. The
+current implementation of signal handlers is not entirely without
+faults,<a href="#FOOTNOTE-330">[330]</a> however, so
+keep the stuff you're doing in there to an absolute minimum, or
+your program may end up blowing up sometime when you least expect
+it.<a name="INDEX-992" />
+<a name="INDEX-993" />
+</p><blockquote class="footnote"> <a name="FOOTNOTE-330" /><p>[330]This is one of the top items on the Perl
+developers' list of things to be fixed, so we expect reliable
+signal handling to be one of the first items on the new feature list
+for Perl 6. The problem is that a signal may come in at any time,
+even when Perl isn't ready for one. If Perl is (for example) in
+the middle of allocating some memory when a signal comes in, the
+signal handler can accidentally try to allocate some memory
+and -- your program is dead. You can't control when your
+Perl code will allocate memory, but XSUB code (usually written in C)
+can safely handle signals. See the Perl documentation for more
+information about this advanced topic.</p> </blockquote>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch14_08.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">14.6. Getting Down and Dirty with Fork</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">14.8. Exercises</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

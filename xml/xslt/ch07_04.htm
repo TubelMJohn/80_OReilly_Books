@@ -1,0 +1,292 @@
+<html><head><title>More Sophisticated Techniques (XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Doug Tidwell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596000537L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XSL" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch07_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+    <h2 class="sect1">7.4. More Sophisticated Techniques</h2>
+    <p>
+<a name="INDEX-591" />
+
+Up to now, we've written a simple XML document that contains references to other XML documents, then we created a stylesheet that combines all those referenced XML documents into a single output document. That's all well and good, but we'll probably want to do more advanced things. For example, it might be useful to generate a document that lists all items ordered by all the customers. It might be useful to sort all the purchase orders by the state to which they were shipped, by the last name of the customer, or to group them by the state to which they were shipped. We'll go through some of these scenarios to illustrate the design challenges we face when generating documents from multiple input files.</p>
+    <div class="sect2">
+      <h3 class="sect2">7.4.1. The document() Function and Sorting</h3>
+      <p>
+<a name="INDEX-592" />
+<a name="INDEX-593" />
+<a name="INDEX-594" />
+<a name="INDEX-595" />
+<a name="INDEX-596" />
+
+
+Our first challenge will be to generate a listing of all purchase orders and sort them by state. This isn't terribly difficult; we'll simply use the <tt class="literal">&lt;xsl:sort&gt;</tt> element in conjunction with the <tt class="literal">document()</tt> function. Here's the heart of our new stylesheet:</p>
+      <blockquote><pre class="code">
+&lt;body&gt;
+  &lt;h3&gt;Selected Purchase Orders - &lt;i&gt;Sorted by state&lt;/i&gt;&lt;/h3&gt;
+  &lt;xsl:for-each 
+  select="document(/report/po/@filename)/purchase-order/customer/address/state"&gt;
+    &lt;xsl:sort select="."/&gt;
+    &lt;xsl:apply-templates select="ancestor::purchase-order"/&gt;
+  &lt;/xsl:for-each&gt;
+&lt;/body&gt;</pre></blockquote>
+      <p>
+<a name="INDEX-597" />
+<a name="INDEX-598" />
+
+What makes this process slightly challenging is the fact that we're sorting on one thing (the value of the <tt class="literal">&lt;state&gt;</tt> element), then invoking <tt class="literal">&lt;xsl:apply-templates&gt;</tt> against the <tt class="literal">&lt;purchase-order&gt;</tt> ancestor of the <tt class="literal">&lt;state&gt;</tt> element. We simply used the <tt class="literal">ancestor::</tt> axis to do this. <a href="ch07_04.htm#xslt-CHP-7-FIG-2">Figure 7-2</a> shows our output document, sorted by the value of the <tt class="literal">&lt;state&gt;</tt> element in each purchase order.</p>
+      <a name="xslt-CHP-7-FIG-2" /><div class="figure"><img height="413" alt="Figure 7-2" src="figs/xslt.0702.gif" width="431" /></div><h4 class="objtitle">Figure 7-2. Another document generated from multiple input files</h4>
+    </div>
+    <div class="sect2">
+      <h3 class="sect2">7.4.2. Implementing Lookup Tables</h3>
+      <p>
+<a name="INDEX-599" />
+
+We mentioned earlier that calling the <tt class="literal">document()</tt> function with an empty string enabled us to access the nodes in the stylesheet itself. We can use this behavior to implement a lookup table. As an example, we'll create a lookup table that replaces an abbreviation such as <tt class="literal">ME</tt> with <tt class="literal">Maine</tt>. We can then use the value from the lookup table as the sort key. More attentive readers might have noticed in our previous example that although the abbreviation <tt class="literal">MA</tt> does indeed sort before the abbreviation <tt class="literal">ME</tt>, a sorted list of the state names themselves would put <tt class="literal">Maine</tt> (abbreviation <tt class="literal">ME</tt>) before <tt class="literal">Massachusetts</tt> (abbreviation <tt class="literal">MA</tt>).</p>
+
+      <p>First, we'll create our lookup table. We'll use the fact that a stylesheet can have any element as a top-level element, provided that element is namespace-qualified to distinguish it from the <tt class="literal">xsl:</tt> namespace reserved for stylesheets. Here's the namespace prefix definition and part of the lookup table that uses it:</p>
+      <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:states="http://new.usps.com/cgi-bin/uspsbv/scripts/content.jsp?D=10090"&gt;
+
+  &lt;states:name abbrev="AL"&gt;Alabama&lt;/states:name&gt;
+  &lt;states:name abbrev="AL"&gt;Alabama&lt;/states:name&gt;
+  &lt;states:name abbrev="AK"&gt;Alaska&lt;/states:name&gt;
+  &lt;states:name abbrev="AS"&gt;American Samoa&lt;/states:name&gt;
+  &lt;!-- Most state abbreviations removed to keep this listing brief... --&gt;
+  &lt;states:name abbrev="ME"&gt;Maine&lt;/states:name&gt;
+  &lt;states:name abbrev="MH"&gt;Marshall Islands&lt;/states:name&gt;
+  &lt;states:name abbrev="MD"&gt;Maryland&lt;/states:name&gt;
+  &lt;states:name abbrev="MA"&gt;Massachusetts&lt;/states:name&gt;</pre></blockquote>
+      <p>(The namespace mapped to the <tt class="literal">states</tt> prefix is the URL for the official list of state abbreviations from the United States Postal Service.)</p>
+      <p>To look up values in our table, we'll use the <tt class="literal">document()</tt> function to return the root node of our stylesheet, then we'll look for a <tt class="literal">&lt;states:name&gt;</tt> element with a <tt class="literal">abbrev</tt> attribute that matches the value of the current <tt class="literal">&lt;state&gt;</tt> element in the purchase order we're currently processing. Here's the somewhat convoluted syntax that performs this magic:</p>
+      <blockquote><pre class="code">
+&lt;body&gt;
+  &lt;h3&gt;Selected Purchase Orders - &lt;i&gt;Sorted by state&lt;/i&gt;&lt;/h3&gt;
+  &lt;xsl:for-each 
+  select="document(/report/po/@filename)/purchase-order/customer/address/state"&gt;
+    &lt;xsl:sort select="document('')/*/states:name[@abbrev=current()]"/&gt;
+    &lt;xsl:apply-templates select="ancestor::purchase-order"/&gt;
+  &lt;/xsl:for-each&gt; 
+&lt;/body&gt;</pre></blockquote>
+      <p>Notice that we use the <tt class="literal">document()</tt> function twice; once to open the document referred to by the <tt class="literal">filename</tt> element, and once to open the stylesheet itself. We also need to discuss the XPath expression in the <tt class="literal">select</tt> attribute of the <tt class="literal">&lt;xsl:sort&gt;</tt> element. There are four significant parts to this expression:</p>
+      <dl>
+<dt><tt class="literal">document('')</tt></dt>
+        <dd>
+          Returns the root node of the current stylesheet. </p>
+        </dd>
+
+
+<dt><tt class="literal">/*/</tt></dt>
+        <dd>
+
+          <p>Indicates that what follows must be a top-level element of the stylesheet. This syntax starts at the root of the document, then has a single element. The element's name can be anything. For our current stylesheet, we could  have written the XPath expression like this:</p>
+          <blockquote><pre class="code">
+  select="document('')/xsl:stylesheet/states:name[@abbrev=current()]"</pre></blockquote>
+          <p>Because the root element of a stylesheet can be either <tt class="literal">xsl:stylesheet</tt> or <tt class="literal">xsl:transform</tt>, it's better to use the asterisk. </p>
+        </dd>
+
+
+<dt><tt class="literal">states:name</tt></dt>
+        <dd>
+          Indicates a <tt class="literal">name</tt> element combined with a namespace prefix that maps to <tt class="literal">http://new.usps.com/cgi-bin/uspsbv/scripts/content.jsp?D=10090</tt>. If we were referencing elements in another document, the prefix wouldn't have to be <tt class="literal">states</tt>; it could be anything, as long as it mapped to the same string.</p>
+        </dd>
+
+
+<dt><tt class="literal">[@abbrev=current()]</tt></dt>
+        <dd>
+          
+<a name="INDEX-600" />
+
+Means that the <tt class="literal">abbrev</tt> attribute of the current <tt class="literal">&lt;states:name&gt;</tt> element has the same value as the current node. We have to use the XSLT <tt class="literal">current()</tt> function here because we want the current node, not the context node. Inside the predicate expression, the current node is the <tt class="literal">&lt;state&gt;</tt> element we process, while the context node is the <tt class="literal">&lt;states:name&gt;</tt> element that contains the <tt class="literal">abbrev</tt> attribute we evaluate.</p>
+        </dd>
+
+      </dl>
+      <p><a href="ch07_04.htm#xslt-CHP-7-FIG-3">Figure 7-3</a> shows the output from the stylesheet with a lookup table.</p>
+      <a name="xslt-CHP-7-FIG-3" /><div class="figure"><img height="461" alt="Figure 7-3" src="figs/xslt.0703.gif" width="481" /></div><h4 class="objtitle">Figure 7-3. Document generated with a lookup table</h4>
+      <p>Notice that now the purchase orders have been sorted by the actual name of the state referenced in the address, not by the state's abbreviation. Lookup tables are an extremely useful side effect of the way the <tt class="literal">document('')</tt> function works. You could place a lookup table in another file and you could use the <tt class="literal">document('')</tt> function for other purposes, but the technique we've covered here is the most common way to implement lookup tables.
+<a name="INDEX-601" />
+
+</p>
+    </div>
+    <a name="xslt-CHP-7-SECT-4.3" /><div class="sect2">
+      <h3 class="sect2">7.4.3. Grouping Across Multiple Documents</h3>
+      <p>
+<a name="INDEX-602" />
+<a name="INDEX-603" />
+
+Our final task will be to group our collection of purchase orders. We'll create a new listing that groups all the purchase orders by the state to which they were shipped. We'll start by attempting the grouping technique we used earlier.</p>
+      <p>The most efficient grouping technique we used before was to use the XSLT <tt class="literal">key()</tt> function along with the XPath <tt class="literal">generate-id()</tt> function. We create a key for the nodes we want to index (in this case, the <tt class="literal">&lt;state&gt;</tt> elements), then compare each address we find to the first value returned by the <tt class="literal">key()</tt> function. Here's how we define the key:</p>
+      <blockquote><pre class="code">
+&lt;xsl:key name="states" 
+  match="document(/report/po/@filename)/purchase-order/customer/address" 
+  use="state"/&gt;</pre></blockquote>
+      <p>Unfortunately, the <tt class="literal">match</tt> attribute of the <tt class="literal">&lt;xsl:key&gt;</tt> element can't begin with a call to the <tt class="literal">document()</tt> function. Maybe we could try creating a variable that contains all the nodes we want to use, then use that node-set to create the key:</p>
+      <blockquote><pre class="code">
+&lt;xsl:variable name="addresses" 
+  select="document(/report/po/@filename)/purchase-order/customer/address"/&gt;
+&lt;xsl:key name="states" match="$addresses" use="state"/&gt;</pre></blockquote>
+      <p>This doesn't work either; you can't use a variable in the <tt class="literal">match</tt> attribute. Our hopes for a quick solution to this problem are fading quickly. Complicating the problem is the fact that axes won't help, either. Trying to use the <tt class="literal">preceding::</tt> axis to see if  a previous purchase order came from the current state also doesn't work. Consider this example:</p>
+      <blockquote><pre class="code">
+&lt;xsl:if test="not(preceding::address[state=$state])"&gt;</pre></blockquote>
+      <p>When we were working with a single document, the <tt class="literal">preceding::</tt> axis gave us useful information. Because all of the nodes we're working with are now in separate documents, the various axes defined in XPath won't help. When I ask for any nodes in the <tt class="literal">preceding::</tt> axis, I only get nodes from the current document. We're going to have to roll up our sleeves and do this the hard way.</p>
+      <p>Now that we're resigned to grouping nodes with brute force, we'll try to make the process as efficient as possible. For performance reasons, we want to avoid having to call the <tt class="literal">document()</tt> function any more than we have to. This won't be pretty, but here's our approach:</p>
+      <ul>
+        <li>
+          <p>Use the <tt class="literal">document()</tt> function to retrieve the values of all of the <tt class="literal">&lt;state&gt;</tt> elements. To keep things simple, we'll write these values out to a string, separating them with spaces. We'll also use the <tt class="literal">&lt;xsl:sort&gt;</tt> element to sort the <tt class="literal">&lt;state&gt;</tt> elements; that will save us some time later.</p>
+        </li>
+        <li>
+          <p>Take our string of sorted, space-separated state names (to be precise, they're the values of all the <tt class="literal">&lt;state&gt;</tt> elements) and remove the duplicates. Because things are sorted, I only have to compare two adjacent values. We'll use recursion to handle this.</p>
+        </li>
+        <li>
+          <p>For each item in our string of sorted, space-separated, unique state names, use the <tt class="literal">document()</tt> function to see which purchase orders match the current state.</p>
+        </li>
+      </ul>
+      <p>This certainly isn't efficient; for each unique state, we'll have to call the <tt class="literal">document()</tt> function once for every <tt class="literal">filename</tt> attribute. In other words, if we had 500 purchase orders from 50 unique states, we would have to open each of those 500 documents 51 times, invoking the <tt class="literal">document()</tt> 25,500 times!  It's not pretty, but it works. </p>
+      <p>Retrieving the values of all <tt class="literal">&lt;state&gt;</tt> elements is relatively straightforward. We'll use the technique of creating a variable whose value contains output from an <tt class="literal">&lt;xsl:for-each&gt;</tt> element:</p>
+      <blockquote><pre class="code">
+  &lt;xsl:variable name="list-of-states"&gt;
+    &lt;xsl:for-each 
+select="document(/report/po/@filename)/purchase-order/customer/address/state"&gt;
+      &lt;xsl:sort select="document('')/*/states:name[@abbrev=current()]"/&gt;
+      &lt;xsl:value-of select="."/&gt;&lt;xsl:text&gt; &lt;/xsl:text&gt;
+    &lt;/xsl:for-each&gt;
+  &lt;/xsl:variable&gt;</pre></blockquote>
+      <p>This code produces the string "ME MA MA WI" for our current set of purchase orders. Our next step will remove any duplicate values from the list. We'll do this with recursion, using the following algorithm:</p>
+      <ul>
+        <li>
+          <p>Call our recursive template with two arguments: the list of states and the name of the last state we found. the first time we invoke this template, the name of the last state will be blank. </p>
+        </li>
+        <li>
+          <p>Break the list of states into two parts: The first state in the list, followed by the remaining states in the list.</p>
+        </li>
+        <li>
+          <p>If the list of states is empty, exit. </p>
+          <p>If the first state in the list is different from the last state we found, output the first state and invoke the template on the remaining states on the list.</p>
+          <p>If the first state in the list is the same as the last state we found, simply invoke the template on the remaining states on the list.</p>
+        </li>
+      </ul>
+      <p>Again, we use our technique of calling this template inside an <tt class="literal">&lt;xsl:variable&gt;</tt> element to save the list of unique states for later. Here is the <tt class="literal">&lt;xsl:variable&gt;</tt> element, along with the recursive template that removes duplicate state names from the string:</p>
+      <blockquote><pre class="code">
+&lt;xsl:variable name="list-of-unique-states"&gt;
+  &lt;xsl:call-template name="remove-duplicates"&gt;
+    &lt;xsl:with-param name="list-of-states" select="$list-of-states"/&gt;
+    &lt;xsl:with-param name="last-state" select="''"/&gt;
+  &lt;/xsl:call-template&gt;
+&lt;/xsl:variable&gt;
+
+&lt;xsl:template name="remove-duplicates"&gt;
+  &lt;xsl:param name="list-of-states"/&gt;
+  &lt;xsl:param name="last-state" select="''"/&gt;
+  &lt;xsl:variable name="next-state"&gt;
+    &lt;xsl:value-of select="substring-before($list-of-states, ' ')"/&gt;
+  &lt;/xsl:variable&gt;
+  &lt;xsl:variable name="remaining-states"&gt;
+    &lt;xsl:value-of select="substring-after($list-of-states, ' ')"/&gt;
+  &lt;/xsl:variable&gt;
+  &lt;xsl:choose&gt;
+    &lt;xsl:when test="not(string-length(normalize-space($list-of-states)))"&gt;
+      &lt;!-- If the list of states is empty, do nothing --&gt;
+    &lt;/xsl:when&gt;
+    &lt;xsl:when test="not($last-state=$next-state)"&gt;
+      &lt;xsl:value-of select="$next-state"/&gt;
+      &lt;xsl:text&gt; &lt;/xsl:text&gt;
+      &lt;xsl:call-template name="remove-duplicates"&gt;
+        &lt;xsl:with-param name="list-of-states" select="$remaining-states"/&gt;
+        &lt;xsl:with-param name="last-state" select="$next-state"/&gt;
+      &lt;/xsl:call-template&gt;
+    &lt;/xsl:when&gt;
+    &lt;xsl:when test="$last-state=$next-state"&gt;
+      &lt;xsl:call-template name="remove-duplicates"&gt;
+        &lt;xsl:with-param name="list-of-states" select="$remaining-states"/&gt;
+        &lt;xsl:with-param name="last-state" select="$next-state"/&gt;
+      &lt;/xsl:call-template&gt;
+    &lt;/xsl:when&gt;
+  &lt;/xsl:choose&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+      <p>At this point, we have a variable named <tt class="literal">list-of-unique-states</tt> that contains the value <tt class="literal">ME MA WI</tt>. Now all we have to do is get each value and output all the purchase orders from each state. We'll use recursion yet again to make this happen. We'll pass our list of unique states to our recursive template, which does the following:</p>
+      <ul>
+        <li>
+          <p>Breaks the string into two parts: the first state in the list and the remaining states.</p>
+        </li>
+        <li>
+          <p>Outputs a heading for the first state in the list.</p>
+        </li>
+        <li>
+          <p>Invokes the <tt class="literal">document()</tt> function against each purchase order. If a given purchase order is from the first state in the list, use <tt class="literal">&lt;xsl:apply-templates&gt;</tt> to transform it.</p>
+        </li>
+        <li>
+          <p>Invokes the template again for the remaining states. If no states remain (the value of <tt class="literal">normalize-space($remaining-states)</tt> is an empty string), we're done.</p>
+        </li>
+      </ul>
+      
+      <p>Here is the root template and the recursive template we use to group our data. The result of our hard work looks like <a href="ch07_04.htm#xslt-CHP-7-FIG-4">Figure 7-4</a>.</p>
+<a name="xslt-CHP-7-FIG-4" /><div class="figure"><img height="492" alt="Figure 7-4" src="figs/xslt.0704.gif" width="431" /></div><h4 class="objtitle">Figure 7-4. Document featuring grouped items from multiple input files</h4>
+      <blockquote><pre class="code">
+&lt;xsl:template match="/"&gt;
+  &lt;html&gt;
+    &lt;head&gt;
+      &lt;title&gt;&lt;xsl:value-of select="/report/title"/&gt;&lt;/title&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+      &lt;h3&gt;Selected Purchase Orders - &lt;i&gt;&lt;b&gt;Grouped&lt;/b&gt; by state&lt;/i&gt;&lt;/h3&gt;
+      &lt;xsl:call-template name="group-by-state"&gt;
+        &lt;xsl:with-param name="list-of-unique-states" 
+          select="$list-of-unique-states"/&gt;
+      &lt;/xsl:call-template&gt;
+    &lt;/body&gt;
+  &lt;/html&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template name="group-by-state"&gt;
+  &lt;xsl:param name="list-of-unique-states"/&gt;
+  &lt;xsl:variable name="next-state"&gt;
+    &lt;xsl:value-of select="substring-before($list-of-unique-states, ' ')"/&gt;
+  &lt;/xsl:variable&gt;
+  &lt;xsl:variable name="remaining-states"&gt;
+    &lt;xsl:value-of select="substring-after($list-of-unique-states, ' ')"/&gt;
+  &lt;/xsl:variable&gt;
+  &lt;hr/&gt;
+  &lt;h1&gt;Purchase Orders from 
+  &lt;xsl:value-of select="document('')/*/states:name[@abbrev=$next-state]"/&gt;
+  &lt;/h1&gt;
+  &lt;xsl:for-each 
+    select="document(/report/po/@filename)/purchase-order/customer/address"&gt;
+    &lt;xsl:if test="state=$next-state"&gt;
+      &lt;xsl:apply-templates select="ancestor::purchase-order"/&gt;
+    &lt;/xsl:if&gt;
+  &lt;/xsl:for-each&gt;
+  &lt;xsl:if test="normalize-space($remaining-states)"&gt;
+    &lt;xsl:call-template name="group-by-state"&gt;
+      &lt;xsl:with-param name="list-of-unique-states" 
+        select="$remaining-states"/&gt;
+    &lt;/xsl:call-template&gt;
+  &lt;/xsl:if&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+ 
+<a name="INDEX-604" />
+<a name="INDEX-605" />
+<a name="INDEX-606" />
+
+
+   </div>
+  
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch07_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">7.3. Invoking the document() Function</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">7.5. Summary</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

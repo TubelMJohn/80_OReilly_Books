@@ -1,0 +1,336 @@
+<html><head><title>Using Simple Modules (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch13_07.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch13_09.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">13.8. Using Simple Modules</h2>
+
+<p><a name="INDEX-931" />Suppose
+<a name="INDEX-932" />that
+you've got a long filename like
+<em class="filename">/usr/local/bin/perl</em> in your program, and you
+need to find out the <em class="firstterm">basename.</em> That's
+easy enough, since the basename is everything after the last slash
+(it's just "<em class="filename">perl</em>" in this
+case):
+</p>
+
+<blockquote><pre class="code">my $name = "/usr/local/bin/perl";
+(my $basename = $name) =~ s#.*/##;  # Oops!</pre></blockquote>
+
+<p>As we saw earlier, first Perl will do the assignment inside the
+parentheses, then it will do the substitution. The substitution is
+supposed to replace any string ending with a slash (that is, the
+directory name portion) with an empty string, leaving just the
+basename.
+</p>
+
+<p>And if you try this, it seems to work. Well, it
+<em class="emphasis">seems</em> to, but actually, there are three
+problems.
+</p>
+
+<p>First, a Unix file or directory name could contain a newline
+character. (It's not something that's likely to happen by
+accident, but it's permitted.) So, since the regular expression
+dot ("<tt class="literal">.</tt>") can't match a newline,
+a filename like the string
+<tt class="literal">"/home/fred/flintstone\n/brontosaurus"</tt> won't
+work right -- that code would think the basename is
+<tt class="literal">"flintstone\n/brontosaurus"</tt>. You could fix that
+with the <tt class="literal">/s</tt> option to the pattern (if you
+remembered about this subtle and infrequent case), making the
+substitution look like this: <tt class="literal">s#.*/##s</tt>
+</p>
+
+<p>The second problem is that this is Unix-specific. It assumes that the
+forward slash will always be the directory separator, as it is on
+Unix, and not the backslash or colon that some systems use.
+</p>
+
+<p>And the third (and biggest) problem with this is that we're
+trying to solve a problem that someone else has already solved. Perl
+comes with a number of <em class="firstterm">modules</em>, which are
+smart extensions to Perl that add to its functionality. And if those
+aren't enough, there are many other useful modules available on
+<a name="INDEX-933" />CPAN, with new ones being added every
+week. You (or, better yet, your system administrator) can install
+them if you need their functionality.
+</p>
+
+<p>In the rest of this section, we'll show you how to use some of
+the features of a couple of simple modules that come with Perl.
+(There's more that these modules can do; this is just an
+overview to illustrate the general principles of how to use a simple
+module.)
+</p>
+
+<p>Alas, we can't show you everything you'd need to know
+about using modules in general, since you'd have to understand
+advanced topics like references and objects in order to use some
+modules.<a href="#FOOTNOTE-298">[298]</a> But this section should prepare you for using many simple
+modules. Further information on some interesting and useful modules
+is included in <a href="appb_01.htm">Appendix B, "Beyond the Llama"</a>.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-298" /><p>[298]As we'll see in the next few pages,
+though, you may be able to use a module that uses objects and
+references without having to understand those advanced topics.</p>
+</blockquote>
+
+<a name="lperl3-CHP-13-SECT-8.1" /><div class="sect2">
+<h3 class="sect2">13.8.1. The File::Basename Module</h3>
+
+<p><a name="INDEX-934" /> <a name="INDEX-935" />In the previous example, we found
+the basename of a filename in a way that's not portable. We
+showed that something that seemed straightforward was susceptible to
+subtle mistaken assumptions (here, the assumption was that newlines
+would never appear in file or directory names). And we were
+re-inventing the wheel, solving a problem that others have solved
+(and debugged) many times before us.
+</p>
+
+<p>Here's a better way to extract the basename of a filename. Perl
+comes with a module called <tt class="literal">File::Basename</tt>. With
+the command <i class="command">perldoc File::Basename</i>, or with your
+system's documentation system, you can read about what it does.
+That's the first step when using a new module. (It's
+often the third and fifth step, as well.)
+</p>
+
+<p>Soon you're ready to use it, so you declare it with a
+<tt class="literal">use</tt> directive near the top of your
+program:<a href="#FOOTNOTE-299">[299]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-299" /><p>[299]It's traditional to declare modules
+near the top of the file, since that makes it easy for the
+maintenance programmer to see which modules you'll be using.
+That greatly simplifies matters when it's time to install your
+program on a new machine, for example.</p> </blockquote>
+
+<blockquote><pre class="code">use File::Basename;</pre></blockquote>
+
+<p>During compilation, Perl sees that line and loads up the module. Now,
+it's as if Perl has some new functions that you may use in the
+remainder of your program.<a href="#FOOTNOTE-300">[300]</a> The one we wanted in the earlier example is the
+<tt class="literal">basename</tt> function itself:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-300" /><p>[300]You guessed it:
+there's more to the story, having to do with packages and fully
+qualified names. When your programs are growing beyond a few hundred
+lines in the main program (not counting code in modules), which is
+quite large in Perl, you should probably read up about these advanced
+features. Start with the <em class="emphasis">perlmod</em> manpage.</p>
+</blockquote>
+
+<blockquote><pre class="code">my $name = "/usr/local/bin/perl";
+my $basename = basename $name;  # gives 'perl'</pre></blockquote>
+
+<p>Well, that worked for Unix. What if our program were running on
+MacPerl or Windows or VMS, to name a few? There's no
+problem -- this module can tell which kind of machine you're
+using, and it uses that machine's filename rules by default.
+(Of course, you'd have that machine's kind of filename
+string in <tt class="literal">$name</tt>, in that case.)
+</p>
+
+<p>There are some related functions also provided by this module. One is
+the <tt class="literal">dirname</tt><a name="INDEX-936" /> function, which
+pulls the directory name from a full filename. The module also lets
+you separate a filename from its extension, or change the default set
+of filename rules.<a href="#FOOTNOTE-301">[301]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-301" /><p>[301]You might need to change the
+filename rules if you were trying to work with a Unix machine's
+filenames from a Windows machine -- perhaps while sending commands
+over an FTP connection, for example.</p> </blockquote>
+
+</div>
+<a name="lperl3-CHP-13-SECT-8.2" /><div class="sect2">
+<h3 class="sect2">13.8.2. Using Only Some Functions from a Module</h3>
+
+<p>Suppose you discovered that when you went to add the
+<tt class="literal">File::Basename</tt> module to your existing program,
+you already have a subroutine called
+<tt class="literal">&amp;dirname</tt> -- that is, you already have a
+subroutine with the same name as one of the
+<a name="INDEX-937" />module's
+functions.<a href="#FOOTNOTE-302">[302]</a> Now there's
+trouble, because the new <tt class="literal">dirname</tt> is
+<em class="emphasis">also</em> implemented as a Perl subroutine (inside
+the module). What do you do?
+</p><blockquote class="footnote"> <a name="FOOTNOTE-302" /><p>[302]Well, it's not likely that you would
+already have a <tt class="literal">&amp;dirname</tt> subroutine that you
+use for another purpose, but this is just an example. Some modules
+offer hundreds (really!) of new functions, making a name collision
+that much more frequent.</p> </blockquote>
+
+<p>Simply give <tt class="literal">File::Basename</tt>, in your
+<tt class="literal">use</tt> declaration, an <em class="firstterm">import
+list</em><a name="INDEX-938" /> showing exactly which function names it
+should give you, and it'll supply those and no others. Here,
+we'll get nothing but <tt class="literal">basename</tt>:
+</p>
+
+<blockquote><pre class="code">use File::Basename qw/ basename /;</pre></blockquote>
+
+<p>And here, we'll ask for no new functions at all:</p>
+
+<blockquote><pre class="code">use File::Basename qw/ /;</pre></blockquote>
+
+<p>Why would you want to do that? Well, this directive tells Perl to
+load up <tt class="literal">File::Basename</tt>, just as before, but not to
+<em class="firstterm">import</em> any function names. Importing lets us
+use the short, simple function names like <tt class="literal">basename</tt>
+and <tt class="literal">dirname</tt>. But even if we don't import
+those names, we can still use the functions. When they're not
+imported, though, we have to call them by their full names:
+</p>
+
+<blockquote><pre class="code">use File::Basename qw/ /;                     # import no function names
+
+my $betty = &amp;dirname($wilma);                 # uses our own subroutine &amp;dirname (not shown)
+
+my $name = "/usr/local/bin/perl";
+my $dirname = File::Basename::dirname $name;  # dirname from the module</pre></blockquote>
+
+<p>As you see, the full name of the <tt class="literal">dirname</tt> function
+from the module is <tt class="literal">File::Basename::dirname</tt>. We can
+always use the function's full name (once we've loaded
+the module) whether we've imported the short name
+<tt class="literal">dirname</tt> or not.
+</p>
+
+<p>Most of the time, you'll want to use a module's default
+import list. But you can always override that with a list of your
+own, if you want to leave out some of the default items. Another
+reason to supply your own list would be if you wanted to import some
+function not on the default list, since most modules include some
+(infrequently needed) functions that are not on the default import
+list.
+</p>
+
+<p>As you'd guess, some modules will, by default, import more
+symbols than others. Each module's documentation should make it
+clear which symbols it imports, if any, but you are always free to
+override the default import list by specifying one of your own, just
+as we did with <tt class="literal">File::Basename</tt>. Supplying an empty
+list imports no<a name="INDEX-939" /> symbols.<a name="INDEX-940" /> <a name="INDEX-941" />
+</p>
+
+</div>
+<a name="lperl3-CHP-13-SECT-8.3" /><div class="sect2">
+<h3 class="sect2">13.8.3. The File::Spec Module</h3>
+
+<p><a name="INDEX-942" />Now you can find out a file's
+basename. That's useful, but you'll often want to put
+that together with a directory name to get a full filename. For
+example, here we want to take a filename like
+<em class="filename">/home/rootbeer/ice-2.1.txt</em> and add a prefix to
+the basename:
+</p>
+
+<blockquote><pre class="code">use File::Basename;
+
+print "Please enter a filename: ";
+chomp(my $old_name = &lt;STDIN&gt;);
+
+my $dirname = dirname $old_name;
+my $basename = basename $old_name;
+
+$basename =~ s/^/not/;  # Add a prefix to the basename
+my $new_name = "$dirname/$basename";
+
+rename($old_name, $new_name)
+  or warn "Can't rename '$old_name' to '$new_name': $!";</pre></blockquote>
+
+<p>Do you see the problem here? Once again, we're making the
+assumption that filenames will follow the Unix conventions and use a
+forward slash between the directory name and the basename.
+Fortunately, Perl comes with a module to help with this problem, too.
+</p>
+
+<p>The <tt class="literal">File::Spec</tt> module is used for manipulating
+<em class="firstterm">file
+specifications</em><a name="INDEX-943" />,
+which are the names of files, directories, and the other things that
+are stored on filesystems. Like <tt class="literal">File::Basename</tt>, it
+understands what kind of system it's running on, and it chooses
+the right set of rules every time. But unlike
+<tt class="literal">File::Basename</tt>, <tt class="literal">File::Spec</tt> is
+an object-oriented (often abbreviated "OO") module.
+</p>
+
+<p>If you've never caught the fever of OO, don't let that
+bother you. If you understand objects, that's great; you can
+use this OO module. If you don't understand objects,
+that's okay, too. You just type the symbols as we show you, and
+it works just as if you knew what you were doing.
+</p>
+
+<p>In this case, we learn from reading the documentation for
+<tt class="literal">File::Spec</tt> that we want to use a
+<em class="firstterm">method</em><a name="INDEX-944" />
+called <tt class="literal">catfile</tt>. What's a method?
+It's just a different kind of function, as far as we're
+concerned here. The difference is that you'll always call the
+methods from <tt class="literal">File::Spec</tt> with their full names,
+like this:
+</p>
+
+<blockquote><pre class="code">use File::Spec;
+
+.
+.  # Get the values for $dirname and $basename as above
+.
+
+my $new_name = File::Spec-&gt;catfile($dirname, $basename);
+
+rename($old_name, $new_name)
+  or warn "Can't rename '$old_name' to '$new_name': $!";</pre></blockquote>
+
+<p>As you can see, the full name of a method is the name of the module
+(called a
+<em class="firstterm">class</em><a name="INDEX-945" />,
+here), a <a name="INDEX-946" />
+<a name="INDEX-947" />small arrow, and the short name
+of the method. It is important to use the small arrow, rather than
+the double-colon that we used with <tt class="literal">File::Basename</tt>.
+</p>
+
+<p>Since we're calling the method by its full name, though, what
+symbols does the module import? None of them. That's normal for
+OO modules. So you don't have to worry about having a
+subroutine with the same name as one of the many methods of
+<tt class="literal">File::Spec</tt>.
+</p>
+
+<p>Should you bother using modules like these? It's up to you, as
+always. If you're sure your program will never be run anywhere
+but on a Unix machine, say, and you're sure you completely
+understand the rules for filenames on Unix,<a href="#FOOTNOTE-303">[303]</a> then you may prefer to hardcode your assumptions into
+your programs. But these modules give you an easy way to make your
+programs more robust in less time -- and more
+<a name="INDEX-948" />portable at no
+extra<a name="INDEX-949" /> charge.<a name="INDEX-950" />
+</p><blockquote class="footnote"> <a name="FOOTNOTE-303" /><p>[303]If you
+didn't know that filenames and directory names could contain
+newline characters, as we mentioned earlier in this section, then you
+<em class="emphasis">don't</em> know all the rules, do you? </p>
+</blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch13_07.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch13_09.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">13.7. Changing Timestamps</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">13.9. Exercises</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

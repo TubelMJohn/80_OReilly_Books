@@ -1,0 +1,613 @@
+<html><head><title>XML Basics: Reading and Writing (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_12.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch03_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h1 class="chapter">Chapter 3. XML Basics: Reading and Writing</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch03_01.htm">XML Parsers</a><br />
+<a href="ch03_02.htm">XML::Parser</a><br />
+<a href="ch03_03.htm">Stream-Based Versus Tree-Based Processing</a><br />
+<a href="ch03_04.htm">Putting Parsers to Work</a><br />
+<a href="ch03_05.htm">XML::LibXML</a><br />
+<a href="ch03_06.htm">XML::XPath</a><br />
+<a href="ch03_07.htm">Document Validation</a><br />
+<a href="ch03_08.htm">XML::Writer</a><br />
+<a href="ch03_09.htm">Character Sets and Encodings</a><br /></p></div>
+
+
+
+
+<p>This<a name="INDEX-165" /> chapter
+covers the two most important tasks in working with XML: reading it
+into memory and writing it out again. XML is a structured,
+predictable, and standard data storage format, and as such carries a
+price. Unlike the line-by-line, make-it-up-as-you-go style that
+typifies text hacking in Perl, XML expects you to learn the rules of
+its game -- the structures and protocols outlined in <a href="ch02_01.htm">Chapter 2, "An XML Recap"</a> -- before you can play with it.
+Fortunately, much of the hard work is already done, in the form of
+module-based parsers and other tools that trailblazing Perl and XML
+hackers already created (some of which we touched on in <a href="ch01_01.htm">Chapter 1, "Perl and XML"</a>). 
+</p>
+
+<p>Knowing how to use parsers is very important. They typically drive
+the rest of the processing for you, or at least get the data into a
+state where you can work with it. Any good programmer knows that
+getting the data ready is half the battle. We'll
+look deeply into the parsing process and detail the strategies used
+to drive processing.
+</p>
+
+<p>Parsers come with a bewildering array of options that let you
+configure the output to your needs. Which character set should you
+use? Should you validate the document or merely check if
+it's well formed? Do you need to expand entity
+references, or should you keep them as references? How can you set
+handlers for events or tell the parser to build a tree for you?
+We'll explain these options fully so you can get the
+most out of parsing.
+</p>
+
+<p>Finally, we'll show you how to spit XML back out,
+which can be surprisingly tricky if one isn't aware
+of XML's expectations regarding text encoding.
+Getting this step right is vital if you ever want to be able to use
+your data again without painful hand fixing.
+</p>
+
+
+<div class="sect1"><a name="perlxml-CHP-3-SECT-1" />
+<h2 class="sect1">3.1. XML Parsers</h2>
+
+<p>File<a name="INDEX-166" /> I/O
+is an intrinsic part of any programming language, but it has always
+been done at a fairly low level: reading a character or a line at a
+time, running it through a regular expression filter, etc. Raw text
+is an unruly commodity, lacking any clear rules for how to separate
+discrete portions, other than basic, flat concepts such as
+newline-separated lines and tab-separated columns. Consequently, more
+data packaging schemes are available than even the chroniclers of
+Babel could have foreseen. It's from this cacophony
+that XML has risen, providing clear rules for how to create
+boundaries between data, assign hierarchy, and link resources in a
+predictable, unambiguous fashion. A program that relies on these
+rules can read any well-formed XML document, as if someone had jammed
+a babelfish into its ear.<a href="#FOOTNOTE-11">[11]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-11" /><p>[11]Readers of Douglas
+Adams' book <em class="citetitle">The
+Hitchhiker's Guide to the Galaxy</em> will
+recall that a babelfish is a living, universal language-translation
+device, about the size of an anchovy, that fits, head-first, into a
+sentient being's aural canal.</p> </blockquote>
+
+<p>Where can you get this babelfish to put in your
+program's ear? An <em class="emphasis">XML parser</em>
+is a program or code library that translates XML data into either a
+stream of events or a data object, giving your program direct access
+to structured data. The XML can come from one or more files or
+filehandles, a character stream, or a static string. It could be
+peppered with entity references that may or may not need to be
+resolved. Some of the parts could come from outside your computer
+system, living in some far corner of the Internet. It could be
+encoded in a Latin character set, or perhaps in a Japanese set.
+Fortunately for you, the developer, none of these details have to be
+accounted for in your program because they are all taken care of by
+the parser, an abstract tunnel between the physical state of data and
+the crystallized representation seen by your subroutines.
+</p>
+
+<p>An XML parser acts as a bridge between marked-up data (data packaged
+with embedded XML instructions) and some predigested form your
+program can work with. In Perl's case, we mean
+hashes, arrays, scalars, and objects made of references to these old
+friends. XML can be complex, residing in many files or streams, and
+can contain unresolved regions (entities) that may need to be patched
+up. Also, a parser usually tries to accept only good XML, rejecting
+it if it contains well-formedness errors. Its output has to reflect
+the structure (order, containment, associative data) while ignoring
+irrelevant details such as what files the data came from and what
+character set was used. That's a lot of work. To
+itemize these points, an XML parser:
+</p>
+
+<ul><li>
+<p>Reads a stream of characters and distinguishes between markup and
+data
+</p>
+</li><li>
+<p>Optionally replaces entity references with their values </p>
+</li><li>
+<p>Assembles a complete, logical document from many disparate sources </p>
+</li><li>
+<p>Reports syntax errors and optionally reports grammatical (validation)
+errors
+</p>
+</li><li>
+<p>Serves data and structural information to a client program </p>
+</li></ul>
+<p>In XML, data and markup are mixed together, so the parser first has
+to sift through a character stream and tell the two apart. Certain
+characters delimit the instructions from data, primarily
+<a name="INDEX-167" />
+<a name="INDEX-168" />angle brackets (<tt class="literal">&lt;</tt>
+and <tt class="literal">&gt;</tt>) for elements, comments, and processing
+instructions, and <a name="INDEX-169" />
+<a name="INDEX-170" />ampersand (<tt class="literal">&amp;</tt>) and
+<a name="INDEX-171" />
+<a name="INDEX-172" />semicolon
+(<tt class="literal">;</tt>) for entity references. The parser also knows
+when to expect a certain instruction, or if a bad instruction has
+occurred; for example, an element that contains data must bracket the
+data in both a start and end tag. With this knowledge, the parser can
+quickly chop a character stream into discrete portions as encoded by
+the XML markup.
+</p>
+
+<p>The next task is to fill in placeholders. <em class="emphasis">Entity
+references</em><a name="INDEX-173" /> may need to be resolved. Early in
+the process of reading XML, the processor will have encountered a
+list of placeholder definitions in the form of entity declarations,
+which associate a brief identifier with an entity. The identifier is
+some literal text defined in the document's DTD, and
+the entity itself can be defined right there or at the business end
+of a URL. These entities can themselves contain entity references, so
+the process of resolving an entity can take several iterations before
+the placeholders are filled in.
+</p>
+
+<p>You may not always want
+<a name="INDEX-174" />entities to be resolved. If
+you're just spitting XML back out after some minor
+processing, then you may want to turn entity resolution off or
+substitute your own routine for handling entity references. For
+example, you may want to resolve external entity references (entities
+whose values are in locations external to the document, pointed to by
+URLs), but not resolve internal ones. Most parsers give you the
+ability to do this, but none will let you use entity references
+without declaring them.
+</p>
+
+<p>That leads to the third task. If you allow the parser to resolve
+external entities, it will fetch all the documents, local or remote,
+that contain parts of the larger XML document. In doing so, all these
+entities get smushed into one unbroken document. Since your program
+usually doesn't need to know how the document is
+distributed physically, information about the physical origin of any
+piece of data goes away once it knits the whole document together.
+</p>
+
+<p>While interpreting the markup, the parser may trip over a syntactic
+error. XML was designed to make it very easy to spot such errors.
+Everything from attributes to empty element tags have rigid rules for
+their construction so a parser doesn't have to think
+very hard about it. For example, the following piece of XML has an
+obvious error. The start tag for the
+<tt class="literal">&lt;decree&gt;</tt> element contains an attribute with
+a defective value assignment. The value
+"now" is missing a second quote
+character, and there's another error, somewhere in
+the end tag. Can you see it?
+</p>
+
+<blockquote><pre class="code">&lt;decree effective="now&gt;All motorbikes 
+shall be painted red.&lt;/decree&lt;</pre></blockquote>
+
+<p>When such an error occurs, the parser has little choice but to shut
+down the operation. There's no point in trying to
+parse the rest of the document. The point of XML is to make things
+unambiguous. If the parser had to guess how the document should
+look,<a href="#FOOTNOTE-12">[12]</a> it would open up the data to uncertainty and
+you'd lose that precious level of confidence in your
+program. Instead, the XML framers (wisely, we feel) opted to make XML
+parsers choke and die on bad XML documents. If the parser likes your
+XML, it is said to be <em class="emphasis">well
+formed</em><a name="INDEX-177" />.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-12" /><p>[12]Most <a name="INDEX-175" />HTML<a name="INDEX-176" /> browsers try to ignore
+well-formedness errors in HTML documents, attempting to fix them and
+move on. While ignoring these errors may seem to be more convenient
+to the reader, it actually encourages sloppy documents and results in
+overall degradation of the quality of information on the Web. After
+all, would you fix parse errors if you didn't have
+to?</p> </blockquote>
+
+<p>What do we mean by "grammatical
+errors"? You will encounter them only with so-called
+<em class="emphasis">validating</em><a name="INDEX-178" /> parsers. A document is considered to be
+<em class="emphasis">valid</em> if it passes a test defined in a DTD.
+XML-based languages and applications often have DTDs to set a minimal
+standard above well-formedness for how elements and data should be
+ordered. For example, the W3C has posted at least one DTD to describe
+XHTML (the XML-compliant flavor of HTML), listing all elements that
+can appear, where they can go, and what they can contain. It would be
+grammatically correct to put a <tt class="literal">&lt;p&gt;</tt> element
+inside a <tt class="literal">&lt;body&gt;</tt>, but putting
+<tt class="literal">&lt;p&gt;</tt> inside <tt class="literal">&lt;head&gt;</tt>,
+for example, would be incorrect. And don't even
+think about inserting an element <tt class="literal">&lt;blooby&gt;</tt>
+anywhere in the document, because it isn't declared
+anywhere in the DTD.<a href="#FOOTNOTE-13">[13]</a> If even one error of this type is in a document, then the
+whole document is considered
+<em class="emphasis">invalid</em><a name="INDEX-179" />. It may be well formed, but not valid
+against the particular DTD. Often, this level of checking is more of
+a burden than a help, but it's available if you need
+it.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-13" /><p>[13]If you insist on authoring a
+<tt class="literal">&lt;blooby&gt;</tt>-enabled web page in XML, you can
+design your own extension by drafting a DTD that uses entity
+references to pull in the XHTML DTD, and then defines your own
+special elements on top of it. At this point it's
+not officially XHTML anymore, but a subclass thereof.</p>
+</blockquote>
+
+<p>Rounding out our list is the requirement that a parser ship the
+digested data to a program or end user. You can do this in many ways,
+and we devote much of the rest of the book in analyzing them. We can
+break up the forms into a few categories:
+</p>
+
+<dl>
+<dt><i>Event stream</i></dt>
+<dd>
+<p>First, a parser can generate an event stream: the parser converts a
+stream of markup characters into a new kind of stream that is more
+abstract, with data that is partially processed and easier to handle
+by your program.
+</p>
+</dd>
+
+
+<dt><i>Object Representation</i></dt>
+<dd>
+<p>Second, a parser can construct a data structure that reflects the
+information in the XML markup. This construction requires more
+resources from your system, but may be more convenient because it
+creates a persistent object that will wait around while you work on
+it.
+</p>
+</dd>
+
+
+<dt><i>Hybrid form</i></dt>
+<dd>
+<p>We might call the third group
+"hybrid" output. It includes
+parsers that try to be smart about processing, using some advance
+knowledge about the document to construct an object representing only
+a portion of your document.
+</p>
+</dd>
+
+</dl>
+
+<a name="perlxml-CHP-3-SECT-1.1" /><div class="sect2">
+<h3 class="sect2">3.1.1. Example (of What Not to Do): A Well-Formedness Checker</h3>
+
+<p>We've<a name="INDEX-180" />
+described XML parsers abstractly, but now it's time
+to get our hands dirty. We're going to write our own
+<a name="INDEX-181" />parser
+whose sole purpose is to check whether a document is well-formed XML
+or if it fails the basic test. This is about the simplest a parser
+can get; it doesn't drive any further processing,
+but just returns a "yes" or
+"no."
+</p>
+
+<p>Our mission here is twofold. First, we hope to shave some of the
+mystique off of XML processing -- at the end of the day,
+it's just pushing text around. However, we also want
+to emphasize that writing a proper parser in Perl (or any language)
+requires a lot of work, which would be better spent writing more
+interesting code that uses one of the many available XML-parsing Perl
+modules. To that end, we'll write only a fraction of
+a pure-Perl XML parser with a very specific goal in mind.
+</p>
+
+<a name="ch03-4-fm2xml" /><blockquote><b>WARNING:</b> 
+Feel free to play with this program, but please
+don't try to use this code in a production
+environment! It's not a real Perl and XML solution,
+but an illustration of the sorts of things that parsers do. Also,
+it's incomplete and will not always give correct
+results, as we'll show later. Don't
+worry; the rest of this book talks about real XML parsers and Perl
+tools you'll want to use.
+</p>
+</blockquote>
+
+<p>The program is a <a name="INDEX-182" />loop in which regular expressions match
+XML markup objects and pluck them out of the text. The loop runs
+until nothing is left to remove, meaning the document is well formed,
+or until the regular expressions can't match
+anything in the remaining text, in which case it's
+not well-formed. A few other tests could abort the parsing, such as
+when an end tag is found that doesn't match the name
+of the currently open start tag. It won't be
+perfect, but it should give you a good idea of how a well-formedness
+parser might work.
+</p>
+
+<p><a href="ch03_01.htm#perlxml-CHP-3-EX-1">Example 3-1</a> is a routine that parses a string of XML
+text, tests to see if it is well-formed, and returns a boolean value.
+We've added some pattern variables to make it easier
+to understand the regular expressions. For example, the string
+<tt class="literal">$ident</tt> contains regular expression code to match
+an XML identifier, which is used for elements, attributes, and
+processing instructions.
+</p>
+
+<a name="perlxml-CHP-3-EX-1" /><div class="example">
+<h4 class="objtitle">Example 3-1. A rudimentary XML parser </h4>
+<blockquote><pre class="code">sub is_well_formed {
+    my $text = shift;                     # XML text to check
+
+    # match patterns
+    my $ident = '[:_A-Za-z][:A-Za-z0-9\-\._]*';   # identifier
+    my $optsp = '\s*';                            # optional space
+    my $att1 = "$ident$optsp=$optsp\"[^\"]*\"";   # attribute
+    my $att2 = "$ident$optsp=$optsp'[^']*'";      # attr. variant
+    my $att = "($att1|$att2)";                    # any attribute
+
+    my @elements = ( );                    # stack of open elems
+
+    # loop through the string to pull out XML markup objects
+    while( length($text) ) {
+
+        # match an empty element
+        if( $text =~ /^&amp;($ident)(\s+$att)*\s*\/&gt;/ ) {
+            $text = $';
+
+        # match an element start tag
+        } elsif( $text =~ /^&amp;($ident)(\s+$att)*\s*&gt;/ ) {
+            push( @elements, $1 );
+            $text = $';
+
+        # match an element end tag
+        } elsif( $text =~ /^&amp;\/($ident)\s*&gt;/ ) {
+            return unless( $1 eq pop( @elements ));
+            $text = $';
+
+        # match a comment
+        } elsif( $text =~ /^&amp;!--/ ) {
+            $text = $';
+            # bite off the rest of the comment
+            if( $text =~ /--&gt;/ ) {
+                $text = $';
+                return if( $` =~ /--/ );  # comments can't
+                                            # contain '--'
+            } else {
+                return;
+            }
+
+        # match a CDATA section
+        } elsif( $text =~ /^&amp;!\[CDATA\[/ ) {
+            $text = $';
+            # bite off the rest of the comment
+            if( $text =~ /\]\]&gt;/ ) {
+                $text = $';
+            } else {
+                return;
+            }
+
+        # match a processing instruction
+        } elsif( $text =~ m|^&amp;\?$ident\s*[^\?]+\?&gt;| ) {
+            $text = $';
+
+        # match extra whitespace
+        # (in case there is space outside the root element)
+        } elsif( $text =~ m|^\s+| ) {
+            $text = $';
+
+        # match character data
+        } elsif( $text =~ /(^[^&amp;&amp;&gt;]+)/ ) {
+            my $data = $1;
+            # make sure the data is inside an element
+            return if( $data =~ /\S/ and not( @elements ));
+            $text = $';
+            
+        # match entity reference
+        } elsif( $text =~ /^&amp;$ident;+/ ) {
+            $text = $';
+         
+        # something unexpected
+        } else {
+            return;
+        }
+    }
+    return if( @elements );     # the stack should be empty
+    return 1;
+}</pre></blockquote>
+</div>
+
+<p>Perl's <a name="INDEX-183" />arrays are so useful partly due to their
+ability to masquerade as more abstract computer science data
+constructs.<a href="#FOOTNOTE-14">[14]</a> Here, we use a data structure called a
+<em class="emphasis">stack</em><a name="INDEX-184" />, which is really just an
+array that we access with <tt class="literal">push( )</tt> and
+<tt class="literal">pop( )</tt>. Items in a stack
+are<a name="INDEX-185" /> <a name="INDEX-186" /> last-in, first-out (LIFO), meaning
+that the last thing put into it will be the first thing to be removed
+from it. This arrangement is convenient for remembering the names of
+currently open elements because at any time, the next element to be
+closed was the last element pushed onto the stack. Whenever we
+encounter a start tag, it will be pushed onto the stack, and it will
+be popped from the stack when we find an end tag. To be well-formed,
+every end tag must match the previous start tag, which is why we need
+the stack.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-14" /><p>[14]The O'Reilly book
+<em class="citetitle">Mastering Algorithms with Perl</em> by Jon Orwant,
+Jarkko Hietaniemi, and John Macdonald devotes a chapter to this
+topic.</p> </blockquote>
+
+<p>The stack represents all the elements along a branch of the XML tree,
+from the root down to the current element being processed. Elements
+are processed in the order in which they appear in a document; if you
+view the document as a tree, it looks like you're
+going from the root all the way down to the tip of a branch, then
+back up to another branch, and so on. This is called
+<em class="emphasis">depth-first
+order</em><a name="INDEX-187" />, the canonical way all XML documents are
+processed.
+</p>
+
+<p>There are a few places where we deviate from the simple looping
+scheme to do some extra testing. The code for matching a comment is
+several steps, since it ends with a three-character delimiter, and we
+also have to check for an illegal string of dashes
+"<tt class="literal">--</tt>" inside the
+comment. The character data matcher, which performs an extra check to
+see if the stack is empty, is also noteworthy; if the stack is empty,
+that's an error because nonwhitespace text is not
+allowed outside of the root element. Here is a short list of
+well-formedness errors that would cause the parser to return a false
+result:
+</p>
+
+<ul><li>
+<p>An identifier in an element or attribute is malformed (examples:
+"<tt class="literal">12foo</tt>,"
+"<tt class="literal">-bla</tt>," and
+"<tt class="literal">..</tt>").
+</p>
+</li><li>
+<p>A nonwhitespace character is found outside of the root element. </p>
+</li><li>
+<p>An element end tag doesn't match the last discovered
+start tag.
+</p>
+</li><li>
+<p>An attribute is unquoted or uses a bad combination of quote
+characters.
+</p>
+</li><li>
+<p>An empty element is missing a <a name="INDEX-188" /> <a name="INDEX-189" />slash character (<tt class="literal">/</tt>) at
+the end of its tag.
+</p>
+</li><li>
+<p>An illegal character, such as a lone <a name="INDEX-190" /> <a name="INDEX-191" />ampersand (<tt class="literal">&amp;</tt>)
+or an <a name="INDEX-192" /> <a name="INDEX-193" />angle bracket
+(<tt class="literal">&lt;</tt>), is found in character data.
+</p>
+</li><li>
+<p>A malformed markup tag (examples:
+"<tt class="literal">&lt;fooby&lt;</tt>"
+and "<tt class="literal">&lt;
+?bubba?&gt;</tt>") is found.
+</p>
+</li></ul>
+<p>Try the parser out on some test cases. Probably the simplest
+complete, well-formed XML document you will ever see is this:
+</p>
+
+<blockquote><pre class="code">&lt;:-/&gt; </pre></blockquote>
+
+<p>The next document should cause the parser to halt with an error.
+(Hint: look at the <tt class="literal">&lt;message&gt;</tt> end tag.)
+</p>
+
+<blockquote><pre class="code">&lt;memo&gt;
+  &lt;to&gt;self&lt;/to&gt;
+  &lt;message&gt;Don't forget to mow the car and wash the
+  lawn.&lt;message&gt;
+&lt;/memo&gt;</pre></blockquote>
+
+<p>Many other kinds of <a name="INDEX-194" />syntax errors could appear in a
+document, and our program picks up most of them. However, it does
+miss a few. For example, there should be exactly one root element,
+but our program will accept more than one:
+</p>
+
+<blockquote><pre class="code">&lt;root&gt;I am the one, true root!&lt;/root&gt;
+&lt;root&gt;No, I am!&lt;/root&gt;
+&lt;root&gt;Uh oh...&lt;/root&gt;</pre></blockquote>
+
+<p>Other problems? The parser cannot handle a document type declaration.
+This structure is sometimes seen at the top of a document that
+specifies a <a name="INDEX-195" />DTD for validating parsers, and it
+may also declare some entities. With a specialized syntax of its own,
+we'd have to write another loop just for the
+document type declaration.
+</p>
+
+<p>Our parser's most significant omission is the
+resolution of <a name="INDEX-196" />entity references.
+It can check basic entity reference syntax, but
+doesn't bother to expand the entity and insert it
+into the text. Why is that bad? Consider that an entity can contain
+more than just some character data. It can contain any amount of
+markup, too, from an element to a big, external file. Entities can
+also contain other entity references, so it might require many passes
+to resolve one entity reference completely. The parser
+doesn't even check to see if the entities are
+declared (it couldn't anyway, since it
+doesn't know how to read a document type declaration
+syntax). Clearly, there is a lot of room for errors to creep into a
+document through entities, right under the nose of our parser. To fix
+the problems just mentioned, follow these steps:
+</p>
+
+<ol><li>
+<p>Add a parsing loop to read in a document type declaration before any
+other parsing occurs. Any entity declarations would be parsed and
+stored, so we can resolve entity references later in the document.
+</p>
+</li><li>
+<p>Parse the DTD, if the document type declaration mentions one, to read
+any entity declarations.
+</p>
+</li><li>
+<p>In the main loop, resolve all entity references when we come across
+them. These entities have to be parsed, and there may be entity
+references within them, too. The process can be rather loopy, with
+loops inside loops, recursion, or other complex programming stunts.
+</p>
+</li></ol>
+<p>What started out as a simple parser now has grown into a complex
+beast. That tells us two things: that the theory of parsing XML is
+easy to grasp; and that, in practice, it gets complicated very
+quickly. This exercise was useful because it showed issues involved
+in parsing XML, but we don't encourage you to write
+code like this. On the contrary, we expect you to take advantage of
+the exhaustive work already put into making ready-made parsers.
+Let's leave the dark ages and walk into the
+happy<a name="INDEX-197" />
+land of prepackaged<a name="INDEX-198" /> parsers.
+</p>
+
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_12.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch03_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">2.12. Transformations</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">3.2. XML::Parser</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

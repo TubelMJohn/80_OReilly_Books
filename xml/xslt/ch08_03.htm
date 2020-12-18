@@ -1,0 +1,561 @@
+<html><head><title>More Examples (XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Doug Tidwell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596000537L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XSL" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch08_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+    <h2 class="sect1">8.3. More Examples</h2>
+<p>You can use XSLT extension mechanisms to push XSLT processing beyond text or markup generation and to read information from non-XML sources.</p>
+    <div class="sect2">
+      <h3 class="sect2">8.3.1. Generating JPEG Files from XML Content</h3>
+      <p>
+<a name="INDEX-699" />
+<a name="INDEX-700" />
+<a name="INDEX-701" />
+<a name="INDEX-702" />
+
+
+When converting XML content into HTML files for a web site, there are times when you want to have complete control over the look of a piece of text. In this example, we'll use an extension function to convert the text of an XML element into a JPEG graphic. Our code will load a JPEG background graphic, draw the text from the XML document on top of it, and then write the graphic out to a new JPEG file. We'll reuse the XML file from our first example to demonstrate the extension function.</p>
+      <p>
+<a name="INDEX-703" />
+
+Our stylesheet passes each <tt class="literal">&lt;title&gt;</tt> element to the extension function. When we invoke the extension, we'll also pass in the name of the background JPEG, the name of the output file (which we'll call <em class="emphasis">title1.jpg</em>, <em class="emphasis">title2.jpg</em>, etc.), and various information about the font name, font size, and other parameters. Here's what our stylesheet looks like:</p>
+      
+      <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:jpeg="xalan://JPEGWriter"
+  extension-element-prefixes="jpeg"&gt;
+
+  &lt;xsl:output method="html"/&gt;
+
+  &lt;xsl:template match="/"&gt;
+    &lt;html&gt;
+      &lt;head&gt;
+        &lt;title&gt;
+          &lt;xsl:value-of select="/book/title"/&gt;
+        &lt;/title&gt;
+      &lt;/head&gt;
+      &lt;body&gt;
+        &lt;xsl:for-each select="/book/chapter"&gt;
+          &lt;xsl:choose&gt;
+            &lt;xsl:when test="function-available('jpeg:createJPEG')"&gt; 
+              &lt;xsl:value-of 
+                select="jpeg:createJPEG(title, 'bg.jpg', 
+                concat('title', position(), '.jpg'), 
+                'Swiss 721 Bold Condensed', 'BOLD', 22, 52, 35)"/&gt;
+              &lt;img&gt;
+                &lt;xsl:attribute name="src"&gt;
+                  &lt;xsl:value-of select="concat('title', position(), '.jpg')"/&gt;
+                &lt;/xsl:attribute&gt;
+              &lt;/img&gt;
+              &lt;br /&gt;
+            &lt;/xsl:when&gt;
+            &lt;xsl:otherwise&gt;
+              &lt;h1&gt;&lt;xsl:value-of select="title"/&gt;&lt;/h1&gt;
+            &lt;/xsl:otherwise&gt;
+          &lt;/xsl:choose&gt;
+        &lt;/xsl:for-each&gt;
+      &lt;/body&gt;
+    &lt;/html&gt;
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+      <p>Our background JPEG looks like <a href="ch08_03.htm#xslt-CHP-8-FIG-4">Figure 8-4</a>.</p>
+      <a name="xslt-CHP-8-FIG-4" /><div class="figure"><img height="41" alt="Figure 8-4" src="figs/xslt.0804.gif" width="403" /></div><h4 class="objtitle">Figure 8-4. Background JPEG image</h4>
+      <p><a href="ch08_03.htm#xslt-CHP-8-FIG-5">Figure 8-5</a> shows a couple of graphics created by the combination of our XML sample document, our stylesheet, and the extension function.</p>
+      <a name="xslt-CHP-8-FIG-5" /><div class="figure"><img height="89" alt="Figure 8-5" src="figs/xslt.0805.gif" width="405" /></div><h4 class="objtitle">Figure 8-5. Generated JPEG files for XML &lt;title&gt; elements</h4>
+      <p>These files are <em class="emphasis">title1.jpg</em> and <em class="emphasis">title8.jpg</em>, respectively. Our extension function has taken the text of the appropriate <tt class="literal">&lt;title&gt;</tt> elements, drawn it on top of the background graphic, then written the new image out as a JPEG graphic.</p> 
+      <p>Let's take a look at the call to our extension function:</p>
+      <blockquote><pre class="code">
+&lt;xsl:value-of 
+  select="jpeg:createJPEG(title, 'bg.jpg', 
+  concat('title', position(), '.jpg'), 
+  'Swiss 721 Bold Condensed', 'BOLD', 22, 52, 35)"/&gt;</pre></blockquote>
+      <p>First of all, look at the call itself. What we've written here is <tt class="literal">jpeg:createJPEG</tt> as the name of the function. The namespace prefix <tt class="literal">jpeg</tt> is defined in the stylesheet. We associated this prefix with the string <tt class="literal">xalan://JPEGWriter</tt>; this string tells Xalan that any function invoked with this prefix should be treated as a method of the named class <tt class="literal">JPEGWriter</tt>. If you use an XSLT processor other than Xalan, the way you define and invoke an extension function will probably vary. </p>
+      <p>Next, let's look at the parameters to the function. We're passing eight different parameters:</p>
+      <ul>
+        <li>
+          <p>The text that should be written in the JPEG image. This text is passed in as a <tt class="literal">NodeList</tt>, one of the datatypes available to us in the Xalan API. In our previous example, we're selecting all <tt class="literal">&lt;title&gt;</tt> elements contained in the current node. </p>
+        </li>
+        <li>
+          <p>The filename of the background image that should be used. This filename is passed in as a <tt class="literal">String</tt>.</p>
+        </li>
+        <li>
+          <p>The filename of the created JPEG image. The image will be created, then written out to this filename. Notice that in our example, we generate the filename by concatenating the string "title", the position of the current node, and the string ".jpg". This procedure ensures that all our title graphics have unique filenames. It also makes it easy to determine which JPEG matches a given <tt class="literal">&lt;title&gt;</tt> element. </p>
+        </li>
+        <li>
+          <p>The name of the font we want to use. This name is a <tt class="literal">String</tt>.</p>
+        </li>
+        <li>
+          <p>The font style we want to use. We've written our function to accept three different values:  <tt class="literal">BOLD</tt>, <tt class="literal">ITALIC</tt>, and <tt class="literal">BOLDITALIC</tt>. These values mirror the three values used by the Java <tt class="literal">Font</tt> class. </p>
+        </li>
+        <li>
+          <p>The point size of the font. Notice that this font size is passed to our extension function as a Java <tt class="literal">Double</tt>; XPath and XSLT do not define an <tt class="literal">Integer</tt> type. The first thing our function does is convert the <tt class="literal">Double</tt> values into <tt class="literal">int</tt>s to simplify our arithmetic instructions.</p>
+        </li>
+        <li>
+          <p>The x-offset where the text should begin. We're using a Java <tt class="literal">Canvas</tt> object, whose coordinate system begins in the upper left corner. The value of x-offset determines where we should start drawing the text on the background JPEG. As with the font size, this value is a <tt class="literal">Double</tt> that we convert to an <tt class="literal">int</tt>.</p>
+        </li>
+        <li>
+          <p>The y-offset where the text should begin.</p>
+        </li>
+      </ul>
+      <p>You could certainly modify this function to support other options, such as the color of the text, the depth of the shadow effects on the text, the location of the shadow, etc. You could also create different versions of the function with different method signatures, allowing some calls to the <tt class="literal">createJPEG</tt> function to default certain parameters. The benefit of this approach is that you can access a wide range of behaviors in your extension function by changing your XSLT stylesheet. </p>
+      <p>Here's the code for the extension function itself:</p>
+      
+      <blockquote><pre class="code">
+import com.sun.image.codec.jpeg.ImageFormatException;
+import com.sun.image.codec.jpeg.JPEGCodec;
+import com.sun.image.codec.jpeg.JPEGImageDecoder;
+import com.sun.image.codec.jpeg.JPEGImageEncoder;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.awt.GraphicsEnvironment;
+import java.awt.image.BufferedImage;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import org.apache.xpath.objects.XNodeSet;
+import org.w3c.dom.NodeList;
+
+public class JPEGWriter
+{
+  public static void createJPEG(NodeList nodes, String backgroundFilename, 
+                                String outputFilename, String fontName, 
+                                String fontAttributes, Double dFontSize,
+                                Double dXOffset, Double dYOffset)
+    throws IOException, FileNotFoundException, ImageFormatException
+  {
+    try
+    {
+      int fontSize = dFontSize.intValue();
+      int xOffset = dXOffset.intValue();
+      int yOffset = dYOffset.intValue();
+
+      String jpegText = (new XNodeSet(nodes.item(1))).str();
+      FileInputStream fis = new FileInputStream(backgroundFilename);
+      JPEGImageDecoder northDecoder = JPEGCodec.createJPEGDecoder(fis);
+      BufferedImage bi = northDecoder.decodeAsBufferedImage();
+
+      int fa = Font.PLAIN;
+      if (fontAttributes.equalsIgnoreCase("BOLD"))
+        fa = Font.BOLD;
+      else if (fontAttributes.equalsIgnoreCase("ITALIC"))
+         fa = Font.ITALIC;
+      else if (fontAttributes.equalsIgnoreCase("BOLDITALIC"))
+        fa = Font.BOLD &amp; Font.ITALIC;
+
+      Graphics2D g = bi.createGraphics();
+
+      int maxTextWidth = bi.getWidth() - xOffset - 5;
+      GraphicsEnvironment ge = GraphicsEnvironment.
+                               getLocalGraphicsEnvironment();
+      Font allFonts[] = ge.getAllFonts();
+      Font chosenFont = new Font("Arial", fa, fontSize);
+      int i = 0;
+      boolean fontNotFound = true;
+      while (fontNotFound &amp;&amp; (i &lt; allFonts.length))
+      {
+        if (allFonts[i].getFontName().equalsIgnoreCase(fontName))
+        {
+          chosenFont = allFonts[i].deriveFont(fa, fontSize);
+          if (!chosenFont.getFontName().equalsIgnoreCase(fontName))
+          {
+            fa = Font.PLAIN;
+            chosenFont = allFonts[i].deriveFont(fa, fontSize);
+          }
+          g.setFont(chosenFont);
+          FontMetrics fm = g.getFontMetrics();
+          int textWidth = fm.stringWidth(jpegText);
+          while (textWidth &gt; maxTextWidth &amp;&amp; fontSize &gt; 1)
+          {
+            fontSize -= 2;
+            chosenFont = allFonts[i].deriveFont(fa, fontSize);
+            g.setFont(chosenFont);
+            fm = g.getFontMetrics();
+            textWidth = fm.stringWidth(jpegText);
+          }
+          if (fontSize &lt; 1)
+            chosenFont = allFonts[i].deriveFont(fa, 12);
+
+          g.setFont(chosenFont);
+          fontNotFound = false;
+        }
+        else
+          i++;
+      }
+
+      g.setColor(Color.black);
+      g.drawString(jpegText, xOffset, yOffset);
+      g.setColor(Color.gray);
+      g.drawString(jpegText, xOffset - 1, yOffset - 1);
+      FileOutputStream fos = new FileOutputStream(outputFilename);
+      JPEGImageEncoder encoder = JPEGCodec.createJPEGEncoder(fos);
+      encoder.encode(bi);
+      fos.flush();
+      fos.close();
+    }
+    catch (FileNotFoundException fnfe)
+    {
+      System.err.println(fnfe);
+    }
+    catch (IOException ioe)
+    {
+      System.err.println(ioe);
+    }
+  }
+}</pre></blockquote>
+      <p>Notice that we use a <tt class="literal">while</tt> loop to check the font size. If drawing the text string in the current font size won't fit inside the graphic, we'll try to reduce the font size until it does. Given this <tt class="literal">&lt;chapter&gt;</tt> element:</p>
+      <blockquote><pre class="code">
+&lt;chapter&gt;
+  &lt;title&gt;A chapter in which the title is so very long, most people 
+    don't bother reading it&lt;/title&gt;
+  &lt;para&gt;If this chapter had any text, it would appear here.&lt;/para&gt;
+&lt;/chapter&gt;</pre></blockquote>
+      <p>
+<a name="INDEX-704" />
+<a name="INDEX-705" />
+<a name="INDEX-706" />
+<a name="INDEX-707" />
+
+
+Our extension generates the JPEG shown in <a href="ch08_03.htm#xslt-CHP-8-FIG-6">Figure 8-6</a>.</p>
+      <a name="xslt-CHP-8-FIG-6" /><div class="figure"><img height="41" alt="Figure 8-6" src="figs/xslt.0806.gif" width="403" /></div><h4 class="objtitle">Figure 8-6. Generated image with too much text</h4>
+    </div>
+    <div class="sect2">
+      <h3 class="sect2">8.3.2. Accessing a Database with an Extension Element</h3>
+      <p>
+<a name="INDEX-708" />
+<a name="INDEX-709" />
+<a name="INDEX-710" />
+
+In this example, we're going to build an extension element rather than an extension function. When we wrote our extension functions, all we had to worry about was the data passed to us on the function call. We weren't concerned with the document tree, the context, or anything else. With an extension element, though, we have to be much more aware of the document as a whole. Our code will use the attributes of the extension element to connect to a database, run a query, and then return the result set as a node set (specifically, a Xalan <tt class="literal">XNodeSet</tt>). That node-set will be inserted into the output tree, giving us the capability to build a document dynamically. Our XML document defines the parameters for the database access and the query, then the extension element does the work in the background magically. Here's how the XML document looks:</p>
+      
+      <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;report&gt;
+  &lt;title&gt;HR employee listing&lt;/title&gt;
+  &lt;section&gt;
+    &lt;title&gt;Employees by department&lt;/title&gt;
+    &lt;dbaccess driver="COM.ibm.db2.jdbc.app.DB2Driver"
+      database="jdbc:db2:sample" tablename="employee" where="*"
+      fieldnames='workdept as "Department", lastname as "Last Name", 
+                  firstnme as "First Name"'
+      order-by="workdept" group-by="workdept, lastname, firstnme"/&gt;
+  &lt;/section&gt;
+&lt;/report&gt;</pre></blockquote>
+
+<p>Notice that all of the vendor-specific information about our database connection is contained in the attributes of our XML document. That means we can use our extension element with any JDBC-compliant database. The following documents work just as well:</p>
+
+<blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;report&gt;
+  &lt;title&gt;Sales Results&lt;/title&gt;
+  &lt;section&gt;
+    &lt;title&gt;Top sales people - 3Q 2001&lt;/title&gt;
+    &lt;dbaccess driver="com.sybase.jdbc2.jdbc.SybDriver""
+      database="jdbc:sybase:Tds:localhost:5000/sales" 
+      tablename="results" where="*"
+      fieldnames='lastname as "Last Name", 
+      firstnme as "First Name", sum(order) as "Totals"'
+      order-by="sum(order)" /&gt;
+  &lt;/section&gt;
+&lt;/report&gt;
+
+&lt;?xml version="1.0"?&gt;
+&lt;report&gt;
+  &lt;title&gt;Pets We Own&lt;/title&gt; 
+  &lt;section&gt;
+    &lt;title&gt;Our pets&lt;/title&gt;
+    &lt;dbaccess driver="org.gjt.mm.mysql.Driver"
+      database="jdbc:mysql://localhost/test" tablename="pet" where="*"
+      fieldnames='name as "Pet Name", species as "Species", sex as "M/F"'/&gt;
+  &lt;/section&gt;
+&lt;/report&gt;</pre></blockquote>
+
+
+      <p>
+<a name="INDEX-711" />
+
+The first listing uses DB2, the second uses Sybase, and the final listing uses MySQL. Our stylesheet uses our database-accessing extension element to replace the <tt class="literal">&lt;dbaccess&gt;</tt> elements with HTML tables filled with the results of our database query. In our sample document, the XML input closely mirrors the SQL statements we'll use to interact with the database. Our extension element takes the elements and attributes of the <tt class="literal">&lt;dbaccess&gt;</tt> element, gets data out of the database, then formats it accordingly. </p>
+
+      <p>The stylesheet that invokes our extension element looks like this:</p>
+      
+      <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:db="DatabaseExtension"
+  extension-element-prefixes="db"&gt;
+
+  &lt;xsl:output method="html"/&gt;
+
+  &lt;xsl:template match="/"&gt;
+    &lt;html&gt;
+      &lt;head&gt;
+        &lt;title&gt;
+          &lt;xsl:value-of select="report/title"/&gt;
+        &lt;/title&gt;
+      &lt;/head&gt;
+      &lt;body&gt;
+        &lt;h1&gt;
+          &lt;xsl:value-of select="report/title"/&gt;
+        &lt;/h1&gt;
+        &lt;xsl:for-each select="report/section"&gt;
+          &lt;h2&gt;
+            &lt;xsl:value-of select="title"/&gt;
+          &lt;/h2&gt;
+          &lt;xsl:for-each select="dbaccess"&gt;
+            &lt;db:accessDatabase/&gt;
+          &lt;/xsl:for-each&gt;
+        &lt;/xsl:for-each&gt;
+      &lt;/body&gt;
+    &lt;/html&gt;
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+      <p>
+<a name="INDEX-712" />
+<a name="INDEX-713" />
+
+
+The stylesheet is pretty straightforward. The namespace declaration <tt class="literal">xmlns:db="xalan://DatabaseExtension"</tt> associates the Java class <tt class="literal">DatabaseExtension</tt> with the namespace prefix <tt class="literal">db</tt>. Whenever our stylesheet processes an XML element with a namespace prefix of <tt class="literal">db</tt>, our code is invoked to do the processing. Notice that in our stylesheet, we used the extension element <tt class="literal">&lt;db:accessDatabase&gt;</tt>; this tells Xalan to invoke the <tt class="literal">accessDatabase()</tt> method of the <tt class="literal">DatabaseExtension</tt> class.</p>
+
+<p>In this example, we want our extension element to look at the various attributes of the <tt class="literal">&lt;dbaccess&gt;</tt> element, build a SQL query from the information it finds there, connect to the requested database, and put in the result tree elements that represent the database query results. To keep our example simple, we'll have our extension element return those results in an HTML <tt class="literal">&lt;table&gt;</tt> element; you could write the extension element to generate other types of output, if you wanted. Our extension element returns an <tt class="literal">XNodeSet</tt>; the nodes in the returned <tt class="literal">XNodeSet</tt> are added to the result tree.</p>
+
+<p>For our extension element to work, it has to do several things:</p>
+      <ul>
+        <li>
+          <p>Find the <tt class="literal">&lt;dbaccess&gt;</tt> element we need to process.</p>
+        </li>
+        <li>
+          <p>Use the <tt class="literal">driver</tt> attribute of the <tt class="literal">&lt;dbaccess&gt;</tt> element to determine what JDBC driver to use. Once we have this value, we need to load the driver. Specifying the database driver allows us to use different databases in the same XML document. In our previous sample XML files, the three queries specify databases managed by DB2, Sybase, and MySQL; because JDBC itself is vendor-neutral, we can use our extension element with any JDBC-compliant database. </p>
+        </li>
+        <li>
+          <p>Examine the <tt class="literal">tablename</tt>, <tt class="literal">where</tt>, <tt class="literal">fieldnames</tt>, <tt class="literal">group-by</tt>, and <tt class="literal">order-by</tt> attributes of the <tt class="literal">&lt;dbaccess&gt;</tt> element to build the SQL query statement. </p>
+        </li>
+        <li>
+          <p>Connect to the database specified by the <tt class="literal">tablename</tt> attribute of the <tt class="literal">&lt;dbaccess&gt;</tt> element. </p>
+        </li>
+        <li>
+          <p>Execute the query statement.</p>
+        </li>
+        <li>
+          <p>Build the table based on the items in the JDBC <tt class="literal">ResultSet</tt> object. To build the table, we have to get a DOM <tt class="literal">Document</tt> object; we'll use that object as a factory method to create all the nodes in the node-set our extension element returns. We'll create a <tt class="literal">&lt;table&gt;</tt> element, then for each row in the result set, we'll create a <tt class="literal">&lt;tr&gt;</tt> element (with the appropriate <tt class="literal">&lt;td&gt;</tt> elements as its children) and append it to the table. For Xalan, we use the <tt class="literal">DOMHelper</tt> class to get the <tt class="literal">Document</tt> object that we'll use to create all nodes.</p>
+        </li>
+        <li>
+          <p>Return the result set. We create an <tt class="literal">XNodeSet</tt>, attach our <tt class="literal">&lt;table&gt;</tt> element (with all its children) to it, then return it. This result is added automatically to the output document.</p>
+        </li>
+      </ul>
+      <p>Now that we've said what we're going to do, let's take a look at the code:</p>
+      
+<blockquote><pre class="code">
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.Statement;
+import org.apache.xalan.extensions.XSLProcessorContext;
+import org.apache.xalan.templates.ElemExtensionCall;
+import org.apache.xpath.DOMHelper;
+import org.apache.xpath.objects.XNodeSet;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+
+public class DatabaseExtension
+{
+   private static boolean getDriver(String driverName)
+   {
+     boolean gotTheDriver = false;
+     try
+     {
+       Class.forName(driverName);
+       gotTheDriver = true;
+     }
+     catch (Exception e)
+     {
+       System.out.println("Can't load the database driver " + driverName);
+       e.printStackTrace();
+     }
+     return gotTheDriver;
+   }
+
+   public static XNodeSet accessDatabase(XSLProcessorContext context,
+                                         ElemExtensionCall elem)
+   {
+     XNodeSet dbResult = null;
+     DOMHelper dh = new DOMHelper();
+     Document doc = dh.getDOMFactory();
+     Element table = null, header = null, tr = null, td = null, th = null;
+
+     Element contextNode = (Element) context.getContextNode();
+     if (getDriver(contextNode.getAttribute("driver")))
+     {
+       try
+       {
+         StringBuffer query = new StringBuffer("select ");
+         query.append(contextNode.getAttribute("fieldnames") + " ");
+         query.append("from " + contextNode.getAttribute("tablename") + " ");
+         String nextAttr = contextNode.getAttribute("group-by");
+         if (nextAttr != null)
+           query.append(" group by " + nextAttr);
+         nextAttr = contextNode.getAttribute("order-by");
+         if (nextAttr != null)
+           query.append(" order by " + nextAttr);
+
+         Connection con = DriverManager.
+           getConnection(contextNode.getAttribute("database"));
+         Statement stmt = con.createStatement();
+         ResultSet rs = stmt.executeQuery(query.toString());
+
+         ResultSetMetaData rsmd = rs.getMetaData();
+         int columnCount = rsmd.getColumnCount();
+         table = doc.createElement("table");
+         table.setAttribute("border", "1");
+
+         header = doc.createElement("tr");
+         for (int i = 1; i &lt;= columnCount; i++)
+
+         {
+           th = doc.createElement("th");
+           th.appendChild(doc.createTextNode(rsmd.getColumnName(i)));
+           header.appendChild(th);
+         }
+         table.appendChild(header);
+
+         while (rs.next())
+         {
+           tr = doc.createElement("tr");
+           for (int i = 1; i &lt;= columnCount; i++)
+           {
+             td = doc.createElement("td");
+             td.appendChild(doc.createTextNode(rs.getString(i)));
+             tr.appendChild(td);
+           }
+           table.appendChild(tr);
+         }
+         dbResult = new XNodeSet(table);
+         rs.close();
+         stmt.close();
+         con.close();
+       }
+       catch (java.sql.SQLException sqle)
+       {
+         System.out.println("Exception: " + sqle);
+       }
+     }
+     else
+       System.out.println("Couldn't load the driver!");
+
+     return dbResult;
+   }
+}</pre></blockquote>
+
+<p>Extension elements in Xalan are called with two arguments: an <tt class="literal">XSLProcessorContext</tt> object and an <tt class="literal">ElemExtensionCall</tt> object. In our code here, we'll use the <tt class="literal">XSLProcessorContext</tt> object to get the context node. Once we have the context node (the <tt class="literal">&lt;dbaccess&gt;</tt> element), we can get the values of the various <tt class="literal">&lt;dbaccess&gt;</tt> element attributes in the source tree.</p>
+
+<p>The first thing we do in our extension element is declare the <tt class="literal">XNodeSet</tt> we're going to return to Xalan. After that, we create a <tt class="literal">DOMHelper</tt> object and use the <tt class="literal">getDOMFactory</tt> method to create the <tt class="literal">DOM Document</tt> object we'll use as a factory for creating new nodes:</p>
+
+<blockquote><pre class="code">
+XNodeSet dbResult = null;
+DOMHelper dh = new DOMHelper();
+Document doc = dh.getDOMFactory();</pre></blockquote>
+
+<p>Our next task is to instantiate the JDBC driver. To make our code more flexible, we specify the driver in the <tt class="literal">driver</tt> attribute of the <tt class="literal">&lt;dbaccess&gt;</tt> element. In the previous XML examples, we used drivers for MySQL, Sybase, and DB2. Assuming everything to this point has succeeded, we'll build the query string. To simplify things, our example assumes we're going to build an <tt class="literal">SQL SELECT</tt> statement; feel free to extend this code to do more sophisticated things. The query is built from various attributes of the <tt class="literal">&lt;dbaccess&gt;</tt> element.
+<a name="INDEX-714" />
+
+</p>
+
+<p>Once the query has been built, we connect to the appropriate database. The database is specified with the <tt class="literal">database</tt> attribute of the <tt class="literal">&lt;dbaccess&gt;</tt> element. (In our previous XML samples, notice that DB2, Sybase, and MySQL specify databases in different ways. Specifying this in an attribute makes our extension element more flexible.) We connect to the database, execute the query statement, and get a JDBC <tt class="literal">ResultSet</tt> object in return.</p>
+
+<p>Once we have the <tt class="literal">ResultSet</tt>, our job is relatively simple. We need to create an HTML table, with each row in the table containing a row from the <tt class="literal">ResultSet</tt>. In the previous code, we call our <tt class="literal">Document</tt> object to create each new node. Here are some examples:</p>
+
+<blockquote><pre class="code">
+while (rs.next())
+{
+  tr = doc.createElement("tr");
+  for (int i = 1; i &lt;= columnCount; i++)
+  {
+    td = doc.createElement("td");
+    td.appendChild(doc.createTextNode(rs.getString(i)));
+    tr.appendChild(td);
+  }
+  table.appendChild(tr);
+}
+dbResult = new XNodeSet(table);</pre></blockquote>
+
+<p>
+<a name="INDEX-715" />
+
+In this sample, we create the <tt class="literal">&lt;tr&gt;</tt> element with the DOM <tt class="literal">createElement</tt> method. Notice that when we want to add text to a node, we use the <tt class="literal">createTextNode</tt> method to create a text node and append it as a child. In the loop just shown, we take each row of the <tt class="literal">ResultSet</tt> and create a <tt class="literal">&lt;tr&gt;</tt> element for it. We create a <tt class="literal">&lt;td&gt;</tt> element for each column in the <tt class="literal">ResultSet</tt>, then append it to the <tt class="literal">&lt;tr&gt;</tt> element. When we're done with the row, we append the <tt class="literal">&lt;tr&gt;</tt> element to the <tt class="literal">&lt;table&gt;</tt>.</p>
+
+<p>Once we've processed the entire <tt class="literal">ResultSet</tt>, we create a new <tt class="literal">XNodeSet</tt> by passing our <tt class="literal">&lt;table&gt;</tt> element to the <tt class="literal">XNodeSet</tt> constructor. This technique can be used to create any number of nodes, including elements, attributes, text, and comments.</p>
+
+
+<p>For example, here's how we created the HTML <tt class="literal">&lt;table&gt;</tt> element and added the <tt class="literal">border="1"</tt> attribute to it:</p>
+
+<blockquote><pre class="code">
+Element table = doc.createElement("table");
+table.setAttribute("border", "1");</pre></blockquote>
+
+<p>Our final step is simply to clean up all of the JDBC stuff and return the <tt class="literal">XNodeSet</tt> to Xalan:</p>
+
+<blockquote><pre class="code">
+rs.close();
+stmt.close();
+con.close();
+
+...
+
+return dbResult;</pre></blockquote>
+
+<p>The nodes in our <tt class="literal">XNodeSet</tt> are sent straight to the output document, where they appear as ordinary HTML nodes, as shown in <a href="ch08_03.htm#xslt-CHP-8-FIG-7">Figure 8-7</a>.</p>
+      
+      <a name="xslt-CHP-8-FIG-7" /><div class="figure"><img height="332" alt="Figure 8-7" src="figs/xslt.0807.gif" width="468" /></div><h4 class="objtitle">Figure 8-7. HTML file with output from an extension element</h4>
+
+<p>With this extension, we've been able to generate nodes dynamically, then 
+add them to the output document. Every time this stylesheet is processed, 
+the extension adds the latest data from various databases to the output. 
+You could improve this extension element by adding caching, connection 
+pooling, and other features for performance and scalability; the point of 
+this example was to show you how extension elements work. Whatever its 
+limitations, the best feature of our extension element is that we can use 
+it with any JDBC-compliant database. You can use this code to generate 
+HTML (or XML) from any database, whether the database vendor supports it 
+or not.
+<a name="INDEX-716" />
+<a name="INDEX-717" />
+<a name="INDEX-718" />
+<a name="INDEX-719" />
+<a name="INDEX-720" />
+<a name="INDEX-721" />
+<a name="INDEX-722" />
+<a name="INDEX-723" />
+<a name="INDEX-724" />
+
+</p>
+
+<blockquote><b>TIP:</b> As of this writing, efforts are underway to standardize extension functions and exension elements across XSLT processors. The EXSLT project is one such effort. Visit their web site (<a href="http://www.exslt.org">http://www.exslt.org</a>) for more information on the EXSLT library of extensions.</p></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch08_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">8.2. Extending the Saxon Processor</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">8.4. Summary</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

@@ -1,0 +1,1226 @@
+<html><head><title>XML::SAX: The Second Generation (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch06_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">5.7. XML::SAX: The Second Generation</h2>
+
+<p>The<a name="INDEX-414" /> proliferation of <a name="INDEX-415" />SAX parsers presents two problems: how to
+keep them all synchronized with the standard API and how to keep them
+organized on your system. <tt class="literal">XML::SAX</tt>, a marvelous
+team effort by Matt <a name="INDEX-416" />Sergeant, Kip <a name="INDEX-417" />Hampton, and Robin
+<a name="INDEX-418" />Berjon, solves
+both problems at once. As a bonus, it also includes support for SAX
+Level 2 that previous modules lacked.
+</p>
+
+<p>"What," you ask,
+"do you mean about keeping all the modules
+synchronized with the API?" All along,
+we've touted the wonders of using a standard like
+SAX to ensure that modules are really interchangeable. But
+here's the rub: in Perl, there's
+more than one way to implement SAX. SAX was originally designed for
+Java, which has a wonderful interface type of class that nails down
+things like what type of argument to pass to which method.
+There's nothing like that in Perl.
+</p>
+
+<p>This wasn't as much of a problem with the older SAX
+modules we've been talking about so far. They all
+support SAX Level 1, which is fairly simple. However, a new crop of
+modules that support SAX2 is breaking the surface. SAX2 is more
+complex because it introduces namespaces to the mix. An element event
+handler should receive both the namespace prefix and the local name
+of the element. How should this information be passed in parameters?
+Do you keep them together in the same string like
+<tt class="literal">foo:bar</tt>? Or do you separate them into two
+parameters?
+</p>
+
+<p>This debate created a lot of heat on the
+<em class="emphasis">perl-xml</em> mailing list until a few members
+decided to hammer out a specification for
+"Perlish" SAX
+(we'll see in a moment how to use this new API for
+SAX2). To encourage others to adhere to this convention,
+<tt class="literal">XML::SAX</tt> includes a class called
+<tt class="literal">XML::SAX::ParserFactory</tt><a name="INDEX-419" />. A
+<em class="emphasis">factory</em><a name="INDEX-420" /> is an object whose sole purpose is to
+generate objects of a specific type -- in this case, parsers.
+<tt class="literal">XML::SAX::ParserFactory</tt> is a useful way to handle
+housekeeping chores related to the parsers, such as registering their
+options and initialization requirements. Tell the factory what kind
+of parser you want and it doles out a copy to you.
+</p>
+
+<p><tt class="literal">XML::SAX</tt> represents a shift in the way XML and
+Perl work together. It builds on the work of the past, including all
+the best features of previous modules, while avoiding many of the
+mistakes. To ensure that modules are truly compatible, the kit
+provides a base class for parsers, abstracting out most of the
+mundane work that all parsers have to do, leaving the developer the
+task of doing only what is unique to the task. It also creates an
+abstract interface for users of parsers, allowing them to keep the
+plethora of modules organized with a registry that is indexed by
+properties to make it easy to find the right one with a simple query.
+It's a bold step and carries a lot of heft, so be
+prepared for a lot of information and detail in this section. We
+think it will be worth your while.
+</p>
+
+<a name="perlxml-CHP-5-SECT-7.1" /><div class="sect2">
+<h3 class="sect2">5.7.1. XML::SAX::ParserFactory</h3>
+
+<p>We start with the parser selection interface,
+<tt class="literal">XML::SAX::ParserFactory</tt>. For those of you who have
+used DBI, this class is very similar. It's a front
+end to all the SAX parsers on your system. You simply request a new
+parser from the factory and it will dig one up for you.
+Let's say you want to use any SAX parser with your
+handler package <tt class="literal">XML::SAX::MyHandler</tt>.
+</p>
+
+<p>Here's how to fetch the parser and use it to read a
+file:
+</p>
+
+<blockquote><pre class="code">use XML::SAX::ParserFactory;
+use XML::SAX::MyHandler;
+my $handler = new XML::SAX::MyHandler;
+my $parser = XML::SAX::ParserFactory-&gt;parser( Handler =&gt; $handler );
+$parser-&gt;parse_uri( "foo.xml" );</pre></blockquote>
+
+<p>The parser you get depends on the order in which
+you've installed the modules. The last one (with all
+the available features specified with
+<tt class="literal">RequiredFeatures</tt>, if any) will be returned by
+default. But maybe you don't want that one. No
+problem; <tt class="literal">XML::SAX</tt> maintains a registry of SAX
+parsers that you can choose from. Every time you install a new SAX
+parser, it registers itself so you can call upon it with
+<tt class="literal">ParserFactory</tt>. If you know you have the
+<tt class="literal">XML::SAX::BobsParser</tt> parser installed, you can
+require an instance of it by setting the variable
+<tt class="literal">$XML::SAX::ParserPackage</tt> as follows:
+</p>
+
+<blockquote><pre class="code">use XML::SAX::ParserFactory;
+use XML::SAX::MyHandler;
+my $handler = new XML::SAX::MyHandler;
+$XML::SAX::ParserPackage = "XML::SAX::BobsParser( 1.24 )";
+my $parser = XML::SAX::ParserFactory-&gt;parser( Handler =&gt; $handler );</pre></blockquote>
+
+<p>Setting <tt class="literal">$XML::SAX:ParserPackage</tt> to
+<tt class="literal">XML::SAX::BobsParser(</tt> <tt class="literal">1.24</tt>
+<tt class="literal">)</tt> returns an instance of the package. Internally,
+<tt class="literal">ParserFactory</tt> is <tt class="literal">require( )</tt>-ing
+that parser and calling its <tt class="literal">new(
+)</tt><a name="INDEX-421" /> class method. The
+<tt class="literal">1.24</tt> in the variable setting specifies a minimum
+version number for the parser. If that version isn't
+on your system, an exception will be thrown.
+</p>
+
+<p>To see a list of all the parsers available to
+<tt class="literal">XML::SAX</tt>, call the <tt class="literal">parsers( )</tt>
+method:
+</p>
+
+<blockquote><pre class="code">use XML::SAX;
+
+my @parsers = @{XML::SAX-&gt;parsers( )};
+
+foreach my $p ( @parsers ) {
+    print "\n", $p-&gt;{ Name }, "\n";
+    foreach my $f ( sort keys %{$p-&gt;{ Features }} ) {
+        print "$f =&gt; ", $p-&gt;{ Features }-&gt;{ $f }, "\n";
+    }
+}</pre></blockquote>
+
+<p>It returns a reference to a list of hashes, with each hash containing
+information about a parser, including the name and a hash of
+features. When we ran the program above we were told that
+<tt class="literal">XML::SAX</tt> had two registered parsers, each
+supporting namespaces:
+</p>
+
+<blockquote><pre class="code">XML::LibXML::SAX::Parser
+http://xml.org/sax/features/namespaces =&gt; 1
+
+XML::SAX::PurePerl
+http://xml.org/sax/features/namespaces =&gt; 1</pre></blockquote>
+
+<p>At the time this book was written, these parsers were the only two
+parsers included with <tt class="literal">XML::SAX</tt>.
+<tt class="literal">XML::LibXML::SAX::Parser</tt> is a SAX API for the
+<em class="emphasis">libxml2</em><a name="INDEX-422" />
+library we use in <a href="ch06_01.htm">Chapter 6, "Tree Processing"</a>. To use it,
+you'll need to have <em class="emphasis">libxml2</em>, a
+compiled, dynamically linked library written in C, installed on your
+system. It's fast, but unless you can find a binary
+or compile it yourself, it isn't very portable.
+<tt class="literal">XML::SAX::PurePerl</tt> is, as the name suggests, a
+parser written completely in Perl. As such, it's
+completely portable because you can run it wherever Perl is
+installed. This starter set of parsers already gives you some
+different options.
+</p>
+
+<p>The feature list associated with each parser is important because it
+allows a user to select a parser based on a set of criteria. For
+example, suppose you wanted a parser that did validation and
+supported namespaces. You could request one by calling the
+factory's <tt class="literal">require_feature( )</tt>
+method:
+</p>
+
+<blockquote><pre class="code">my $factory = new XML::SAX::ParserFactory;
+$factory-&gt;require_feature( 'http://xml.org/sax/features/validation' );
+$factory-&gt;require_feature( 'http://xml.org/sax/features/namespaces' );
+my $parser = $factory-&gt;parser( Handler =&gt; $handler );</pre></blockquote>
+
+<p>Alternatively, you can pass such information to the factory in its
+constructor method:
+</p>
+
+<blockquote><pre class="code">my $factory = new XML::SAX::ParserFactory(
+             Required_features =&gt; {
+                    'http://xml.org/sax/features/validation' =&gt; 1
+                    'http://xml.org/sax/features/namespaces' =&gt; 1
+             }
+);
+my $parser = $factory-&gt;parser( Handler =&gt; $handler );</pre></blockquote>
+
+<p>If multiple parsers pass the test, the most recently installed one is
+used. However, if the factory can't find a parser to
+fit your requirements, it simply throws an exception.
+</p>
+
+<p>To add more SAX modules to the registry, you only need to download
+and install them. Their installer packages should know about
+<tt class="literal">XML::SAX</tt> and automatically register the modules
+with it. To add a module of your own, you can use
+<tt class="literal">XML::SAX</tt>'s <tt class="literal">add_parser(
+)</tt><a name="INDEX-423" /> with a list of module names. Make sure
+it follows the conventions of SAX modules by subclassing
+<tt class="literal">XML::SAX::Base</tt>. Later, we'll show
+you how to write a parser, install it, and add<a name="INDEX-424" /> it to the
+registry.
+</p>
+
+</div>
+<a name="perlxml-CHP-5-SECT-7.2" /><div class="sect2">
+<h3 class="sect2">5.7.2. SAX2 Handler Interface</h3>
+
+<p>Once<a name="INDEX-425" /> you've
+selected<a name="INDEX-426" /> a
+parser, the next step is to code up a handler package to catch the
+parser's event stream, much like the SAX modules
+we've seen so far. <tt class="literal">XML::SAX</tt>
+specifies events and their properties in exquisite detail and in
+large numbers. This specification gives your handler considerable
+control while ensuring absolute conformance to the API.
+</p>
+
+<p>The types of supported event handlers fall into several groups. The
+ones we are most familiar with include the <em class="emphasis">content
+handlers</em><a name="INDEX-427" />, including those for elements and general
+document information, <em class="emphasis">entity resolvers</em>, and
+<em class="emphasis">lexical handlers</em><a name="INDEX-428" /> that handle CDATA sections and
+comments.<a name="INDEX-429" />
+<em class="emphasis">DTD handlers</em>
+and<a name="INDEX-430" /> <em class="emphasis">declaration handlers</em>
+take care of everything outside of the document element, including
+element and entity declarations. <tt class="literal">XML::SAX</tt> adds a
+new group, the <em class="emphasis">error
+handlers</em><a name="INDEX-431" />, to catch and process any exceptions that
+may occur during parsing.
+</p>
+
+<p>One important new facet to this class of parsers is that they
+recognize namespaces. This recognition is one of the innovations of
+SAX2. Previously, SAX parsers treated a qualified name as a single
+unit: a combined namespace prefix and local name. Now you can tease
+out the namespaces, see where their scope begins and ends, and do
+more than you could before.
+</p>
+
+<a name="perlxml-CHP-5-SECT-7.2.1" /><div class="sect3">
+<h3 class="sect3">5.7.2.1. Content event handlers</h3>
+
+<p>Focusing on the content of the document, these handlers are the most
+likely ones to be implemented in a SAX handling program. Note the
+useful addition of a document locator reference, which gives the
+handler a special window into the machinations of the parser. The
+support for namespaces is also new.
+</p>
+
+<dl>
+<a name="INDEX-432" /><dt><b><tt class="literal">set_document_locator(</tt> <em class="replaceable">locator</em> <tt class="literal">)</tt></b></dt>
+<dd>
+<p>Called at the beginning of parsing, a parser uses this method to tell
+the handler where the events are coming from. The
+<em class="replaceable">locator</em> parameter is a reference to a hash
+containing these properties:
+</p>
+
+<dl>
+<dt><b><tt class="literal">PublicID</tt></b></dt>
+<dd>
+<p>The public identifier of the current entity being parsed. </p>
+</dd>
+
+
+<dt><b><tt class="literal">SystemID</tt></b></dt>
+<dd>
+<p>The system identifier of the current entity being parsed. </p>
+</dd>
+
+
+<dt><b><tt class="literal">LineNumber</tt></b></dt>
+<dd>
+<p>The line number of the current entity being parsed. </p>
+</dd>
+
+
+<dt><b><tt class="literal">ColumnNumber</tt></b></dt>
+<dd>
+<p>The last position in the line currently being parsed. </p>
+</dd>
+
+</dl>
+
+
+<p>The hash is continuously updated with the latest information. If your
+handler doesn't like the information
+it's being fed and decides to abort, it can check
+the locator to construct a meaningful message to the user about where
+in the source document an error was found. A SAX parser
+isn't required to give a locator, though it is
+strongly encouraged to do so. You should check to make sure that you
+have a locator before trying to access it. Don't try
+to use the locator except inside an event handler, or
+you'll get unpredictable results.
+</p>
+</dd>
+
+
+<a name="INDEX-433" /><dt><b><tt class="literal">start_document(</tt> <em class="replaceable">document</em> <tt class="literal">)</tt></b></dt>
+<dd>
+<p>This handler routine is called right after
+<tt class="literal">set_document_locator( )</tt>, just as parsing on a
+document begins. The parameter, <em class="replaceable">document</em>,
+is an empty reference, as there are no properties for this event.
+</p>
+</dd>
+
+
+<a name="INDEX-434" /><dt><b><tt class="literal">end_document(</tt> <em class="replaceable">document</em> <tt class="literal">)</tt></b></dt>
+<dd>
+<p>This is the last handler method called. If the parser has reached the
+end of input or has encountered an error and given up, it sends
+notification of this event. The return value for this method is used
+as the value returned by the parser's
+<tt class="literal">parse( )</tt> method. Again, the
+<em class="replaceable">document</em> parameter is empty.
+</p>
+</dd>
+
+
+<a name="INDEX-435" /><dt><b><tt class="literal">start_element(</tt> <em class="replaceable">element</em> <tt class="literal">)</tt></b></dt>
+<dd>
+<p>Whenever the parser encounters a new element start tag, it calls this
+method. The parameter <em class="replaceable">element</em> is a hash
+containing properties of the element, including:
+</p>
+
+
+<dl>
+<dt><b><tt class="literal">Name</tt></b></dt>
+<dd>
+<p>The string containing the name of the element, including its
+namespace prefix.
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">Attributes</tt></b></dt>
+<dd>
+<p>The hash of attributes, in which each key is encoded as
+<tt class="literal">{</tt><em class="replaceable">NamespaceURI</em><tt class="literal">}</tt><em class="replaceable">LocalName</em>.
+The value of each item in the hash is a hash of attribute properties.
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">NamespaceURI</tt></b></dt>
+<dd>
+<p>The element's namespace.</p>
+</dd>
+
+
+<dt><b><tt class="literal">Prefix</tt></b></dt>
+<dd>
+<p>The prefix part of the qualified name.</p>
+</dd>
+
+
+<dt><b><tt class="literal">LocalName</tt></b></dt>
+<dd>
+<p>The local part of the qualified name.</p>
+</dd>
+
+</dl>
+
+
+
+<p>Properties for attributes include:</p>
+
+<dl>
+<dt><b><tt class="literal">Name</tt></b></dt>
+<dd>
+<p>The qualified name (prefix + local).</p>
+</dd>
+
+
+<dt><b><tt class="literal">Value</tt></b></dt>
+<dd>
+<p>The attribute's value, normalized (leading and
+trailing spaces are removed).
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">NamespaceURI</tt></b></dt>
+<dd>
+<p>The source of the namespace.</p>
+</dd>
+
+
+<dt><b><tt class="literal">Prefix</tt></b></dt>
+<dd>
+<p>The prefix part of the qualified name.</p>
+</dd>
+
+
+<dt><b><tt class="literal">LocalName</tt></b></dt>
+<dd>
+<p>The local part of the qualified name.</p>
+</dd>
+
+</dl>
+
+<p>The properties <tt class="literal">NamespaceURI</tt>,
+<tt class="literal">LocalName</tt>, and <tt class="literal">Prefix</tt> are given
+only if the parser supports the namespaces feature.
+</p>
+</dd>
+
+
+<a name="INDEX-436" /><dt><b><tt class="literal">end_element(</tt> <em class="replaceable">element</em> <tt class="literal">)</tt></b></dt>
+<dd>
+<p>After all the content is processed and an element's
+end tag has come into view, the parser calls this method. It is even
+called for empty elements. The parameter
+<em class="replaceable">element</em> is a hash containing these
+properties:
+</p>
+
+<dl>
+<dt><b><tt class="literal">Name</tt></b></dt>
+<dd>
+<p>The string containing the element's name, including
+its namespace prefix.
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">NamespaceURI</tt></b></dt>
+<dd>
+<p>The element's namespace.</p>
+</dd>
+
+
+<dt><b><tt class="literal">Prefix</tt></b></dt>
+<dd>
+<p>The prefix part of the qualified name.</p>
+</dd>
+
+
+<dt><b><tt class="literal">LocalName</tt></b></dt>
+<dd>
+<p>The local part of the qualified name.</p>
+</dd>
+
+</dl>
+
+<p>The properties <tt class="literal">NamespaceURI</tt>,
+<tt class="literal">LocalName</tt>, and <tt class="literal">Prefix</tt> are given
+only if the parser supports the namespaces feature.
+</p>
+</dd>
+
+
+<a name="INDEX-437" /><dt><b><tt class="literal">characters(</tt> <em class="replaceable">characters</em> <tt class="literal">)</tt></b></dt>
+<dd>
+<p>The parser calls this method whenever it finds a chunk of plain text
+(character data). It might break up a chunk into pieces and deliver
+each piece separately, but the pieces must always be sent in the same
+order as they were read. Within a piece, all text must come from the
+same source entity. The <em class="replaceable">characters</em>
+parameter is a hash containing one property, <tt class="literal">Data</tt>,
+which is a string containing the characters from the document.
+</p>
+</dd>
+
+
+<a name="INDEX-438" /><dt><b><tt class="literal">ignorable_whitespace(</tt> <em class="replaceable">characters</em> <tt class="literal">)</tt></b></dt>
+<dd>
+<p>The term <em class="emphasis">ignorable
+whitespace</em><a name="INDEX-439" /> is used to describe space
+characters that appear in places where the element's
+content model declaration doesn't specifically call
+for character data. In other words, the newlines often used to make
+XML more readable by spacing elements apart can be ignored because
+they aren't really content in the document. A parser
+can tell if whitespace is ignorable only by reading the DTD, and it
+would do that only if it supports the validation feature. (If you
+don't understand this, don't worry;
+it's not important to most people.) The
+<em class="replaceable">characters</em> parameter is a hash containing
+one property, <tt class="literal">Data</tt>, containing the
+document's whitespace characters.
+</p>
+</dd>
+
+
+<a name="INDEX-440" /><dt><b><tt class="literal">start_prefix_mapping(</tt> <em class="replaceable">mapping</em> <tt class="literal">)</tt></b></dt>
+<dd>
+<p>This method is called when the parser detects a namespace coming into
+scope. For parsers that are not namespace-aware, this event is
+skipped, but element and attribute names still include the namespace
+prefixes. This event always occurs before the start of the element
+for which the scope holds. The parameter
+<em class="replaceable">mapping</em> is a hash with these properties:
+</p>
+
+<dl>
+<dt><b><tt class="literal">Prefix</tt></b></dt>
+<dd>
+<p>The namespace prefix.</p>
+</dd>
+
+
+<dt><b><tt class="literal">NamespaceURI</tt></b></dt>
+<dd>
+<p>The URI that the prefix maps to.</p>
+</dd>
+
+</dl>
+</dd>
+
+
+
+<a name="INDEX-441" /><dt><b><tt class="literal">end_prefix_mapping(</tt> <em class="replaceable">mapping</em> <tt class="literal">)</tt></b></dt>
+<dd>
+<p>This method is called when a namespace scope closes. This
+routine's parameter
+<em class="replaceable">mapping</em> is a hash with one property:
+</p>
+
+<dl>
+<dt><b><tt class="literal">Prefix</tt></b></dt>
+<dd>
+<p>The namespace prefix.</p>
+</dd>
+
+</dl>
+
+<p>This event is guaranteed to come after the end element event for the
+element in which the scope is declared.
+</p>
+</dd>
+
+
+<a name="INDEX-442" /><dt><b><tt class="literal">processing_instruction(</tt> <em class="replaceable">pi</em> <tt class="literal">)</tt></b></dt>
+<dd>
+<p>This routine handles processing instruction events from the parser,
+including those found outside the document element. The
+<em class="replaceable">pi</em> parameter is a hash with these
+properties:
+</p>
+
+<dl>
+<dt><b><tt class="literal">Target</tt></b></dt>
+<dd>
+<p>The target for the processing instruction.</p>
+</dd>
+
+
+<dt><b><tt class="literal">Data</tt></b></dt>
+<dd>
+<p>The instruction's data (or <tt class="literal">undef</tt>
+if there isn't any).
+</p>
+</dd>
+
+</dl>
+</dd>
+
+
+<a name="INDEX-443" /><dt><b><tt class="literal">skipped_entity(</tt> <em class="replaceable">entity</em> <tt class="literal">)</tt></b></dt>
+<dd>
+<p>Nonvalidating parsers may skip entities rather than resolve them. For
+example, if they haven't seen a declaration, they
+can just ignore the entity rather than abort with an error. This
+method gives the handler a chance to do something with the entity,
+and perhaps even implement its own entity resolution scheme.
+</p>
+
+<p>If a parser skips entities, it will have one or more of these
+features set:
+</p>
+
+
+<ul><li>
+<p>Handle external parameter entities (feature-ID is <em class="emphasis">http://xml.org/sax/features/external-parameter-entities</em>)
+</p>
+</li><li>
+<p>Handle external general entities (feature-ID is <em class="emphasis">http://xml.org/sax/features/external-general-entities</em>)
+</p>
+</li></ul>
+<p>(In XML, features are represented as URIs, which may or may not
+actually exist. See <a href="ch10_01.htm">Chapter 10, "Coding Strategies"</a> for a fuller
+explanation.)
+</p>
+
+<p>The parameter <em class="replaceable">entity</em> is a hash with this
+property:
+</p>
+
+<dl>
+<dt><b><tt class="literal">Name</tt></b></dt>
+<dd>
+<p>The name of the entity that was skipped. If it's a
+parameter entity, the name will be prefixed with a percent sign (%).
+</p>
+</dd>
+
+</dl>
+</dd>
+
+</dl>
+</div>
+
+<a name="perlxml-CHP-5-SECT-7.2.2" /><div class="sect3">
+<h3 class="sect3">5.7.2.2. Entity resolver</h3>
+
+<p>By default, XML parsers resolve external entity references without
+your program ever knowing they were there. You may want to override
+that behavior occasionally. For example, you may have a special way
+of resolving public identifiers, or the entities are entries in a
+database. Whatever the reason, if you implement this handler, the
+parser will call it before attempting to resolve the entity on its
+own.
+</p>
+
+<p>The argument to <tt class="literal">resolve_entity(
+)</tt><a name="INDEX-444" />
+<a name="INDEX-445" /> is a hash with two properties:
+<tt class="literal">PublicID</tt>, a public identifier for the entity, and
+<tt class="literal">SystemID</tt>, the system-specific location of the
+identity, such as a filesystem path or a URI. If the public
+identifier is <tt class="literal">undef</tt>, then none was given, but a
+system identifier will always<a name="INDEX-446" /> be present.
+</p>
+
+</div>
+
+<a name="perlxml-CHP-5-SECT-7.2.3" /><div class="sect3">
+<h3 class="sect3">5.7.2.3. Lexical event handlers</h3>
+
+<p>Impl<a name="INDEX-447" /><a name="INDEX-448" />ementation<a name="INDEX-449" /> of this group of events is optional.
+You probably don't need to see these events, so not
+all parsers will give them to you. However, a few very complete ones
+will. If you want to be able to duplicate the original source XML
+down to the very comments and CDATA sections, then you need a parser
+that supports these event handlers.
+</p>
+
+<p>They include: </p>
+
+<ul><li>
+<p><tt class="literal">start_dtd( )</tt><a name="INDEX-450" /> and <tt class="literal">end_dtd(
+)</tt><a name="INDEX-451" />, for marking the boundaries of the
+document type definition
+</p>
+</li><li>
+<p><tt class="literal">start_entity( )</tt><a name="INDEX-452" /> and <tt class="literal">end_entity(
+)</tt><a name="INDEX-453" />, for delineating the region of a
+resolved entity reference
+</p>
+</li><li>
+<p><tt class="literal">start_cdata( )</tt><a name="INDEX-454" /> and<a name="INDEX-455" /> <tt class="literal">end_cdata(
+)</tt>, to describe the range of a CDATA section
+</p>
+</li><li>
+<p><tt class="literal">comment( )</tt><a name="INDEX-456" />, announcing a lexical comment that would
+otherwise be ignored by parsers
+</p>
+</li></ul>
+</div>
+
+<a name="perlxml-CHP-5-SECT-7.2.4" /><div class="sect3">
+<h3 class="sect3">5.7.2.4. Error event handlers and catching exceptions</h3>
+
+<p><tt class="literal">XML::SAX</tt> lets you customize your error handling
+with this group of handlers. Each handler takes one argument, called
+an exception, that describes the error in detail. The particular
+handler called represents the severity of the error, as defined by
+the W3C recommendation for parser behavior. There are three types:
+</p>
+
+<dl>
+<a name="INDEX-457" /><dt><b><tt class="literal">warning( )</tt></b></dt>
+<dd>
+<p>This is the least serious of the exception handlers. It represents
+any error that is not bad enough to halt parsing. For example, an ID
+reference without a matching ID would elicit a warning, but allow the
+parser to keep grinding on. If you don't implement
+this handler, the parser will ignore the exception and keep going.
+</p>
+</dd>
+
+
+<a name="INDEX-458" /><dt><b><tt class="literal">error( )</tt></b></dt>
+<dd>
+<p>This kind of error is considered serious, but recoverable. A validity
+error falls in this category. The parser should still trundle on,
+generating events, unless your application decides to call it quits.
+In the absence of a handler, the parser usually continues parsing.
+</p>
+</dd>
+
+
+<a name="INDEX-459" /><dt><b><tt class="literal">fatal_error( )</tt></b></dt>
+<dd>
+<p>A fatal error might cause the parser to abort parsing. The parser is
+under no obligation to continue, but might just to collect more error
+messages. The exception could be a syntax error that makes the
+document into non-well-formed XML, or it might be an entity that
+can't be resolved. In any case, this example shows
+the highest level of error reporting provided in
+<tt class="literal">XML::SAX</tt>.
+</p>
+</dd>
+
+</dl>
+
+<p>According to the XML specification, conformant parsers are supposed
+to halt when they encounter any kind of well-formedness or validity
+error. In Perl SAX, halting results in a call to <tt class="literal">die(
+)</tt>. That's not the end of story, however.
+Even after the parse session has died, you can raise it from the
+grave to continue where it left off, using the
+<tt class="literal">eval{}</tt> construct, like this:
+</p>
+
+<blockquote><pre class="code">eval{ $parser-&gt;parse( $uri ) };
+if( $@ ) {
+  # yikes! handle error here...
+}</pre></blockquote>
+
+<p>The <tt class="literal">$@</tt> variable is a blessed hash of properties
+that piece together the story about why parsing failed.
+</p>
+
+<p>These properties include: </p>
+
+<dl>
+<dt><b><tt class="literal">Message</tt></b></dt>
+<dd>
+<p>A text description about what happened </p>
+</dd>
+
+
+<dt><b><tt class="literal">ColumnNumber</tt></b></dt>
+<dd>
+<p>The number of characters into the line where the error occurred, if
+this error is a parse error
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">LineNumber</tt></b></dt>
+<dd>
+<p>Which line the error happened on, if the exception was thrown while
+parsing
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">PublicID</tt></b></dt>
+<dd>
+<p>A public identifier for the entity in which the error occurred, if
+this error is a parse error
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">SystemID</tt></b></dt>
+<dd>
+<p>A system identifier pointing to the offending entity, if a parse
+error occurred
+</p>
+</dd>
+
+</dl>
+
+<p>Not all thrown exceptions indicate that a failure to parse occurred.
+Sometimes the parser throws an exception<a name="INDEX-460" /> because<a name="INDEX-461" /> of a bad
+feature setting.
+</p>
+
+</div>
+</div>
+<a name="perlxml-CHP-5-SECT-7.3" /><div class="sect2">
+<h3 class="sect2">5.7.3. SAX2 Parser Interface</h3>
+
+<p>After<a name="INDEX-462" /> <a name="INDEX-463" />
+you've written a handler package, you need to create
+an instance of the parser, set its features, and run it on the XML
+source. This section discusses the standard interface for
+<tt class="literal">XML::SAX</tt> parsers.
+</p>
+
+<p>The<a name="INDEX-464" />
+<tt class="literal">parse( )</tt> method, which gets the parsing process
+rolling, takes a hash of options as an argument. Here you can assign
+handlers, set features, and define the data source to be parsed. For
+example, the following line sets both the handler package and the
+source document to parse:
+</p>
+
+<blockquote><pre class="code">$parser-&gt;parse( Handler =&gt; $handler, 
+                 Source =&gt; { SystemId =&gt; "data.xml" });</pre></blockquote>
+
+<p>The <tt class="literal">Handler</tt> property sets a generic set of
+handlers that will be used by default. However, each class of
+handlers has its own assignment slot that will be checked before
+<tt class="literal">Handler</tt>. These settings include:
+<tt class="literal">ContentHandler</tt>, <tt class="literal">DTDHandler</tt>,
+<tt class="literal">EntityResolver</tt>, and
+<tt class="literal">ErrorHandler</tt>. All of these settings are optional.
+If you don't assign a handler, the parser will
+silently ignore events and handle errors in its own way.
+</p>
+
+<p>The <tt class="literal">Source</tt><a name="INDEX-465" /> parameter is a hash used
+by a parser to hold all the information about the XML being input. It
+has the following properties:
+</p>
+
+<dl>
+<dt><b><tt class="literal">CharacterStream</tt></b></dt>
+<dd>
+<p>This kind of filehandle works in Perl Version 5.7.2 and higher using
+PerlIO. No encoding translation should be necessary. Use the
+<tt class="literal">read( )</tt> function to get a number of characters
+from it, or use <tt class="literal">sysread( )</tt> to get a number of
+bytes. If the <tt class="literal">CharacterStream</tt> property is set, the
+parser ignores <tt class="literal">ByteStream</tt> or
+<tt class="literal">SystemId</tt>.
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">ByteStream</tt></b></dt>
+<dd>
+<p>This property sets a byte stream to be read. If
+<tt class="literal">CharacterStream</tt> is set, this property is ignored.
+However, it supersedes <tt class="literal">SystemId</tt>. The
+<tt class="literal">Encoding</tt> property should be set along with this
+property.
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">PublicId</tt></b></dt>
+<dd>
+<p>This property is optional, but if the application submits a public
+identifier, it is stored here.
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">SystemId</tt></b></dt>
+<dd>
+<p>This string represents a system-specific location for a document,
+such as a URI or filesystem path. Even if the source is a character
+stream or byte stream, this parameter is still useful because it can
+be used as an offset for external entity references.
+</p>
+</dd>
+
+
+<dt><b><tt class="literal">Encoding</tt></b></dt>
+<dd>
+<p>The character encoding, if known, is stored here. </p>
+</dd>
+
+</dl>
+
+<p>Any other options you want to set are in the set of
+<em class="emphasis">features</em> defined for SAX2. For example, you
+can tell a parser that you are interested in special treatment for
+namespaces. One way to set features is by defining the
+<tt class="literal">Features</tt> property in the options hash given to the
+<tt class="literal">parse( )</tt> method. Another way is with the method
+<tt class="literal">set_feature( )</tt>. For example,
+here's how you would turn on validation in a
+validating parser using both methods:
+</p>
+
+<blockquote><pre class="code">$parser-&gt;parse( Features =&gt; { 'http://xml.org/sax/properties/validate' =&gt; 1 } );
+$parser-&gt;set_feature( 'http://xml.org/sax/properties/validate', 1 );</pre></blockquote>
+
+<p>For a complete list of features defined for SAX2, see the
+documentation at <a href="http://sax.sourceforge.net/apidoc/org/xml/sax/package-summary.html">http://sax.sourceforge.net/apidoc/org/xml/sax/package-summary.html</a>.
+You can also define your own features if your parser has special
+abilities others don't. To see what features your
+parser supports, <tt class="literal">get_features( )</tt> returns a list
+and <tt class="literal">get_feature( )</tt> with a
+<tt class="literal">name</tt> parameter reports the setting of a specific
+feature.
+</p>
+
+</div>
+<a name="perlxml-CHP-5-SECT-7.4" /><div class="sect2">
+<h3 class="sect2">5.7.4. Example: A Driver</h3>
+
+<p>Making your own SAX parser is simple, as most of the work is handled
+by a base class, <tt class="literal">XML::SAX::Base</tt>. All you have to
+do is create a subclass of this object and override anything that
+isn't taken care of by default. Not only is it
+convenient to do this, but it will result in code that is much safer
+and more reliable than if you tried to create it from scratch. For
+example, checking if the handler package implements the handler you
+want to call is done for you automatically.
+</p>
+
+<p>The next example proves just how easy it is to create a parser that
+works with <tt class="literal">XML::SAX</tt>. It's a
+driver, similar to the kind we saw in <a href="ch05_04.htm#perlxml-CHP-5-SECT-4">Section 5.4, "Drivers for Non-XML Sources"</a>, except that instead of
+turning Excel documents into XML, it reads from web server log files.
+The parser turns a line like this from a log file:
+</p>
+
+<blockquote><pre class="code">10.16.251.137 - - [26/Mar/2000:20:30:52 -0800] "GET /index.html HTTP/1.0" 200 16171</pre></blockquote>
+
+<p>into this snippet of XML: </p>
+
+<blockquote><pre class="code">&lt;entry&gt;
+&lt;ip&gt;10.16.251.137&lt;ip&gt;
+&lt;date&gt;26/Mar/2000:20:30:52 -0800&lt;date&gt;
+&lt;req&gt;GET /apache-modlist.html HTTP/1.0&lt;req&gt;
+&lt;stat&gt;200&lt;stat&gt;
+&lt;size&gt;16171&lt;size&gt;
+&lt;entry&gt;</pre></blockquote>
+
+<p><a href="ch05_07.htm#perlxml-CHP-5-EX-8">Example 5-8</a> implements the
+<tt class="literal">XML::SAX</tt> driver for web logs. The first subroutine
+in the package is <tt class="literal">parse( )</tt>. Ordinarily, you
+wouldn't write your own <tt class="literal">parse(
+)</tt> method because the base class does that for you, but it
+assumes that you want to input some form of XML, which is not the
+case for drivers. Thus, we shadow that routine with one of our own,
+specifically trained to handle web server log files.
+</p>
+
+<a name="perlxml-CHP-5-EX-8" /><div class="example">
+<h4 class="objtitle">Example 5-8. Web log SAX driver </h4>
+<blockquote><pre class="code">package LogDriver;
+
+require 5.005_62;
+use strict;
+use XML::SAX::Base;
+our @ISA = ('XML::SAX::Base');
+our $VERSION = '0.01';
+
+
+sub parse {
+    my $self = shift;
+    my $file = shift;
+    if( open( F, $file )) {
+        $self-&gt;SUPER::start_element({ Name =&gt; 'server-log' });
+        while( &lt;F&gt; ) {
+            $self-&gt;_process_line( $_ );
+        }
+        close F;
+        $self-&gt;SUPER::end_element({ Name =&gt; 'server-log' });
+    }
+}
+
+
+sub _process_line {
+    my $self = shift;
+    my $line = shift;
+
+    if( $line =~ 
+          /(\S+)\s\S+\s\S+\s\[([^\]]+)\]\s\"([^\"]+)\"\s(\d+)\s(\d+)/ ) {
+        my( $ip, $date, $req, $stat, $size ) = ( $1, $2, $3, $4, $5 );
+
+        $self-&gt;SUPER::start_element({ Name =&gt; 'entry' });
+        
+        $self-&gt;SUPER::start_element({ Name =&gt; 'ip' });
+        $self-&gt;SUPER::characters({ Data =&gt; $ip });
+        $self-&gt;SUPER::end_element({ Name =&gt; 'ip' });
+        
+        $self-&gt;SUPER::start_element({ Name =&gt; 'date' });
+        $self-&gt;SUPER::characters({ Data =&gt; $date });
+        $self-&gt;SUPER::end_element({ Name =&gt; 'date' });
+        
+        $self-&gt;SUPER::start_element({ Name =&gt; 'req' });
+        $self-&gt;SUPER::characters({ Data =&gt; $req });
+        $self-&gt;SUPER::end_element({ Name =&gt; 'req' });
+        
+        $self-&gt;SUPER::start_element({ Name =&gt; 'stat' });
+        $self-&gt;SUPER::characters({ Data =&gt; $stat });
+        $self-&gt;SUPER::end_element({ Name =&gt; 'stat' });
+        
+        $self-&gt;SUPER::start_element({ Name =&gt; 'size' });
+        $self-&gt;SUPER::characters({ Data =&gt; $size });
+        $self-&gt;SUPER::end_element({ Name =&gt; 'size' });
+        
+        $self-&gt;SUPER::end_element({ Name =&gt; 'entry' });
+    }
+}
+
+1;</pre></blockquote>
+</div>
+
+<p>Since web logs are line oriented (one entry per line), it makes sense
+to create a subroutine that handles a single line,
+<tt class="literal">_process_line( )</tt>. All it has to do is break down
+the web log entry into component parts and package them in XML
+elements. The <tt class="literal">parse( )</tt> routine simply chops the
+document into separate lines and feeds them into the line processor
+one at a time.
+</p>
+
+<p>Notice that we don't call event handlers in the
+handler package directly. Rather, we pass the data through routines
+in the base class, using it as an abstract layer between the parser
+and the handler. This is convenient for you, the parser developer,
+because you don't have to check if the handler
+package is listening for that type of event. Again, the base class is
+looking out for us, making our lives easier.
+</p>
+
+<p>Let's test the parser now. Assuming that you have
+this module already installed (don't worry,
+we'll cover the topic of installing
+<tt class="literal">XML::SAX</tt> parsers in the next section), writing a
+program that uses it is easy. <a href="ch05_07.htm#perlxml-CHP-5-EX-9">Example 5-9</a> creates a
+handler package and applies it to the parser we just developed.
+</p>
+
+<a name="perlxml-CHP-5-EX-9" /><div class="example">
+<h4 class="objtitle">Example 5-9. A program to test the SAX driver </h4>
+<blockquote><pre class="code">use XML::SAX::ParserFactory;
+use LogDriver;
+my $handler = new MyHandler;
+my $parser = XML::SAX::ParserFactory-&gt;parser( Handler =&gt; $handler );
+$parser-&gt;parse( shift @ARGV );
+
+package MyHandler;
+
+# initialize object with options
+#
+sub new {
+    my $class = shift;
+    my $self = {@_};
+    return bless( $self, $class );
+}
+
+
+sub start_element {
+    my $self = shift;
+    my $data = shift;
+    print "&lt;", $data-&gt;{Name}, "&gt;";
+    print "\n" if( $data-&gt;{Name} eq 'entry' );
+    print "\n" if( $data-&gt;{Name} eq 'server-log' );
+}
+
+sub end_element {
+    my $self = shift;
+    my $data = shift;
+    print "&lt;", $data-&gt;{Name}, "&gt;\n";
+}
+
+sub characters {
+    my $self = shift;
+    my $data = shift;
+    print $data-&gt;{Data};
+}</pre></blockquote>
+</div>
+
+<p>We use <tt class="literal">XML::SAX::ParserFactory</tt> to demonstrate how
+a parser can be selected once it is registered. If you wish, you can
+define attributes for the parser so that subsequent queries can
+select it based on those properties rather than its name.
+</p>
+
+<p>The handler package is not terribly complicated; it turns the events
+into an XML character stream. Each handler receives a hash reference
+as an argument through which you can access each
+object's properties by the appropriate key. An
+element's name, for example, is stored under the
+hash key <tt class="literal">Name</tt>. It all works pretty<a name="INDEX-466" /> <a name="INDEX-467" /> <a name="INDEX-468" /> much as you
+would expect.
+</p>
+
+</div>
+<a name="perlxml-CHP-5-SECT-7.5" /><div class="sect2">
+<h3 class="sect2">5.7.5. Installing Your Own Parser</h3>
+
+<p>Our<a name="INDEX-469" />
+coverage of <tt class="literal">XML::SAX</tt> wouldn't be
+complete without showing you how to create an installation package
+that adds a parser to the registry automatically. Adding a parser is
+very easy with the <em class="emphasis">h2xs</em> utility. Though it was
+originally made to facilitate extensions to Perl written in C, it is
+invaluable in other ways.
+</p>
+
+<p>Here, we will use it to create something much like the module
+installers you've downloaded from CPAN.<a href="#FOOTNOTE-26">[26]</a> </p><blockquote class="footnote">
+<a name="FOOTNOTE-26" /><p>[26]For a helpful tutorial on using <em class="emphasis">h2xs</em>, see
+O'Reilly's <em class="citetitle">The Perl
+Cookbook</em> by Tom Christiansen and Nat Torkington.</p>
+</blockquote>
+
+<p>First, we start a new project with the following command:
+</p>
+
+<blockquote><pre class="code">h2xs -AX -n LogDriver</pre></blockquote>
+
+<p><em class="emphasis">h2xs</em> automatically creates a directory called
+<em class="filename">LogDriver</em><a name="INDEX-470" />, stocked with
+several files.
+</p>
+
+<dl>
+<dt><i><em class="filename">LogDriver.pm</em></i></dt>
+<dd>
+<p>A stub for our module, ready to be filled out with subroutines.</p>
+</dd>
+
+
+<a name="INDEX-471" /><dt><i><em class="filename">Makefile.PL</em></i></dt>
+<dd>
+<p>A Perl program that generates a <em class="filename">Makefile</em> for
+installing the module. (Look familiar, CPAN users?)
+</p>
+</dd>
+
+
+<dt><i><em class="filename">test.pl</em></i></dt>
+<dd>
+<p>A stub for adding test code to check on the success of installation.</p>
+</dd>
+
+
+<dt><i><em class="filename">Changes</em>, <em class="filename">MANIFEST</em></i></dt>
+<dd>
+<p>Other files used to aid in installation and give information to users.</p>
+</dd>
+
+</dl>
+
+<p><em class="filename">LogDriver.pm</em>, the module to be installed,
+doesn't need much extra code to make
+<em class="emphasis">h2xs</em> happy. It only needs a variable,
+<tt class="literal">$VERSION</tt>, since <em class="emphasis">h2xs</em> is
+(justifiably) finicky about that information.
+</p>
+
+<p>As you know from installing CPAN modules, the first thing you do when
+opening an installer archive is run the command <tt class="literal">perl
+Makefile.PM</tt>. Running this command generates a file called
+<em class="filename">Makefile</em>, which configures the installer to your
+system. Then you can run <tt class="literal">make</tt> and <tt class="literal">make
+install</tt> to load the module in the right place.
+</p>
+
+<p>Any deviation from the default behavior of the installer must be
+coded in the <em class="filename">Makefile.PM</em> program. Untouched, it
+looks like this:
+</p>
+
+<blockquote><pre class="code">use ExtUtils::MakeMaker;
+WriteMakefile(
+    'NAME'                =&gt; 'LogDriver',         # module name
+    'VERSION_FROM'        =&gt; 'LogDriver.pm',      # finds version
+ );</pre></blockquote>
+
+<p>The argument to<a name="INDEX-472" /> <tt class="literal">WriteMakeFile(
+)</tt> is a hash of properties about the module, used in
+generating a <em class="filename">Makefile</em> file. We can add more
+properties here to make the installer do more sophisticated things
+than just copy a module onto the system. For our parser, we want to
+add this line:
+</p>
+
+<blockquote><pre class="code">'PREREQ_PM' =&gt; { 'XML::SAX' =&gt; 0 }</pre></blockquote>
+
+<p>Adding this line triggers a check during installation to see if
+<tt class="literal">XML::SAX</tt> exists on the system. If not, the
+installation aborts with an error message. We don't
+want to install our parser until there is a framework to accept it.
+</p>
+
+<p>This subroutine should also be added to
+<em class="filename">Makefile.PM</em>:
+</p>
+
+<blockquote><pre class="code">sub MY::install {
+    package MY;
+    my $script = shift-&gt;SUPER::install(@_);
+    $script =~ s/install :: (.*)$/install :: $1 install_sax_driver/m;
+    $script .= &lt;&lt;"INSTALL";
+
+    install_sax_driver :
+       \t\@\$(PERL) -MXML::SAX -e "XML::SAX-&gt;add_parser(q(\$(NAME)))-&gt;save_parsers( )"
+
+INSTALL
+
+    return $script;
+}</pre></blockquote>
+
+<p>This example adds<a name="INDEX-473" /> <a name="INDEX-474" /> the parser to the list<a name="INDEX-475" /> maintained
+by<a name="INDEX-476" />
+<tt class="literal">XML::SAX</tt>. Now you can install your<a name="INDEX-477" /> module.
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch06_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">5.6. XML::Handler::YAWriter as a Base Handler Class</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">6. Tree Processing</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

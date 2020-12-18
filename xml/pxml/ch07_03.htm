@@ -1,0 +1,207 @@
+<html><head><title>XML::DOM (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch07_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">7.3. XML::DOM</h2>
+
+<p>Enno <a name="INDEX-652" />Derkson's
+<tt class="literal">XML::DOM</tt><a name="INDEX-653" /> <a name="INDEX-654" />
+module is a good place to start exploring DOM in Perl.
+It's a complete implementation of Level 1 DOM with a
+few extra features thrown in for convenience.
+<tt class="literal">XML::DOM::Parser</tt> extends
+<tt class="literal">XML::Parser</tt> to build a document tree installed in
+an <tt class="literal">XML::DOM::Document</tt> object whose reference it
+returns. This reference gives you complete access to the tree. The
+rest, we happily report, works pretty much as you'd
+expect.
+</p>
+
+<p>Here's a program that uses DOM to process
+an<a name="INDEX-655" /> XHTML file. It looks inside
+<tt class="literal">&lt;p&gt;</tt> elements for the word
+"monkeys," replacing every instance
+with a link to <tt class="literal">monkeystuff.com</tt>. Sure, you could do
+it with a regular expression substitution, but this example is
+valuable because it shows how to search for and create new nodes, and
+read and change values, all in the unique DOM style.
+</p>
+
+<p>The first part of the program creates a parser object and gives it a
+file to parse with the call to<a name="INDEX-656" /> <tt class="literal">parsefile( )</tt>:
+</p>
+
+<blockquote><pre class="code">use XML::DOM;
+
+&amp;process_file( shift @ARGV );
+
+sub process_file {
+    my $infile = shift;
+    my $dom_parser = new XML::DOM::Parser;            # create a parser object
+    my $doc = $dom_parser-&gt;parsefile( $infile );      # make it parse a file
+    &amp;add_links( $doc );                               # perform our changes
+    print $doc-&gt;toString;                             # output the tree again
+    $doc-&gt;dispose;                                    # clean up memory
+}</pre></blockquote>
+
+<p>This method returns a reference to an
+<tt class="literal">XML::DOM::Document</tt> object, which is our gateway to
+the nodes inside. We pass this reference along to a routine called
+<tt class="literal">add_links( ),</tt><a name="INDEX-657" /> which will do all the processing we
+require. Finally, we output the tree with a call to
+<tt class="literal">toString( )</tt><a name="INDEX-658" />, and then dispose of the object. This
+last step performs necessary cleanup in case any circular references
+between nodes could result in a memory leak.
+</p>
+
+<p>The next part burrows into the tree to start processing paragraphs: </p>
+
+<blockquote><pre class="code">sub add_links {
+    my $doc = shift;                                  
+
+    # find all the &lt;p&gt; elements
+    my $paras = $doc-&gt;getElementsByTagName( "p" );
+    for( my $i = 0; $i &lt; $paras-&gt;getLength; $i++ ) {
+        my $para = $paras-&gt;item( $i );
+
+        # for each child of a &lt;p&gt;, if it is a text node, process it
+        my @children = $para-&gt;getChildNodes;
+        foreach my $node ( @children ) {
+            &amp;fix_text( $node ) if( $node-&gt;getNodeType eq TEXT_NODE );
+        }
+    }
+}</pre></blockquote>
+
+<p>The <tt class="literal">add_links( )</tt><a name="INDEX-659" /> routine starts with a call to the
+document object's <tt class="literal">getElementsByTagName(
+)</tt><a name="INDEX-660" /> method. It returns an
+<tt class="literal">XML::DOM::NodeList</tt> object containing all matching
+<tt class="literal">&lt;p&gt;</tt>s in the document (multilevel searching
+is so convenient) from which we can select nodes by index using
+<tt class="literal">item( )</tt><a name="INDEX-661" />.
+</p>
+
+<p>The bit we're interested in will be hiding inside a
+text node inside the <tt class="literal">&lt;p&gt;</tt> element, so we have
+to iterate over the children to find text nodes and process them. The
+call to <tt class="literal">getChildNodes(
+)</tt><a name="INDEX-662" /> gives us several child nodes, either in
+a <tt class="literal">generic</tt> Perl list (when called in an array
+context) or another <tt class="literal">XML::DOM::NodeList</tt> object; for
+variety's sake, we've selected the
+first option. For each node, we test its type with a call to
+<tt class="literal">getNodeType</tt> and compare the result to
+<tt class="literal">XML::DOM</tt>'s constant for text
+nodes, provided by<a name="INDEX-663" /> <tt class="literal">TEXT_NODE( )</tt>. Nodes
+that pass the test are sent off to a routine for some node massaging.
+</p>
+
+<p>The last part of the program targets text nodes and splits them
+around the word "monkeys" to create
+a link:
+</p>
+
+<blockquote><pre class="code">sub fix_text {
+    my $node = shift;
+    my $text = $node-&gt;getNodeValue;
+    if( $text =~ /(monkeys)/i ) {
+
+        # split the text node into 2 text nodes around the monkey word
+        my( $pre, $orig, $post ) = ( $`, $1, $' );
+        my $tnode = $node-&gt;getOwnerDocument-&gt;createTextNode( $pre );
+        $node-&gt;getParentNode-&gt;insertBefore( $tnode, $node );
+        $node-&gt;setNodeValue( $post );
+
+        # insert an &lt;a&gt; element between the two nodes
+        my $link = $node-&gt;getOwnerDocument-&gt;createElement( 'a' );
+        $link-&gt;setAttribute( 'href', 'http://www.monkeystuff.com/' );
+        $tnode = $node-&gt;getOwnerDocument-&gt;createTextNode( $orig );
+        $link-&gt;appendChild( $tnode );
+        $node-&gt;getParentNode-&gt;insertBefore( $link, $node );
+
+        # recurse on the rest of the text node 
+        # in case the word appears again
+        fix_text( $node );
+    }
+}</pre></blockquote>
+
+<p>First, the routine grabs the node's text value by
+calling its <tt class="literal">getNodeValue( )</tt> method. DOM
+specifies redundant accessor methods used to get and set values or
+names, either through the generic
+<tt class="literal">Node</tt><a name="INDEX-664" /> class or through the more specific
+class's methods. Instead of <tt class="literal">getNodeValue(
+)</tt><a name="INDEX-665" />, we could have used <tt class="literal">getData(
+)</tt>, which is specific to the text node class. For some
+nodes, such as elements, there is no defined value, so the generic
+<tt class="literal">getNodeValue( )</tt> method would return an undefined
+value.
+</p>
+
+<p>Next, we slice the node in two. We do this by creating a new text
+node and inserting it before the existing one. After we set the text
+values of each node, the first will contain everything before the
+word "monkeys", and the other will
+have everything after the word. Note the use of the
+<tt class="literal">XML::DOM::Document</tt> object as a factory to create
+the new text node. This DOM feature takes care of many administrative
+tasks behind the scenes, making the genesis of new nodes painless.
+</p>
+
+<p>After that step, we create an <tt class="literal">&lt;a&gt;</tt> element
+and insert it between the text nodes. Like all good links, it needs a
+place to put the URL, so we set it up with an <tt class="literal">href</tt>
+attribute. To have something to click on, the link needs text, so we
+create a text node with the word
+"monkeys" and append it to the
+element's child list. Then the routine will recurse
+on the text node after the link in case there are more instances of
+"monkeys" to process.
+</p>
+
+<p>Does it work? Running the program on this file: </p>
+
+<blockquote><pre class="code">&lt;html&gt;
+&lt;head&gt;&lt;title&gt;Why I like Monkeys&lt;/title&gt;&lt;/head&gt;
+&lt;body&gt;&lt;h1&gt;Why I like Monkeys&lt;/h1&gt;
+&lt;h2&gt;Monkeys are Cute&lt;/h2&gt;
+&lt;p&gt;Monkeys are &lt;b&gt;cute&lt;/b&gt;. They are like small, hyper versions of
+ourselves. They can make funny facial expressions and stick out their
+tongues.&lt;/p&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre></blockquote>
+
+<p>produces this<a name="INDEX-666" /> <a name="INDEX-667" /> output:
+</p>
+
+<blockquote><pre class="code">&lt;html&gt;
+&lt;head&gt;&lt;title&gt;Why I like Monkeys&lt;/title&gt;&lt;/head&gt;
+&lt;body&gt;&lt;h1&gt;Why I like Monkeys&lt;/h1&gt;
+&lt;h2&gt;Monkeys are Cute&lt;/h2&gt;
+&lt;p&gt;&lt;a href="http://www.monkeystuff.com/"&gt;Monkeys&lt;/a&gt; 
+are &lt;b&gt;cute&lt;/b&gt;. They are like small, hyper versions of
+ourselves. They can make funny facial expressions and stick out their
+tongues.&lt;/p&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre></blockquote>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch07_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">7.2. DOM Class Interface Reference</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">7.4. XML::LibXML</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

@@ -1,0 +1,296 @@
+<html><head><title>CGI Overview (Perl in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Stephen Spainhour" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002416L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="part4.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch09_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 9. CGI Overview</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#perlnut2-CHP-9-SECT-1">A Typical CGI Interaction</a><br />
+<a href="ch09_02.htm">URL Encoding</a><br />
+<a href="ch09_03.htm">Extra Path Information</a><br />
+<a href="ch09_04.htm">CGI Environment Variables</a><br /></p></div>
+
+<p>Perl is the most commonly used language for CGI programming on the
+World Wide Web<a name="INDEX-1607" /></a><a name="INDEX-1608" /></a>.The Common Gateway Interface (CGI) is
+an essential tool for creating and managing comprehensive web sites.
+With CGI, you can write scripts that create interactive, user-driven
+applications.
+</p>
+
+<p>CGI allows the web server to communicate with other programs that are
+running on the same machine. For example, with CGI, the web server
+can invoke an external program, while passing user-specific data to
+the program (such as what host the user is connecting from, or input
+the user has supplied through an HTML form). The program then
+processes that data, and the server passes the
+program's response back to the web browser.
+</p>
+
+<p>Rather than limiting the Web to documents written ahead of time, CGI
+enables web pages to be created on the fly, based upon the input of
+users. You can use CGI scripts to create a wide range of
+applications, from surveys to search tools, from Internet service
+gateways to quizzes and games. You can increment the number of users
+who access a document or let them sign an electronic guestbook. You
+can provide users with all types of information, collect their
+comments, and respond to them.
+</p>
+
+<p>For Perl programmers, there are two approaches you can take to CGI.
+They are:
+</p>
+
+<ul><li>
+<p>Programs that handle all CGI interaction directly, without the use of
+a module such as CGI.pm. While often frowned upon by Perl programmers
+because it's more likely to introduce bugs,
+bypassing the modules has the advantage of avoiding the overhead of
+CGI.pm for quick, dirty tasks. This chapter explains the concepts of
+CGI necessary if you intend to write CGI programs from scratch.
+</p>
+</li><li>
+<p><a name="INDEX-1609" /></a>CGI.pm is a
+Perl module designed to facilitate CGI programming. For non-trivial
+CGI programs, especially ones that need to maintain state over
+multiple transactions, CGI.pm is indispensable, and is included in
+the standard Perl distribution as of Perl 5.004. Rather than discuss
+it in <a href="ch08_01.htm">Chapter 8, "Standard Modules"</a>, with the rest of the standard
+libraries, however, its complexity and importance made it a candidate
+for its own chapter, <a href="ch10_01.htm">Chapter 10, "The CGI.pm Module"</a>.
+</p>
+</li></ul>
+<p><a name="INDEX-1610" /></a>One performance hit for CGI programs
+is that the Perl interpreter needs to be started up each and every
+time a CGI script is called. For improving performance on Apache
+systems, the <em class="emphasis">mod_perl</em> Apache module embeds the
+Perl interpreter directly into the server, avoiding the startup
+overhead. <a href="ch11_01.htm">Chapter 11, "Web Server Programmingwith mod_perl"</a> talks about installing and
+using <em class="emphasis">mod_perl</em>.
+</p>
+<div class="sect1"><a name="perlnut2-CHP-9-SECT-1" /></a>
+<h2 class="sect1">9.1. A Typical CGI Interaction</h2>
+
+<p><a name="INDEX-1611" /></a>For an example of a CGI application,
+suppose you create a guestbook for your website. The guestbook page
+asks users to submit their first name and last name using a fill-in
+form composed of two input text fields. <a href="ch09_01.htm#perlnut2-CHP-9-FIG-1">Figure 9-1</a>
+shows the form you might see in your browser window.
+</p>
+
+<a name="perlnut2-CHP-9-FIG-1" /></a><div class="figure"><img src="figs/pns2_0901.gif" alt="Figure 9-1" width="406" height="159" /></div><h4 class="objtitle">Figure 9-1. HTML form</h4>
+
+<p>The HTML that produces this form might read as follows: </p>
+
+<blockquote><pre class="code">&lt;HTML&gt;&lt;HEAD&gt;&lt;TITLE&gt;Guestbook&lt;/TITLE&gt;&lt;/HEAD&gt;
+&lt;BODY&gt;
+&lt;H1&gt;Fill in my guestbook!&lt;/H1&gt;
+&lt;FORM METHOD="GET" ACTION="/cgi-bin/guestbook.pl"&gt;
+&lt;PRE&gt;
+First Name:   &lt;INPUT TYPE="TEXT" NAME="firstname"&gt;
+Last Name:    &lt;INPUT TYPE="TEXT" NAME="lastname"&gt;
+
+&lt;INPUT TYPE="SUBMIT"&gt;    &lt;INPUT TYPE="RESET"&gt;
+&lt;/FORM&gt;</pre></blockquote>
+
+<p>The form is written using special
+"form" tags, as follows:
+</p>
+
+<ul><li>
+<p><a name="INDEX-1612" /></a><a name="INDEX-1613" /></a>The
+<tt class="literal">&lt;form&gt;</tt> tag defines the method used for the
+form (either GET or POST) and the action to take when the form is
+submitted&#x2014;that is, the URL of the CGI program to pass the
+parameters to.
+</p>
+</li><li>
+<p>The <tt class="literal">&lt;input&gt;</tt> tag can be used in many
+different ways. In its first two invocations, it creates a text input
+field and defines the variable name to associate with the
+field's contents when the form is submitted. The
+first field is given the variable name <tt class="literal">firstname</tt>
+and the second field is given the name <tt class="literal">lastname</tt>.
+</p>
+</li><li>
+<p>In its last two invocations, the <tt class="literal">&lt;input&gt;</tt> tag
+creates a "submit" button and a
+"reset" button.
+</p>
+</li><li>
+<p>The <tt class="literal">&lt;/form&gt;</tt> tag indicates the end of the
+form.
+</p>
+</li></ul>
+<p>When the user presses the "submit"
+button, data entered into the <tt class="literal">&lt;input&gt;</tt> text
+fields is passed to the CGI program specified by the
+<tt class="literal">action</tt> attribute of the
+<tt class="literal">&lt;form&gt;</tt> tag (in this case, the
+<em class="emphasis">/cgi-bin/guestbook.pl</em> program).
+</p>
+
+<a name="perlnut2-CHP-9-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">9.1.1. Transferring the Form Data</h3>
+
+<p><a name="INDEX-1614" /></a>Parameters to a CGI program are
+transferred either in the URL or in the body text of the request. The
+method used to pass parameters is determined by the
+<tt class="literal">method</tt> attribute to the
+<tt class="literal">&lt;form&gt;</tt> tag. The GET method says to transfer
+the data within the URL itself; for example, under the GET method,
+the browser might initiate the HTTP transaction as follows:
+</p>
+
+<blockquote><pre class="code">GET /cgi-bin/guestbook.pl?firstname=Joe&amp;lastname=Schmoe HTTP/1.0</pre></blockquote>
+
+<p><a name="INDEX-1615" /></a>The POST
+method says to use the body portion of the HTTP request to pass
+parameters. The same transaction with the POST method would read as
+follows:
+</p>
+
+<blockquote><pre class="code">POST /cgi-bin/guestbook.pl HTTP/1.0
+        <em class="replaceable"><tt>... [More headers here]</tt></em>
+
+firstname=Joe&amp;lastname=Schmoe</pre></blockquote>
+
+<p>In both of these examples, you should recognize the
+<tt class="literal">firstname</tt> and <tt class="literal">lastname</tt> variable
+names that were defined in the HTML form, coupled with the values
+entered by the user. An ampersand (&amp;) is used to separate the
+variable=value pairs.
+</p>
+
+<p>The server now passes the variable=value pairs to the CGI program. It
+does this either through Unix environment variables or in standard
+input (STDIN). If the CGI program is called with the GET method, then
+parameters are expected to be embedded into the URL of the request,
+and the server transfers them to the program by assigning them to
+<a name="INDEX-1616" /></a>theQUERY_STRING environment variable.
+The CGI program can then retrieve the parameters from QUERY_STRING as
+it would read any environment variable (for example, from the
+<tt class="literal">%ENV</tt> hash in Perl). If the CGI program is called
+with the POST method, parameters are expected to be embedded into the
+body of the request, and the server passes the body text to the
+program as standard input (STDIN).
+</p>
+
+<p>Other environment variables defined by the server for CGI store such
+information as the format and length of the input, the remote host,
+the user, and various client information. They also store the server
+name, the communication protocol, and the name of the software
+running the server. (We provide a list of the most common CGI
+environment variables later in this chapter.)
+</p>
+
+<p>The CGI program needs to retrieve the information as appropriate and
+then process it. The sky's the limit on what the CGI
+program actually does with the information it retrieves. It might
+return an anagram of the user's name, or tell her
+how many times her name uses the letter
+"t," or it might just compile the
+name into a list that the programmer regularly sells to
+telemarketers. Only the programmer knows for sure.
+</p>
+
+</div>
+<a name="perlnut2-CHP-9-SECT-1.2" /></a><div class="sect2">
+<h3 class="sect2">9.1.2. Creating Virtual Documents</h3>
+
+<p><a name="INDEX-1617" /></a><a name="INDEX-1618" /></a>Regardless of what the CGI program does
+with its input, it's responsible for giving the
+browser something to display when it's done. It must
+either create a new document to be served to the browser or point to
+an existing document. On Unix, programs send their output to standard
+output (STDOUT) as a data stream that consists of two parts. The
+first part is either a full or partial HTTP header that (at minimum)
+describes the format of the returned data (e.g., HTML, ASCII text,
+GIF, etc.). A blank line signifies the end of the header section. The
+second part is the body of the output, which contains the data
+conforming to the format type reflected in the header. For example:
+</p>
+
+<blockquote><pre class="code">Content-type: text/html
+&lt;HTML&gt;
+&lt;HEAD&gt;&lt;TITLE&gt;Thanks!&lt;/TITLE&gt;&lt;/HEAD&gt;
+&lt;BODY&gt;&lt;H1&gt;Thanks for signing my guest book!&lt;/H1&gt;
+        ...
+&lt;/BODY&gt;&lt;/HTML&gt;</pre></blockquote>
+
+<p><a name="INDEX-1619" /></a>In this case, the only header line
+generated is Content-type, which gives the media format of the output
+as HTML (<tt class="literal">text/html</tt>). This line is essential for
+every CGI program, since it tells the browser what kind of format to
+expect. The blank line separates the header from the body text
+(which, in this case, is in HTML format as advertised).
+</p>
+
+<p>The server transfers the results of the CGI program back to the
+browser. The body text is not modified or interpreted by the server
+in any way, but the server generally supplies additional headers with
+information such as the date, the name and version of the server,
+etc.
+</p>
+
+<p>CGI programs can also supply a complete HTTP header itself, in which
+case the server does not add any additional headers but instead
+transfers the response verbatim as returned by the CGI program. The
+server needs to be configured to allow this behavior; see your server
+documentation on NPH (no-parsed headers) scripts for more
+information.
+</p>
+
+<p>Here is the sample output of a program generating an HTML virtual
+document, with a complete HTTP header:
+</p>
+
+<blockquote><pre class="code">HTTP/1.0 200 OK
+Date:  Thursday, 28-June-96 11:12:21 GMT
+Server: NCSA/1.4.2
+Content-type: text/html
+Content-length: 2041
+
+&lt;HTML&gt;
+&lt;HEAD&gt;&lt;TITLE&gt;Thanks!&lt;/TITLE&gt;&lt;/HEAD&gt;
+&lt;BODY&gt;
+&lt;H1&gt;Thanks for signing my guestbook!&lt;/H1&gt;
+         ...
+&lt;/BODY&gt;
+&lt;/HTML&gt;</pre></blockquote>
+
+<p>The header contains the communication protocol, the date and time of
+the response, and the server name and version. (<tt class="literal">200
+OK</tt> is a status code generated by the HTTP protocol to
+communicate the status of a request, in this case successful.) Most
+importantly, the header also contains the content type and the number
+of characters (equivalent to the number of bytes) of the enclosed
+data.
+</p>
+
+<p>The result is that after users click the
+"submit" button, they see the
+message contained in the HTML section of the response thanking them
+for signing the guestbook<a name="INDEX-1620" /></a>. 
+</p>
+
+</div>
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="part4.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch09_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">IV. CGI</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">9.2. URL Encoding</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+      </map>
+
+</body></html>

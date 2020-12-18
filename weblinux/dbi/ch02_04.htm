@@ -1,0 +1,758 @@
+<?label 2.4. Flat-File Databases ?><html><head><title>Flat-File Databases  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch02_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch02_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">2.4. Flat-File Databases </h2>
+
+
+
+<p>
+<a name="INDEX-40" />The
+<a name="INDEX-41" />simplest type of database that we can
+create and manipulate is the old standby, the <em class="emphasis">flat-file
+database</em>. This database is essentially a file, or group of
+files, that contains data in a known and standard format that a
+program scans for the requested information. Modifications to the
+data are usually done by updating an in-memory copy of the data held
+in the file, or files, then writing the entire set of data back out
+to disk. Flat-file databases are typically ASCII text files
+containing one record of information per line. The line termination
+serves as the record delimiter.</p>
+
+
+
+<p>In this section we'll be examining the
+<a name="INDEX-42" />two
+<a name="INDEX-43" />main
+types of flat-file database: files that separate fields with a
+delimiter character, and files that allocate a fixed length to each
+field. We'll discuss the pros and cons of each type of data
+file and give you some example code for manipulating them.</p>
+
+
+
+<p>The most common format used for flat-file databases is probably the
+<em class="emphasis">delimited</em> file in which each field is separated
+by a delimiting character. And possibly the most common of these
+delimited formats is the <em class="emphasis">comma-separated
+values</em>
+<a name="INDEX-44" /> (CSV) file, in which fields are
+separated from one another by commas. This format is understood by
+many common programs, such as Microsoft Access and spreadsheet
+programs. As such, it is an excellent base-level and portable format
+useful for sharing data between applications.<a href="#FOOTNOTE-8">[8]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-8" /><p>[8]More
+excitingly, a DBI driver called DBD::CSV exists that allows you to
+write SQL code to manipulate a flat file containing CSV data.</p>
+
+
+</blockquote>
+
+
+
+<p>Other popular <a name="INDEX-45" />delimiting characters are the colon (
+<tt class="literal">:</tt> ), the tab, and the pipe symbol (
+<tt class="literal">|</tt> ). The Unix <em class="filename">/etc/passwd</em>
+file is a good example of a delimited file with each record being
+separated by a colon. <a href="ch02_04.htm#ch02-18366">Figure 2-1</a> shows a single
+record from an <em class="filename">/etc/passwd</em> file.</p>
+
+
+
+<a name="ch02-18366" /><div class="figure"><img width="502" src="figs/dbi.0201.gif" height="64" alt="Figure 2-1" /></div><h4 class="objtitle">Figure 2-1. The /etc/passwd file record format</h4>
+
+<a name="ch02-ch02_querying_0" /><div class="sect2">
+<h3 class="sect2">2.4.1. Querying Data </h3>
+
+
+
+<p>
+<a name="INDEX-46" />
+<a name="INDEX-47" />Since
+<a name="INDEX-48" />delimited
+<a name="INDEX-49" />files are a very low-level form of
+storage manager, any manipulations that we wish to perform on the
+data must be done using operating system functions and low-level
+query logic, such as basic string comparisons. The following program
+illustrates how we can open a data file containing colon-separated
+records of megalith data, search for a given site, and return the
+data if found:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch02/scanmegadata/scanmegadata: Scans the given megalith data file for
+#                                 a given site. Uses colon-separated data.
+#
+
+### Check the user has supplied an argument for
+###     1) The name of the file containing the data
+###     2) The name of the site to search for
+die "Usage: scanmegadata &lt;data file&gt; &lt;site name&gt;\n" 
+    unless @ARGV == 2;
+
+my $megalithFile = $ARGV[0];
+my $siteName     = $ARGV[1];
+
+### Open the data file for reading, and die upon failure
+open MEGADATA, "&lt;$megalithFile"
+    or die "Can't open $megalithFile: $!\n";
+
+### Declare our row field variables
+my ( $name, $location, $mapref, $type, $description );
+
+### Declare our 'record found' flag
+my $found;
+
+### Scan through all the entries for the desired site
+while ( &lt;MEGADATA&gt; ) {
+
+    ### Remove the newline that acts as a record delimiter
+    chop;
+    
+    ### Break up the record data into separate fields
+    ( $name, $location, $mapref, $type, $description ) =
+         split( /:/, $_ );
+    
+    ### Test the sitename against the record's name
+    if ( $name eq $siteName ) {
+         $found = $.;  # $. holds current line number in file
+         last;
+    }
+}
+
+### If we did find the site we wanted, print it out
+if ( $found ) {
+     print "Located site: $name on line $found\n\n";
+     print "Information on $name ( $type )\n";
+     print "===============",
+         ( "=" x ( length($name) + length($type) + 5 ) ), "\n";
+     print "Location:      $location\n";
+     print "Map Reference: $mapref\n";
+     print "Description:   $description\n";
+}
+
+### Close the megalith data file
+close MEGADATA;
+
+exit;</pre></blockquote>
+
+
+
+<p>For example, running that program with a file containing a record in
+the following format:</p>
+
+
+
+<blockquote><pre class="code">Stonehenge:Wiltshire:SU 123 400:Stone Circle and Henge:The most famous stone circle</pre></blockquote>
+
+
+
+<p>and a search term of <tt class="literal">Stonehenge</tt> would return the
+following information:</p>
+
+
+
+<blockquote><pre class="code">Located site: Stonehenge on line 1
+
+Information on Stonehenge ( Stone Circle and Henge )
+====================================================
+Location:      Wiltshire
+Map Reference: SU 123 400
+Description:   The most famous stone circle</pre></blockquote>
+
+
+
+<p>indicating that our brute-force scan and test for the correct site
+has worked. As you can clearly see from the example program, we have
+used Perl's own native file I/O functions for reading in the
+data file, and Perl's own string handling functions to break up
+the delimited data and test it for the correct record.</p>
+
+
+
+<p>The downside to delimited file formats is that if any piece of data
+contains the delimiting character, you need to be especially careful
+not to break up the records in the wrong place. Using the Perl
+<tt class="literal">split()</tt>
+<a name="INDEX-50" />
+<a name="INDEX-51" />
+function with a simple regular expression, as used above, does not
+take this into account and could produce wrong results. For example,
+a record containing the following information would cause the
+<tt class="literal">split()</tt> to happen in the wrong place:</p>
+
+
+
+<blockquote><pre class="code">Stonehenge:Wiltshire:SU 123 400:Stone Circle and Henge:Stonehenge: The most famous stone circle</pre></blockquote>
+
+
+
+<p>The easiest quick-fix technique is to translate any delimiter
+characters in the string into some other character that you're
+sure won't appear in your data. Don't forget to do the
+reverse translation when you fetch the records back.</p>
+
+
+
+<p>Another <a name="INDEX-52" />common
+<a name="INDEX-53" />way of storing data within flat
+files is to use <em class="emphasis">fixed-length records</em> in which to
+store the data. That is, each piece of data fits into an exactly
+sized space in the data file. In this form of database, no delimiting
+character is needed between the fields. There's also no need to
+delimit each record, but we'll continue to use ASCII line
+termination as a record delimiter in our examples because Perl makes
+it very easy to work with files line by line.</p>
+
+
+
+<p>Using fixed-width fields is similar to the way in which data is
+organized in more powerful database systems such as an RDBMS. The
+pre-allocation of space for record data allows the storage manager to
+make assumptions about the layout of the data on disk and to optimize
+accordingly. For our megalithic data purposes, we could settle on the
+data sizes of:<a href="#FOOTNOTE-10">[10]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-10" /><p>[10]The fact that these data sizes are all
+powers of two has no significance other than to indicate that the
+authors are old enough to remember when powers of two were
+significant and useful sometimes. They generally aren't
+anymore.</p>
+
+
+</blockquote>
+
+
+
+<blockquote><pre class="code">Field           Required Bytes
+-----           --------------
+Name            64
+Location        64
+Map Reference   16
+Type            32
+Description     256</pre></blockquote>
+
+
+
+<p>Storing the data in this format requires slightly different storage
+manager logic to be used, although the standard Perl file I/O
+functions are still applicable. To test this data for the correct
+record, we need to implement a different way of extracting the fields
+from within each record. For a fixed-length data file, the Perl
+function <tt class="literal">unpack()</tt> is perfect. The following code
+shows how the
+<tt class="literal">unpack()</tt>
+<a name="INDEX-54" />
+<a name="INDEX-55" />
+function replaces the <tt class="literal">split()</tt> used above:</p>
+
+
+
+<blockquote><pre class="code">### Break up the record data into separate fields
+### using the data sizes listed above
+( $name, $location, $mapref, $type, $description ) =
+    unpack( "A64 A64 A16 A32 A256", $_ );</pre></blockquote>
+
+
+
+<p>Although fixed-length fields are always the same length, the data
+that is being put into a particular field may not be as long as the
+field. In this case, the extra space will be filled with a character
+not normally encountered in the data or one that can be ignored.
+Usually, this is a space character (ASCII 32) or a
+<tt class="literal">nul</tt> (ASCII 0).</p>
+
+
+
+<p>In the code above, we know that the data is space-packed, and so we
+remove any trailing space from the name record so as not to confuse
+the search. This can be simply done by using the uppercase
+<tt class="literal">A</tt> format with <tt class="literal">unpack()</tt>.</p>
+
+
+
+<p>If you need to choose between <a name="INDEX-56" />delimited
+fields and <a name="INDEX-57" />fixed-length fields, here are a
+few guidelines:</p>
+
+
+
+<dl>
+<dt><b>The main limitations</b></dt>
+<dd><p>The main limitation with delimited fields is the need to add special
+handling to ensure that neither the field delimiter or the record
+delimiter characters get added into a field value.</p>
+
+
+
+<p>The main limitation with fixed-length fields is simply the fixed
+length. You need to check for field values being too long to fit (or
+just let them be silently truncated). If you need to increase a field
+width, then you'll have to write a special utility to rewrite
+your file in the new format and remember to track down and update
+every script that manipulates the file directly.</p></dd>
+
+
+
+<dt><b>Space</b></dt>
+<dd><p>A delimited-field file often uses less space than a fixed-length
+record file to store the same data, sometimes <em class="emphasis">very
+much</em> less space. It depends on the number and size of any
+empty or partially filled fields. For example, some field values,
+like web URLs, are potentially very long but typically very short.
+Storing them in a long fixed-length field would waste a lot of space.</p>
+
+
+
+<p>While delimited-field files often use less space, they do
+"waste" space due to all the field delimiter characters.
+If you're storing a large number of very small fields then that
+might tip the balance in favor of fixed-length records.</p></dd>
+
+
+
+<dt><b>Speed </b></dt>
+<dd><p>These days, computing power is rising faster than hard disk data
+transfer rates. In other words, it's often worth using more
+space-efficient storage even if that means spending more processor
+time to use it.</p>
+
+
+
+<p>Generally, delimited-field files are better for sequential access
+than fixed-length record files because the reduced size more than
+makes up for the increase in processing to extract the fields and
+handle any escaped or translated delimiter characters.</p>
+
+
+
+<p>However, fixed-length record files do have a trick up their sleeve:
+direct access. If you want to fetch record 42,927 of a
+delimited-field file, you <em class="emphasis">have</em> to read the whole
+file and count records until you get to the one you want. With a
+fixed-length record file, you can just multiply 42,927 by the total
+record width and jump directly to the record using
+<tt class="literal">seek()</tt>.</p>
+
+
+
+<p>Furthermore, once it's located, the record can be updated
+<em class="emphasis">in-place</em> by overwriting it with new data.
+Because the new record is the same length as the old, there's
+no danger of corrupting the following <a name="INDEX-58" /> <a name="INDEX-59" />record.</p></dd>
+
+</dl>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch02-ch02_inserting_0" /><div class="sect2">
+<h3 class="sect2">2.4.2. Inserting Data </h3>
+
+
+
+<p>Inserting <a name="INDEX-60" />data
+<a name="INDEX-61" />into a flat-file database is very
+straightforward and usually amounts to simply tacking the new data
+onto the end of the data file. For example, inserting a new megalith
+record into a colon-delimited file can be expressed as simply as:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch02/insertmegadata/insertmegadata: Inserts a new record into the 
+#                                     given megalith data file as
+#                                     colon-separated data
+#
+
+### Check the user has supplied an argument to scan for
+###     1) The name of the file containing the data
+###     2) The name of the site to insert the data for
+###     3) The location of the site
+###     4) The map reference of the site
+###     5) The type of site
+###     6) The description of the site
+die "Usage: insertmegadata"
+    ." &lt;data file&gt; &lt;site name&gt; &lt;location&gt; &lt;map reference&gt; &lt;type&gt; &lt;description&gt;\n"
+    unless @ARGV == 6;
+
+my $megalithFile    = $ARGV[0];
+my $siteName        = $ARGV[1];
+my $siteLocation    = $ARGV[2];
+my $siteMapRef      = $ARGV[3];
+my $siteType        = $ARGV[4];
+my $siteDescription = $ARGV[5];
+
+### Open the data file for concatenation, and die upon failure
+open MEGADATA, "&gt;&gt;$megalithFile"
+    or die "Can't open $megalithFile for appending: $!\n";
+
+### Create a new record
+my $record = join( ":", $siteName, $siteLocation, $siteMapRef,
+                        $siteType, $siteDescription );
+
+### Insert the new record into the file
+print MEGADATA "$record\n"
+    or die "Error writing to $megalithFile: $!\n";
+
+### Close the megalith data file
+close MEGADATA
+    or die "Error closing $megalithFile: $!";
+
+print "Inserted record for $siteName\n";
+
+exit;</pre></blockquote>
+
+
+
+<p>This example simply opens the data file in append mode and writes the
+new record to the open file. Simple as this process is, there is a
+potential drawback. This flat-file database does not detect the
+insertion of multiple items of data with the same search key. That
+is, if we wanted to insert a new record about Stonehenge into our
+megalith database, then the software would happily do so, even though
+a record for Stonehenge already exists.</p>
+
+
+
+<p>This may be a problem from a data integrity point of view. A more
+sophisticated test prior to appending the data might be worth
+implementing to ensure that duplicate records do not exist. Combining
+the insert program with the query program above is a straightforward
+approach.</p>
+
+
+
+<p>Another potential (and more important) drawback is that this system
+will not safely handle occasions in which more than one user attempts
+to add new data into the database. Since this subject also affects
+updating and deleting data from the database, we'll cover it
+more thoroughly in a later section of this chapter.</p>
+
+
+
+<p>Inserting <a name="INDEX-62" />new
+<a name="INDEX-63" />records into a fixed-length data
+file is also simple. Instead of printing each field to the Perl
+filehandle separated by the delimiting character, we can use the
+<tt class="literal">pack()</tt> function to create a fixed-length record
+out of the data.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch02-ch02_updating_1" /><div class="sect2">
+<h3 class="sect2">2.4.3. Updating Data </h3>
+
+
+
+<p>Updating <a name="INDEX-64" />data
+<a name="INDEX-65" />within a flat-file database is where
+things begin to get a little more tricky. When querying records from
+the database, we simply scanned sequentially through the database
+until we found the correct record. Similarly, when inserting data, we
+simply attached the new data without really knowing what was already
+stored within the database.</p>
+
+
+
+<p>The main problem with updating data is that we need to be able to
+read in data from the data file, temporarily mess about with it, and
+write the database back out to the file without losing any records.</p>
+
+
+
+<p>One approach is to slurp the entire database into memory, make any
+updates to the in-memory copy, and dump it all back out again. A
+second approach is to read the database in record by record, make any
+alterations to each individual record, and write the record
+immediately back out to a temporary file. Once all the records have
+been processed, the temporary file can replace the original data
+file. Both techniques are viable, but we prefer the latter for
+performance reasons. Slurping entire large databases into memory can
+be very resource-hungry.</p>
+
+
+
+<p>The following short program implements the latter of these strategies
+to update the map reference in the database of delimited records:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch02/updatemegadata/updatemegadata: Updates the given megalith data file
+#                                     for a given site. Uses colon-separated 
+#                                     data and updates the map reference field.
+#
+
+### Check the user has supplied an argument to scan for
+###     1) The name of the file containing the data
+###     2) The name of the site to search for
+###     3) The new map reference
+die "Usage: updatemegadata &lt;data file&gt; &lt;site name&gt; &lt;new map reference&gt;\n"
+    unless @ARGV == 3;
+
+my $megalithFile = $ARGV[0];
+my $siteName     = $ARGV[1];
+my $siteMapRef   = $ARGV[2];
+my $tempFile     = "tmp.$$";
+
+### Open the data file for reading, and die upon failure
+open MEGADATA, "&lt;$megalithFile"
+    or die "Can't open $megalithFile: $!\n";
+
+### Open the temporary megalith data file for writing
+open TMPMEGADATA, "&gt;$tempFile"
+    or die "Can't open temporary file $tempFile: $!\n";
+
+### Scan through all the records looking for the desired site
+while ( &lt;MEGADATA&gt; ) {
+
+    ### Quick pre-check for maximum performance:
+    ### Skip the record if the site name doesn't appear as a field
+    next unless m/^\Q$siteName:/;
+    
+    ### Break up the record data into separate fields
+    ### (we let $description carry the newline for us)
+    my ( $name, $location, $mapref, $type, $description ) =
+         split( /:/, $_ );
+    
+    ### Skip the record if the site name doesn't match. (Redundant after the
+    ### reliable pre-check above but kept for consistency with other examples.)
+    next unless $siteName eq $name;
+    
+    ### We've found the record to update, so update the map ref value
+    $mapref = $siteMapRef;
+    
+    ### Construct an updated record
+    $_ = join( ":", $name, $location, $mapref, $type, $description );
+    
+}
+continue {
+
+   ### Write the record out to the temporary file
+   print TMPMEGADATA $_
+      or die "Error writing $tempFile: $!\n";
+}
+
+### Close the megalith input data file
+close MEGADATA;
+
+### Close the temporary megalith output data file
+close TMPMEGADATA
+   or die "Error closing $tempFile: $!\n";
+
+### We now "commit" the changes by deleting the old file...
+unlink $megalithFile
+   or die "Can't delete old $megalithFile: $!\n";
+
+### and renaming the new file to replace the old one.
+rename $tempFile, $megalithFile
+   or die "Can't rename '$tempFile' to '$megalithFile': $!\n";
+
+exit 0;</pre></blockquote>
+
+
+
+<p>You can see we've flexed our Perl muscles on this example,
+using a <tt class="literal">while</tt> ... <tt class="literal">continue</tt> loop
+to simplify the logic and adding a pretest for increased speed.</p>
+
+
+
+<p>An <a name="INDEX-66" />equivalent
+<a name="INDEX-67" />program that can be applied to a
+fixed-length file is very similar, except that we use a faster
+in-place update to change the contents of the field. This principle
+is similar to the in-place query described previously: we don't
+need to unpack and repack all the fields stored within each record,
+but can simply update the appropriate chunk of each record. For
+example:</p>
+
+
+
+<blockquote><pre class="code">### Scan through all the records looking for the desired site
+while ( &lt;MEGADATA&gt; ) {
+
+    ### Quick pre-check for maximum performance:
+    ### Skip the record if the site name doesn't appear at the start
+    next unless m/^\Q$siteName/;
+    
+    ### Skip the record if the extracted site name field doesn't match
+    next unless unpack( "A64", $_ ) eq $siteName;
+    
+    ### Perform in-place substitution to upate map reference field
+    substr( $_, 64+64, 16) =  pack( "A16", $siteMapRef ) );
+    
+}</pre></blockquote>
+
+
+
+<p>This technique is faster than packing and unpacking each record
+stored within the file, since it carries out the minimum amount of
+work needed to change the appropriate field values.</p>
+
+
+
+<p>You may notice that the pretest in this example isn't 100%
+reliable, but it doesn't have to be. It just needs to catch
+<em class="emphasis">most</em> of the cases that won't match in
+order to pay its way by reducing the number of times the more
+expensive unpack and field test gets executed. Okay, this might not
+be a very convincing application of the idea, but we'll revisit
+it more seriously later in this chapter.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch02-ch02_deleting_1" /><div class="sect2">
+<h3 class="sect2">2.4.4. Deleting Data </h3>
+
+
+
+<p>The <a name="INDEX-68" />final
+<a name="INDEX-69" />form of data manipulation that you can
+apply to flat-file databases is the removal, or deletion, of records
+from the database. We shall process the file a record at a time by
+passing the data through a temporary file, just as we did for
+updating, rather than slurping all the data into memory and dumping
+it at the end.</p>
+
+
+
+<p>With this technique, the action of removing a record from the
+database is more an act of omission than any actual deletion. Each
+record is read in from the file, tested, and written out to the file.
+When the record to be deleted is encountered, it is simply
+<em class="emphasis">not</em> written to the temporary file. This
+effectively removes all trace of it from the database, albeit in a
+rather unsophisticated way.</p>
+
+
+
+<p>The following program can be used to remove the relevant record from
+the delimited megalithic database when given an argument of the name
+of the site to delete:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch02/deletemegadata/deletemegadata: Deletes the record for the given
+#                                     megalithic site. Uses
+#                                     colon-separated data
+#
+
+### Check the user has supplied an argument to scan for
+###     1) The name of the file containing the data
+###     2) The name of the site to delete
+die "Usage: deletemegadata &lt;data file&gt; &lt;site name&gt;\n"
+    unless @ARGV == 2;
+
+my $megalithFile  = $ARGV[0];
+my $siteName      = $ARGV[1];
+my $tempFile      = "tmp.$$";
+
+### Open the data file for reading, and die upon failure
+open MEGADATA, "&lt;$megalithFile"
+    or die "Can't open $megalithFile: $!\n";
+
+### Open the temporary megalith data file for writing
+open TMPMEGADATA, "&gt;$tempFile"
+    or die "Can't open temporary file $tempFile: $!\n";
+
+### Scan through all the entries for the desired site
+while ( &lt;MEGADATA&gt; ) {
+
+    ### Extract the site name (the first field) from the record
+    my ( $name ) = split( /:/, $_ );
+    
+    ### Test the sitename against the record's name
+    if ( $siteName eq $name ) {
+    
+        ### We've found the record to delete, so skip it and move to next record
+        next;
+    }
+    
+    ### Write the original record out to the temporary file
+    print TMPMEGADATA $_
+        or die "Error writing $tempFile: $!\n";
+    }
+
+### Close the megalith input data file
+close MEGADATA;
+
+### Close the temporary megalith output data file
+close TMPMEGADATA
+    or die "Error closing $tempFile: $!\n";
+
+### We now "commit" the changes by deleting the old file ...
+unlink $megalithFile
+    or die "Can't delete old $megalithFile: $!\n";
+
+### and renaming the new file to replace the old one.
+rename $tempFile, $megalithFile
+    or die "Can't rename '$tempFile' to '$megalithFile': $!\n";
+
+exit 0;</pre></blockquote>
+
+
+
+<p>The <a name="INDEX-70" />code
+<a name="INDEX-71" />to remove records from a
+fixed-length data file is almost identical. The only change is in the
+code to extract the field value, as you'd expect:</p>
+
+
+
+<blockquote><pre class="code">### Extract the site name (the first field) from the record
+my ( $name ) = unpack( "A64", $_ );</pre></blockquote>
+
+
+
+<p>Like updating, deleting data may cause problems if multiple users are
+attempting to make simultaneous changes to the data. We'll look
+at how to deal with this problem a little later in this chapter.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch02_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch02_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">2.3. Standing Stones and the Sample Database </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">2.5. Putting Complex Data into Flat Files </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

@@ -1,0 +1,354 @@
+<html><head><title>Servlet Threading Issues (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch07_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">6.5. Servlet Threading Issues</h2>
+
+<p>Like it or not, a <a name="INDEX-748" />servlet
+must be capable of serving more than one client at a time. Built-in
+threading capability is one of the key reasons why Java is so
+well-suited to server applications, particularly when compared to a
+traditional CGI model. As usual, however, tradeoffs are involved. In
+particular, writing code that can handle many concurrent tasks
+without corrupting data can be quite challenging at times. Ideally,
+this material can alert you to the most common causes of threading
+problems found in a servlet environment.
+</p>
+
+<a name="javaxslt-CHP-6-SECT-5.1" /><div class="sect2">
+<h3 class="sect2">6.5.1. Servlet Threading Model</h3>
+
+<p>In the standard servlet model, a client makes a request via the
+servlet's <tt class="literal">service( )</tt> method. In the
+<tt class="literal">HttpServlet</tt> class, the <tt class="literal">service(
+)</tt> method determines the type of HTTP request and delegates
+to methods such as <tt class="literal">doGet( )</tt> or <tt class="literal">doPost(
+)</tt>. If several clients issue requests at the same time,
+these methods will serve each client in a different thread. Since
+most servlets are subclasses of <tt class="literal">HttpServlet</tt>, your
+main concern is insuring that <tt class="literal">service( )</tt>,
+<tt class="literal">doGet( )</tt>, and <tt class="literal">doPost( )</tt> can
+handle many concurrent clients.
+</p>
+
+<p>Before handling any requests, a servlet's <tt class="literal">init(
+)</tt> method is invoked. According to the servlet API
+specification, this method must be invoked by only a single thread
+and must complete successfully before subsequent threads are allowed
+to enter the <tt class="literal">service( )</tt> method. For this reason,
+you do not have to worry about threading problems inside of the
+<tt class="literal">init( )</tt> method. From there, however, all bets are
+off.
+</p>
+
+<p><a name="INDEX-749" />One simplistic
+approach to thread safety is to declare a method as synchronized. In
+this approach, your <tt class="literal">doGet( )</tt> method would be
+declared as follows:
+</p>
+
+<blockquote><pre class="code">protected synchronized void doGet(HttpServletRequest request,
+        HttpServletResponse response) throws IOException, ServletException {
+    ...
+}</pre></blockquote>
+
+<p>The <tt class="literal">synchronized</tt><a name="INDEX-750" /> keyword will require that any thread
+wishing to invoke this method first obtain a lock on the servlet
+object. Once the first client obtains the lock and begins to execute
+the method, all others must wait their turn. If the <tt class="literal">doGet(
+)</tt> method takes 0.5 seconds to execute, then a load of a
+mere 100 users will result in nearly a minute-long wait for many
+visitors to your site, since each waits in a queue for access to the
+lock.
+</p>
+
+<p>This is almost never a viable option, so another choice is to declare
+that your servlet implements the
+<tt class="literal">javax.servlet.SingleThreadModel</tt><a name="INDEX-751" />
+<a name="INDEX-752" /> interface as follows:
+</p>
+
+<blockquote><pre class="code">public class MyServlet extends HttpServlet implements SingleThreadModel {
+...
+}</pre></blockquote>
+
+<p>The
+<tt class="literal">SingleThreadModel</tt><a name="INDEX-753" /> interface is a marker interface,
+meaning that it does not declare any methods. It merely indicates to
+the servlet container that your servlet is not thread-safe, and can
+handle only one request at a time in its <tt class="literal">service(
+)</tt> method. A typical servlet container will maintain a pool
+of servlet instances in this case, allowing each instance to handle a
+single request at a time.
+</p>
+
+<p>This is somewhat better than merely synchronizing the <tt class="literal">doGet(
+)</tt> or <tt class="literal">doPost( )</tt> method. However, it does
+mean that multiple copies of the servlet will be instantiated. This
+results in higher memory overhead and still does not ensure that all
+threading issues will be resolved. For example, concurrent
+modifications to a shared resource such as a file or a static field
+are not prevented in any way.
+</p>
+
+</div>
+<a name="javaxslt-CHP-6-SECT-5.2" /><div class="sect2">
+<h3 class="sect2">6.5.2. Thread Safety Tips</h3>
+
+<p>Most <a name="INDEX-754" /> <a name="INDEX-755" />servlet threading problems occur when two
+or more threads make changes to the same resource. This might mean
+that two threads try to modify a file, or perhaps several threads all
+update the value of a shared variable at the same instant. This
+causes unpredictable behavior and can be very hard to diagnose.
+Another type of thread problem is deadlock, where two threads are in
+contention for the same resource, each holding a lock that the other
+thread needs. Yet another problem is performance. As mentioned
+earlier, synchronizing access to a method can introduce significant
+performance penalties.
+</p>
+
+<p>The best overall approach to servlet thread safety is to avoid the
+<tt class="literal">SingleThreadModel</tt> interface and synchronizing
+access to the <tt class="literal">service(
+)</tt><a name="INDEX-756" />
+<a name="INDEX-757" />
+<a name="INDEX-758" /> method. This way, your servlet can handle
+multiple client requests at the same time. This also means that you
+must avoid situations where more than one thread can modify a shared
+resource concurrently. The following tips should offer some guidance.
+</p>
+
+<a name="javaxslt-CHP-6-SECT-5.2.1" /><div class="sect3">
+<h3 class="sect3">6.5.2.1. Tip 1: Local variables are thread-safe</h3>
+
+<p><a name="INDEX-759" /> <a name="INDEX-760" />Object fields in a servlet are often
+bad news. Consider the following code:
+</p>
+
+<blockquote><pre class="code">public class HomeServlet extends HttpServlet {<tt class="userinput"><b>
+    private Customer currentCust;</b></tt>
+
+    protected void doGet(HttpServletRequest request,
+            HttpServletResponse response) throws IOException,
+            ServletException {
+        HttpSession session = request.getSession(true);
+        currentCust = (Customer) session.getAttribute("cust");
+        currentCust.setLastAccessedTime(new Date( ));
+        ...
+    }
+}</pre></blockquote>
+
+<p>In this code, the <tt class="literal">currentCust</tt> field is obtained
+from the <tt class="literal">HttpSession</tt> whenever a client enters the
+<tt class="literal">doGet( )</tt> method. Unfortunately, if another thread
+invokes this method an instant later, the
+<tt class="literal">currentCust</tt> field will be overwritten before the
+first thread is complete. In fact, dozens of threads could enter the
+<tt class="literal">doGet( )</tt> method at roughly the same time,
+repeatedly replacing the <tt class="literal">currentCust</tt> reference.
+This would lead to complete failure of this servlet.
+</p>
+
+<p>The easy fix is to make <tt class="literal">currentCust</tt> a local
+variable as follows:
+</p>
+
+<blockquote><pre class="code">public class HomeServlet extends HttpServlet {
+    protected void doGet(HttpServletRequest request,
+            HttpServletResponse response) throws IOException,
+            ServletException {
+        HttpSession session = request.getSession(true);<tt class="userinput"><b>
+        Customer currentCust = (Customer) session.getAttribute("cust");</b></tt>
+        currentCust.setLastAccessedTime(new Date( ));
+        ...
+    }
+}</pre></blockquote>
+
+<p>This fixes our problem because each thread gets its own copy of local
+variables in Java. By simply removing the object field and replacing
+it with a local variable, this particular threading problem is
+resolved.
+</p>
+
+</div>
+
+<a name="javaxslt-CHP-6-SECT-5.2.2" /><div class="sect3">
+<h3 class="sect3">6.5.2.2. Tip 2: Immutable objects are thread-safe</h3>
+
+<p>Whenever two or more threads make changes to the same object at the
+same time, a race condition can occur. Consider the following code:
+</p>
+
+<blockquote><pre class="code">public class Person {
+    private String firstName;
+    private String lastName;
+
+    public void setName(String firstName, String lastName) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+    }
+
+    ...getter methods omitted
+}</pre></blockquote>
+
+<p>If two threads invoke the <tt class="literal">setName( )</tt> method at
+roughly the same time, the following scenario can occur:
+</p>
+
+<ol><li>
+<p>Thread "A" sets the first name to "Bill," but
+is interrupted by thread "B".
+</p>
+</li><li>
+<p>Thread "B" sets the first and last names to
+"George" and "Bush."
+</p>
+</li><li>
+<p>Thread "A" regains control, and sets the last name to
+"Clinton."
+</p>
+</li></ol>
+<p>At this point, the person's name is George Clinton, which is
+clearly not what was intended. Although you could make the
+<tt class="literal">setName( )</tt> method <tt class="literal">synchronized</tt>,
+you would also have to make any get methods
+<tt class="literal">synchronized</tt> as well.
+</p>
+
+<p>Another option is to make this an
+<em class="emphasis">immutable</em><a name="INDEX-761" />
+object. An immutable object cannot be modified, so multiple threads
+cannot concurrently alter it. The <tt class="literal">Person</tt> class can
+be modified as follows:
+</p>
+
+<blockquote><pre class="code">public class Person {
+    private String firstName;
+    private String lastName;
+
+    public Person(String firstName, String lastName) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+    }
+
+    public String getFirstName( ) { return this.firstName; }
+    public String getLastName( ) { return this.lastName; }
+}</pre></blockquote>
+
+<p>Since instances of the <tt class="literal">Person</tt> class cannot be
+modified, its methods do not have to be
+<tt class="literal">synchronized</tt>. This makes the objects fast and
+allows them to be read by many threads concurrently. The only
+drawback is that you cannot make changes to these objects once they
+are constructed. The simple fix is to create a brand new
+<tt class="literal">Person</tt> object whenever a change needs to be made.
+This is essentially the approach that
+<tt class="literal">java.lang.String</tt> takes.
+</p>
+
+<p>Immutable objects are not always an option but can be a useful
+technique for many smaller "data helper" classes that
+seem to pop up in every application.
+</p>
+
+</div>
+
+<a name="javaxslt-CHP-6-SECT-5.2.3" /><div class="sect3">
+<h3 class="sect3">6.5.2.3. Tip 3: Provide a single point of entry</h3>
+
+<p><a name="INDEX-762" />When dealing with a single instance of
+a shared resource, such as a file that needs to be modified, you
+should consider creating a facade around that resource. This is a
+single class that provides controlled access to that resource, thus
+providing a single point in your code for proper synchronization. The
+following code snippet illustrates how you can essentially create a
+facade around a data source that holds <tt class="literal">Customer</tt>
+objects. It is assumed that the <tt class="literal">Customer</tt> class is
+immutable, making it impossible to change a
+<tt class="literal">Customer</tt> instance without going through this
+well-defined API:
+</p>
+
+<blockquote><pre class="code">public class CustomerSource {
+    public static synchronized Customer getCustomer(String id) {
+        // read the customer from a file, or perhaps
+        // from a database...
+    }
+
+    public static synchronized Customer createCustomer( ) {
+        // create a new customer in the file or database
+        // and return it...
+    }
+
+    public static synchronized void deleteCustomer(String id) {
+        // ...
+    }
+}</pre></blockquote>
+
+<p>This is just one simple approach that works best on smaller
+applications. A servlet's <tt class="literal">doGet( )</tt> or
+<tt class="literal">doPost( )</tt> method should utilize the
+<tt class="literal">CustomerSource</tt> class without any data corruption.
+If the methods in <tt class="literal">CustomerSource</tt> are slow,
+however, they will hinder scalability as more and more clients wait
+for their turn to access the underlying data source.
+</p>
+
+</div>
+
+<a name="javaxslt-CHP-6-SECT-5.2.4" /><div class="sect3">
+<h3 class="sect3">6.5.2.4. Tip 4: Understand the Templates interface</h3>
+
+<p><a name="INDEX-763" /> <a name="INDEX-764" />Multiple threads can share
+implementations of <tt class="literal">javax.xml.transform.Templates</tt>.
+Therefore, instances can be stored as object fields on a servlet:
+</p>
+
+<blockquote><pre class="code">public class MyServlet extends HttpServlet {<tt class="userinput"><b>
+    private Templates homePageStylesheet;</b></tt>
+
+    ...
+}</pre></blockquote>
+
+<p>But instances of <tt class="literal">javax.xml.transform.Transformer</tt>
+are not thread-safe; they should be declared as local variables
+within the <tt class="literal">doGet( )</tt> or <tt class="literal">doPost(
+)</tt> method:
+</p>
+
+<a name="INDEX-765" /><a name="INDEX-766" /><a name="INDEX-767" /><a name="INDEX-768" /><blockquote><pre class="code">public class MyServlet extends HttpServlet {<tt class="userinput"><b>
+    private Templates homePageStylesheet;</b></tt>
+
+    public void init( ) throws UnavailableException {
+        ... create the Templates instance
+    }
+
+    protected void doGet( ) {<tt class="userinput"><b>
+        Transformer trans = homePageStylesheet.newTransformer( );</b></tt>
+        ... use this Transformer instance, a local variable
+    }
+}
+</pre></blockquote>
+
+</div>
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch07_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">6.4. Stylesheet Caching Revisited</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">7. Discussion Forum</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

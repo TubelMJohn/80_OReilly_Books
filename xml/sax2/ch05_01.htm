@@ -1,0 +1,546 @@
+<html><head><title>Other SAX Classes (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch05_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+    <h1 class="chapter">Chapter 5. Other SAX Classes</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#sax2-CHP-5-SECT-1">Helper Classes </a><br />
+<a href="ch05_02.htm">SAX1 Support </a><br /></p></div>
+
+    
+
+	<?troff .sp -.2?><p>The preceding chapters have addressed all of the most
+	important SAX2 classes and interfaces.
+	You may need to use a handful of other classes, including
+	simple implementations of a few more interfaces and SAX1 support.
+	This chapter briefly presents those remaining classes and interfaces.
+	</p>
+
+	<?troff .sp -.1?><p>Your parser distribution should have SAX2 support,
+	with complete javadoc for these classes.
+	Consult that documentation if you need more information than
+	found in this book.
+	The API summary in <a href="appa_01.htm">Appendix A, "SAX2 API Summary"</a> should
+	also be helpful.
+	</p>
+
+    
+
+    <?troff .sp -.2?><div class="sect1"><a name="sax2-CHP-5-SECT-1" /></a>
+	<h2 class="sect1">5.1. Helper Classes </h2>
+
+	<p>
+<a name="INDEX-660" /></a>
+            There are several classes in the <em class="emphasis">org.xml.sax.helpers</em> package that you will probably find useful from time to time.
+	</p>
+
+	<a name="sax2-CHP-5-SECT-1.1" /></a><div class="sect2">
+	    <h3 class="sect2">5.1.1. The AttributesImpl Class </h3>
+
+	    <p>
+<a name="INDEX-661" /></a>
+            This is a general-purpose implementation of the
+	    SAX2 <em class="emphasis">Attributes</em> interface.
+	    As well as reading attribute information (as defined
+	    in the interface), you can write and modify it.
+	    This class is quite handy when your application
+	    code is producing SAX2 events, perhaps because it is
+	    converting data structures to a SAX event stream.
+	    </p>
+
+	    <p>
+<a name="INDEX-662" /></a>
+            Remember the attributes provided to the
+	    <tt class="literal">ContentHandler.startElement()</tt>
+	    event callback are only valid for the duration of that call.
+	    If you need a copy of those attributes for later use,
+	    it's simplest to use this class; just create a new instance
+	    using the copy constructor.
+	    That copy constructor is one of the most widely used
+	    APIs in this class, other than the
+	    <em class="emphasis">Attributes</em> methods.
+	    </p>
+
+	    <p>
+<a name="INDEX-663" /></a>
+<a name="INDEX-664" /></a>
+            It's often handy to keep a stack around to track
+	    the currently open elements and attributes.
+	    If you support <tt class="literal">xml:base</tt>, you'll also
+	    want to track base URIs for the document and for any external
+	    parsed entities.
+	    This is easy to implement using another key method provided
+	    by this class, <tt class="literal">addAttribute()</tt>.
+	    <a href="ch05_01.htm#sax2-CHP-5-EX-1">Example 5-1</a> shows how to maintain such
+	    a stack with <tt class="literal">xml:base</tt> support.
+	    It shows full support for XML namespaces, unlike <a href="ch02_03.htm#sax2-CHP-2-EX-2">Example 2-2</a>, which is
+	    simple and attribute-free (shown in <a href="ch02_01.htm">Chapter 2, "Introducing SAX2"</a> in <a href="ch02_03.htm#sax2-CHP-2-SECT-3">Section 2.3, "Basic ContentHandler Events"</a>).
+	    </p>
+
+	    <a name="sax2-CHP-5-EX-1" /></a><div class="example">
+		<h4 class="objtitle">Example 5-1. Maintaining an element and attribute stack</h4>
+
+		<blockquote><pre class="code">import java.io.IOException;
+import java.net.URL;
+import java.util.Hashtable;
+import org.xml.sax.*;
+import org.xml.sax.ext.*;
+import org.xml.sax.helpers.AttributesImpl;
+import org.xml.sax.helpers.DefaultHandler;
+
+public class XStack extends DefaultHandler
+    implements LexicalHandler, DeclHandler
+{
+    static class StackEntry
+    {
+	final String	 nsURI, localName;
+	final String	 qName;
+	final Attributes atts;
+	final StackEntry parent;
+
+	StackEntry (
+	    String namespace, String local,
+	    String name,
+	    Attributes	attrs,
+	    StackEntry	next
+	) {
+	    this.nsURI = namespace;
+	    this.localName = local;
+	    this.qName = name;
+	    this.atts = new AttributesImpl (attrs);
+	    this.parent = next;
+	}
+    }
+
+    private Locator		locator;
+    private StackEntry		current;
+    private Hashtable		extEntities = new Hashtable ();
+
+    private static final String	xmlNamespace
+	= "http://www.w3.org/XML/1998/namespace";
+
+    private void addMarker (String label, String uri)
+    throws SAXException
+    {
+	AttributesImpl	atts = new AttributesImpl ();
+
+	if (locator != null &amp;&amp; locator.getSystemId () != null)
+	    uri = locator.getSystemId ();
+
+	// guard against InputSource objects without system IDs
+	if (uri == null)
+	    throw new SAXParseException ("Entity URI is unknown", locator);
+
+	// guard against illegal relative URIs (Xerces)
+	try { new URL (uri); }
+	catch (IOException e) {
+	    throw new SAXParseException ("parser bug: relative URI", 
+                     locator);
+	}
+
+	atts.addAttribute (xmlNamespace, "base", "xml:base", "CDATA", uri);
+	current = new StackEntry ("", "", label, atts, current);
+    }
+
+    // walk up stack to get values for xml:space, xml:lang, and so on
+    public String getInheritedAttribute (String uri, String name)
+    {
+	String		retval = null;
+	boolean		useNS = (uri != null &amp;&amp; uri.length () != 0);
+
+	for (StackEntry here = current;
+		retval == null &amp;&amp; here != null;
+		here = here.parent) {
+	    if (useNS)
+		retval = here.atts.getValue (uri, name);
+	    else
+		retval = here.atts.getValue (name);
+	}
+	return retval;
+    }
+
+    // knows about XML Base recommendation, and xml:base attributes
+    // can be used in callbacks for elements, PIs, comments,
+    // characters, ignorable whitespace, and so on.
+    public URL getBaseURI ()
+    throws IOException
+    {
+	return getBaseURI (current);
+    }
+
+    private URL getBaseURI (StackEntry here)
+    throws IOException
+    {
+	String		uri = null;
+
+	while (uri == null &amp;&amp; here != null) {
+	    uri = here.atts.getValue (xmlNamespace, "base");
+	    if (uri != null)
+		break;
+	    here = here.parent;
+	}
+
+	// marker for document or entity boundary?  absolute.
+	if (here.qName.charAt (0) == '#')
+	    return new URL (uri);
+
+	// else it might be a relative uri.
+	int		offset = uri.indexOf (":/");
+
+	if (offset == -1 || uri.indexOf (':') &lt; offset)
+	    return new URL (getBaseURI (here.parent), uri);
+	else
+	    return new URL (uri);
+    }
+
+    // from ContentHandler interface
+    public void startElement (
+	String		namespace,
+	String		local,
+	String		name,
+	Attributes	attrs
+    ) throws SAXException
+	{ current = new StackEntry (namespace, local, name, attrs, 
+                   current); }
+
+    public void endElement (String namespace, String local, String name)
+    throws SAXException
+	{ current = current.parent; }
+
+    public void setDocumentLocator (Locator l)
+	{ locator = l; }
+
+    public void startDocument ()
+    throws SAXException
+	{ addMarker ("#DOCUMENT", null); }
+
+    public void endDocument ()
+	{ current = null; }
+
+    // DeclHandler interface
+
+    public void externalEntityDecl (String name, String publicId, 
+           String systemId)
+    throws SAXException
+    {
+	if (name.charAt (0) == '%')
+	    return;
+	// absolutize URL
+	try {
+	    URL	url = new URL (locator.getSystemId ());
+	    systemId = new URL (url, systemId).toString ();
+	} catch (IOException e) {
+	    // what could we do?
+	}
+	extEntities.put (name, systemId);
+    }
+
+    public void elementDecl (String name, String model) { }
+    public void attributeDecl (String element, String name,
+    		String type, String mode, String defaultValue) {}
+    public void internalEntityDecl (String name, String value) { }
+
+    // LexicalHandler interface
+    public void startEntity (String name)
+    throws SAXException
+    {
+	String	uri = (String) extEntities.get (name);
+	if (uri != null)
+	    addMarker ("#ENTITY", uri);
+    }
+
+    public void endEntity (String name)
+    throws SAXException
+	{ current = current.parent; }
+    
+    public void startDTD (String root, String publicId, String systemId) {}
+    public void endDTD () {}
+    public void startCDATA () {}
+    public void endCDATA () {}
+    public void comment (char buf[], int off, int len) {}
+}</pre></blockquote>
+	    </div>
+
+	    <p>
+<a name="INDEX-665" /></a>
+<a name="INDEX-666" /></a>
+<a name="INDEX-667" /></a>
+<a name="INDEX-668" /></a>
+            With such a stack of attributes, it's easy to find the
+	    current values of inherited attributes like
+	    <tt class="literal">xml:space</tt>, <tt class="literal">xml:lang</tt>,
+	    <tt class="literal">xml:base</tt>, and their application-specific
+	    friends.
+	    For example, an application might have a policy that all
+	    unspecified attributes with <tt class="literal">#IMPLIED</tt> default values
+	    are inherited from some ancestor element's value or are
+	    calculated using data found in such a context stack.
+	    </p>
+
+	    <p>
+<a name="INDEX-669" /></a>
+            Notice how this code added marker entries on the
+	    stack with synthetic <tt class="literal">xml:base</tt> attributes
+	    holding the true base URIs for the the document and
+	    external general entities.
+	    That information is needed to correctly implement the
+	    recommendation, and lets the <tt class="literal">getBaseURI()</tt>
+	    work entirely from this stack.
+	    If you need such functionality very often, you might want to
+	    provide a more general API, not packaged as internal to
+	    one handler implementation.
+	    
+<a name="INDEX-670" /></a>
+</p>
+
+	    </div>
+
+	<a name="sax2-CHP-5-SECT-1.2" /></a><div class="sect2">
+	    <h3 class="sect2">5.1.2. The LocatorImpl Class </h3>
+
+	    <p>
+<a name="INDEX-671" /></a>
+            This is a general-purpose implementation of the
+	    <em class="emphasis">Locator</em> interface.
+	    As well as reading location properties (as defined
+	    in the interface), you can write and modify them.
+	    It's part of SAX1 and is still useful in SAX2.
+	    </p>
+
+	    <p>The locator provided by the
+	    <tt class="literal">ContentHandler.setDocumentLocator()</tt>
+	    can be used during any event callback, but the values it
+	    returns will change over time.
+	    If you need a copy of those values for later use,
+	    it's simplest to use this class; just create a new instance
+	    using the copy constructor.
+	    More typically, you will pass the locator to the constructor
+	    for some kind of <em class="emphasis">SAXException</em>, or
+	    just save the current base URI to use with relative URIs
+	    you find in document (or attribute) content.
+	    </p>
+
+	</div>
+
+	<a name="sax2-CHP-5-SECT-1.3" /></a><div class="sect2">
+	    <h3 class="sect2">5.1.3. The NamespaceSupport Class </h3>
+
+	    <p>
+<a name="INDEX-672" /></a>
+<a name="INDEX-673" /></a>
+            When your code needs to track namespaces or their
+	    prefixes, use this SAX2 class.
+	    One audience for this class is authors of XML parsers;
+	    that's probably not you.
+	    More likely you're writing code that, like XPath or W3C's XML
+	    schemas, needs to parse prefixed names when they're found in
+	    attribute values or element content; this class can help.
+	    Or you may be writing code to select or generate element or
+	    attribute name prefixes for output.
+	    (If you only need to put those names in element or attribute
+	    names, you should be able to package that work in an event
+	    filter component that postprocesses your output and ensures
+	    that its namespace content matches XML 1.0 rules.)
+	    </p>
+
+	    <p>
+<a name="INDEX-674" /></a>
+<a name="INDEX-675" /></a>
+            What this class does is maintain a stack of namespace
+	    contexts, in which each context holds a set of prefix-to-URI
+	    mappings; the contexts normally correspond to an element.
+	    This is the right model to use when you're writing an XML parser.
+	    If you try to use this class in a layer on top of a SAX2 parser,
+	    you'll notice a slight mismatch: all the prefix-mapping events
+	    for an element's namespace context <em class="emphasis">precede</em>
+	    the <tt class="literal">startElement()</tt> events for that element.
+	    That is, you'll need to create and populate new contexts
+	    before you see the element that signifies a new context.<a href="#FOOTNOTE-23">[23]</a>
+	    One simple way to work around this is with a Boolean flag indicating whether
+	    a new context is active yet.
+	    </p><blockquote class="footnote"><a name="FOOTNOTE-23" /></a><p>[23]This is true unless <tt class="literal">xmlns*</tt> attributes get reported
+	    with <tt class="literal">startElement()</tt>, and you only use
+	    that form of the prefix-mapping events.</p></blockquote>
+
+	    <p>To use this class with a SAX2 parser that's set to report
+	    namespace prefix mappings, you have to modify some of your
+	    <em class="emphasis">ContentHandler</em> callbacks to maintain
+	    that stack of contexts.
+	    <?troff .ne 10?>This is done in much the same way as you produce those
+	    callbacks yourself:
+	    </p>
+
+	    <ol>
+
+		<li><p>
+<a name="INDEX-676" /></a>
+                Instantiate a
+		<em class="emphasis">NamespaceSupport</em>
+		object using its default constructor (the only one).
+		A good time to do this is when you start your event stream,
+		at the <tt class="literal">ContentHandler.startDocument()</tt>
+		event callback. When you do this, set a Boolean
+		<em class="replaceable">contextActive</em> flag to false, so that
+		you'll create a new context for the root element.
+		</p></li>
+
+		<li><p>
+<a name="INDEX-677" /></a>
+<a name="INDEX-678" /></a>
+                When you get (or make) a
+	    <tt class="literal">ContentHandler.startPrefixMapping(prefix,uri)</tt>
+		event, see if <em class="replaceable">contextActive</em> is true.
+		If not, call <tt class="literal">pushContext()</tt> and
+		set that flag to true. Then call <tt class="literal">declarePrefix(prefix,uri)</tt>. (It returns false if you give it illegal inputs.)
+		</p></li>
+
+		<li><p>At the end of any
+		<tt class="literal">ContentHandler.startElement()</tt>
+		event, see if <em class="replaceable">contextActive</em> is true.
+		If not, call <tt class="literal">pushContext()</tt>.
+		Then set that flag to false, forcing any child elements'
+		namespace declarations to create a new context.
+		</p></li>
+
+		<li><p>
+<a name="INDEX-679" /></a>
+<a name="INDEX-680" /></a>
+                Finally, at the end of any
+		<tt class="literal">ContentHandler.endElement()</tt>
+		event, call <tt class="literal">popContext()</tt>.
+		</p></li>
+
+		<li><p>
+<a name="INDEX-681" /></a>
+                Call <tt class="literal">reset()</tt> to
+		forcibly reset all state before you reuse the class.
+		Doing this at the end of the
+		<tt class="literal">ContentHandler.endDocument()</tt>
+		callback should work.
+		</p></li>
+
+</ol>
+
+
+	    <p>
+<a name="INDEX-682" /></a>
+            If you follow these rules, you can use
+	    <tt class="literal">processName()</tt> to interpret
+	    element and attribute names that you find
+	    according to the current prefix bindings, or you can use
+	    <tt class="literal">getPrefix()</tt> to choose a
+	    prefix given a particular namespace URI:
+	    </p>
+
+	    <dl>
+
+		<dt><b>
+	    <tt class="literal">String [] processName(qName,parts,isAttribute)</tt>
+		    </b></dt>
+		
+		<dd><p>Use this method to find the namespace name
+		corresponding to a qualified element or attribute name
+		(perhaps as found inside an
+		attribute value or element content). Parameters are:
+		</p>
+
+		<dl>
+
+		    <dt><b>
+			<tt class="literal">String</tt> <em class="replaceable">qName</em>
+			</b></dt>
+		    <dd><p>This is the qualified name, such
+		    as <tt class="literal">units:currency</tt> or <tt class="literal">fare</tt>, that is being examined.</p></dd>
+
+		    <dt><b>
+			<tt class="literal">String</tt> <em class="replaceable">parts[3]</em>
+			</b></dt>
+		    <dd><p>This is a three-element array.
+		    If this method succeeds in processing the name,
+		    the first array element will hold the namespace URI,
+		    the second will hold the local (unprefixed) name,
+		    and the third will hold the <em class="replaceable">qName</em>
+		    you passed in.
+		    The first and second string may also be empty strings,
+		    if the <em class="replaceable">qName</em> has no prefix and if
+		    no default namespace URI is applicable.
+		    </p></dd>
+
+		    <dt><b>
+			<tt class="literal">String</tt> <em class="replaceable">isAttribute</em>
+			</b></dt>
+		    <dd><p>Pass this value as <tt class="literal">true</tt>
+		    if the <em class="replaceable">qName</em> parameter
+		    identifies an attribute;
+		    otherwise, pass this as <tt class="literal">false</tt>.
+		    This information is needed because unprefixed element
+		    names are interpreted using any default namespace URI,
+		    but attribute names are not.
+		    </p></dd>
+
+		    </dl>
+		
+		<p>If this method succeeds,
+		the <em class="replaceable">parts</em>
+		parameter is filled out and returned. Otherwise the name
+		includes a reference to an undeclared prefix, and
+		<tt class="literal">null</tt> will be returned.
+		</p>
+
+
+		</dd>
+	    
+		<dt><b>
+	    <tt class="literal">String</tt> <em class="replaceable">getPrefix(String uri)</em>
+		    </b></dt>
+		
+		<dd><p>
+<a name="INDEX-683" /></a>
+                Use this method to choose a prefix to use
+		when constructing a qualified name.
+		This returns a currently defined prefix associated with the
+		specified namespace URI or null if no such prefix is defined.
+		When no such prefix is defined, the default namespace URI
+		(associated with element names that have no prefixes)
+		might still be appropriate. If so, then
+		<tt class="literal">getURI("")</tt> will return this URI.
+
+		</p></dd>
+	    
+	    </dl>
+
+	    <p>Consult the class documentation (javadoc) for full
+	    details about the methods on this class.
+<a name="INDEX-684" /></a>
+<a name="INDEX-685" /></a>
+	    
+</p>
+
+	</div>
+
+    </div>
+
+    
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch05_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4.5. XML Pipelines </td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">5.2. SAX1 Support </td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+      </map>
+
+</body></html>

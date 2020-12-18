@@ -1,0 +1,281 @@
+<html><head><title>Answers to Chapter 11 Exercises (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appa_09.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="appa_11.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">A.10. Answers to Chapter 11 Exercises</h2>
+
+<ol><li>
+<p>Here's one way to do it:</p>
+
+<blockquote><pre class="code">sub get_line { 
+  # prompts for, reads, chomps, and returns a line of input
+  print $_[0];
+  chomp(my $line = &lt;STDIN&gt;);
+  $line;
+}
+
+my $source = &amp;get_line("Which source file? ");
+open IN, $source
+  or die "Can't open '$source' for input: $!";
+
+my $dest = &amp;get_line("What destination file? ");
+die "Won't overwrite existing file"  
+  if -e $dest;  # optional safety test
+open OUT, "&gt;$dest"
+  or die "Can't open '$dest' for output: $!";
+
+my $pattern = &amp;get_line("What search pattern: ");
+my $replace = &amp;get_line("What replacement string: ");
+
+while (&lt;IN&gt;) {
+  s/$pattern/$replace/g;
+  print OUT $_;
+}</pre></blockquote>
+
+
+
+
+<p>This one needs to ask the user for several things, so we decided to
+make a subroutine to take care of some of the work. The subroutine
+prints out the prompt, which is the first (and only) parameter to the
+subroutine. Then it reads a line of input, chomps it, and returns it.
+That makes it easy to ask for each parameter, one after the other.
+</p>
+
+<p>Once we know what the user wants for the source file, we try opening
+it. An earlier version of this program asked for all of the
+parameters first, but if the source file name is incorrect,
+there's no point in having the user type more parameters. This
+way can save the user some time and trouble. Note that the die
+message reports the file name inside quote marks; this can be helpful
+in diagnosing a problem when a string has whitespace characters. If
+you opened <tt class="literal">"&lt;$source"</tt> instead of just plain
+<tt class="literal">$source</tt>, that's fine, too. (There's no
+reason to worry that the user of this program will do something
+nefarious, since anything they can do with this program, they could
+accomplish just as well without it. If this program were made to run
+over the web, to give one example, we'd need to be
+<em class="emphasis">much</em> more cautious about opening the
+user's choice of file.)
+</p>
+
+<p>As we hope you discovered when you tried it, it's easy to
+overwrite an existing file simply by opening it for output. So we put
+in a safety test using the <tt class="literal">-e</tt> file test. The
+corresponding die message doesn't include <tt class="literal">$!</tt>
+because we're not reporting a failed request of the system. By
+the way, this test for overwrite is fine here, but it would be
+insufficient in an environment where many copies of the same program
+(or different programs all working with the same files) might be
+running at once. This typically happens with programs on the web: Two
+processes check the same filename for existence at approximately the
+same time, and both see that it doesn't exist. So one of them
+creates the file, and an instant later the other one overwrites it
+with a file of its own. This kind of concurrency problem can't
+be solved with the <tt class="literal">-e</tt> file test; some kind of file
+locking (which is beyond the scope of this book) is needed.
+</p>
+
+<p>With that safety test, the user won't accidentally overwrite an
+existing file. Is that test a good idea? Well, if the user comes to
+see you next week and says, "Golly, I'm glad you put in
+that safety test. It kept me from accidentally overwriting my
+file!", then you know that it was the right thing to do. But if
+the user says, "Dagnabit, your program is hard to use! I told
+it what filename I wanted to use for output, and it wouldn't
+let me use it until I first deleted that file!", then it was
+the wrong thing to do. Making decisions like this is often the
+toughest part of a programmer's job. Perhaps we should make the
+program ask something like, "Are you sure you want to overwrite
+the existing file `barney'?" by default, but have a
+command-line option for the power user that says to overwrite without
+asking. Next version.
+</p>
+
+<p>Once we've asked for everything and opened the files, the rest
+of the program is pretty simple. The heart of the program is the loop
+at the end, which reads lines, updates them, and prints them out.
+Note that the substitution uses the <tt class="literal">/g</tt>
+option -- if you left that out, your program is broken, since the
+exercise asked that the program replace <em class="emphasis">every</em>
+occurrence of the search pattern, not just the first one on each
+line.
+</p>
+
+<p>Were you able to use regular expression metacharacters in the search
+pattern? Sure; the substitution interpolates
+<tt class="literal">$pattern</tt> to make the search pattern. Were you able
+to use memory variables and backslash escapes in the replacement
+string? Nope; <tt class="literal">$replace</tt> is interpolated to make the
+replacement string, but it's not
+<em class="emphasis">re-</em>interpolated to interpret any magical
+characters. If <tt class="literal">$replace</tt> holds
+<tt class="literal">$1</tt>, that's a dollar sign and a numeral one
+in the replacement string. If Perl always kept re-interpolating, you
+could never put a dollar sign or backslash into the replacement
+string, since they'd always make something magical happen.
+(Actually, though, if you need one additional level of interpolation,
+it is possible. See the <tt class="literal">perlfaq</tt> manpages for some
+suggestions on how to do this.)
+</p>
+</li>
+
+<li>
+<p>Here's one way to do it:</p>
+
+<blockquote><pre class="code">foreach my $file (@ARGV) {
+  my $attribs = &amp;attributes($file);
+  print "'$file' $attribs.\n";
+}
+
+sub attributes {
+  # report the attributes of a given file
+  my $file = shift @_;
+  return "does not exist" unless -e $file;
+
+  my @attrib;
+  push @attrib, "readable" if -r $file;
+  push @attrib, "writable" if -w $file;
+  push @attrib, "executable" if -x $file;
+  return "exists" unless @attrib;
+  'is ' . join " and ", @attrib;  # return value
+}</pre></blockquote>
+
+
+
+
+<p>In this one, once again it's convenient to use a subroutine.
+The main loop prints one line of attributes for each file, perhaps
+telling us that <tt class="literal">'cereal-killer' is executable</tt> or
+that <tt class="literal">'sasquatch' does not exist</tt>.
+</p>
+
+<p>The subroutine tells us the attributes of the given filename. Of
+course, if the file doesn't even exist, there's no need
+for the other tests, so we test for that first. If there's no
+file, we'll return early.
+</p>
+
+<p>If the file does exist, we'll build a list of attributes. (Give
+yourself extra credit points if you used the special
+<tt class="literal">_</tt> filehandle instead of <tt class="literal">$file</tt>
+on these tests, to keep from calling the system separately for each
+new attribute.) It would be easy to add additional tests like the
+three we show here. But what happens if none of the attributes is
+true? Well, if we can't say anything else, at least we can say
+that the file exists, so we do. The <tt class="literal">unless</tt> clause
+uses the fact that <tt class="literal">@attrib</tt> will be true (in a
+Boolean context, which is a special case of a scalar context) if
+it's got any elements.
+</p>
+
+<p>But if we've got some attributes, we'll join them with
+<tt class="literal">" and "</tt> and put <tt class="literal">"is "</tt> in front,
+to make a description like <tt class="literal">is readable and
+writable</tt>. This isn't perfect however; if there are
+three attributes, it says that the file <tt class="literal">is readable and
+writable and executable</tt>, which has too many
+<tt class="literal">and</tt>s, but we can get away with it. If you wanted
+to add more attributes to the ones this program checks for, you
+should probably fix it to say something like <tt class="literal">is readable,
+writable, executable, and nonempty</tt>. If that matters to you.
+</p>
+
+<p>Note that if you somehow didn't put any filenames on the
+command line, this produces no output. This makes sense; if you ask
+for information on zero files, you should get zero lines of output.
+But let's compare that to what the next program does in a
+similar case, in the discussion below.
+</p>
+</li>
+
+
+<li>
+<p>Here's one way to do it:</p>
+
+<blockquote><pre class="code">die "No file names supplied!\n" unless @ARGV;
+my $oldest_name = shift @ARGV;
+my $oldest_age = -M $oldest_name;
+
+foreach (@ARGV) {
+  my $age = -M;
+  ($oldest_name, $oldest_age) = ($_, $age)    
+    if $age &gt; $oldest_age;
+}
+
+printf "The oldest file was %s, and it was %.1f days old.\n",
+  $oldest_name, $oldest_age;</pre></blockquote>
+
+
+
+<p>This one starts right out by complaining if it didn't get any
+filenames on the command line. That's because it's
+supposed to tell us the oldest filename -- and there ain't
+one if there aren't any files to check.
+</p>
+
+<p>Once again, we're using the "high-water-mark"
+algorithm. The first file is certainly the oldest one seen so far. We
+have to keep track of its age as well, so that's in
+<tt class="literal">$oldest_age</tt>.
+</p>
+
+<p>For each of the remaining files, we'll determine the age with
+the <tt class="literal">-M</tt> file test, just as we did for the first one
+(except that here, we'll use the default argument of
+<tt class="literal">$_</tt> for the file test). The last-modified time is
+generally what people mean by the "age" of a file,
+although you could make a case for using a different one. If the age
+is more than <tt class="literal">$oldest_age</tt>, we'll use a list
+assignment to update both the name and age. We didn't have to
+use a list assignment, but it's a convenient way to update
+several variables at once.
+</p>
+
+<p>We stored the age from <tt class="literal">-M</tt> into the temporary
+variable <tt class="literal">$age</tt>. What would have happened if we had
+simply used <tt class="literal">-M</tt> each time, rather than using a
+variable? Well, first, unless we used the special
+<tt class="literal">_</tt> filehandle, we would have been asking the
+operating system for the age of the file each time, a potentially
+slow operation (not that you'd notice unless you have hundreds
+or thousands of files, and maybe not even then). More importantly,
+though, we should consider what would happen if someone updated a
+file while we're checking it. That is, first we see the age of
+some file, and it's the oldest one seen so far. But before we
+can get back to use <tt class="literal">-M</tt> a second time, someone
+modifies the file and resets the timestamp to the current time. Now
+the age that we save into <tt class="literal">$oldest_age</tt> is actually
+the <em class="emphasis">youngest</em> age possible. The result would be
+that we'd get the oldest file among the files tested from that
+point on, rather than the oldest overall; this would be a tough
+problem to debug!
+</p>
+
+<p>Finally, at the end of the program, we use
+<tt class="literal">printf</tt> to print out the name and age, with the
+age rounded off to the nearest tenth of a day. Give yourself extra
+credit if you went to the trouble to convert the age to a number of
+days, hours, and minutes.
+</p>
+</li></ol>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appa_09.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="appa_11.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">A.9. Answer to Chapter 10 Exercise</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">A.11. Answers to Chapter 12 Exercises</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

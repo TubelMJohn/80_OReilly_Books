@@ -1,0 +1,767 @@
+<html><head><title>Robot Control Program complex.ptr (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appc_09.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="appc_11.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">C.10. Robot Control Program complex.ptr</h2>
+
+<p>This isn't really a Perl/Tk program, but we're including
+it anyway. It's a TclRobots Robot Control Program written in
+Perl.
+</p>
+
+<blockquote><pre class="code">map {
+    dputs $_;
+} split /\n/, &lt;&lt;'end-of-about';
+-----
+Robot Control Program complex.ptr
+
+Even though I prefer simplicity, here's complexity, but it doesn't
+always work very well, alas.  Basically, this RCP is completely state
+driven and uses clock ticks to schedule internal events.  It moves in
+a path described by an n-sided polygon that approximates a circle
+(this was my idea, I didn't know one of Tom's RCP team samples also
+used this technique!).  The direction of movement is randomly chosen
+during preset, eliminating "wall" code (although the RCP may perform a
+"crazy Ivan" if it cannot find an enemy).  The RCP also attempts to
+move as fast as possible, thus tracks its cooling rate to coordinate
+turns, eliminating "flee" code.  There is also some watchdog code that
+periodically checks the RCP's health.  Finally, the robot list from
+the first tournament is maintained, so it was simple to add a "friend"
+field and thus implement team play.
+
+Stephen.O.Lidie@Lehigh.EDU, 2000/09/24.
+-----
+end-of-about
+
+# Syntax check: TCLROBOTS_RCP_CHECK=1 perl -MTclRobots -c complex.ptr
+
+use Tk qw/lsearch/;
+
+use vars qw/
+    $ATTACK_LIST_ENTRY
+    $CANNON_HEADING $CANNON_READY $CLIP_SIZE $COOLING @COST
+    $DANGER_RANGE $DIRECTION $DRIVE_HEADING $DRIVE_SPEED 
+    $EMERGENCY_X $EMERGENCY_Y
+    @HEAT $HOUSE_KEEP_COUNT $HOUSE_KEEP_TICK @HUNT_STATE_LIST
+    @IWSL $IWSL_COUNT $IWSL_TICK
+    $LAPS $LAP_INDEX $LAST_SEEN_TICK
+    $MAX_CANNON_RANGE $MAX_X $MAX_Y $MID_X $MID_Y
+    $MOVE_QUAD @MOVE_STATE_LIST $MY_STATE
+    $NVERT
+    %PATH $PATHI
+    $REBOOST $RELOAD_CLIP $RELOAD_CLIP_TICK $RELOAD_ROUND
+    $RELOAD_ROUND_TICK $ROUNDS_LEFT %ROB @ROBL $R2D
+    $SCAN_HEADING @SINT $SPEED $SPEED_SLOW_TURN $SPEED_TROLL $SPEED_TURN      
+    $TEAM $TICK $TURN_ACTIVE
+/;
+
+use subs qw/
+    bootstrap do_RCP emergency fifo house_keep initialize_RCP
+    initialize_robot I_was_scanned  position_to_heading position_to_range 
+    process_IWSL scanner_to_position which_quad
+/;
+use subs qw/hunt hunt_aim hunt_atle hunt_cannon hunt_fire hunt_scan hunt_wait/;
+use subs qw/move move_check move_goto move_wait/;
+
+use strict;
+
+initialize_RCP;
+do_RCP;
+
+sub bootstrap {
+
+    # Initialize the RCP and start it circling.
+
+    $TURN_ACTIVE = 1;
+    my $q = which_quad;
+    $PATHI = (( (($q+1)%4) * ($NVERT/4)) % $NVERT) + 1;
+    $LAP_INDEX = $PATHI;
+    $EMERGENCY_X = -2;
+    $EMERGENCY_Y = -2;
+    $HOUSE_KEEP_TICK = $TICK + $HOUSE_KEEP_COUNT;
+    $IWSL_TICK = $TICK + $IWSL_COUNT;
+    @HUNT_STATE_LIST = ( );
+    fifo 'hunt', 'in', ['SCAN', ''];
+    @MOVE_STATE_LIST = ( );
+    fifo 'move', 'in', ['GOTO', 'DECELERATE'];
+    $MY_STATE = 'move';							# initial state
+
+} # end bootstrap
+
+sub fifo {
+    my($list, $action, $state) = @_;
+
+    # Manipulate a (hunt|move) FIFO stack.
+
+    dputs "Bad state list name $list" unless $list =~ /hunt|move/;
+    my $list_ref = $list eq 'hunt' ? \@HUNT_STATE_LIST : \@MOVE_STATE_LIST;
+
+    $_ = $action;
+  CASE:
+    {
+        /^in/ and do {
+            push @$list_ref, $state;
+            last CASE;
+        };
+        /^out/  and do {
+            if (@$list_ref == 0) {
+                dputs "*** State Gag:  lst=$list, act=$action, state=$state";
+                return -1;
+            }
+            return shift @$list_ref;
+            last CASE;
+        };
+    } # casend
+      
+} # end fifo
+
+sub do_RCP {
+
+    bootstrap;
+
+    while ( 1 ) {
+        $TICK = tick;
+
+        $_ = $MY_STATE;
+      CASE:
+        {
+            /^hunt/ and do {hunt; last CASE};
+            /^move/ and do {move; last CASE};
+        }
+        process_IWSL if $TICK &gt;= $IWSL_TICK;
+        house_keep   if $TICK &gt;= $HOUSE_KEEP_TICK;
+    }
+
+} # end do_RCP
+
+sub emergency {
+    my($type) = @_;
+
+    # Handle serious RCP anomalies.
+
+    dputs "*** EMERGENCY=$type";
+    if ($type =~ /^DRIVE/) {
+        emergency 'DRIVE' unless drive $DRIVE_HEADING, $DRIVE_SPEED;
+    } elsif ($type =~ /^RESTART/) {
+        drive 0, 0;
+        bootstrap;
+    }
+
+} # end emergency
+
+sub house_keep {
+
+    # Remove robots whom I haven't scanned recently from the robot list so 
+    # I don't have to worry about them (ignoring Me)!
+
+    #for {set i [expr [llength $ROBL] - 1]} {$i &gt; 0} {incr i -1} {
+    #    set dsp [lindex $ROBL $i]
+    #    if { $ms &gt; [expr $ROB($dsp,'last_seen_tick') + $delta] } {
+    #        set ROBL [lreplace $ROBL $i $i]
+    #    }
+    #}
+
+    # "Crazy Ivan" if we haven't scanned a robot recently to ensure
+    # an enemy RCP isn't stalking us.
+
+    my $last_seen_tick = 0;
+    foreach my $dsp (@ROBL) {
+        $last_seen_tick = $ROB{$dsp,'last_seen_tick'} if
+            $ROB{$dsp,'last_seen_tick'} &gt; $last_seen_tick;
+    }
+    if ($last_seen_tick + $LAST_SEEN_TICK &lt; $TICK) {
+        $DIRECTION = 0 - $DIRECTION;
+        foreach my $dsp (@ROBL) {
+            $ROB{$dsp,'last_seen_tick'} = $TICK;
+        }
+        emergency 'RESTART';
+    }
+ 
+    # Restart the RCP if we seem to be stuck.
+
+    emergency 'RESTART' if $EMERGENCY_X == $ROB{'Me','last_x'} and
+        $EMERGENCY_Y == $ROB{'Me','last_y'};
+    $EMERGENCY_X = $ROB{'Me','last_x'};
+    $EMERGENCY_Y = $ROB{'Me','last_y'};
+    $HOUSE_KEEP_TICK = $TICK + $HOUSE_KEEP_COUNT;
+
+} # house_keep
+
+sub hunt {
+
+    # Hunt state processor.
+
+    my $next_state = fifo 'hunt', 'out';
+    if ($next_state == -1) {
+        dputs "HUNT GAG!";
+        fifo 'hunt', 'in', ['WAIT', ''];
+        $MY_STATE = 'move';
+        return;
+    }
+
+    $_      = $next_state-&gt;[0];
+    my $arg = $next_state-&gt;[1];
+  CASE:
+    {
+        /^ATLE/ and do {hunt_atle $arg;                     last CASE};
+        /^FIRE/ and do {hunt_fire $arg;                     last CASE};
+        /^SCAN/ and do {hunt_scan $arg;                     last CASE};
+        /^WAIT/ and do {hunt_wait $arg; $MY_STATE = 'move'; last CASE};
+    } # casend
+
+} # end hunt
+
+sub hunt_aim {
+    my($rdir) = @_;
+
+    my($ret, $min, $max);
+
+    foreach my $t (qw/10 5 3 2 1 0/) {
+        $min = ($$rdir - $t) % 360;
+        $max = ($$rdir + $t) % 360;
+        if      ( scanner( $max, $t ) &gt; 0  ) {
+            $$rdir = $max;
+            $SCAN_HEADING = $$rdir - 40;
+            $ret = scanner($$rdir, 1);
+            return $ret if $ret &gt; 0;
+        } elsif ( scanner( $min, $t ) &gt; 0  ) {
+            $$rdir = $min;
+            $SCAN_HEADING = $$rdir - 20;
+            $ret = scanner($$rdir, 1);
+            return $ret if $ret &gt; 0;
+        } else {
+            return 0;
+        }
+    }
+    return scanner($$rdir, 0);
+
+} # end hunt_aim
+
+sub hunt_atle {
+    my($arg) = @_;
+
+    # Make sure we have an attack list entry.  If not, generate a fresh attack
+    # list and select the best entry.
+
+    unless ($ATTACK_LIST_ENTRY) {
+        my(@attack_list) = ( );
+        foreach my $dsp (@ROBL) {
+            next if $ROB{$dsp,'friend'};
+            next if $ROB{$dsp,'last_x'} == -1;
+            my $cr = position_to_range $ROB{$dsp,'last_x'}, $ROB{$dsp,'last_y'};
+            if ($cr &gt; $DANGER_RANGE and $cr &lt;= $MAX_CANNON_RANGE) {
+                push @attack_list, [$dsp, $cr];
+            }
+        }
+        $ATTACK_LIST_ENTRY = shift @attack_list;
+        if (@attack_list) {
+            foreach my $f (@attack_list) {
+                if ($f-&gt;[1] &lt; $ATTACK_LIST_ENTRY-&gt;[1]) {
+                    $ATTACK_LIST_ENTRY = $f;
+                }
+            }
+        }
+    }
+
+    fifo 'hunt', 'in', ['WAIT', ''];
+    if ($ATTACK_LIST_ENTRY) {
+        fifo 'hunt', 'in', ['FIRE', ''];
+    } else {
+        fifo 'hunt', 'in', ['SCAN', ''];
+    }
+
+} # end hunt_atle
+
+sub hunt_cannon {
+    my($dir, $range) = @_;
+
+    if ($range &lt;= $MAX_CANNON_RANGE) {
+        my $stat  = cannon $dir, $range;
+        fifo 'hunt', 'in', ['WAIT', ''];
+        $ROUNDS_LEFT--;
+        $CANNON_READY = 0;
+        if ($ROUNDS_LEFT &lt;= 0) {
+            $RELOAD_CLIP_TICK = $TICK + $RELOAD_CLIP;
+        } else {
+            $RELOAD_ROUND_TICK = $TICK + $RELOAD_ROUND;
+        }
+    }
+    fifo 'hunt', 'in', ['WAIT', ''];
+    fifo 'hunt', 'in', ['FIRE', ''];
+
+} # end hunt_cannon
+
+sub hunt_fire {
+    my($arg) = @_;
+
+    if ($CANNON_READY) {
+        $ROB{'Me','last_x'} = loc_x;
+        $ROB{'Me','last_y'} = loc_y;
+        my $dsp =  $ATTACK_LIST_ENTRY-&gt;[0];
+        my $cr   = $ATTACK_LIST_ENTRY-&gt;[1];
+        $CANNON_HEADING = position_to_heading $ROB{$dsp,'last_x'},
+            $ROB{$dsp,'last_y'};
+        my $range = hunt_aim \$CANNON_HEADING;
+        my(@dspl) = dsp;
+        $dsp = $dspl[0];
+        if ($dsp != 0) {
+            if ($range &gt; $DANGER_RANGE and not $ROB{$dsp,'friend'}) {
+                hunt_cannon $CANNON_HEADING, $range;
+            } else {
+                $ATTACK_LIST_ENTRY = undef;
+                fifo 'hunt', 'in', ['SCAN', ''];
+            }
+        } else {
+            $ATTACK_LIST_ENTRY = undef;
+            fifo 'hunt', 'in', ['SCAN', ''];
+        }
+    } else {
+        fifo 'hunt', 'in', ['WAIT', ''];
+        fifo 'hunt', 'in', ['SCAN', ''];
+    } # ifend cannon ready
+
+} # end hunt_fire
+
+sub hunt_scan {
+    my($arg) = @_;
+
+    # Try to update information on all enemy robots.  Information is very
+    # fuzzy, with range to target inaccurate up to 100 meters, and my
+    # calculation of robot position inaccurate up to 200 meters!  We'll attack
+    # later, narrowing the bad robot's position via a binary search.
+
+    my $sd  = 9 * 20;							# hunks of 20 degrees
+    my $sh;
+
+    for (my $i = $SCAN_HEADING; $i &lt;= $sd + $SCAN_HEADING; $i += 20) {
+        $sh = $i % 360;
+        my $sr = scanner $sh, 10;
+        if ($sr &gt; $DANGER_RANGE and $sr &lt;= $MAX_CANNON_RANGE) {
+            my($dsp, $damage) = dsp;
+            initialize_robot($dsp) if lsearch(\@ROBL, $dsp) == -1;
+            next if $ROB{$dsp,'friend'};
+            $ROB{$dsp,'last_seen_tick'} = $TICK;
+            $ROB{$dsp,'damage'} = $damage;
+            scanner_to_position $dsp, $sr, $sh; # new enemy position
+            last;
+        }
+
+    }
+
+    $SCAN_HEADING = ($sh + 20) % 360;
+    fifo 'hunt', 'in', ['ATLE', ''];
+
+} # end hunt_scan
+
+sub hunt_wait {
+    my($arg) = @_;
+    
+    # Process auxiliary hunt tasks.
+
+    if ($RELOAD_ROUND_TICK != -1 and $TICK &gt;= $RELOAD_ROUND_TICK) {
+        $CANNON_READY = 1;
+        $RELOAD_ROUND_TICK = -1;
+    }
+    if ($RELOAD_CLIP_TICK  != -1 and $TICK &gt;= $RELOAD_CLIP_TICK) {
+        $CANNON_READY = 1;
+        $ROUNDS_LEFT = $CLIP_SIZE;
+        $RELOAD_CLIP_TICK = -1;
+    }
+
+} # end hunt_wait
+
+sub initialize_robot {
+    my($dsp) = @_;
+
+    # Add an enemy or team robot to the robot list.
+
+    push @ROBL, $dsp;
+    $ROB{$dsp,'scanme_count'} = 0;        # times this robot has scanned me
+    $ROB{$dsp,'last_scanme_count'} = 0;   # scanme_count last time around
+    $ROB{$dsp,'last_seen_tick'} = $TICK;  # time last seen
+    $ROB{$dsp,'damage'} = -1;             # robot's damage
+    $ROB{$dsp,'last_x'} = -1;             # robot's last known X coordinate
+    $ROB{$dsp,'last_y'} = -1;             # robot's last known Y coordinate
+    $ROB{$dsp,'friend'} = 0;              # assume not a team member
+
+    foreach my $response (team_get) {
+        my $dsp2 = $response-&gt;[0];
+        my $data = $response-&gt;[1];
+        $ROB{$dsp2,'friend'} = 1 if $data eq $TEAM;
+    }
+
+} # end initialize_robot
+
+sub I_was_scanned {
+    my($dsp) = @_;
+
+    # Note the fact that I was scanned by appending $dsp to IWSL.  It's up to
+    # other code to shorten this list and update the scan_me count in the 
+    # robot table.
+
+    push @IWSL, $dsp;
+
+} # end I_was_scanned
+
+sub move {
+
+    # Move state processor.
+
+    my $next_state = fifo 'move', 'out';
+    if ($next_state == -1) {
+        dputs "MOVE GAG!";
+        fifo 'move', 'in', ['WAIT', ''];
+        $MY_STATE = 'hunt';
+        return;
+    }
+    
+    $_       = $next_state-&gt;[0];
+    my $arg  = $next_state-&gt;[1]; 
+ CASE:
+    {
+        /^CHECK/ and do {move_check $arg;                     last CASE};
+        /^GOTO/  and do {move_goto  $arg;                     last CASE};
+        /^WAIT/  and do {move_wait  $arg; $MY_STATE = 'hunt'; last CASE};
+    } # casend
+
+} # end move
+
+sub move_check {
+    my($arg) = @_;
+
+    # Change direction to next polygon vertex when proper.
+
+    $ROB{'Me','last_x'} = loc_x;
+    $ROB{'Me','last_y'} = loc_y;
+    my $x0 = $ROB{'Me','last_x'};
+    my $y0 = $ROB{'Me','last_y'};
+    my $x  = $PATH{$PATHI,'x'};
+    my $y  = $PATH{$PATHI,'y'};
+    my $change_course = 0;
+
+    $_ = $MOVE_QUAD;
+  CASE:
+    {
+        /^1/ and do {$change_course++ if $x0 &lt;= $x and $y0 &gt;= $y; last CASE};
+        /^2/ and do {$change_course++ if $x0 &lt;= $x and $y0 &lt;= $y; last CASE};
+        /^3/ and do {$change_course++ if $x0 &gt;= $x and $y0 &lt;= $y; last CASE};
+        /^4/ and do {$change_course++ if $x0 &gt;= $x and $y0 &gt;= $y; last CASE};
+    }
+    if ($change_course) {
+        $PATHI = ($PATHI + $DIRECTION + $NVERT) % $NVERT;
+        if ($PATHI == $LAP_INDEX) {
+            $LAPS++;
+            dputs "LAP COUNT=$LAPS, SPEED=" . speed . "  *****";
+        }
+        fifo 'move', 'in', ['GOTO', 'DECELERATE'];
+    } else {
+        @HEAT = heat;
+        my $h = $HEAT[0];
+        if ($h and (not $COOLING)) {
+            $COOLING = 1;
+            $REBOOST = 1;
+        }
+        if ((not $h) and $REBOOST) {
+            $COOLING = 0;
+            $REBOOST = 0;
+            fifo 'move', 'in', ['GOTO', 'REBOOST'];
+        } else {
+            fifo 'move', 'in', ['WAIT', ''];
+            fifo 'move', 'in', ['CHECK', ''];
+        }
+    } # ifend change course
+
+} # end move_check
+
+sub move_goto {
+    my($goto_state) = @_;
+
+    # Goto next polygon vertex.  Slow to turn speed accounting for
+    # turn delta and deceleration, make the turn and resume.
+
+    $ROB{'Me','last_x'} = loc_x;
+    $ROB{'Me','last_y'} = loc_y;
+    my $x0 = $ROB{'Me','last_x'};
+    my $y0 = $ROB{'Me','last_y'};
+    my $x = $PATH{$PATHI,'x'};
+    my $y = $PATH{$PATHI,'y'};
+    my $new_heading = position_to_heading $x, $y;
+    my $d1 = ($new_heading - $DRIVE_HEADING + 360) % 360;
+    my $d2 = ($DRIVE_HEADING - $new_heading + 360) % 360;
+    my $dheading = $d1 &lt; $d2 ? $d1 : $d2;
+    my $SPEED = speed;
+    my $turn_speed = $dheading &gt;= 75 ? $SPEED_SLOW_TURN : $SPEED_TURN;
+
+    $_ = $goto_state;
+  CASE:
+    {
+        /^DECELERATE/ and do {
+            $TURN_ACTIVE = 1;
+           my $dspeed = $SPEED - $turn_speed;
+           my $decel = int($dspeed / 10.0 + 0.5);
+           if ($decel &lt;= 0) {
+               fifo 'move', 'in', ['GOTO', 'TURN'];
+           } else {
+               my $stat = drive $DRIVE_HEADING, $turn_speed;
+               emergency 'DRIVE' if $stat == 0;
+               fifo 'move', 'in', ['GOTO', 'WAIT'];
+            }
+            last CASE;
+        };
+        /^WAIT/ and do {
+            if ($SPEED &lt;= $turn_speed) {
+                fifo 'move', 'in', ['GOTO', 'TURN'];
+            } else {
+                fifo 'move', 'in', ['WAIT', ''];
+                fifo 'move', 'in', ['GOTO', 'WAIT'];
+            }
+            last CASE;
+        };
+        /^TURN/ and do {
+            $TURN_ACTIVE = 0;
+            $DRIVE_HEADING = $new_heading;
+            $DRIVE_SPEED = $SPEED_TROLL;
+            my $stat = drive $DRIVE_HEADING, $DRIVE_SPEED;
+            if ($stat == 0) {emergency 'DRIVE'}
+            if ($x0 &gt;= $x and $y0 &lt;= $y) {
+                $MOVE_QUAD = 1;
+            } elsif ($x0 &gt;= $x and $y0 &gt;= $y) {
+                $MOVE_QUAD = 2;
+            } elsif ($x0 &lt;= $x and $y0 &gt;= $y) {
+                $MOVE_QUAD = 3;
+            } elsif ($x0 &lt;= $x and $y0 &lt;= $y) {
+                $MOVE_QUAD = 4;
+            } else {
+                dputs "*** Turn error!";
+            }
+            fifo 'move', 'in', ['CHECK', ''];
+            last CASE;
+        };
+        /^REBOOST/ and do {
+            if (not $TURN_ACTIVE) {
+                $x0 = $ROB{'Me','last_x'};
+                $y0 = $ROB{'Me','last_y'};
+                $x = $PATH{$PATHI,'x'};
+                $y = $PATH{$PATHI,'y'};
+                my $range = position_to_range $x0, $y0, $x, $y;
+                $DRIVE_SPEED = 80 if $range &lt; 100;
+                my $stat = drive $DRIVE_HEADING, $DRIVE_SPEED;
+                if ($stat == 0) {emergency 'DRIVE'}
+            }
+            fifo 'move', 'in', ['CHECK', ''];
+            last CASE;
+        };
+    } # casend
+ 
+} # end move_goto
+
+sub move_wait {
+    my($arg) = @_;
+
+    # Process auxiliary move tasks.
+
+} # end move_wait
+
+sub position_to_heading {
+    my($x, $y, $x0, $y0) = @_;
+
+    # Given two absolute coordinate pairs, compute the heading (angle) 
+    # between them.  If only a single coordinate is given, use Me as the 
+    # second.  Typical usage is to determine the heading for this robot to
+    # get somewhere else.
+    #
+    # The result is integer.
+
+    if (not defined $x0) {
+        $x0 = $ROB{'Me','last_x'};
+        $y0 = $ROB{'Me','last_y'};
+    }
+
+    return int( $R2D * atan2( ($y - $y0), ($x - $x0) ) + 0.5) % 360;
+
+} # end postion_to_heading
+
+sub position_to_range {
+    my($x, $y, $x0, $y0) = @_;
+
+    # Given two absolute coordinate pairs, compute the range (relative 
+    # distance) between them.  If only a single coordinate is given, use Me 
+    # as the second.  Typical usage is to determine the range between this 
+    # robot and another.
+    #
+    # The result is floating point.
+
+
+    if (not defined $x0) {
+        $x0 = $ROB{'Me','last_x'};
+        $y0 = $ROB{'Me','last_y'};
+    }
+
+    my $dx = $x - $x0;
+    my $dy = $y - $y0;
+    return sqrt( $dx*$dx + $dy*$dy );
+
+} # end position_to_range
+
+sub process_IWSL {
+
+    # Empty the "I was scanned" list and update scanner counts.
+
+    foreach my $dsp (@ROBL) {
+        $ROB{$dsp,'last_scanme_count'} = $ROB{$dsp,'scanme_count'};
+    }
+    foreach my $dsp (@IWSL) {
+        initialize_robot $dsp if lsearch(\@ROBL, $dsp) == -1;
+        $ROB{$dsp,'scanme_count'}++;
+    }
+    @IWSL = ( );
+
+} # process_IWSL
+
+sub scanner_to_position {
+    my($dsp, $rng, $hdg) = @_;
+    
+    # Using the information from the scanner/dsp commands, compute the 
+    # absolute position of the scanned robot and save it.  $dsp is the 
+    # robot's digital signature, while $rng is the relative distance and 
+    # $hdg is the heading between Me and the robot.
+
+    my $x = $rng * $COST[$hdg];
+    my $y = $rng * $SINT[$hdg];
+    $ROB{$dsp,'last_x'} = $ROB{'Me','last_x'} + $x;
+    $ROB{$dsp,'last_y'} = $ROB{'Me','last_y'} + $y;
+
+} # end scanner_to_position
+
+sub which_quad {
+    my($x, $y) = @_;
+
+    # Determine a quandrant given an x/y coordinate pair (default is Me).
+
+    if (not defined $x) {
+        $x = $ROB{'Me','last_x'};
+        $y = $ROB{'Me','last_y'};
+    }
+    my $q;
+    if ( $x &gt; $MID_X ) {
+        $q =  $y &gt; $MID_Y ? 1 : 4;
+    } else {
+        $q =  $y &gt; $MID_Y ? 2 : 3;
+    }
+
+    return $q;
+
+} # end which_quad
+
+sub initialize_RCP {
+
+    # Initialize the Robot Control Program.
+
+    $TEAM = 'LUSOL2';               # kludge team capability
+    team_declare $TEAM;
+    team_send $TEAM;
+
+    $TICK = -1;                     # current RCP tick count
+    my $clock = 500;                # tick resolution in milliseconds
+    my $tps = 1000 / $clock;        # ticks/second
+
+    my $pi = 3.141592654;           # pi
+    $R2D = 180.0 / $pi;             # radians to degrees
+    my $d2r = $pi / 180.0;          # degrees to radians
+    for (my $i = 0; $i &lt; 360; $i++) {
+        $SINT[$i] =  sin($d2r * $i);    # sine table
+        $COST[$i] =  cos($d2r * $i);    # cosine table
+    }
+  
+    $MAX_X = 999;                   # battlefield X max
+    $MAX_Y = 999;                   # battlefield Y max
+    $MID_X = $MAX_X / 2;            # X midpoint
+    $MID_Y = $MAX_Y / 2;            # Y midpoint
+
+    @ROBL = ( );                   # robot list
+    initialize_robot 'Me';
+    $ROB{'Me','last_x'} = loc_x;    # last x coordinate
+    $ROB{'Me','last_y'} = loc_y;    # last y coordinate
+    $ROB{'Me','friend'} = 1;        # of course
+
+    @IWSL = ( );                   # "I was scanned" list
+    $IWSL_COUNT = 4;                # tick interval
+    $IWSL_TICK = -1;                # schedule at this tick value
+    alert \&amp;I_was_scanned;       # maintain a list of who scanned Me
+
+    $ATTACK_LIST_ENTRY = undef;     # no attack list entry
+    srand $$;
+    $SCAN_HEADING = rand 360;       # current scanner direction
+
+    $CLIP_SIZE = 4;                 # number of cannon rounds per clip
+    $ROUNDS_LEFT = $CLIP_SIZE;            
+
+    $RELOAD_CLIP = 12 * $tps;       # ticks required before reload clip
+    $RELOAD_CLIP_TICK = -1;
+
+    $RELOAD_ROUND = 4  * $tps;      # ticks required before reload round
+    $RELOAD_ROUND_TICK = -1;
+
+    $CANNON_HEADING = 0;            # cannon direction
+    $CANNON_READY = 1;              # 1 IFF cannon is ready for firing
+    $MAX_CANNON_RANGE = 700;        # I'm no robocop
+    $DANGER_RANGE = 0;              # but there's always Heisenburg
+
+    @HEAT = (0, 0);                 # current heat results
+    $COOLING = 0;                   # 1 iff waiting for engine to cool
+    $REBOOST = 0;                   # 1 iff engine has just cooled
+
+    $SPEED = 0;                     # current speed
+    $SPEED_TROLL = 100;             # normal speed to minimize heating
+    $SPEED_SLOW_TURN = 20;          # slow turn speed
+    $SPEED_TURN = 30;               # normal turn speed
+    $TURN_ACTIVE = 0;               # 1 IFF we are turning
+    $DRIVE_SPEED = $SPEED_TROLL;
+    $DRIVE_HEADING = 0;
+
+    # Compute vertices of an $NVERT sided polygon, the robot's continuous path.
+
+    $NVERT = 8;                     # polygon vertex count
+    my $dangle = 360 / $NVERT;
+    my $radius = 350;
+    $MOVE_QUAD = 0;
+    $PATHI = 0;
+    for (my $angle = 0; $angle &lt;= 359; $angle += $dangle) {
+        my $i = $angle / $dangle;
+        $PATH{$i,'x'} = int(($MID_X + $radius * $COST[$angle]) + 0.5);
+        $PATH{$i,'y'} = int(($MID_Y + $radius * $SINT[$angle]) + 0.5);
+    }
+    $DIRECTION = int(rand(2)) ? 1 : -1; # +1 anti-clockwise, -1 clockwise
+
+    $LAPS = 0;                      # lap count this battle
+    $LAP_INDEX = 0;                 # starting vertix index
+
+    $HOUSE_KEEP_COUNT = 20;         # housekeep frequency in ticks
+    $HOUSE_KEEP_TICK = 0;           # last housekeep tick
+    $LAST_SEEN_TICK = int( rand(30) + 60 ); # reverse direction delta
+
+    @MOVE_STATE_LIST = ( );
+    @HUNT_STATE_LIST = ( );
+
+} # end initialize_RCP</pre></blockquote>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appc_09.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="appc_11.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">C.9. TclRobots.pm</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">C.11. clock-bezier.ppl</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

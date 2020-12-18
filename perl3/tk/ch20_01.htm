@@ -1,0 +1,233 @@
+<html><head><title>IPC with send (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch19_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch20_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 20. IPC with send</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#mastperltk-CHP-20-SECT-1">Security and Inter-Language Considerations</a><br />
+<a href="ch20_02.htm">Computing  with Parallel Message Passing</a><br />
+<a href="ch20_03.htm">TclRobots</a><br /></p></div>
+
+<p><a name="INDEX-3017" /></a><a name="INDEX-3018" /></a><a name="INDEX-3019" /></a><a name="INDEX-3020" /></a><a name="INDEX-3021" /></a>There's an interprocess communication
+mechanism unique to Tk: the <tt class="literal">send</tt><a href="#FOOTNOTE-54">[54]</a> command. As originally implemented in
+Tcl/Tk, <tt class="literal">send</tt> transmits commands (which, in Tcl,
+are simply strings) to another Tcl application running on the same
+display. The receiving application then executes the commands and
+replies with the results. Think of it as an <tt class="literal">eval</tt>
+in the context of the receiver, performed automatically by Tcl/Tk.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-54" /></a><p> [54] Currently, <tt class="literal">send</tt><i class="command"> </i>is not
+available on Win32 operating systems. This may change in the
+future.</p> </blockquote>
+
+<p>Perl/Tk provides a <tt class="literal">send</tt> command too, but the
+default receiver is a simple stub that rejects all incoming
+<tt class="literal">send</tt> requests. Fortunately, we can override that
+behavior by writing our own receiver. And we're not constrained
+to merely <tt class="literal">eval</tt> ing the incoming data, but can do
+whatever we please.
+</p>
+
+<p>Using <tt class="literal">send</tt>, we can write remote controllers,
+client/server applications, parallel programs, and intriguing games.
+In this chapter, we'll see examples of some of these written in
+Perl and, in a mind-stretching twist, Tcl.
+</p>
+<div class="sect1"><a name="mastperltk-CHP-20-SECT-1" /></a>
+<h2 class="sect1">20.1. Security and Inter-Language Considerations</h2>
+
+<p><a name="INDEX-3022" /></a><a name="INDEX-3023" /></a><a name="INDEX-3024" /></a><a name="INDEX-3025" /></a><a name="INDEX-3026" /></a><a name="INDEX-3027" /></a><a name="INDEX-3028" /></a>Tcl and Perl take
+slightly different approaches with regard to <tt class="literal">send</tt>
+security, and it's instructive to talk about each. Both require
+<i class="command">xauth</i> server authentication, which essentially
+limits connections to the X server from trusted individuals on
+trusted hosts. Although <i class="command">xauth</i> details vary, the
+basic idea is that a random key is generated for every X session, and
+an application must present this key to the X server before
+it's granted permission to run. The key, referred to as a magic
+cookie, is often stored in the file <em class="filename">.Xauthority</em>
+in your home directory. Only you can read the file, and your local X
+clients grab the key from there. Before other users or machines can
+access the display, you must explicitly give them the key, perhaps by
+providing them with a copy of your authorization file. But remember,
+if the key you loan to a friend falls into enemy hands, your machine
+can be hacked with deadly efficiency. If you suspect
+<i class="command">xauth</i> authentication has been compromised, start a
+new X session, so the cookie changes.
+</p>
+
+<p><a name="INDEX-3029" /></a><a name="INDEX-3030" /></a><a name="INDEX-3031" /></a><a name="INDEX-3032" /></a><a name="INDEX-3033" /></a><a name="INDEX-3034" /></a>Many
+modern X environments automatically initialize and use
+<i class="command">xauth</i> authentication, and <i class="command">ssh</i>
+(the secure shell) propagates this information automatically, so life
+is easy. But there are still lots of people using
+<i class="command">xhost</i> authentication, and <tt class="literal">send</tt>
+will just not work. Rightly so, because, as its name implies, this
+mechanism only limits authentication to a list of hosts, and any
+process on those computers can connect to your display. If you must
+use <tt class="literal">send</tt> with <i class="command">xhost</i>,
+you'll have to build Tk with <tt class="literal">TK_NO_SECURITY</tt>
+set to true.
+</p>
+
+<p><a name="INDEX-3035" /></a>This Unix patch, applied
+with a command similar to <tt class="literal">patch</tt>
+<tt class="literal">-p0</tt> <tt class="literal">&lt;</tt>
+<tt class="literal">file.pat</tt>, is relative to Tk 800.021 and is another
+way to disable security:
+</p>
+
+<blockquote><pre class="code">--- pTk/mTk/unix/tkUnixSend.c~        Sun Dec 12 08:58:37 1999
++++ pTk/mTk/unix/tkUnixSend.c         Fri Apr 21 13:13:30 2000
+@@ -696,6 +696,8 @@
+     int numHosts, secure;
+     Bool enabled;
+ 
++    return 1;                  /* no security */
++
+     secure = 0;
+     addrPtr = XListHosts(dispPtr-&gt;display, &amp;numHosts, &amp;enabled);
+     if (enabled &amp;&amp; (numHosts == 0)) {</pre></blockquote>
+
+<a name="mastperltk-CHP-20-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">20.1.1. Application Names</h3>
+
+<p><a name="INDEX-3036" /></a><a name="INDEX-3037" /></a><a name="INDEX-3038" /></a><a name="INDEX-3039" /></a><a name="INDEX-3040" /></a>To verify that <tt class="literal">send</tt>
+works, run the <i class="command">rmt</i> program (also available from
+the Perl/Tk distribution). This is a Tk remote controller that can
+send Perl commands to itself, although before <i class="command">rmt</i>
+can send anything, it needs to know the address, or application name,
+of the target application.
+</p>
+
+<p><a name="INDEX-3041" /></a>Every Tk
+program is automatically assigned a default application name, usually
+the filename of the program, although the <tt class="literal">appname</tt>
+method can set the name programmatically. To avoid ambiguities, Tk
+insists that application names be unique and appends a number if
+needed, as shown in <a href="ch20_01.htm#mastperltk-CHP-20-FIG-1">Figure 20-1</a>.
+</p>
+
+<a name="mastperltk-CHP-20-FIG-1" /></a><div class="figure"><img src="figs/mptk.2001.gif" alt="Figure 20-1" width="213" height="125" /></div><h4 class="objtitle">Figure 20-1.  A remote controller showing application names</h4>
+
+<p><a name="INDEX-3042" /></a><a name="INDEX-3043" /></a><a name="INDEX-3044" /></a>To find your own application name, use
+the <tt class="literal">name</tt> method, and to see a list of active Tk
+programs, use <tt class="literal">interps</tt>:
+</p>
+
+<blockquote><pre class="code">my $name     = $mw-&gt;name;
+
+my(@interps) = $mw-&gt;interps;</pre></blockquote>
+
+<p>For the test, select the <i class="command">rmt</i> application and type
+this statement in the window:
+</p>
+
+<blockquote><pre class="code"><tt class="userinput"><b>print STDOUT $MW, "\n";</b></tt></pre></blockquote>
+
+<p>Something like "MainWindow=HASH(0x822b090)" should print
+on your terminal, indicating that <tt class="literal">send</tt> is
+functioning normally. If the widget reference of the text widget you
+just typed into was <tt class="literal">$t</tt>, and you didn't like
+its background color, the following code changes it for you:
+</p>
+
+<blockquote><pre class="code"><tt class="userinput"><b>$t-&gt;configure(-background =&gt; 'azure');</b></tt></pre></blockquote>
+
+<p>Let's look under the hood and see how all this works.</p>
+
+</div>
+<a name="mastperltk-CHP-20-SECT-1.2" /></a><div class="sect2">
+<h3 class="sect2">20.1.2. Tk::Receive</h3>
+
+<p><a name="INDEX-3045" /></a><a name="INDEX-3046" /></a><a name="INDEX-3047" /></a><a name="INDEX-3048" /></a>As mentioned earlier, it's
+impossible to <tt class="literal">send</tt> to a Perl/Tk program unless its
+author has explicitly overridden the default receiver,
+<tt class="literal">Tk::Receive</tt>, and supplied her own. In this regard,
+Perl/Tk is a bit more secure than Tcl/Tk, since Tcl/Tk receives by
+default and requires programmers to disable that behavior manually.
+Perl/Tk goes even further and assumes that incoming data is tainted,
+so the program must run with taint checks on (<em class="emphasis">-T</em>
+command-line parameter). Tainted data is untrusted information coming
+from outside the program, so all received data, user input,
+command-line arguments in <tt class="literal">@ARGV</tt>, and most
+environment variables should be treated with suspicion. In fact, the
+HOME environment variable needs initialization just to create the
+MainWindow:
+</p>
+
+<blockquote><pre class="code">$ENV{HOME} = '/home/frog';</pre></blockquote>
+
+<p>This prevents the program from aborting with this taint error:</p>
+
+<blockquote><pre class="code">tainted at /usr/local/lib/perl5/site_perl/5.005/i686-linux/Tk/MainWindow.pm line 55.
+MainWindow-&gt;new( ) at ./rmt line 19</pre></blockquote>
+
+<p><a name="INDEX-3049" /></a>The
+Perl/Tk remote controller naturally (and potentially dangerously)
+<tt class="literal">eval</tt> s whatever it receives. Here's what it
+looks like:
+</p>
+
+<blockquote><pre class="code">sub Tk::Receive {
+
+    # For security you must roll you own 'receive' command, run
+    # with taint checks on and untaint the received data.
+
+    my($mw, $cmd) = @_;
+
+    $cmd =~ /(.*)/;
+    $cmd = $1;
+    eval $cmd; get_eval_status;
+
+} # end Tk::Receive</pre></blockquote>
+
+<p>The subroutine is called with two arguments: the application's
+MainWindow reference and a string containing whatever was sent,
+anywhere from a single line of text to an entire file. The string is
+then untainted and blindly <tt class="literal">eval</tt> ed.
+</p>
+
+<p>For completeness, this is how <tt class="literal">send</tt><i class="command">
+</i>is invoked:
+</p>
+
+<blockquote><pre class="code">$t-&gt;send($appname, $cmd);</pre></blockquote>
+
+<p><a name="INDEX-3050" /></a>The Perl/Tk remote controller is
+designed to talk to other Perl/Tk applications, although
+there's no reason it can't connect to a Tcl/Tk
+application, as long as we remember to send Tcl/Tk commands (and vice
+versa, depending on which end is sending). Then again, a Tcl/Tk
+application returns Tcl results to the Perl sender, so it becomes
+unclear exactly how <tt class="literal">send</tt> should behave between
+languages. Indeed, this is another reason Perl/Tk left the receiving
+side of the interoperability equation undefined.
+</p>
+
+<p>In this section, we used <tt class="literal">send</tt> in a pure Perl
+environment. The following sections investigate
+<tt class="literal">send</tt> in other applications. The first is pure Tcl,
+while the second is a hybrid Tcl-Perl mix.<a name="INDEX-3051" /></a>
+</p>
+
+</div>
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch19_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch20_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">19.6. Polling Win32 Sockets</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">20.2. Computing  with Parallel Message Passing</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

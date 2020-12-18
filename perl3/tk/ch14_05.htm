@@ -1,0 +1,949 @@
+<html><head><title>Derived Mega-Widgets (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch14_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">14.5. Derived Mega-Widgets</h2>
+
+<p><a name="INDEX-2267" /><a name="INDEX-2268" />A derived
+widget is one directly descended from another widget rather than
+being comprised of two or more widgets. A classic example of OO
+subclassing is Dialog, a widget derived from DialogBox. Looking at
+Dialog's <tt class="literal">@ISA</tt> array:
+</p>
+
+<blockquote><pre class="code">use base qw(Tk::DialogBox);</pre></blockquote>
+
+<p>you might wonder why Tk::Derived isn't included. The answer is
+Tk::DialogBox is itself a mega-widget and Tk::Derived is already part
+if its <tt class="literal">@ISA</tt> array (see <a href="ch14_02.htm#mastperltk-CHP-14-FIG-5">Figure 14-5</a>).
+</p>
+
+<a name="mastperltk-CHP-14-SECT-5.1" /><div class="sect2">
+<h3 class="sect2">14.5.1. Tk::NavListbox</h3>
+
+<p><a name="INDEX-2269" /><a name="INDEX-2270" />If you see limitations in the
+standard Listbox and want to make it more useful, perhaps the best
+thing to do is create your own derived widget. Let's start with
+a Listbox widget and add some features that allow a user to edit the
+items without need for additional controls.
+</p>
+
+<p>We'll add these enhancements to our version of Listbox:</p>
+
+<ul><li>
+<p>Display one widget only, not a combination of widgets. We want to
+keep the widget simple for future programmers.
+</p>
+</li><li>
+<p>Still be able to use scrollbars by using the built-in
+<tt class="literal">Scrollbars</tt> method, or let users attach scrollbars
+themselves.
+</p>
+</li><li>
+<p>Provide a popup menu to give the user a mechanism to manipulate
+Listbox entries.
+</p>
+</li><li>
+<p>Allow the programmer to define a validation routine for new/renamed
+entries; e.g., end user can enter only numbers.
+</p>
+</li></ul>
+<p><a href="ch14_05.htm#mastperltk-CHP-14-FIG-10">Figure 14-10</a> shows what the NavListbox widget looks
+like while the user is editing an entry.
+</p>
+
+<a name="mastperltk-CHP-14-FIG-10" /><div class="figure"><img src="figs/mptk.1410.gif" alt="Figure 14-10" width="203" height="173" /></div><h4 class="objtitle">Figure 14-10.  NavListbox, a derived mega-widget</h4>
+
+<p>The code to use the NavListbox might look like this:</p>
+
+<blockquote><pre class="code">$nlb = $mw-&gt;Scrolled("NavListbox", -width =&gt; 30, -height =&gt; 5, 
+  -font     =&gt; "Courier 12",
+  -validate =&gt;
+    sub 
+    {
+       my ($entry) = @_;
+       print "Validate this: $entry"; 
+       return 1 if ($entry =~ /^[0-9]*$/);
+       return 0; 
+    })-&gt;pack(-fill =&gt; 'both', -expand =&gt; 1);</pre></blockquote>
+
+<p><a name="INDEX-2271" />The <tt class="literal">-validate</tt> method
+does a simple check; it will allow only digits in the text. The rest
+of the code is just standard widget creation stuff.
+</p>
+
+<p>The NavListbox class hierarchy, shown in <a href="ch14_05.htm#mastperltk-CHP-14-FIG-11">Figure 14-11</a>, is pretty much what we expect, although there
+is an additional class, Tk::Clipboard, that manages clipboard
+operations.
+</p>
+
+<a name="mastperltk-CHP-14-FIG-11" /><div class="figure"><img src="figs/mptk.1411.gif" alt="Figure 14-11" width="256" height="182" /></div><h4 class="objtitle">Figure 14-11.  Class hierarchy for a NavListbox widget</h4>
+
+<p>Now that we have a good idea of what the enhanced Listbox should do,
+we need to decide how to code it. We're going to need to create
+a menu to display to the user. We'll have to make sure the menu
+displays only meaningful entries depending on what entry is
+right-clicked. The other bit of fancy coding we'll have to do
+is figure out how to edit an item in-place. We'll see how to
+accomplish this as we go through the code.
+</p>
+
+<p>As always, the <tt class="literal">package</tt> statement declares the
+mega-widget class name. Now, specify the module version, required
+widgets, and base class list, then build the constructor. Notice
+Tk::Derived in the first base class entry, marking this as a derived
+widget.
+</p>
+
+<blockquote><pre class="code">package Tk::NavListbox;
+
+use vars qw($VERSION);
+$VERSION = '1.0';
+
+use Tk qw(Ev);
+use Tk::widgets qw(Listbox Dialog);
+use base qw(Tk::Derived Tk::Listbox);
+use strict;
+
+Construct Tk::Widget 'NavListbox';</pre></blockquote>
+
+<p><a name="INDEX-2272" />We define our class bindings inside
+<tt class="literal">ClassInit</tt>. For NavListbox, we don't want to
+remove any of the default bindings for the widget, so we call
+<tt class="literal">ClassInit</tt> in some superclass as well. Our binding
+is for the right mouse button. When the user right-clicks in a
+NavListbox, we invoke the method, <tt class="literal">show_menu</tt>, which
+actually does the work of posting the Menu so the user can select an
+action. The arguments to <tt class="literal">show_menu</tt> are some
+coordinates, so we can calculate which item in the Listbox they want
+to perform an action on.
+</p>
+
+<p>The other bindings are key bindings. If the user holds the Alt button
+and the Up or Down arrow, we invoke <tt class="literal">move_item</tt> with
+the correct direction. This only works if the user has tabbed to the
+NavListbox so that it has keyboard focus.
+</p>
+
+<blockquote><pre class="code">sub ClassInit
+{
+    my ($class, $mw) = @_;
+    
+    $class-&gt;SUPER::ClassInit($mw);
+    $mw-&gt;bind($class, '&lt;Button-3&gt;' =&gt; [\&amp;show_menu, Ev('X'), Ev('Y'), Ev('y')]);
+    $mw-&gt;bind($class, '&lt;Alt-Up&gt;'   =&gt; [\&amp;move_item, -1]);
+    $mw-&gt;bind($class, '&lt;Alt-Down&gt;' =&gt; [\&amp;move_item,  1]);
+}</pre></blockquote>
+
+<p>In <tt class="literal">Populate</tt>, we first construct a Menu
+that's activated via button 3. We then call
+<tt class="literal">ConfigSpecs</tt> to set up the option to allow a
+validation callback, and supply a dummy subroutine that always
+validates true. Remember that <tt class="literal">Populate</tt> is actually
+called because we used Tk::Derived when setting up the inheritance
+chain for our widget.
+</p>
+
+<blockquote><pre class="code">sub Populate
+{
+    my ($self, $args) = @_;
+    
+    $self-&gt;SUPER::Populate($args);
+
+    my $menu = $self-&gt;Menu(-tearoff =&gt; 0);
+    $menu-&gt;command(-label  =&gt; "New Item" ,
+                  -command =&gt; [$self =&gt; 'new_item']);
+    $menu-&gt;command(-label  =&gt; "Delete",
+                  -command =&gt; [$self =&gt; 'delete_item']);
+    $menu-&gt;command(-label  =&gt; "Duplicate",
+                  -command =&gt; [$self =&gt; 'dup_item']);
+    $menu-&gt;command(-label  =&gt; "Rename",
+                  -command =&gt; [$self =&gt; 'rename_item']);
+    $menu-&gt;separator;
+    $menu-&gt;command(-label  =&gt; "^ Move up",
+                  -command =&gt; [$self =&gt; 'move_item', -1]);
+    $menu-&gt;command(-label  =&gt; "v Move down",
+                  -command =&gt; [$self =&gt; 'move_item',  1]);
+    $self-&gt;{'lbmenu'} = $menu;
+
+    $self-&gt;ConfigSpecs(
+        -validate =&gt; ["CALLBACK", "validate", "Validate", sub { return 1 }],
+    );
+}</pre></blockquote>
+
+<p>The first bit of fun is displaying the Menu to the user when she
+right-clicks somewhere in the NavListbox. This is handled by the
+<tt class="literal">show_menu</tt> routine. This routine is really quite
+boring; it's just housekeeping. We first want to select
+whatever entry the user right-clicked. The standard Listbox
+doesn't do anything when a user right-clicks, so we need to
+handle that ourselves.
+</p>
+
+<p>Using the third of the coordinates passed in (x coordinate with
+respect to MainWindow, y coordinate with respect to the MainWindow,
+and y relative to the NavListbox), we can determine which item in the
+Listbox was selected.
+</p>
+
+<p>Once we know which item the user clicked, we can determine which menu
+items to enable or disable. It doesn't make any sense for the
+user to be able to move the very first item in the Listbox up or the
+very last item in the Listbox down. If the user didn't actually
+right-click on an item (we'll find index -1), we want to
+disable all actions except "New Item."
+</p>
+
+<p>The last statement in <tt class="literal">show_menu</tt> posts the Menu to
+the screen wherever the user clicked. If the user selects an item in
+the Menu, the appropriate callback is invoked. If she doesn't
+select anything, the menu is un-posted when she releases the mouse
+button.
+</p>
+
+<blockquote><pre class="code">sub show_menu
+{
+    my ($lb, $x, $y, $lby) = @_;
+
+    # select the index we just clicked on.
+    my $index = $lb-&gt;nearest($lby);
+    $lb-&gt;selectionClear("0", "end");
+    $lb-&gt;selectionSet($index);
+
+    my $m = $lb-&gt;{'lbmenu'};
+    if ($index == -1) {
+        foreach (1..3,5,6) { $m-&gt;entryconfigure($_, -state =&gt; 'disabled'); }
+    } else {
+        foreach (1..3,5,6) { $m-&gt;entryconfigure($_, -state =&gt; 'normal'); }
+        if ($index == 0) { $m-&gt;entryconfigure(5, -state =&gt; 'disabled'); }
+        if ($index == $lb-&gt;size - 1) { 
+        $m-&gt;entryconfigure(6, -state =&gt; 'disabled'); }
+    }
+
+    # popup the menu; goes away when they select something
+    $m-&gt;post($x, $y);
+}</pre></blockquote>
+
+<p>To create a new item in the list, we find out what item is selected
+(remember we selected whatever the user clicked on in
+<tt class="literal">show_menu</tt>) and insert the item at that index. We
+select the new item, then invoke the <tt class="literal">rename_item</tt>
+method to allow the user to edit the new item.
+</p>
+
+<blockquote><pre class="code">sub new_item
+{
+    my ($lb) = @_;
+    my $index = $lb-&gt;curselection;
+
+    $index = "end" if ! defined $index;
+    $lb-&gt;insert($index, "&lt;new item&gt;");								
+    $lb-&gt;selectionClear("0", "end");
+    $lb-&gt;selectionSet($index);
+    $lb-&gt;rename_item;
+}</pre></blockquote>
+
+<p>To delete a list item, we find out what item is selected and simply
+delete it.
+</p>
+
+<blockquote><pre class="code">sub delete_item 
+{
+    my ($lb) = @_;
+    my $index = $lb-&gt;curselection;
+    $lb-&gt;delete($index);
+}</pre></blockquote>
+
+<p>Copying a list item is similar to creating a new one, except we
+borrow the text from the currently selected item first. We also
+invoke <tt class="literal">rename_item</tt> so the user can edit the newly
+copied list item.
+</p>
+
+<blockquote><pre class="code">sub dup_item 
+{
+    my ($lb) = @_;
+    my $index = $lb-&gt;curselection;
+    $lb-&gt;insert($index, $lb-&gt;get($index));									
+    $lb-&gt;selectionClear("0", "end");
+    $lb-&gt;selectionSet($index);
+    $lb-&gt;rename_item;
+}</pre></blockquote>
+
+<p>Inside <tt class="literal">rename_item</tt> is where the really neat stuff
+happens. Similar to all the other methods we have seen so far, we
+determine which item has been selected. Once we know that, we get
+some basic information about it so we can overlay it with an Entry
+widget that lets the user enter a new value while preserving the old
+value in the Listbox.
+</p>
+
+<p><a name="INDEX-2273" />The <tt class="literal">bbox</tt> method will
+tell us how much space within the Listbox that item takes. In order
+to make our entry widget the correct size, we also have to find out
+how much space the NavListbox has allocated for the borderwidth. The
+borderwidth amount is doubled to account for both sides.
+</p>
+
+<p>Creating the entry is standard, except we want our font size to match
+the size in our NavListbox. This will force the height of the entry
+to match the height of the item in the NavListbox, and also make it
+look like it belongs. The <tt class="literal">&lt;Return&gt;</tt> binding
+on the Entry is so that when the user finishes his editing by hitting
+the Return key, we check to see if he's entered valid
+information. We also bind to the Escape key, so he can abort editing
+at any time.
+</p>
+
+<p>The rest of the code in the <tt class="literal">rename_item</tt> method
+handles the work of putting the widget inside the NavListbox using
+the <tt class="literal">place</tt> geometry manager, then keeping the user
+from doing anything else until editing is complete.
+</p>
+
+<blockquote><pre class="code">sub rename_item 
+{
+    my ($lb) = @_;
+
+    my $index = $lb-&gt;curselection;
+    my ($x, $y, $w, $h) = $lb-&gt;bbox($index);
+    my $bd = $lb-&gt;cget(-borderwidth) * 2;
+
+    $y -= $bd;
+    my $e = $lb-&gt;Entry(-font =&gt; $lb-&gt;cget(-font));
+    $e-&gt;insert("end", $lb-&gt;get($index));
+    $e-&gt;selectionRange("0", "end");
+
+    $e-&gt;bind("&lt;Return&gt;",
+        [sub {
+            my ($e, $lb, $i) = @_;
+
+            if ( $lb-&gt;Callback(-validate =&gt; $e-&gt;get) ) {
+                $e-&gt;placeForget;
+                # Must insert first, then delete item
+                # so that scrolling doesn't get mussed up.
+                $lb-&gt;insert($i, $e-&gt;get);
+                $lb-&gt;delete($i + 1);
+                $lb-&gt;activate($i);
+                $e-&gt;destroy;
+            } else { $e-&gt;bell; }
+        }, $lb, $index]);
+
+    # Allows us to abort the editing we began ( can leave a new item empty )
+    $e-&gt;bind("&lt;Escape&gt;", sub { 
+        my ($e) = @_; $e-&gt;placeForget; $e-&gt;destroy; } );
+
+    $e-&gt;place(-x =&gt; 0, -y =&gt; $y, -width =&gt; $lb-&gt;width - $bd);
+    $e-&gt;focus;
+    $e-&gt;grab;    # Don't let anything else happen until they finish w/entry.
+    # Wait until the entry is destroyed before doing anything else
+    $e-&gt;waitWindow;
+}</pre></blockquote>
+
+<p>The <tt class="literal">move_item</tt> method simply moves an item up or
+down in one direction. We put in some sanity checks, because this
+method can be called from either the Menu or from the user hitting
+some keys.
+</p>
+
+<blockquote><pre class="code">sub move_item
+{
+    my ($lb, $direction) = @_;
+    my $index = $lb-&gt;curselection;
+    # Sanity checks
+    return if ($index == 0 &amp;&amp; $direction == -1);
+    return if ($index == $lb-&gt;size( )-1 &amp;&amp; $direction == 1);
+
+    my $newindex = $index + $direction;
+
+    my $item = $lb-&gt;get($index);
+    $lb-&gt;delete($index);
+    $lb-&gt;insert($newindex, $item);
+    $lb-&gt;selectionSet($newindex);
+}</pre></blockquote>
+
+<p>As always, the last thing in our module should be a 1, so that it
+loads correctly.<a name="INDEX-2274" />
+</p>
+
+<blockquote><pre class="code">1;</pre></blockquote>
+
+</div>
+<a name="mastperltk-CHP-14-SECT-5.2" /><div class="sect2">
+<h3 class="sect2">14.5.2. Tk::CanvasPlot</h3>
+
+<p><a name="INDEX-2275" /><a name="INDEX-2276" />Tk::CanvasPlot is a widget derived from a
+Canvas that plots simple 2D line plots and pie charts. Because a
+CanvasPlot widget is really a Canvas, you can do anything with
+CanvasPlot that you can with a normal Canvas widget. Now don't
+get all excited and assume this is a full-fledged plotting widget,
+because it's not. It's just an example of how you can
+graft new methods onto an existing widget and extend its
+functionality. The many design and user-interface considerations
+required for a robust plotting widget exceed the scope of this
+chapter.
+</p>
+
+<p><a name="INDEX-2277" /><a name="INDEX-2278" /><a name="INDEX-2279" />The following code shows that CanvasPlot
+accepts a few more options than a regular Canvas, such as
+-<tt class="literal">font</tt> for labels and <tt class="literal">-colors</tt>
+for pie wedges. The new <tt class="literal">createPiePlot</tt> method
+parallels the standard Canvas item-creation methods both in name and
+calling sequence. To create a pie chart, we specify the pie's
+bounding box (in other words, the upper-left and lower-right
+coordinates of a rectangular region that just encloses the oval of
+the pie; the same as <tt class="literal">createOval</tt>) and pass an array
+reference pointing to the pie data.
+</p>
+
+<blockquote><pre class="code">my $cp = $mw-&gt;CanvasPlot(
+    -background =&gt; 'white',
+    -width      =&gt; 300,
+    -height     =&gt; 200,
+    -font       =&gt; $^O eq 'irix' ? '6x13' : 'fixed',
+    -colors     =&gt; [qw/red green blue orange purple slategray cornflowerblue/],
+)-&gt;grid;
+
+my(@data) = qw/Mon 1 Tue 2 Wed 3 Thu 4 Fri 5 Sat 6 Sun 7/;
+$cp-&gt;createPiePlot(25, 50, 125, 150, -data =&gt; \@data);</pre></blockquote>
+
+<p><a href="ch14_05.htm#mastperltk-CHP-14-FIG-12">Figure 14-12</a> shows the resulting pie chart.</p>
+
+<a name="mastperltk-CHP-14-FIG-12" /><div class="figure"><img src="figs/mptk.1412.gif" alt="Figure 14-12" width="255" height="193" /></div><h4 class="objtitle">Figure 14-12.  The derived mega-widget CanvasPlot can make pie charts</h4>
+
+<p>Here's an early version of the module and the standard
+mega-widget preamble: the module's version number, the
+module's class name, other Tk widgets required by the new
+module, the module's <tt class="literal">@ISA</tt> declaration (with
+Tk::Derived first), and the <tt class="literal">strict</tt> programming
+style.
+</p>
+
+<blockquote><pre class="code">$Tk::CanvasPlot::VERSION = '1.0';
+
+package Tk::CanvasPlot;
+
+use Tk::widgets qw/Canvas/;
+use base qw/Tk::Derived Tk::Canvas/;
+use strict;
+
+Construct Tk::Widget 'CanvasPlot';</pre></blockquote>
+
+<p>This particular widget doesn't do any class initialization, so
+we dispense with the <tt class="literal">ClassInit</tt> subroutine
+entirely. And all <tt class="literal">Populate</tt> does is initialize a
+few instance variables with PASSIVE configuration specifications, so
+we can <tt class="literal">cget</tt><i class="command"> </i>them whenever
+required.
+</p>
+
+<blockquote><pre class="code">sub Populate {
+
+    my($self, $args) = @_;
+
+    $self-&gt;SUPER::Populate($args);
+
+    my @def_colors = qw/red green blue/;
+    $self-&gt;ConfigSpecs(
+        -colors  =&gt; ['PASSIVE', 'colors',  'Colors', \@def_colors],
+        -font    =&gt; ['PASSIVE', 'font',    'Font',        'fixed'],
+    );
+
+} # end Populate</pre></blockquote>
+
+<p><a name="INDEX-2280" />Actually creating the pie chart
+isn't too difficult, although we'll soon run into details
+that require some changes to this code. For now, just fetch the
+<tt class="literal">-data</tt> array reference, total the pie data to
+determine the number of degrees per unit, and create a series of arcs
+and labels of varying colors:
+</p>
+
+<blockquote><pre class="code">sub createPiePlot {
+
+    my($self, $x1, $y1, $x2, $y2, %args) = @_;
+
+    my $data = delete $args{-data};
+    croak "createPiePlot:  No -data option." unless defined $data;
+
+    my $total;
+    for(my $i = 0; $i &lt; $#{@$data}; $i += 2) {
+        $total += $data-&gt;[$i+1];
+    }
+
+    my $colors = $self-&gt;cget(-colors);
+    my $color;
+    my $dp_unit = 360.0 / $total;
+
+    my $degrees = 0;
+    for(my $i = 0; $i &lt; $#{@$data}; $i += 2) {
+        my $d = $data-&gt;[$i+1];
+        my $arc = $d * $dp_unit;
+        $color = $$colors[ $i / 2 % @$colors ];
+        $self-&gt;createArc(
+            $x1, $y1, $x2, $y2,
+            -start  =&gt; $degrees,
+            -extent =&gt; $arc,
+            -style  =&gt; 'pieslice',
+            -fill   =&gt; $color,
+        );
+        $degrees += $d * $dp_unit;
+        my $label = sprintf("%-15s %5d", $data-&gt;[$i], $data-&gt;[$i+1]);
+        $self-&gt;createText(
+            $x2 + 25, $y1 + ($i * 10),
+            -text   =&gt; $label,
+            -fill   =&gt; $color,
+            -font   =&gt; $self-&gt;cget(-font),
+            -anchor =&gt; 'w',
+        );
+    } # forend
+
+} # end createPiePlot</pre></blockquote>
+
+<p><a name="INDEX-2281" />Creating a
+line plot is even easier: it's just a call to
+<tt class="literal">createLine</tt>. You might say this is cheating, and
+you're probably correct. But the user doesn't have to
+know and besides, we might want to add various options that draw and
+label axes. Or we might just provide additional methods, such as
+<tt class="literal">createPlotAxis</tt>.
+</p>
+
+<blockquote><pre class="code">sub createLinePlot {
+
+    my($self, %args) = @_;
+
+    my $data = delete $args{-data};
+    croak "createLinePlot:  No -data option." unless defined $data;
+
+    $self-&gt;createLine(@$data, %args);
+
+} # end createLinePlot</pre></blockquote>
+
+<p><a href="ch14_05.htm#mastperltk-CHP-14-FIG-13">Figure 14-13</a> shows an interesting line plot of
+terminal server activity.
+</p>
+
+<a name="mastperltk-CHP-14-FIG-13" /><div class="figure"><img src="figs/mptk.1413.gif" alt="Figure 14-13" width="481" height="102" /></div><h4 class="objtitle">Figure 14-13.  createLinePlot highlighting a terminal server failure</h4>
+
+<p><a name="INDEX-2282" /><a name="INDEX-2283" />The <tt class="literal">-data</tt> option
+points to an array of x-y pairs, where y is the number of connected
+users and x is the second of the day (all 86,400 of them). If we
+scale all the x values by 0.01, they'll fit comfortably on most
+of today's monitors (the y values require no scaling).
+<tt class="literal">createLinePlot</tt> then draws the line in canvas
+coordinates. <tt class="literal">createPlotAxis</tt> draws the x axis, and
+left and right y-axes, and labels all three.
+</p>
+
+<blockquote><pre class="code">my $x_scale = 0.01;             # pixels per second
+my $hour = 60 * 60;             # seconds per hour
+my $day = 24 * $hour;           # seconds per day
+my $x_margin = 30;              # left margin in pixels
+my $x_max = 864 + $x_margin;
+my $ports = 138;
+my $y_max = $ports + 30;
+
+my $cp = $mw-&gt;CanvasPlot(
+    -height     =&gt; $y_max + 30,
+    -width      =&gt; $x_max,
+    -background =&gt; 'white',
+    -font       =&gt; $font,
+)-&gt;grid;
+$cp-&gt;createLinePlot(-data =&gt; \@data);
+
+$cp-&gt;createPlotAxis(
+    $x_margin, $y_max, $x_margin + ($x_scale*$day), $y_max,
+    -fill =&gt; 'red',
+    -tick  =&gt; ['blue', $font, 's', 0, 24, 1, $x_scale*$hour],
+    -label =&gt; ['blue', $font, '', 1 .. 23, ''],
+);
+my @labels = ('', 10, '', 30, '', 50, '', 70, '', 90, '', 110, '', 130);
+$cp-&gt;createPlotAxis(
+    $x_margin, $y_max-$ports, $x_margin, $y_max,
+    -fill =&gt; 'blue',
+    -tick  =&gt; ['blue', $font, 'w',  0, 139, 10, 10],
+    -label =&gt; ['blue', $font, @labels],
+);
+$cp-&gt;createPlotAxis(
+    $x_margin + ($x_scale*$day), $y_max-$ports,
+    $x_margin + ($x_scale*$day), $y_max,
+    -fill =&gt; 'blue',
+    -tick  =&gt; ['blue', $font, 'e', 0, 139, 10, 10],
+    -label =&gt; ['blue', $font, @labels],
+);</pre></blockquote>
+
+<p>There's an implementation detail we've neglected: how we
+should reference these plots and charts. That is, Tk assigns normal
+canvas items identifiers that we can use to manipulate them, but
+these plots are composed of multiple canvas items. What shall we
+do?<a href="#FOOTNOTE-36">[36]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-36" /><p> [36] In the interest of full disclosure, we should
+tell you that the real solution is to use a
+<em class="emphasis">canvas</em> <em class="emphasis">group</em>. Nick
+introduced the concept of canvas groups in Tk 800.018, which act as
+containers for any number of other canvas items. A group item has its
+own unique canvas ID and is manipulated just like any other atomic
+canvas item. It's precisely the solution we should use
+here.</p> </blockquote>
+
+<p><a name="INDEX-2284" />One
+idea is to return a list of all the Canvas items used in the plot, so
+<tt class="literal">createPiePlot</tt> might do something like this:
+</p>
+
+<blockquote><pre class="code">push @ids, $self-&gt;createArc( ... );
+push @ids, $self-&gt;createText( ... );
+...
+return @ids;</pre></blockquote>
+
+<p>And user code would do this:</p>
+
+<blockquote><pre class="code">@pie_ids = $cp-&gt;createPiePlot( ... );
+...
+$cp-&gt;delete(@pie_ids);</pre></blockquote>
+
+<p><a name="INDEX-2285" />So far so
+good, but most canvas methods accept only one item ID, not a list, so
+we've placed the extra burden of differentiating between normal
+canvas items and CanvasPlot mega-items on the user. Not nice.
+</p>
+
+<p>Let's try shifting the work into the class itself. A normal
+canvas returns positive integers for items it creates, so let's
+have CanvasPlot return negative integers for its plot mega-items.
+That means we need a class variable to count the mega-items and, for
+each mega-item, another variable to store its component items. Sounds
+like a scalar and an array or hash are what we need. We'll use
+a hash so we can delete the key when the mega-item is deleted.
+</p>
+
+<blockquote><pre class="code"># Class data to track mega-item items.
+
+my $id = 0;
+my %ids = ( );</pre></blockquote>
+
+<p><a name="INDEX-2286" />Now
+<tt class="literal">createPiePlot</tt> can do this:
+</p>
+
+<blockquote><pre class="code">push @ids, $self-&gt;createArc( ... );
+push @ids, $self-&gt;createText( ... );
+...
+--$id;
+$ids{$id} = [@ids];
+return $id;</pre></blockquote>
+
+<p>And user code can be written normally:</p>
+
+<blockquote><pre class="code">$pie_id = $cp-&gt;createPiePlot( ... );
+...
+$cp-&gt;delete($pie_id);</pre></blockquote>
+
+<p>Except this won't work because the Canvas
+<tt class="literal">delete</tt> method has no idea what to do with a
+negative item ID. But we can override the superclass method by
+writing our own. This <tt class="literal">delete</tt> method can delete
+normal canvas items and our mega-items.
+</p>
+
+<blockquote><pre class="code">sub delete {
+    my($self, @ids) = @_;
+    foreach my $id (@ids) {
+        if ($id &gt;= 0) {
+            $self-&gt;SUPER::delete($id);
+        } else {
+            $self-&gt;SUPER::delete(@{$ids{$id}});
+            delete $ids{$id};
+        }
+    }
+}</pre></blockquote>
+
+<p>Now all we have to do is override every Canvas method that accepts an
+item ID. This is a satisfactory solutionand is the preferred solution
+if this is to be a drop-in replacement for the Canvas widget.
+</p>
+
+<p>However, there's a middle ground that saves undue work for us,
+the mega-widget writers, and the user, if we're willing to
+stick to Canvas tags for identifying mega-items. User code can just
+do this:
+</p>
+
+<blockquote><pre class="code">$cp-&gt;createPiePlot(-tags =&gt; 'pie-tag', ... );</pre></blockquote>
+
+<p>The only modification to CanvasPlot is to pass
+<tt class="literal">%args</tt> on all item creation commands:
+</p>
+
+<blockquote><pre class="code">$self-&gt;createArc(
+    $x1, $y1, $x2, $y2,
+    %args,
+    -start  =&gt; $degrees,
+    -extent =&gt; $arc,
+    -style  =&gt; 'pieslice',
+    -fill   =&gt; $color,
+);</pre></blockquote>
+
+<p>This allows users to supply any Canvas options they desire.<a name="INDEX-2287" />
+</p>
+
+</div>
+<a name="mastperltk-CHP-14-SECT-5.3" /><div class="sect2">
+<h3 class="sect2">14.5.3. Tk::LCD</h3>
+
+<p><a name="INDEX-2288" /><a name="INDEX-2289" />The
+Liquid Crystal Display (LCD) widget is derived from the Canvas widget
+and displays positive or negative integers. Each digit of the number
+is shown in an LCD <em class="emphasis">element</em>, consisting of seven
+<em class="emphasis">segments</em> that can be turned on or off.
+We'll label these segments <tt class="literal">a</tt> through
+<tt class="literal">g</tt>, as shown in <a href="ch14_05.htm#mastperltk-CHP-14-FIG-14">Figure 14-14</a>.
+</p>
+
+<a name="mastperltk-CHP-14-FIG-14" /><div class="figure"><img src="figs/mptk.1414.gif" alt="Figure 14-14" width="55" height="78" /></div><h4 class="objtitle">Figure 14-14. LCD widget</h4>
+
+<p><a name="INDEX-2290" />The
+segment shapes are defined using Canvas polygon items.<a href="#FOOTNOTE-37">[37]</a> <a href="ch14_05.htm#mastperltk-CHP-14-FIG-15">Figure 14-15</a> shows an LCD
+widget with 11 elements. You can easily see the segments, as well as
+which segments are on and which are off for each digit.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-37" /><p> [37] Their coordinates came from Donal K. Fellows' game of
+Maze.</p> </blockquote>
+
+<a name="mastperltk-CHP-14-FIG-15" /><div class="figure"><img src="figs/mptk.1415.gif" alt="Figure 14-15" width="207" height="59" /></div><h4 class="objtitle">Figure 14-15. LCD widget with 11 elements</h4>
+
+<p>Here's how to use the widget:</p>
+
+<blockquote><pre class="code">use Tk::LCD;
+my $lcd = $mw-&gt;LCD(-elements =&gt; 11)-&gt;pack;</pre></blockquote>
+
+<p><a name="INDEX-2291" /><a name="INDEX-2292" /><a name="INDEX-2293" /><a name="INDEX-2294" />Simple, eh? Since the segments are
+polygons, they have fill and outline colors too, so we can colorize
+the widget. There are two ways to specify the number to display: the
+<tt class="literal">set</tt> method or the <tt class="literal">-variable</tt>
+option. The <tt class="literal">-variable</tt> option requires
+<tt class="literal">Tie::Watch</tt>, which isn't discussed until
+<a href="ch15_01.htm">Chapter 15, "Anatomy of the MainLoop"</a>, so we'll only touch on it briefly
+here. Let's look at the module in detail now.
+</p>
+
+<p>Here is the standard mega-widget header, marking Tk::LCD as a derived
+Canvas widget. We also declare some class global variables.
+</p>
+
+<blockquote><pre class="code">$Tk::LCD::VERSION = '1.0';
+
+package Tk::LCD;
+
+use base qw/Tk::Derived Tk::Canvas/;
+use vars qw/$ELW %SHAPE %LLCD %ULCD/;
+use subs qw/ldifference/;
+use strict;
+
+Construct Tk::Widget 'LCD';
+
+# LCD class data.
+
+$ELW = 22;                      # element pixel width</pre></blockquote>
+
+<p>Here are the relative Canvas coordinates for the shapes of each of
+the seven segments:
+</p>
+
+<blockquote><pre class="code">%SHAPE = (
+    'a' =&gt; [qw/ 3.0  5  5.2  3  7.0  5  6.0 15  3.8 17  2.0 15/],
+    'b' =&gt; [qw/ 6.3  2  8.5  0 18.5  0 20.3  2 18.1  4  8.1  4/],
+    'c' =&gt; [qw/19.0  5 21.2  3 23.0  5 22.0 15 19.8 17 18.0 15/],
+    'd' =&gt; [qw/17.4 21 19.6 19 21.4 21 20.4 31 18.2 33 16.4 31/],
+    'e' =&gt; [qw/ 3.1 34  5.3 32 15.3 32 17.1 34 14.9 36  4.9 36/],
+    'f' =&gt; [qw/ 1.4 21  3.6 19  5.4 21  4.4 31  2.2 33  0.4 31/],
+    'g' =&gt; [qw/ 4.7 18  6.9 16 16.9 16 18.7 18 16.5 20  6.5 20/],
+);</pre></blockquote>
+
+<p>To display an LCD symbol we must turn certain segments on and off.
+<tt class="literal">%LLCD</tt> defines a list of segments to turn on for
+any particular symbol.
+</p>
+
+<blockquote><pre class="code">%LLCD = (
+    '0' =&gt; [qw/a b c d e f/],
+    '1' =&gt; [qw/c d/],
+    '2' =&gt; [qw/b c e f g/],
+    '3' =&gt; [qw/b c d e g/],
+    '4' =&gt; [qw/a c d g/],
+    '5' =&gt; [qw/a b d e g/],
+    '6' =&gt; [qw/a b d e f g/],
+    '7' =&gt; [qw/b c d/],
+    '8' =&gt; [qw/a b c d e f g/],
+    '9' =&gt; [qw/a b c d e g/],
+    '-' =&gt; [qw/g/],
+    ' ' =&gt; [''],
+);</pre></blockquote>
+
+<p>Similarly, <tt class="literal">%ULCD</tt> defines a list of LCD element
+segments to turn off for any particular symbol. Rather than manually
+generating the list of unlit segments, <tt class="literal">%ULCD</tt> is
+dynamically computed as the set difference of <tt class="literal">qw/a b c d e f
+g/</tt> and the lit segments.
+</p>
+
+<blockquote><pre class="code">$ULCD{$_} = [ ldifference [keys %SHAPE], \@{$LLCD{$_}} ] foreach (keys %LLCD);</pre></blockquote>
+
+<p><a name="INDEX-2295" />Subroutine
+<tt class="literal">Populate</tt> only defines additional configuration
+specifications for the new mega-widget. <tt class="literal">Construct</tt>
+has done all the hard work of making LCD like a Canvas, remember?
+</p>
+
+<blockquote><pre class="code">sub Populate {
+
+    my($self, $args) = @_;
+    $self-&gt;SUPER::Populate($args);
+
+    $self-&gt;ConfigSpecs(
+        -elements   =&gt; [qw/METHOD  elements   Elements   5/    ],
+        -height     =&gt; [$self, qw/ height     Height     36/   ],
+        -onoutline  =&gt; [qw/PASSIVE onoutline  Onoutline  cyan/ ],
+        -onfill     =&gt; [qw/PASSIVE onfill     Onfill     black/],
+        -offoutline =&gt; [qw/PASSIVE offoutline Offoutline white/],
+        -offfill    =&gt; [qw/PASSIVE offfill    Offfill    gray/ ],
+        -variable   =&gt; [qw/METHOD  variable   Variable/, undef ],
+    );
+
+} # end Populate</pre></blockquote>
+
+<p>The only public method is <tt class="literal">set</tt>, which is
+responsible for creating all the lit and unlit segments and moving
+them to the proper spots on the Canvas. Each segment is tagged with
+the string <tt class="literal">lcd</tt> so it can be deleted on the next
+call.
+</p>
+
+<blockquote><pre class="code"># Public methods.
+
+sub set {                       # show an LCD number
+
+    my ($self, $number) = @_;
+
+    my $offset  = 0;
+    my $onoutl  = $self-&gt;cget(-onoutline);
+    my $onfill  = $self-&gt;cget(-onfill);
+    my $offoutl = $self-&gt;cget(-offoutline);
+    my $offfill = $self-&gt;cget(-offfill);
+
+    $self-&gt;delete('lcd');
+
+    foreach my $c (split '', sprintf '%' . $self-&gt;{elements} . 'd', $number) {
+        foreach my $symbol (@{$LLCD{$c}}) {
+
+            $self-&gt;move(
+                        $self-&gt;createPolygon(
+                            $SHAPE{$symbol},
+                            -tags    =&gt; 'lcd',
+                            -outline =&gt; $onoutl,
+                            -fill    =&gt; $onfill,
+                        ),
+            $offset, 0);
+
+        }
+        foreach my $symbol (@{$ULCD{$c}}) {
+
+            $self-&gt;move(
+                        $self-&gt;createPolygon(
+                            $SHAPE{$symbol},
+                            -tags    =&gt; 'lcd',
+                            -outline =&gt; $offoutl,
+                            -fill    =&gt; $offfill,
+                        ),
+            $offset, 0);
+
+        }
+        $offset += $ELW;
+    } # forend all characters
+
+} # end set</pre></blockquote>
+
+<p><a name="INDEX-2296" />Now for
+Tk::LCD private methods. Subroutine <tt class="literal">elements</tt> is
+invoked when the user configures the LCD <tt class="literal">-elements</tt>
+option. The Canvas is resized to fit the new LCD dimensions exactly.
+</p>
+
+<blockquote><pre class="code">sub elements {
+
+    my ($self, $elements) = @_;
+    $self-&gt;{elements} = $elements;
+    $self-&gt;configure(-width =&gt; $elements * $ELW);
+
+} # end elements</pre></blockquote>
+
+<p>Subroutine <tt class="literal">ldifference</tt> (list difference) computes
+the difference of two lists. It's basically right from the
+Camel (<em class="citetitle">Programming Perl</em>, O'Reilly) or
+The Perl FAQ.
+</p>
+
+<blockquote><pre class="code">sub ldifference {               # @d = ldifference \@l1, \@l2;
+
+    my($l1, $l2) = @_;
+    my %d;
+    @d{@$l2} = (1) x @$l2;
+    return grep(! $d{$_}, @$l1);
+
+} # end ldifference</pre></blockquote>
+
+<p><a name="INDEX-2297" />Subroutine
+<tt class="literal">variable</tt> handles the <tt class="literal">-variable</tt>
+option. Like other widgets with this option, it expects a reference
+to a scalar. When the scalar changes, the LCD display changes too. It
+uses <tt class="literal">Tie::Watch</tt> (described fully in <a href="ch15_01.htm">Chapter 15, "Anatomy of the MainLoop"</a>) to watch the variable and magically invoke
+the <tt class="literal">set</tt> method. Notice the
+<tt class="literal">OnDestroy</tt> handler that removes the watchpoint when
+the LCD widget is destroyed.
+</p>
+
+<a name="INDEX-2298" /><a name="INDEX-2299" /><blockquote><pre class="code">sub variable {
+
+    use Tie::Watch;
+
+    my ($lcd, $vref) = @_;
+
+    my $st = [sub {
+
+        my ($watch, $new_val) = @_;
+        my $argv= $watch-&gt;Args('-store');
+        $argv-&gt;[0]-&gt;set($new_val);
+        $watch-&gt;Store($new_val);
+
+    }, $lcd];
+
+    $lcd-&gt;{watch} = Tie::Watch-&gt;new(-variable =&gt; $vref, -store =&gt; $st);
+
+    $lcd-&gt;OnDestroy( [sub {$_[0]-&gt;{watch}-&gt;Unwatch}, $lcd] );
+
+} # end variable
+
+1;</pre></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch14_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">14.4. Composite Mega-Widgets</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">14.6. Packaging a Mega-Widget for Public Distribution</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

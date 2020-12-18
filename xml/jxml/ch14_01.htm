@@ -1,0 +1,578 @@
+<html><head><title>Content Syndication (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch13_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch14_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+
+<h1 class="chapter">Chapter 14. Content Syndication</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#javaxml2-CHP-14-SECT-1">The Foobar Public Library</a><br />
+<a href="ch14_02.htm">mytechbooks.com</a><br />
+<a href="ch14_03.htm">Push Versus Pull</a><br />
+<a href="ch14_04.htm">What's Next?</a><br /></p></div>
+
+<p><a name="INDEX-1347" /></a>In the last two chapters, I tried to
+give you a "web services" view of the world. In other
+words, you saw how to write applications that communicated with each
+other through the various web services technologies like WSDL, UDDI,
+and SOAP. However, as you also saw, some things in this worldview are
+still a bit shaky, like WSDL generation and support (providing
+you're using open standards like Apache SOAP). Today, you may
+want to consider other options for business-to-business
+communication. In this chapter, I present an alternative solution for
+communicating across businesses to round out your skillset.
+</p>
+
+<p>In this chapter, I look at using different <a name="INDEX-1348" /></a>XML specifications
+to provide this sort of communication across application and company
+lines, using some companies invented for the purpose. To begin with,
+I'll examine the Foobar Public Library, a library that allows
+its suppliers to enter online new books being shipped to the library.
+These books are then added to the library's data store for
+later use. Unfortunately, the library is having a hard time finding
+good Java developers, so it has implemented a Perl-based CGI
+solution. New books are entered online and then stored by a Perl
+script. Already, you can see that alternatives to
+<a name="INDEX-1349" /></a>web services would be handy, as finding a
+good Perl SOAP implementation is not easy (at least not yet!).
+</p>
+
+<p>I'll also look at another company,
+<em class="emphasis">mytechbooks.com</em>.
+<em class="emphasis">mytechbooks.com</em> sells technical and computing
+books (such as this one) online through various partnerships with
+large bookstores. It has recently signed an agreement with the Foobar
+Public Library to obtain books from the library.
+<em class="emphasis">mytechbooks.com</em> will pay for the shipping and
+inventory costs of the books, while the library agrees to order extra
+books at its discounted costs; these extra books are then sold by
+<em class="emphasis">mytechbooks.com</em>.
+<em class="emphasis">mytechbooks.com</em> needs to be able to access the
+new books entered into the Foobar Public Library by suppliers to know
+when new offerings are available, and then advertise those new
+offerings. However, <em class="emphasis">mytechbooks.com</em> has no idea
+how to interface with the Foobar Public Library's Perl-based
+system. Additionally, there are no protected network connections
+between the two organizations, so normal HTTP must be used for
+communication. And just to get us out of the web services world,
+<em class="emphasis">mytechbooks.com</em> wants to wait until web services
+is more fleshed out, and has WSDL support integrated in more firmly,
+so wants a more stable solution (or at least one that has been in use
+a little longer).
+</p>
+
+<p>Finally, I'll look at customers of
+<em class="emphasis">mytechbooks.com</em>. The bookstore targets people
+who are active online, so wants to advertise on sites like Netscape
+Netcenter; it also wants to allow people to easily obtain information
+from its site when new offerings are available. However, as in the
+situation with the Foobar Public Library, the people at
+mytechbooks.com have no idea how to achieve this goal. Seeing as
+they've read O'Reilly books and articles on <a href="http://www.oreillynet.com">http://www.oreillynet.com</a>, they've
+heard RSS's spec lead, Rael Dornfest, talk about how cool RSS
+is, and want to try it. Of course, Rael is right, so that's
+what I talk about in this chapter.
+</p>
+
+<p>We tackle this common scenario by starting with the Foobar Public
+Library and examining its Perl system. Moving out to mytechbooks.com
+and then the customers of the bookstore, I show you how to enable
+this business-to-business (to-customer) application by using XML as a
+communication tool between each layer.
+</p>
+
+<div class="sect1"><a name="javaxml2-CHP-14-SECT-1" /></a>
+<h2 class="sect1">14.1. The Foobar Public Library</h2>
+
+<p>To start the creation of a business-to-business system, I describe
+the system currently in place at the <a name="INDEX-1350" /></a>Foobar Public Library. Before
+diving into the code, though, it's necessary to examine the
+library's requirements so that you do not create a system it
+cannot support.
+</p>
+
+<a name="javaxml2-CHP-14-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">14.1.1. Evaluating the Requirements</h3>
+
+<p>All too often, good solutions to a problem are not appropriate
+solutions for the company with the problem. The Foobar Library is a
+perfect example of this: certainly a Java servlet that could
+communicate with servlets built by mytechbooks.com could quickly
+solve the two organizations' problems. However, this ignores
+the library's requirements. Before creating a solution, the
+library detailed its requirements:
+</p>
+
+<ul><li>
+<p>The solution must be Perl-based; no Java engineers are on staff.</p>
+</li><li>
+<p>The solution must not involve new software or library installations.</p>
+</li><li>
+<p>The solution must not impact the existing order-entry system (no
+interface changes).
+</p>
+</li></ul>
+<p>While these are not extremely stringent requirements, they force a
+solution other than Java servlets. You must avoid using Java as a
+solution. Of course, as this is a book on XML, you should be thinking
+that storing the data about new books in an XML format could allow
+the library to then supply that XML to clients through an HTTP
+request, thus enabling those clients to use the data in any way they
+wish. In fact, this is a much better solution than servlet-to-servlet
+communication, as the XML can be used by any company or client in its
+applications, rather than tying the library (and its books) to a
+specific company. This then defines the goal for updating the Foobar
+Public Library's system: save the entered information as XML
+data, and then provide HTTP access to that XML data for clients and
+customers.
+</p>
+
+</div>
+<a name="javaxml2-CHP-14-SECT-1.2" /></a><div class="sect2">
+<h3 class="sect2">14.1.2. Entering the Books</h3>
+
+<p><a name="INDEX-1351" /></a> <a name="INDEX-1352" /></a> <a name="INDEX-1353" /></a>We need to examine the existing
+HTML interface for suppliers entering new books into the system.
+<a href="ch14_01.htm#javaxml2-CHP-14-EX-1">Example 14-1</a> shows the static HTML used to generate
+this form.
+</p>
+
+<a name="javaxml2-CHP-14-EX-1" /></a><div class="example">
+<h4 class="objtitle">Example 14-1. Static HTML for Foobar Public Library interface </h4>
+<blockquote><pre class="code">&lt;html&gt;
+
+&lt;head&gt;
+  &lt;title&gt;Foobar Public Library: Add Books&lt;/title&gt;
+  &lt;style&gt;
+&lt;!--
+body         { font-family: Arial }
+h1           { color: #000080 }
+--&gt;
+  &lt;/style&gt;
+&lt;/head&gt;
+
+&lt;body link="#FFFF00" vlink="#FFFF00" alink="#FFFF00"&gt;
+ &lt;table border="0" width="100%" cellpadding="0" cellspacing="0"&gt;
+  &lt;tr&gt;
+   &lt;td width="15%" bgcolor="#000080" valign="top" align="center"&gt;
+    &lt;b&gt;&lt;i&gt;
+     &lt;font color="#FFFFFF" size="4"&gt;Options&lt;/font&gt;
+    &lt;/i&gt;&lt;/b&gt;
+   &lt;p&gt;&lt;b&gt;
+     &lt;font color="#FFFFFF"&gt;
+      &lt;a href="/javaxml/foobar"&gt;Main Menu&lt;/a&gt;
+     &lt;/font&gt;
+   &lt;/p&gt;&lt;/b&gt;
+   &lt;p&gt;&lt;b&gt;
+    &lt;font color="#FFFFFF"&gt;
+     &lt;a href="/javaxml/foobar/catalog.html"&gt;Catalog&lt;/a&gt;
+    &lt;/font&gt;
+   &lt;/b&gt;&lt;/p&gt;
+   &lt;p&gt;&lt;b&gt;
+    &lt;i&gt;&lt;font color="#FFFF00"&gt;Add Books&lt;/font&gt;&lt;/i&gt;
+   &lt;/b&gt;&lt;/p&gt;
+   &lt;p&gt;&lt;b&gt;
+    &lt;font color="#FFFFFF"&gt;
+     &lt;a href="/javaxml/foobar/logout.html"&gt;Log Out&lt;/a&gt;
+    &lt;/font&gt;
+   &lt;/p&gt;&lt;/td&gt;
+   &lt;td width="*" valign="top" align="center"&gt;
+    &lt;h1 align="center"&gt;The Foobar Public Library&lt;/h1&gt;
+    &lt;h3 align="center"&gt;&lt;i&gt;- Add Books -&lt;/i&gt;&lt;/h3&gt;
+
+<tt class="userinput"><b>&lt;!-- This will need to point at your CGI directory and script, which
+     we look at next --&gt;
+    &lt;form method="POST" action="/cgi/addBook.pl"&gt;</b></tt>
+
+     &lt;table border="0" cellpadding="5" width="100%"&gt;
+      &lt;tr&gt;
+       &lt;td width="100%" valign="top" align="center" colspan="2"&gt;
+        Title&amp;nbsp;
+        &lt;input type="text" name="title" size="20"&gt;
+        &lt;hr width="85%" /&gt;
+       &lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+       &lt;td width="50%" valign="top" align="right"&gt;Author&amp;nbsp;
+        &lt;input type="text" name="author" size="20"&gt;
+       &lt;/td&gt;
+       &lt;td width="50%" valign="top" align="left"&gt;Subject&amp;nbsp;
+        &lt;select size="1" name="subject"&gt;
+         &lt;option&gt;Fiction&lt;/option&gt;
+         &lt;option&gt;Biography&lt;/option&gt;
+         &lt;option&gt;Science&lt;/option&gt;
+         &lt;option&gt;Industry&lt;/option&gt;
+         &lt;option&gt;Computers&lt;/option&gt;
+        &lt;/select&gt;&lt;/td&gt;
+       &lt;/tr&gt;
+       &lt;tr&gt;
+        &lt;td width="50%" valign="top" align="right"&gt;Publisher&amp;nbsp;
+         &lt;input type="text" name="publisher" size="20"&gt;
+        &lt;/td&gt;
+        &lt;td width="50%" valign="top" align="left"&gt;ISBN&amp;nbsp;
+         &lt;input type="text" name="isbn" size="20"&gt;
+        &lt;/td&gt;
+       &lt;/tr&gt;
+       &lt;tr&gt;
+        &lt;td width="50%" valign="top" align="right"&gt;Price&amp;nbsp;
+         &lt;input type="text" name="price" size="20"&gt;
+        &lt;/td&gt;
+        &lt;td width="50%" valign="top" align="left"&gt;Pages&amp;nbsp;
+         &lt;input type="text" name="numPages" size="20"&gt;
+        &lt;/td&gt;
+       &lt;/tr&gt;
+       &lt;tr&gt;
+        &lt;td width="100%" valign="top" align="center" colspan="2"&gt;
+         Description&amp;nbsp;
+         &lt;textarea rows="2" name="description" cols="20"&gt;&lt;/textarea&gt;
+        &lt;/td&gt;
+       &lt;/tr&gt;
+      &lt;/table&gt;
+      &lt;p&gt;
+       &lt;input type="submit" value="Add this Book" name="addBook"&gt; 
+       &lt;input type="reset" value="Reset Form" name="reset"&gt;
+       &lt;input type="button" value="Cancel" name="cancel"&gt;
+      &lt;/p&gt;
+    &lt;/form&gt;
+   &lt;/td&gt;
+  &lt;/tr&gt;
+ &lt;/table&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre></blockquote>
+</div>
+
+<p>This file, saved as <em class="emphasis">addBooks.html</em><a name="INDEX-1354" /></a>,
+provides the portion of the library application allowing suppliers to
+add new books they are sending to the library.
+</p>
+
+<a name="ch14-5-fm2xml" /></a><blockquote><b>NOTE:</b> 
+
+In <a href="ch14_01.htm#javaxml2-CHP-14-EX-1">Example 14-1</a> and throughout the rest of the chapter, complete code and HTML listings are given so that you can create the example applications and walk through the process of enabling XML communication across the applications. Additionally, the code examples in this chapter assume you are using the filenames supplied in the text; you will need to change the code and examples if you use your own filenames. Code that may need to be changed to reference different filenames or scripts is emphasized in the listings to help you walk through the examples.
+<p></p>
+</blockquote>
+<p>The HTML in <a href="ch14_01.htm#javaxml2-CHP-14-EX-1">Example 14-1</a>, when accessed through a web
+server, results in the output shown in <a href="ch14_01.htm#javaxml2-CHP-14-FIG-1">Figure 14-1</a>.
+Although we do not look at the other menu options, the supplier can
+also view the library's catalog, go to the application's
+main menu, and log out of the application by using the menu on the
+left of the screen.
+</p>
+
+<a name="javaxml2-CHP-14-FIG-1" /></a><div class="figure"><img height="330" alt="Figure 14-1" src="figs/javax_1401.gif" width="481" /></div><h4 class="objtitle">Figure 14-1. HTML user interface for Foobar Public Library</h4>
+
+<p>This form allows the supplier to enter the details about each book it
+is sending to the library. The supplier enters the book's
+essentials (title, author, publisher, pages, and a description), as
+well as a subject to categorize the book, and sales details, which
+include the price and ISBN number.<a name="INDEX-1355" /></a> <a name="INDEX-1356" /></a> <a name="INDEX-1357" /></a> 
+</p>
+
+<p>Once this information has been entered, it is submitted to a Perl CGI
+script:
+</p>
+
+<blockquote><pre class="code">&lt;form method="POST" action="/cgi/addBook.pl"&gt;</pre></blockquote>
+
+<p>This script, then, must produce XML output. The easiest solution
+would be to download a Perl library that handled XML parsing, such as
+Xerces-Perl; however, remember that one requirement of the library
+was that no libraries or software could be added. While this may seem
+silly and frustrating, keep in mind that many companies have very
+strict lock-downs on their production systems. In this case, the
+Foobar Public Library is just beginning to introduce applications on
+the Internet, and it does not have resources to support additional
+software.
+</p>
+
+<p>Luckily, the code only has to output XML; this is done fairly easily
+by generating a file with information on the entered books by brute
+force. Things would be much trickier if parsing incoming XML were
+required. Because the library needs to keep any existing books, each
+new entry is appended to an existing file, instead of creating a new
+file upon a new request. Writing the Perl is almost trivial, and the
+complete <a name="INDEX-1358" /></a> <a name="INDEX-1359" /></a>Perl program to read
+the request parameters and append the information to an existing file
+is shown in <a href="ch14_01.htm#javaxml2-CHP-14-EX-2">Example 14-2</a>.
+</p> 
+<a name="javaxml2-CHP-14-EX-2" /></a><div class="example">
+<h4 class="objtitle">Example 14-2. Perl CGI script to generate XML entries from entered books </h4>
+<blockquote><pre class="code">#!/usr/local/bin/perl
+
+<tt class="userinput"><b># This should be the directory you wish to write files to
+$baseDir = "/home/bmclaugh/javaxml/foobar/books/";
+
+# This should be the filename to use
+$filename = "books.txt";</b></tt>
+
+$bookFile = $baseDir . $filename;
+
+# Get the user's input
+use CGI;
+$query = new CGI;
+
+$title = $query-&gt;param('title');
+$author = $query-&gt;param('author');
+$subject = $query-&gt;param('subject');
+$publisher = $query-&gt;param('publisher');
+$isbn = $query-&gt;param('isbn');
+$price = $query-&gt;param('price');
+$numPages = $query-&gt;param('numPages');
+$description = $query-&gt;param('description');
+
+# Save the book to a file in XML
+if (open(FILE, "&gt;&gt;" . $bookFile)) {
+  print FILE "&lt;book subject=\"" . $subject . "\"&gt;\n";
+  print FILE " &lt;title&gt;&lt;![CDATA[" . $title . "]]&gt;&lt;/title&gt;\n";
+  print FILE " &lt;author&gt;&lt;![CDATA[" . $author . "]]&gt;&lt;/author&gt;\n";
+  print FILE " &lt;publisher&gt;&lt;![CDATA[" . $publisher . "]]&gt;&lt;/publisher&gt;\n";
+  print FILE " &lt;numPages&gt;" . $numPages . "&lt;/numPages&gt;\n";
+  print FILE " &lt;saleDetails&gt;\n";
+  print FILE "  &lt;isbn&gt;" . $isbn . "&lt;/isbn&gt;\n";
+  print FILE "  &lt;price&gt;" . $price . "&lt;/price&gt;\n";
+  print FILE " &lt;/saleDetails&gt;\n";
+  print FILE " &lt;description&gt;";
+  print FILE "&lt;![CDATA[" . $description . "]]&gt;";
+  print FILE "&lt;/description&gt;\n";
+  print FILE "&lt;/book&gt;\n\n";
+
+  # Give the user a confirmation
+  print &lt;&lt;"EOF";
+Content-type: text/html
+
+  &lt;html&gt;
+   &lt;head&gt;
+    &lt;title&gt;Foobar Public Library: Confirmation&lt;/title&gt;
+   &lt;/head&gt;
+   &lt;body&gt;
+    &lt;h1 align="center"&gt;Book Added&lt;/h1&gt;
+    &lt;p align="center"&gt;
+     Thank you.  The book you submitted has been added to the Library.
+    &lt;/p&gt;
+   &lt;/body&gt;
+  &lt;/html&gt;
+EOF
+
+} else {
+  print &lt;&lt;"EOF";
+Content-type: text/html
+
+  &lt;html&gt;
+   &lt;head&gt;
+    &lt;title&gt;Foobar Public Library: Error&lt;/title&gt;
+   &lt;/head&gt;
+   &lt;body&gt;
+    &lt;h1 align="center"&gt;Error in Adding Book&lt;/h1&gt;
+    &lt;p align="center"&gt;
+     We're sorry.  The book you submitted has &lt;i&gt;not&lt;/i&gt; been added to 
+     the Library.
+    &lt;/p&gt;
+   &lt;/body&gt;
+  &lt;/html&gt;
+EOF
+}
+close (FILE);</pre></blockquote>
+</div>
+
+<p>This program, saved as <em class="emphasis">addBook.pl</em><a name="INDEX-1360" /></a>,
+is invoked by a form submitted when the supplier enters a new book.
+The script defines the file to write to, and then assigns the request
+parameter values to local variables:
+</p>
+
+<blockquote><pre class="code">$title = $query-&gt;param('title');
+$author = $query-&gt;param('author');
+$subject = $query-&gt;param('subject');
+$publisher = $query-&gt;param('publisher');
+$isbn = $query-&gt;param('isbn');
+$price = $query-&gt;param('price');
+$numPages = $query-&gt;param('numPages');
+$description = $query-&gt;param('description');</pre></blockquote>
+
+<p>Once these values are easily accessible, the script opens the file
+defined earlier in append mode (signified by
+<tt class="literal">&gt;&gt;</tt> preceding the filename) and writes raw
+XML-formatted information about the entered book to the end of the
+file:
+</p>
+
+<blockquote><pre class="code">  print FILE "&lt;book subject=\"" . $subject . "\"&gt;\n";
+  print FILE " &lt;title&gt;&lt;![CDATA[" . $title . "]]&gt;&lt;/title&gt;\n";
+  print FILE " &lt;author&gt;&lt;![CDATA[" . $author . "]]&gt;&lt;/author&gt;\n";
+  print FILE " &lt;publisher&gt;&lt;![CDATA[" . $publisher . "]]&gt;&lt;/publisher&gt;\n";
+  print FILE " &lt;numPages&gt;" . $numPages . "&lt;/numPages&gt;\n";
+  print FILE " &lt;saleDetails&gt;\n";
+  print FILE "  &lt;isbn&gt;" . $isbn . "&lt;/isbn&gt;\n";
+  print FILE "  &lt;price&gt;" . $price . "&lt;/price&gt;\n";
+  print FILE " &lt;/saleDetails&gt;\n";
+  print FILE " &lt;description&gt;";
+  print FILE "&lt;![CDATA[" . $description . "]]&gt;";
+  print FILE "&lt;/description&gt;\n";
+  print FILE "&lt;/book&gt;\n\n";</pre></blockquote>
+
+<p>The <tt class="literal">subject</tt> is used as an attribute on the
+enclosing element, <tt class="literal">book</tt>, and the rest of the
+information is entered in as elements. Because a book's title,
+author, description, and publisher may include quotation marks,
+apostrophes, ampersands, and other characters that would have to be
+escaped, the code encloses that data within a
+<tt class="literal">CDATA</tt> section so as not to have to worry about
+escaping the data.
+</p>
+
+<p><a name="INDEX-1361" /></a>Additionally, you should notice that no
+XML declaration or root element is created, as multiple books will
+exist in a single file. Because it is a bit difficult to check if the
+file exists, write the declaration and root element if the file is
+new, and then write out the ending element (which has to be
+overwritten at each new entry), the file is left as an XML document
+fragment. For example, here is what the file might look like after
+two books have been entered:
+</p>
+
+<blockquote><pre class="code">&lt;book subject="Computers"&gt;
+ &lt;title&gt;&lt;![CDATA[Java Servlet Programming]]&gt;&lt;/title&gt;
+ &lt;author&gt;&lt;![CDATA[Jason Hunter]]&gt;&lt;/author&gt;
+ &lt;publisher&gt;&lt;![CDATA[O'Reilly &amp; Associates]]&gt;&lt;/publisher&gt;
+ &lt;numPages&gt;753&lt;/numPages&gt;
+ &lt;saleDetails&gt;
+  &lt;isbn&gt;0596000405&lt;/isbn&gt;
+  &lt;price&gt;44.95&lt;/price&gt;
+ &lt;/saleDetails&gt;
+ &lt;description&gt;&lt;![CDATA[This book is a superb introduction to Java 
+  servlets and their various communications mechanisms.]]&gt;&lt;/description&gt;
+&lt;/book&gt;
+
+&lt;book subject="Fiction"&gt;
+ &lt;title&gt;&lt;![CDATA[Second Foundation]]&gt;&lt;/title&gt;
+ &lt;author&gt;&lt;![CDATA[Isaac Asimov]]&gt;&lt;/author&gt;
+ &lt;publisher&gt;&lt;![CDATA[Bantam Books]]&gt;&lt;/publisher&gt;
+ &lt;numPages&gt;279&lt;/numPages&gt;
+ &lt;saleDetails&gt;
+  &lt;isbn&gt;0553293362&lt;/isbn&gt;
+  &lt;price&gt;5.59&lt;/price&gt;
+ &lt;/saleDetails&gt;
+ &lt;description&gt;&lt;![CDATA[fter the First Foundation was taken over by the 
+  Mule, only the Second Foundation stood between order and the utter 
+  destruction the Mule would bring.]]&gt;&lt;/description&gt;
+&lt;/book&gt;</pre></blockquote>
+
+<p>Although not a complete XML document, this fragment is well-formed
+and could be inserted into an XML document with the header and root
+element already set. In fact, when I look at providing a listing of
+books in the next section, that is precisely how I'll handle
+output of the fragment.
+</p>
+
+<p>The rest of the script outputs HTML indicating whether the book was
+successfully added or if errors occurred. Once a book has been added
+to the XML storage, the supplier receives the simple confirmation
+message shown in <a href="ch14_01.htm#javaxml2-CHP-14-FIG-2">Figure 14-2</a>.
+</p>
+
+<a name="javaxml2-CHP-14-FIG-2" /></a><div class="figure"><img height="175" alt="Figure 14-2" src="figs/javax_1402.gif" width="481" /></div><h4 class="objtitle">Figure 14-2. Confirmation message when a book is added</h4>
+
+<p>Now that there is an XML document fragment with information about new
+books, you'll need to take that file and provide it to
+requestors.
+</p>
+
+</div>
+<a name="javaxml2-CHP-14-SECT-1.3" /></a><div class="sect2">
+<h3 class="sect2">14.1.3. Providing a Listing of Available Books</h3>
+
+<p>We again can use Perl as a mechanism to provide clients and customers
+with an XML listing of new books. I'm making the assumption
+that some other portion of the library's application
+periodically reads the XML data and updates the library's
+catalog; at this point, that application component is responsible for
+removing the entries within the file (or the file itself) so that the
+books within it are no longer regarded as new entries. With this
+assumption, all a second Perl script has to do is read the XML
+fragment and add the data within it to an XML document that is output
+to the screen. As I already mentioned, the script also needs to add
+an XML declaration and a root element to surround the content within
+the new books file. This new script, shown in <a href="ch14_01.htm#javaxml2-CHP-14-EX-3">Example 14-3</a>, reads the file created by the <em class="emphasis">addBook.pl</em><a name="INDEX-1362" /></a>
+script and outputs the content within an XML document when it is
+requested over HTTP.
+</p>
+
+<a name="javaxml2-CHP-14-EX-3" /></a><div class="example">
+<h4 class="objtitle">Example 14-3. Perl CGI script to output XML document with new book listings </h4>
+<blockquote><pre class="code">#!/usr/local/bin/perl
+
+# This should be the directory you wish to write files to
+$baseDir = "/home/bmclaugh/javaxml/foobar/books/";
+
+# This should be the filename to use
+$filename = "books.txt";
+
+$bookFile = $baseDir . $filename;
+
+# First open the file
+open(FILE, $bookFile) || die "Could not open $bookFile.\n";
+
+# Let browser know what is coming
+print "Content-type: text/plain\n\n";
+
+# Print out XML header and root element
+print "&lt;?xml version=\"1.0\"?&gt;\n";
+print "&lt;books&gt;\n";
+
+# Print out books
+while (&lt;FILE&gt;) {
+  print "$_";
+}
+
+# Close root element
+print "&lt;/books&gt;\n";
+
+close(FILE);</pre></blockquote>
+</div>
+
+<p>This script, saved as <em class="emphasis">supplyBooks.pl</em><a name="INDEX-1363" /></a>,
+accepts a request, reads the file created by <em class="emphasis">addBook.pl</em>, and outputs XML upon an HTTP
+request. The result of requesting this script in a web browser (with
+several books added) is shown in <a href="ch14_01.htm#javaxml2-CHP-14-FIG-3">Figure 14-3</a>.
+</p>
+
+<a name="javaxml2-CHP-14-FIG-3" /></a><div class="figure"><img height="442" alt="Figure 14-3" src="figs/javax_1403.gif" width="481" /></div><h4 class="objtitle">Figure 14-3. XML output from supplyBooks.pl</h4>
+
+<p>As you can see, this easily turned the library's simple
+Perl-based application into a component capable of supplying useful
+information to its clients, including the mytechbooks.com technical
+bookstore. Additionally, we were able to accomplish this without
+installing new software, changing the architecture of the
+library's system or application, or even writing a line of
+Java!
+</p>
+
+</div>
+</div>
+
+
+
+
+
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch13_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch14_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">13.5. What's Next?</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">14.2. mytechbooks.com</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+      </map>
+
+</body></html>

@@ -1,0 +1,252 @@
+<?label 4. Programming with the DBI ?><html><head><title>Programming with the DBI  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch03_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch04_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 4. Programming with the DBI </h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch04_01.htm">DBI Architecture </a><br />
+<a href="ch04_02.htm">Handles </a><br />
+<a href="ch04_03.htm">Data Source Names </a><br />
+<a href="ch04_04.htm">Connection and Disconnection </a><br />
+<a href="ch04_05.htm">Error Handling </a><br />
+<a href="ch04_06.htm">Utility Methods and Functions </a><br /></p></div>
+
+
+
+
+
+<p>In this chapter, we'll discuss in detail the actual programming
+interface defined by the DBI module. We'll start with the very
+architecture of DBI, continue with explaining how to use the
+<em class="emphasis">handles</em> that DBI provides to interact with
+databases, then cover simple tasks such as connecting and
+disconnecting from databases. Finally, we'll discuss the
+important topic of error handling and describe some of the
+DBI's utility methods and functions. Future chapters will
+discuss how to manipulate data within your databases, as well as
+other advanced functionality.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch04-ch04_dbi_0" />
+<h2 class="sect1">4.1. DBI Architecture </h2>
+
+
+
+<p>The <a name="INDEX-338" />DBI
+<a name="INDEX-339" /> <a name="INDEX-340" />architecture
+is split into two main groups of software: the DBI itself, and the
+<em class="emphasis">drivers</em>. The DBI defines the actual DBI
+programming interface, routes method calls to the appropriate
+drivers, and provides various support services to them. Specific
+drivers are implemented for each different type of database and
+actually perform the operations on the databases. <a href="ch04_01.htm#ch04-27668">Figure 4-1</a> illustrates this architecture.</p>
+
+
+
+<a name="ch04-27668" /><div class="figure"><img width="502" src="figs/dbi.0401.gif" height="171" alt="Figure 4-1" /></div><h4 class="objtitle">Figure 4-1. The DBI architecture</h4>
+
+<p>Therefore, if you are authoring software using the DBI programming
+interface, the method you use is defined within the DBI module. From
+there, the
+<a name="INDEX-341" />DBI
+module works out which driver should handle the execution of the
+method and passes the method to the appropriate driver for actual
+execution. This is more obvious when you recognize that the DBI
+module does not perform any database work itself, nor does it even
+know about any types of databases whatsoever. <a href="ch04_01.htm#ch04-15353">Figure 4-2</a>
+<a name="INDEX-342" />shows the flow of data from a Perl
+script through to the database.</p>
+
+
+
+<a name="ch04-15353" /><div class="figure"><img width="502" src="figs/dbi.0402.gif" height="227" alt="Figure 4-2" /></div><h4 class="objtitle">Figure 4-2. Data flow through DBI</h4>
+
+<p>Under this architecture, it is relatively straightforward to
+<a name="INDEX-343" />implement a driver for any type of
+database. All that is required is to implement the methods defined in
+the DBI specification,<a href="#FOOTNOTE-34">[34]</a> as supported by
+the DBI module, in a way that is meaningful for that database. The
+data returned from this module is passed back into the DBI module,
+and from there it is returned to the Perl program. All the
+information that passes between the DBI and its drivers is standard
+Perl datatypes, thereby preserving the isolation of the DBI module
+from any knowledge of databases.</p><blockquote>
+
+
+<a name="FOOTNOTE-34" /><p>[34]Few methods actually need to
+be implemented since the DBI provides suitable defaults for most of
+them. The <tt class="literal">DBI::DBD</tt> module contains documentation
+for any intrepid driver writers.</p>
+
+
+</blockquote>
+
+
+
+<p>The separation of the drivers from the DBI itself makes the DBI a
+powerful programming interface that can be extended to
+<a name="INDEX-344" />support almost any database
+available today. Drivers currently exist for many popular databases
+including Oracle, Informix, mSQL, MySQL, Ingres, Sybase, DB2,
+Empress, SearchServer, and PostgreSQL. There are even drivers for
+XBase and CSV files.</p>
+
+
+
+<p>These drivers can be used interchangeably with little modification to
+your programs. Couple this database-level portability with the
+portability of Perl scripts across multiple operating systems, and
+you truly have a rapid application development tool worthy of notice.</p>
+
+
+
+<p>Drivers are also called database drivers, or
+<a name="INDEX-345" />DBDs, after the namespace in which they are
+declared. For example, Oracle uses <tt class="literal">DBD::Oracle</tt>,
+Informix uses <tt class="literal">DBD::Informix</tt>, and so on. A useful
+tip in remembering the DBI architecture is that DBI can stand for
+DataBase Independent and DBD can stand for DataBase Dependent.</p>
+
+
+
+<p>Because DBI uses Perl's object-orientation features, it is
+extremely simple to initialize DBI for use within your programs. This
+can be achieved by adding the line:</p>
+
+
+
+<blockquote><pre class="code">use DBI;</pre></blockquote>
+
+
+
+<p>to the top of your programs. This line locates and loads the core DBI
+module. Individual database driver modules are loaded as required,
+and should generally not be <a name="INDEX-346" /> <a name="INDEX-347" />explicitly <a name="INDEX-348" />loaded.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch03_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch04_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">3.5. Creating and Destroying Tables </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">4.2. Handles </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

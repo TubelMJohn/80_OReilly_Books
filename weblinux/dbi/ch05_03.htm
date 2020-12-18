@@ -1,0 +1,563 @@
+<?label 5.3. Binding Parameters to Statements ?><html><head><title>Binding Parameters to Statements  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch05_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">5.3. Binding Parameters to Statements </h2>
+
+
+
+<p>One <a name="INDEX-602" />topic we have mentioned in our discussion
+of the preparation of statement handles is <em class="emphasis">bind
+values</em>. You may also have come across the phrases
+<em class="emphasis">placeholders</em>
+<a name="INDEX-603" />,
+<em class="emphasis">parameters</em>
+<a name="INDEX-604" />, and
+<em class="emphasis">binding</em>
+<a name="INDEX-605" />. What are these things?</p>
+
+
+
+<p>A <a name="INDEX-606" />bind value is a value that can be bound
+to a placeholder declared within an SQL statement. This is similar to
+creating an on-the-fly SQL statement such as:</p>
+
+
+
+<blockquote><pre class="code">$sth = $dbh-&gt;prepare( "
+            SELECT name, location
+            FROM megaliths
+            WHERE name = " . $dbh-&gt;quote( $siteName ) . "
+        " );</pre></blockquote>
+
+
+
+<p>but instead of interpolating the generated value into the SQL
+statement, you specify a placeholder and then bind the generated
+value to that. For example:</p>
+
+
+
+<blockquote><pre class="code">$sth = $dbh-&gt;prepare( "
+            SELECT name, location
+            FROM megaliths
+            WHERE name = ?
+        " );
+$sth-&gt;bind_param( 1, $siteName );</pre></blockquote>
+
+
+
+<p>The <tt class="literal">bind_ param(
+)</tt>
+<a name="INDEX-607" />
+<a name="INDEX-608" />
+method is the call that actually associates the supplied value with
+the given placeholder. The underlying database will correctly parse
+the placeholder and reserve a space for it, which is "filled
+in" when <tt class="literal">bind_ param( )</tt> is called. It is
+important to remember that <tt class="literal">bind_ param( )</tt> must be
+called <em class="emphasis">before</em> <tt class="literal">execute( )</tt>;
+otherwise, the missing value will not have been filled in and the
+statement execution will fail.</p>
+
+
+
+<p>It's equally simple to specify <a name="INDEX-609" />multiple bind values within one
+statement, since <tt class="literal">bind_ param( )</tt> takes the index,
+starting from 1, of the parameter to bind the given value to. For
+example:</p>
+
+
+
+<blockquote><pre class="code">$sth = $dbh-&gt;prepare( "
+            SELECT name, location
+            FROM megaliths
+            WHERE name = ?
+            AND mapref = ?
+            AND type LIKE ?
+        " );
+$sth-&gt;bind_param( 1, "Avebury" );
+$sth-&gt;bind_param( 2, $mapreference );
+$sth-&gt;bind_param( 3, "%Stone Circle%" );</pre></blockquote>
+
+
+
+<p>You may have noticed that we haven't called the <tt class="literal">quote(
+)</tt> method on the values. Bind values are passed to the
+database separately from the SQL statement,<a href="#FOOTNOTE-50">[50]</a> so there's no need to "wrap up" the
+value in SQL quoting rules.</p><blockquote>
+
+
+<a name="FOOTNOTE-50" /><p>[50]This is
+not strictly true, since some drivers emulate placeholders by doing a
+textual replacement of the placeholders with bind values before
+passing the SQL to the database. Such drivers use Perl's
+internal information to guess whether each value needs quoting or
+not. Refer to the driver documentation for more information.</p>
+
+
+</blockquote>
+
+
+
+<p>Some database drivers can accept placeholders in the form of
+<tt class="literal">:1</tt>, <tt class="literal">:2</tt>, and so on, or even
+<tt class="literal">:name</tt> or <tt class="literal">:somevalue</tt>, but this
+is not guaranteed to be portable between databases. The only
+guaranteed portable placeholder form is a single question mark,
+<tt class="literal">?</tt>. Of course, if the underlying database in
+question doesn't support binding, the driver may fail to parse
+the statement completely.</p>
+
+
+
+<a name="ch05-ch05.new_bind_0" /><div class="sect2">
+<h3 class="sect2">5.3.1. Bind Values Versus Interpolated Statements </h3>
+
+
+
+<p>
+<a name="INDEX-610" />So, <a name="INDEX-611" /> <a name="INDEX-612" />why
+use bind values? What's the real differences between these and
+interpolated on-the-fly SQL statements?</p>
+
+
+
+<p>On the face of it, there's no obvious difference. Interpolated
+statement creation uses
+<a name="INDEX-613" />
+<a name="INDEX-614" />Perl's string-handling functionality
+to create a complete SQL statement to send to the database. The bind
+values are sent to the database after the SQL statement, but just
+before it's executed. In both cases, the same result is
+achieved.</p>
+
+
+
+<p>The actual difference lies in the way that databases handle bind
+values, assuming that they do. For example, most large database
+systems feature a data structure known as the
+"<a name="INDEX-615" />Shared SQL Cache," into which SQL
+statements are stored along with additional related information such
+as a <em class="emphasis">query execution
+plan</em>
+<a name="INDEX-616" />.</p>
+
+
+
+<p>The general idea here is that if the statement already exists within
+the Shared SQL Cache, the database doesn't need to reprocess
+that statement before returning a handle to the statement. It can
+simply reuse the information stored in the cache. This process can
+increase performance quite dramatically in cases where the same SQL
+is executed over and over again.<a href="#FOOTNOTE-51">[51]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-51" /><p>[51]I've known a
+case where the database spent over a minute just trying to work out a
+"good enough" query execution plan for a complex SQL
+query. In cases like this, reuse of the processed statement handle
+makes for a very large improvement in performance.</p>
+
+
+</blockquote>
+
+
+
+<p>For example, say we wished to fetch the general information for 100
+megalithic sites, using the name as the search field. We can write
+the following SQL to do so:</p>
+
+
+
+<blockquote><pre class="code">SELECT name, location, mapref
+FROM megaliths
+WHERE name = &lt;search_term&gt;</pre></blockquote>
+
+
+
+<p>By using interpolated SQL, we would actually issue 100 different SQL
+statements to the database. Even though they are almost identical,
+they are different enough for the database to re-parse the statement
+and not use the cached information. By using a bind value, the same
+piece of SQL and the same "execution plan" will be reused
+over and over again, even though a different bind value is supplied
+for each query.</p>
+
+
+
+<p>Therefore, for databases that support it, using bind values with
+prepared statement handles can quite dramatically increase the
+performance of your applications and the efficiency of your database.
+This is especially significant when trying to insert many records.</p>
+
+
+
+<p>That said, there are good reasons to use interpolated SQL statements
+instead of bind values. One of these reasons could be simply that
+your database doesn't support bind values! A more complex
+reason is that your database may have restrictive rules about what
+parts of an SQL statement may use placeholders.</p>
+
+
+
+<p>In the examples listed above, we've illustrated the use of bind
+values to supply conditions for the query. For the sake of badness,
+say we wanted to iterate through a list of database tables and return
+the row count from each one. The following piece of code illustrates
+the idea using an interpolated SQL statement:</p>
+
+
+
+<blockquote><pre class="code">foreach $tableName ( qw( megaliths, media, site_types ) ) {
+    $sth = $dbh-&gt;prepare( "
+                SELECT count(*)
+                FROM $tableName
+              " );
+    $sth-&gt;execute(  );
+    my $count = $sth-&gt;fetchrow_array(  );
+    print "Table $tableName has $count rows\n";
+}</pre></blockquote>
+
+
+
+<p>By using an interpolated statement, this code would actually execute
+correctly and produce the desired results, albeit at the cost of
+parsing and executing four different SQL statements within the
+database. We could rewrite the code to use bind values, which would
+be more efficient (theoretically):</p>
+
+
+
+<blockquote><pre class="code">$sth = $dbh-&gt;prepare( "
+                SELECT count(*)
+                FROM ?
+              " );
+    $sth-&gt;bind_param( 1, $tableName );
+    ...</pre></blockquote>
+
+
+
+<p>On most databases, this statement would actually fail to parse at the
+<tt class="literal">prepare( )</tt> call, because placeholders can
+generally be used only for literal values. This is because the
+database needs enough information to create the query execution plan,
+and it can't do that with incomplete information (e.g., if it
+doesn't know the name of the table).</p>
+
+
+
+<p>Additionally, the following code will fail, since you are binding
+more than just literal values:</p>
+
+
+
+<blockquote><pre class="code">$sth = $dbh-&gt;prepare( "
+                SELECT count(*)
+                FROM megaliths
+                ?
+    " );
+    $sth-&gt;bind_param( 1, "WHERE name = 'Avebury'" );
+    ...</pre></blockquote>
+
+
+
+<p>Of course, your driver might just support this sort of thing, but
+don't rely on it working on other <a name="INDEX-617" /> <a name="INDEX-618" />database <a name="INDEX-619" />systems!</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch05-ch05.new_bind_1" /><div class="sect2">
+<h3 class="sect2">5.3.2. Bind Values and Data Typing </h3>
+
+
+
+<p>
+<a name="INDEX-620" />Perl
+<a name="INDEX-621" />is a loosely typed language, in that you
+have strings and you have numbers. Numbers can be strings and strings
+can, on occasion, be numbers. You can perform arithmetic on strings.
+It can all be very confusing for us, so you can imagine how the
+driver feels when confronted with bind values.</p>
+
+
+
+<p>To help the driver work out what sort of data is being supplied in a
+bind value, you can supply an additional argument that specifies the
+datatype. For example, the following code will bind the appropriately
+typed bind values to the statement for execution in the database:</p>
+
+
+
+<blockquote><pre class="code">use DBI qw(:sql_types);
+
+$sth = $dbh-&gt;prepare( "
+            SELECT meg.name, meg.location, st.site_type, meg.mapref
+            FROM megaliths meg, site_types st
+            WHERE name = ?
+            AND id = ?
+            AND mapref = ?
+            AND meg.site_type_id = st.id
+          " );
+### No need for a datatype for this value. It's a string.
+$sth-&gt;bind_param( 1, "Avebury" );
+
+### This one is obviously a number, so no type again
+$sth-&gt;bind_param( 2, 21 );
+
+### However, this one is a string but looks like a number
+$sth-&gt;bind_param( 3, 123500, { TYPE =&gt; SQL_VARCHAR } );
+
+### Alternative shorthand form of the previous statement
+$sth-&gt;bind_param( 3, 123500, SQL_VARCHAR );
+
+### All placeholders now have values bound, so we can execute
+$sth-&gt;execute(  );</pre></blockquote>
+
+
+
+<p>The <tt class="literal">use</tt> <tt class="literal">DBI</tt>
+<tt class="literal">qw(:sql_types);</tt> statement asks for the standard
+SQL types to be imported as names, actually subroutines, that return
+the corresponding standard SQL integer type value.
+<tt class="literal">SQL_VARCHAR</tt>, for example, returns
+<tt class="literal">12</tt>. If you don't want to import the
+<a name="INDEX-622" />SQL type names,
+you can add a <tt class="literal">DBI::</tt> prefix, so that
+<tt class="literal">SQL_VARCHAR</tt> would be
+<tt class="literal">DBI::SQL_VARCHAR</tt>. However, that's not
+recommended because you lose the significant benefits of compile-time
+checking by <tt class="literal">use</tt> <tt class="literal">strict;</tt>.</p>
+
+
+
+<p>If a type is specified, the driver should take that as a strong hint
+about what to do. But it is just a hint. Some drivers don't pay
+any attention to the specified type. Of those that do, most only use
+it to differentiate between strings, numbers, and LONG/LOB types.
+This is a relatively new area for the DBI and drivers, and one
+that's advancing slowly.</p>
+
+
+
+<p>In general, databases tend to support a far wider range of datatypes
+than numbers and strings. Date types are very common and have widely
+varying formats. The DBI currently copes with these quite happily, by
+ducking the issue and expecting you to supply strings containing the
+data, formatted in the form expected by the database for the
+appropriate datatype.<a href="#FOOTNOTE-52">[52]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-52" /><p>[52]Future versions may acquire
+ODBC-style <tt class="literal">escape</tt> functions.</p>
+
+
+</blockquote>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch05-ch05.new_binding_1" /><div class="sect2">
+<h3 class="sect2">5.3.3. Binding Input and Output Parameters </h3>
+
+
+
+<p>There <a name="INDEX-623" />is a counterpart method to the
+<tt class="literal">bind_ param( )</tt> method called <tt class="literal">bind_
+param_inout(
+)</tt>
+<a name="INDEX-624" />
+<a name="INDEX-625" />,
+which can be used to sneakily return values from the statement.
+Typically, this is only useful with stored procedures that take input
+parameters and return values. Furthermore, few databases, and even
+fewer drivers, support this functionality, so beware.</p>
+
+
+
+<p><tt class="literal">bind_ param_inout( )</tt> behaves in a similar way to
+<tt class="literal">bind_ param( )</tt>, but uses a
+<em class="emphasis">reference</em>
+<a name="INDEX-626" /> <a name="INDEX-627" /> to a
+bind value instead of the value itself. This allows the bind value to
+be updated with the return value from the statement.</p>
+
+
+
+<p>An additional argument stating the maximum length of the value to be
+returned must also be specified. If the returned value exceeds this
+value, the <tt class="literal">execute( )</tt> call will fail. Therefore,
+if you aren't sure how large the return value might be, you
+should be pessimistic and supply a large value for this parameter.
+The only cost of doing so is using more memory than you need to.</p>
+
+
+
+<p>A final, optional, argument that can be supplied is that of the
+datatype of the bind value. This behavior is identical to datatype
+specification in <tt class="literal">bind_ param(
+)</tt>
+<a name="INDEX-628" />
+<a name="INDEX-629" />.
+See the previous section for more details on how to supply values for
+this argument.</p>
+
+
+
+<p>An Oracle-specific example showing how <tt class="literal">bind_ param_inout(
+)</tt> works revolves around the following stored procedure,
+which returns the nearest integer values to a given input value:</p>
+
+
+
+<blockquote><pre class="code">-- Example stored procedure written in Oracle PL/SQL
+PROCEDURE ceiling_floor (value IN NUMBER, c OUT NUMBER, f OUT NUMBER) IS
+BEGIN
+    c := CEIL(value);
+    f := FLOOR(value);
+END;</pre></blockquote>
+
+
+
+<p>The DBI code to get these return values out of this procedure can be
+written as follows:</p>
+
+
+
+<blockquote><pre class="code">### The variables to be populated as return values...
+my $ceiling;
+my $floor;
+
+$sth = $dbh-&gt;prepare( "BEGIN ceiling_floor( ?, ?, ? ); END;" );
+$sth-&gt;bind_param( 1, 42.3 );
+$sth-&gt;bind_param_inout( 2, \$ceiling, 50 );
+$sth-&gt;bind_param_inout( 3, \$floor, 50 );
+$sth-&gt;execute(  );
+
+print "Stored procedure returned $ceiling, $floor\n";</pre></blockquote>
+
+
+
+<p>You can use both <tt class="literal">bind_ param( )</tt> and <tt class="literal">bind_
+param_inout( )</tt> on the same statement handle quite happily.
+Of course, if you use <tt class="literal">bind_ param( )</tt> when a return
+value is expected, that return value will be lost.</p>
+
+
+
+<p>There is one quite subtle difference between <tt class="literal">bind_ param(
+)</tt> and <tt class="literal">bind_ param_inout( )</tt> that's
+worth pointing out. When you call <tt class="literal">bind_ param( )</tt>,
+the bind value you supply is copied and can't be changed
+without calling <tt class="literal">bind_ param( )</tt> again. However,
+when you call <tt class="literal">bind_ param_inout( )</tt>, it is the
+<em class="emphasis">reference</em> that's copied. The actual value
+that the reference points to is not read until <tt class="literal">execute(
+)</tt> is called.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch05-2-fm2xml" /><div class="sect2">
+<h3 class="sect2">5.3.4. Binding Values Without bind_  param(   ) </h3>
+
+
+
+<p>Calling <tt class="literal">bind_ param( )</tt> for each placeholder can be
+rather long-winded and tedious when you have many placeholders, so
+the DBI provides a simpler way to do it via the <tt class="literal">execute(
+)</tt>
+<a name="INDEX-630" />
+<a name="INDEX-631" />
+method. When <a name="INDEX-632" />you call
+<tt class="literal">execute( )</tt>, you can simply give it a list of
+values, and <tt class="literal">execute( )</tt> will call <tt class="literal">bind_
+param( )</tt> on each one for you.</p>
+
+
+
+<p>Furthermore, the <tt class="literal">do( )</tt> method described above, and
+the <tt class="literal">selectrow_array( )</tt> and
+<tt class="literal">selectall_arrayref( )</tt> methods, which we'll
+discuss shortly, all call <tt class="literal">execute( )</tt> one way or
+another, and also accept a list of bind values.</p>
+
+
+
+<p>The following code illustrates passing a bind value to the
+<tt class="literal">execute( )</tt> method:</p>
+
+
+
+<blockquote><pre class="code">$sth = $dbh-&gt;prepare( "
+            SELECT name, location, mapref
+            FROM megaliths
+            WHERE name = ? OR description LIKE ?
+          " );
+$sth-&gt;execute( "Avebury", "%largest stone circle%" );
+...</pre></blockquote>
+
+
+
+<p>When specifying bind values in this manner, explicit data typing of
+the supplied values is not possible. In some cases, the underlying
+driver will correctly guess the type, but in most cases all values
+are passed to the database as <tt class="literal">SQL_VARCHAR</tt> values.
+However, if you have previously called <tt class="literal">bind_ param(
+)</tt> or <tt class="literal">bind_ param_inout( )</tt> for some or
+all placeholders with an explicitly specified datatype, that datatype
+will be used instead. For example:</p>
+
+
+
+<blockquote><pre class="code">$sth-&gt;prepare( "
+            SELECT name, location, mapref
+            FROM megaliths
+            WHERE id = ?
+          " );
+$sth-&gt;bind_param( 1, 42, SQL_INTEGER );
+$sth-&gt;execute( 123456 );
+...</pre></blockquote>
+
+
+
+<p>will result in the value of <tt class="literal">123456</tt> being supplied
+to the database as the bind value with the type of
+<tt class="literal">SQL_INTEGER</tt> instead <a name="INDEX-633" />of <a name="INDEX-634" /><tt class="literal">SQL_VARCHAR</tt>.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch05_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">5.2. Executing Non-SELECT Statements </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">5.4. Binding Output Columns </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

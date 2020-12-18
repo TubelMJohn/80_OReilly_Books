@@ -1,0 +1,798 @@
+<html><head><title>Basic ContentHandler Events (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch02_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+	<h2 class="sect1">2.3. Basic ContentHandler Events</h2>
+
+	<p>
+<a name="INDEX-168" />
+
+
+        You've just seen how the parts of a SAX2 application fit
+	together, so now you're ready to see how the data is actually
+	handled as it arrives.
+	Here we focus on the events <?troff .ne 10?>that deal with the core XML data
+	model of elements, attributes, and text.
+	To work with that model, you need to use only a handful of methods
+	from the <em class="emphasis">ContentHandler</em> interface.
+	</p>
+
+	<a name="sax2-CHP-2-SECT-3.1" /><div class="sect2">
+	    <h3 class="sect2">2.3.1. The DefaultHandler Class</h3>
+
+	    <p>
+<a name="INDEX-169" />
+
+            As mentioned earlier, this class is a convenient way to
+	    start using SAX2 because it provides stubs for many of the
+	    handler methods.
+	    You can just override those stubs with methods to do real work.
+	    Using <em class="emphasis">DefaultHandler</em> as a base class is 
+	    just an implementation option.
+	    It's often just as convenient not to use such a base class.
+	    The class is used in this chapter to avoid 
+	    explaining handler methods that you don't really need.
+	    </p>
+
+	    <p>In some scenarios, Sun's JAXP requires you to use 
+	    <em class="emphasis">DefaultHandler</em> as
+	    a base class.
+	    That's much more of a restriction than SAX itself makes.
+	    If you stick to using the SAX <em class="emphasis">XMLReader</em>
+	    API, as recommended in this book, you'll still have the option
+	    of using <em class="emphasis">DefaultHandler</em> as a base class, 
+	    but this policy won't be imposed on your application code.
+	    For example, you can have separate objects to
+	    encapsulate policies such as error handling, so you won't need
+	    to hardwire all such policies into a single class.
+	    </p>
+
+	</div>
+
+	<a name="sax2-CHP-2-SECT-3.2" /><div class="sect2">
+	    <h3 class="sect2">2.3.2. Example: Elements and Text</h3>
+
+	    <p>
+<a name="INDEX-170" />
+<a name="INDEX-171" />
+
+
+            Let's use this simple XML document to
+	    learn the most essential SAX callbacks: </p>
+
+	    <blockquote><pre class="code">
+&lt;stanza&gt;
+    &lt;line&gt;In a cavern, in a canyon,&lt;/line&gt;
+    &lt;line&gt;Excavating for a mine,&lt;/line&gt;
+    &lt;line&gt;Dwelt a miner, forty-niner,&lt;/line&gt;
+    &lt;line&gt;And his daughter Clementine.&lt;/line&gt;
+&lt;/stanza&gt;
+</pre></blockquote>
+	    
+	    <p>
+<a name="INDEX-172" />
+<a name="INDEX-173" />
+
+
+            This is a simple document, only elements and text, with
+	    no attributes, DTD, or namespaces to complicate the code we're going to write.
+	    When SAX2 parses the document, our <em class="emphasis">ContentHandler</em> implementation
+	    will see events reported for those elements and
+	    for the text. The calls will be more or less as follows;
+	    they're indented here to correspond to the XML text, 
+	    and the <tt class="literal">characters()</tt>
+	    calls show strings since slices of character arrays
+	    are awkward:
+	    </p>
+
+	    <blockquote><pre class="code">
+startElement ("", "", "stanza", empty)
+    characters ("\n    ")
+    startElement ("", "", "line", empty)
+	characters ("In a cavern, i");
+	characters ("n a canyon,");
+    endElement ("", "", "line")
+    characters ("\n    ")
+    startElement ("", "", "line", empty)
+	characters ("Excavating for a mine,");
+    endElement ("", "", "line")
+    characters ("\n    ")
+    startElement ("", "", "line", empty)
+	characters ("Dwelt a miner, forty-niner,");
+    endElement ("", "", "line")
+    characters ("\n    ")
+    startElement ("", "", "line", empty)
+	characters ("And his daughter");
+	characters (" Clementine.");
+    endElement ("", "", "line")
+    characters ("\n")
+endElement ("", "", "stanza")
+</pre></blockquote>
+	    
+
+	    <p>
+<a name="INDEX-174" />
+
+
+            Notice that SAX does not guarantee that all
+	    logically consecutive characters will appear in a single
+	    <tt class="literal">characters()</tt>
+	    event callback.
+	    With this simple text, most parsers would deliver it in one
+	    chunk, but your application code can't rely on that always
+	    being done.
+	    Also, notice that the first two parameters of
+	    <tt class="literal">startElement()</tt>
+	    are empty strings; they hold namespace information,
+	    which we explain toward the end of this chapter.
+	    For now, ignore them
+	    and the last parameter, which is for the element's attributes.
+	    </p>
+
+	    <p>For our first real work with XML, let's
+	    write code that prints only the lyrics of that song,
+	    stripping out the element markup.
+	    We'll start with the <tt class="literal">characters()</tt>
+	    method,
+	    which delivers characters in part of a character buffer
+	    with a method signature like the analogous
+	    <tt class="literal">java.io.Reader.read()</tt> method.
+	    This looks like <a href="ch02_03.htm#sax2-CHP-2-EX-2">Example 2-2</a>.
+	    </p>
+
+	    <a name="sax2-CHP-2-EX-2" /><div class="example">
+		<h4 class="objtitle">Example 2-2. Printing only character content (a simple example)</h4>
+
+		<blockquote><pre class="code">
+public class Example extends DefaultHandler {
+    public void characters (char buf [], int offset, int length)
+    throws SAXException
+    {
+	System.out.write (new String (buf, offset, length));
+    }
+}</pre></blockquote>
+
+		</div>
+
+	    <p>If you create an instance of this
+	    <em class="emphasis">Example</em> class instead of 
+	    <em class="emphasis">DefaultHandler</em> in <a href="ch02_02.htm#sax2-CHP-2-EX-1">Example 2-1</a> and then run the resulting program<a href="#FOOTNOTE-9">[9]</a> with a URL for the XML text shown earlier, you'll see the output.
+	    </p><blockquote class="footnote"><a name="FOOTNOTE-9" /><p>[9]On some systems, the user will need to provide system property on the command line, passing <em class="emphasis">-Dorg.xml.sax.driver=...</em>, as shown in <a href="ch03_02.htm#sax2-CHP-3-SECT-2">Section 3.2, "Bootstrapping an XMLReader"</a> in <a href="ch03_01.htm">Chapter 3, "Producing  SAX2 Events"</a>.</p></blockquote>
+
+<blockquote><pre class="code">
+&lt;userinput&gt;$ java Skeleton file:///db/sax2/verse.xml&lt;/userinput&gt;
+    
+    In a cavern, in a canyon,
+    Excavating for a mine,
+    Dwelt a miner, forty-niner,
+    And his daughter Clementine.
+$</pre></blockquote>
+
+	    <p>You'll notice some extra space. It came from the 
+	    whitespace used to indent
+	    the markup! If we had a DTD, the SAX parser
+	    might well report this as "ignorable whitespace."
+	    (See <a href="ch04_01.htm#sax2-CHP-4-SECT-1.1">Section 4.1.1, "Other ContentHandler Methods "</a> in <a href="ch04_01.htm">Chapter 4, "Consuming SAX2 Events"</a> for
+	    information about this callback.)
+	    But we don't have one, so to get rid of that
+	    markup we should really
+	    print only text that's found inside of
+	    <tt class="sgmltag-element">&lt;line&gt;</tt> elements.
+	    In this case, we can use code like
+	    <a href="ch02_03.htm#sax2-CHP-2-EX-3">Example 2-3</a>
+	    to avoid printing that extra whitespace;
+	    however, we'll have to add our own line ends
+	    since the input lines won't have any.
+	    </p>
+
+	    <a name="sax2-CHP-2-EX-3" /><div class="example">
+		<h4 class="objtitle">Example 2-3. Printing only character content (a better example)</h4>
+
+	    <blockquote><pre class="code">
+public class Example extends DefaultHandler {
+    private boolean    ignore = true;
+
+    public void startElement (String uri, String local, String qName, 
+	Attributes atts)
+    throws SAXException
+    {
+	if ("line".equals (qName))
+	    ignore = false;
+    }
+
+    public void endElement (String uri, String local, String qName)
+    throws SAXException
+    {
+	if ("line".equals (qName)) {
+	    System.out.println ();
+	    ignore = true;
+	}
+    }
+
+    public void characters (char buf [], int offset, int length)
+    throws SAXException
+    {
+	if (ignore)
+	    return;
+	System.out.write (new String (buf, offset, length));
+    }
+}</pre></blockquote>
+
+		</div>
+
+	    <p>With a more complicated content model, this
+	    particular algorithm probably wouldn't work.
+	    SAX content handlers are often written to 
+	    understand particular content models and to
+	    carefully track application state within parses.
+	    They often keep a <?troff .ne 10?>stack of open element names and
+	    attributes, along with other state that's
+	    specific to the particular task the content handler
+	    performs (such as the "ignored" flag in this example).
+	    A full example of an element/attribute stack is shown
+	    later, in <a href="ch05_01.htm#sax2-CHP-5-EX-1">Example 5-1</a>.<a href="#FOOTNOTE-10">[10]</a>
+	    </p><blockquote class="footnote"><a name="FOOTNOTE-10" /><p>[10]Whitespace handling in text can get quite messy. XML defines an <tt class="literal">xml:space</tt> attribute that may have either of two values in a document: <tt class="literal">default</tt>, signifying that whatever your application wants to do with whitespace is fine, and <tt class="literal">preserve</tt>, which suggests that whitespace such as line breaks and indentation should be preserved. W3C XML Schemas replace <tt class="literal">default</tt> with two other options to provide a partial match for the whitespace normalization rules that apply to attribute values.</p></blockquote>
+
+	    <p>
+<a name="INDEX-175" />
+<a name="INDEX-176" />
+
+            In simple cases like this, where namespaces aren't
+	    involved, you could use a particularly simple stack, as
+	    shown in <a href="ch02_03.htm#sax2-CHP-2-EX-4">Example 2-4</a>.
+	    You can use such an element stack for many purposes.
+	    The depth of the stack corresponds to the depth of
+	    element nesting. This feature can help you debug by allowing
+	    you to structurally indent diagnostics.
+	    You can also use the stack contents to make decisions:
+	    maybe you want to print <tt class="literal">line</tt>
+	    elements that are from some stanza of a song, but
+	    not lines spoken by a character in a play.
+	    To do that, you might verify that the parent element
+	    of the line was a <tt class="literal">stanza</tt>.
+	    Make sure you understand how this example works;
+	    once you understand how <tt class="literal">startElement()</tt>
+	    and <tt class="literal">endElement()</tt> always match,
+	    as well as how they represent the document structure,
+	    you'll understand an essential part of how SAX works.
+	    </p>
+
+	    <a name="sax2-CHP-2-EX-4" /><div class="example">
+		<h4 class="objtitle">Example 2-4. Printing only character content (element stack)</h4>
+
+	    <blockquote><pre class="code">
+public class Example extends DefaultHandler {
+    private Stack    stack = new Stack ();
+
+    public void startElement (String uri, String local, String qName, 
+	Attributes atts)
+    throws SAXException
+    {
+	stack.push (qName);
+    }
+
+    public void endElement (String uri, String local, String qName)
+    throws SAXException
+    {
+	if ("line".equals (qName))
+	    System.out.println ();
+	stack.pop ();
+    }
+
+    public void characters (char buf [], int offset, int length)
+    throws SAXException
+    {
+	if (!"line".equals (stack.peek ()))
+	    return;
+	System.out.write (new String (buf, offset, length));
+    }
+}</pre></blockquote>
+
+		</div>
+
+
+	    <p>Although they didn't appear in this simple scenario, most
+	    <tt class="literal">startElement()</tt> callbacks will
+	    have if/then/else decision trees that compare
+	    element names.
+	    Or if you're the kind of developer who likes to generalize
+	    such techniques, you can store per-element handlers
+	    in some sort of table and look them up by name.
+	    In both cases, you need to have some way to
+	    handle unexpected elements, and 
+	    because of XML namespaces, the <em class="replaceable">qName</em>
+	    parameter isn't always what you should check first.
+	    One policy is just to ignore unexpected elements,
+	    which is what most HTML browsers do with unexpected tags.
+	    Another policy is to treat them as some kind of document
+	    validity error.
+<a name="INDEX-177" />
+<a name="INDEX-178" />
+
+	    
+
+</p>
+
+	</div>
+
+	<a name="sax2-CHP-2-SECT-3.3" /><div class="sect2">
+	    <h3 class="sect2">2.3.3. The Attributes Interface </h3>
+
+	    <p>
+<a name="INDEX-179" />
+
+             In the previous section, we skipped over the
+	    attributes provided with each element.
+	    Let's look at them in a bit more detail.
+	    </p>
+
+	    <p>
+
+
+            SAX2 wraps the attributes of an element into
+	    a single <em class="emphasis">Attributes</em> object.
+	    For any attribute, there are three things to know:
+	    its <em class="emphasis">name</em>,
+	    its <em class="emphasis">value</em>,
+	    and its <em class="emphasis">type</em>.
+	    There are two basic ways to get at the attributes:
+	    by an integer index (think "array") or by names.
+	    The only real complication is there are two kinds of
+	    attribute name, courtesy of the XML Namespaces specification.
+	    </p>
+
+	    <div class="sect3">
+		<h3 class="sect3">2.3.3.1. Attribute lookup by name </h3>
+
+		<p>
+<a name="INDEX-180" />
+<a name="INDEX-181" />
+<a name="INDEX-182" />
+
+
+                You often need to write handler code that uses
+		the value of a specific attribute.
+		To do this, use code that accesses attribute values directly,
+		using the appropriate type of name as arguments to
+		a <tt class="literal">getValue()</tt> call.
+		If the attribute name has a namespace URI, you'll pass the URI
+		and the local name (as discussed later in this chapter).
+		Otherwise you'll just pass a single argument.
+		A value that is an empty string would be a real
+		attribute value, but if a null value is
+		returned, no value was known.
+		In such a case, your application might need to infer
+		some nonempty attribute value.
+		(This is common for <tt class="literal">#IMPLIED</tt> attributes.)
+		</p>
+
+		<p>Consider this XML element: </p>
+
+		<blockquote><pre class="code">
+&lt;billable label='finance'
+	xmlns:units="http://www.example.com/ns/units"
+	
+        units:currency="NLG"
+	&gt;
+    25000
+&lt;/billable&gt;</pre></blockquote>
+	    
+		<p>Application code might need to enforce a
+		policy that it won't present documents with such data to users
+		that aren't permitted to see "finance" labeled data.
+		That might be a meaningful policy for code running in
+		application servers where users could only access
+		data through the server.
+		Code to enforce that policy might look like this:
+		</p>
+
+		<blockquote><pre class="code">
+public void
+startElement (String uri, String local, String qName, Attributes atts)
+throws SAXException
+{
+    String    value;
+
+    value = atts.getValue ("label");
+
+    if ("finance".equals (value) &amp;&amp; !userClearedForFinanceData 
+	getUser ()))
+	throw new SAXException ("you can't see this data");
+    
+    ... process the element
+}</pre></blockquote>
+
+		<p>Other application code might 
+		need to know the currency in which the billable amount
+		was expressed. In this example, this information is
+		provided using namespace-style naming, so you would
+		use the other kind of accessor to ensure that you
+		see the data no matter what prefix is used to identify
+		that namespace:
+		</p>
+
+		<blockquote><pre class="code">
+    String	currency;
+    currency = atts.getValue ("http://www.example.com/ns/units", 
+	"currency");
+
+    // what's the best exchange rate today?
+</pre></blockquote>
+		
+		<p>
+<a name="INDEX-183" />
+<a name="INDEX-184" />
+
+                There are corresponding <tt class="literal">getType()</tt> 
+		accessors, which accept both types of attribute names, but
+		you shouldn't want to use those. After all, if you know
+		enough about the attribute to access it by name and to
+		process it, you should certainly know its type already!
+		</p>
+		
+		<p>Accessing attribute values or types using an index
+		is faster than looking up their names.
+		If you need to access attribute values or types more
+		than once, consider using the appropriate one of
+		the two <tt class="literal">getIndex()</tt> calls to
+		get and save the index, as well as using the third syntax of
+		the <tt class="literal">getValue()</tt> or
+		<tt class="literal">getType()</tt> calls (shown in the next
+		section).
+		
+</p>
+
+		</div>
+
+	    <div class="sect3">
+		<h3 class="sect3">2.3.3.2. Attribute lookup by index </h3>
+
+		<p>
+<a name="INDEX-185" />
+<a name="INDEX-186" />
+<a name="INDEX-187" />
+<a name="INDEX-188" />
+
+                You might need to look at all the attributes
+		provided with an element, particularly when you're
+		building infrastructure components.
+		Here's how you might use an index to
+		iterate over all the attributes
+		you were given in a <tt class="literal">startElement()</tt>
+		callback and print all the important information.
+		This code uses a few methods that we'll explain
+		later when we discuss namespace support.
+		<tt class="literal">getLength()</tt> works
+		like the "length" attribute on an array.
+		</p>
+
+		<blockquote><pre class="code">
+Attribute       atts = ...;
+int             length = atts.getLength ();
+
+for (int i = 0; i &lt; length; i++) {
+    String uri = atts.getURI (i);
+
+    // Does this have a namespace-style name?
+    if (uri.length () &gt; 0) {
+	System.out.print ("{ " + uri);
+	System.out.print (" " + atts.getLocalName (i) + " }");
+
+    // no namespace
+    } else
+	System.out.println (atts.getQName (i));
+    
+    // value comes from document, or is defaulted from DTD
+    System.out.print (", value = " + atts.getValue (i))
+
+    // type is CDATA unless it comes from &lt;!ATTLIST ...&gt; in DTD
+    System.out.print (", type = " + atts.getType (i))
+}</pre></blockquote>
+
+		<p>You'll notice that accomodating input
+		documents that use XML namespaces has complicated this code.
+		It's important to remember that from the SAX perspective,
+		attributes can have either of two kinds of names,
+		and you must not use the wrong kind of name.
+		(The same is true for elements.)
+		Application code that handles arbitrary input documents
+		will usually needs to handle both types of names, using the
+		logic shown earlier.
+		It's rarely safe to assume your input documents will only
+		use one kind of name.
+		</p>
+
+		<p>It's often good practice to scan through all the
+		attributes for an element and report some kind of
+		validity error if a document has unexpected attributes.
+		(These might include <tt class="literal">xmlns</tt> or
+		<tt class="literal">xmlns:*</tt> attributes, but often it's
+		best to just ignore those.)
+		This can serve as a sanity check or a kind of procedural
+		validation.
+		For example, if you validated the input against its
+		own DTD, that DTD might have been modified (using
+		the internal subset or some other mechanism) so that it
+		no longer meets your program's expectations.
+		Such a scan over attribute values can be a good time to make
+		sure your application does the right thing with any
+		attributes that need to be <tt class="literal">#IMPLIED</tt>, or have type ID.
+		</p>
+
+		</div>
+
+	    <div class="sect3">
+		<h3 class="sect3">2.3.3.3. Other attributes issues</h3>
+
+		<p>Attribute values will always be whitespace-normalized
+		as required by the XML specification.
+		This means that the only whitespace in an attribute will
+		be space characters or whitespace provided by character
+		references to a tab, newline, or carriage return.
+		If the type isn't reported as CDATA, additional
+		normalization is done: leading and trailing spaces
+		are stripped, and consecutive space characters are
+		replaced by a single space.
+		</p>
+
+		<p>
+<a name="INDEX-189" />
+<a name="INDEX-190" />
+
+                If the parser read the DTD, you are able to see
+		the XML attribute type it declared.
+		The best way to see this type is to use the
+		<tt class="literal">DeclHandler.attributeDecl()</tt>
+		event, which needs a bit of advance planning.
+		(This callback is discussed later in
+		<a href="ch04_03.htm#sax2-CHP-4-SECT-3.1">Section 4.3.1, "The DeclHandler Interface "</a> in <a href="ch04_01.htm">Chapter 4, "Consuming SAX2 Events"</a>.)
+		Or you can use the <tt class="literal">Attributes.getType()</tt>
+		methods if you can deal with incomplete reporting for
+		enumerated types. (You won't see the possible values,
+		and the type will either be <tt class="literal">NOTATION</tt> or <tt class="literal">NMTOKEN</tt>.)
+		</p>
+
+		<p>The <em class="emphasis">Attributes</em> object passed
+		to <tt class="literal">startElement()</tt> is only usable
+		during that callback. If you need access to information
+		found there, you must copy it.
+		A utility <em class="emphasis">AttributesImpl</em> class is
+		available, with a copy constructor, and is discussed in <a href="ch05_01.htm">Chapter 5, "Other SAX Classes"</a> in <a href="ch05_01.htm#sax2-CHP-5-SECT-1.1">Section 5.1.1, "The AttributesImpl Class "</a>..
+		</p>
+
+		<p>The methods in the <em class="emphasis">Attributes</em>
+		interface are summarized in <a href="appa_01.htm">Appendix A, "SAX2 API Summary"</a>.
+		For more information, consult the SAX javadoc.
+<a name="INDEX-191" />
+		
+</p>
+
+		</div>
+
+	    </div>
+
+	<a name="sax2-CHP-2-SECT-3.4" /><div class="sect2">
+	    <h3 class="sect2">2.3.4. Essential ContentHandler Callbacks</h3>
+
+	    <p>
+<a name="INDEX-192" />
+<a name="INDEX-193" />
+
+
+            In the earlier code example, we used some callbacks
+	    without really explaining what they did
+	    and what their parameters were.
+	    This section provides more details.
+	    </p>
+
+	    <p>In the summaries of handler callbacks presented in this
+	    book, the event signatures are omitted. This is just for
+	    simplicity: with a single exception
+	    (<tt class="literal">ContentHandler.setDocumentLocator()</tt>),
+	    the event signature is always the same. Every handler can throw a
+	    <em class="emphasis">SAXException</em> to terminate parsing,
+	    as well as
+	    <em class="emphasis">java.lang.RuntimeException</em>s and
+	    <em class="emphasis">java.lang.Error</em>, which any Java
+	    method can throw.
+	    Handlers can throw such exceptions directly, or as a slightly more
+	    advanced technique, they can delegate the error-handling 
+	    policies to an <em class="emphasis">ErrorHandler</em>
+	    and recover cleanly if those calls return instead
+	    of throwing exceptions. (<em class="emphasis">ErrorHandler</em> is 
+	    discussed later in this chapter.)
+	    </p>
+	    <p>
+	    The <em class="emphasis">ContentHandler</em> callbacks include:
+	    </p> 
+	    
+<dl>
+
+		<dt><b>
+	    <tt class="literal">void startElement(uri,local,qName,Attributes atts)</tt>
+		    </b></dt> <dt><b>
+		    <tt class="literal">void endElement(uri,local,qName)</tt>
+		    </b></dt>
+
+		<dd><p>
+<a name="INDEX-194" />
+<a name="INDEX-195" />
+
+                These two callbacks bracket element content,
+		starting with <tt class="literal">startElement()</tt> to
+		identify the element and provide its attributes.
+		Typically, <tt class="literal">startElement()</tt> will be followed by 
+	        a series of other
+		event callbacks to report child content, such as
+		character data and other elements.
+		After all children of the element have been reported,
+		<tt class="literal">endElement()</tt> reports the end of
+		the element.
+		</p>
+
+<dl>
+		    <dt><b>
+			<tt class="literal">String uri</tt></b></dt>
+		    <dd><p><a name="INDEX-196" />
+                    For elements associated with a
+		    namespace URI, this is the URI.
+		    For other kinds of elements, this is the empty string.
+		    </p></dd>
+
+		    <dt><b>
+			<tt class="literal">String local</tt></b></dt>
+		    <dd><p><a name="INDEX-197" />
+                    For elements associated with a
+		    namespace URI,
+		    this is the element name with any prefix removed.
+		    For other kinds of elements, this is the empty string.
+		    </p></dd>
+
+		    <dt><b>
+			<tt class="literal">String qName</tt></b></dt>
+		    <dd><p><a name="INDEX-198" />
+                    This is the element name as found
+		    in the XML text,
+		    but for elements associated with a
+		    namespace URI, this might be the empty string.
+		    (Don't rely on it being nonempty unless the
+		    URI is empty, or you've configured the parser in
+		    "mixed" namespace reporting mode as described later in this chapter, in <a href="ch02_06.htm#sax2-CHP-2-SECT-6.3">Section 2.6.3, "Namespace Feature Flags"</a>.)
+		    </p></dd>
+
+		    <dt><b>
+			<tt class="literal">Attributes atts</tt></b></dt>
+		    <dd><p><a name="INDEX-199" /><a name="INDEX-200" />
+
+                    An element's attributes are only
+		    provided in the <tt class="literal">startElement()</tt> call.
+		    The <em class="replaceable">atts</em>
+		    object is owned by the parser and is only
+		    on short-term loan to the event callback.
+		    If your application code needs to save attribute data,
+		    it must make a copy.
+		    (The <em class="emphasis">AttributesImpl</em> helper
+		    class may help.)
+		    </p></dd>
+
+		</dl>
+
+		<p>These callbacks appear in pairs
+		unless an exception is thrown to abort parsing.
+		Even empty elements (like <tt class="literal">&lt;this/&gt;</tt>)
+		cause two calls.
+		</p>
+
+		<p>Most applications do a lot of work in
+		<tt class="literal">startElement()</tt> callbacks to
+		set up further processing,
+		but <tt class="literal">endElement()</tt> work varies.
+		Sometimes <tt class="literal">endElement()</tt> does nothing, 
+		sometimes it's
+		just a quick state cleanup (popping stacks), and
+		sometimes it's where all the work queued during an
+		element's processing is finally performed.
+
+		</p></dd>
+
+		<dt><b>
+		    <tt class="literal">void characters (buf, offset, length)
+</tt>
+		    </b></dt>
+		<dd><p>
+<a name="INDEX-201" />
+                
+                Text content is provided as a range from
+		a character array. Applications will often need to make a
+		copy of this data, appending it either to another
+		character array or to a <em class="emphasis">StringBuffer</em>.
+		(Use strings if their extra cost is not a problem.)
+		Then the "real action" to process
+		character data would be taken when this callback learns 
+		that all the
+		relevant characters have been provided, often because of
+		a <tt class="literal">startElement()</tt> or
+		<tt class="literal">endElement()</tt> call.
+		</p>
+
+		<dl>
+
+		    <dt><b><tt class="literal">char buf[]</tt></b></dt>
+		    <dd><p><a name="INDEX-202" />
+                    A character array holding the
+		    text being provided. 
+		    You must ignore characters in this buffer
+		    that are outside of the specified range.
+		    </p></dd>
+
+		    <dt><b><tt class="literal">int offset</tt></b></dt>
+		    <dd><p>The index of the first 
+		    character from the buffer that is in range.
+		    </p></dd>
+
+		    <dt><b><tt class="literal">int len</tt></b></dt>
+		    <dd><p>The number of text characters that are
+		    in the range's buffer, beginning at the specified offset.
+		    </p></dd>
+
+		</dl>
+
+		<p>Application code must expect multiple sequential calls
+		to this method. For example, it would be legal (but slow)
+		for a parser to issue one callback per character.
+		Content found in different external entities will be reported
+		in different <tt class="literal">characters()</tt> invocations
+		so location information is reported correctly.
+		(This is described in <a href="ch04_01.htm#sax2-CHP-4-SECT-1.2">Section 4.1.2, "The Locator Interface "</a> in <a href="ch04_01.htm">Chapter 4, "Consuming SAX2 Events"</a>.)
+		Most parsers have only a limited amount of buffer space
+		and will flush characters whenever the buffer fills;
+		flushing can improve performance because it eliminates
+		a need for extra buffer copies. Excess buffer copying is a
+		classic performance killer in all I/O-intensive software.
+		</p>
+
+		<p>The XML specification guarantees that you won't
+		see CRLF- or CR-style line ends here.
+		All the line ends from the document will use single
+		newline characters ("\n").
+		However, some perverse documents might have placed
+		character references to carriage returns into their text;
+		if you see them, be aware that they're not real line ends!
+
+		</p></dd>
+
+	    </dl>
+
+	    <p>There are many other methods in the
+	    <em class="emphasis">ContentHandler</em> interface,
+	    discussed later in <a href="ch04_01.htm#sax2-CHP-4-SECT-1.1">Section 4.1.1, "Other ContentHandler Methods "</a> in <a href="ch04_01.htm">Chapter 4, "Consuming SAX2 Events"</a>.
+<a name="INDEX-203" />
+<a name="INDEX-204" />
+<a name="INDEX-205" />
+    
+</p>
+
+	</div>
+
+    
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch02_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">2.2. Beginning SAX</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">2.4. Producer-Side Validation</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

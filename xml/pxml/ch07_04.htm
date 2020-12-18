@@ -1,0 +1,167 @@
+<html><head><title>XML::LibXML (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch08_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">7.4. XML::LibXML</h2>
+
+<p>Matt Sergeant's
+<tt class="literal">XML::LibXML</tt><a name="INDEX-668" /> module is an interface to the GNOME
+project's <a name="INDEX-669" />LibXML library. It's
+quickly becoming a popular implementation of DOM, demonstrating speed
+and completeness over the older <tt class="literal">XML::Parser</tt> based
+modules. It also implements Level 2 DOM, which means it has support
+for namespaces.
+</p>
+
+<p>So far, we haven't worked much with namespaces. A
+lot of people opt to avoid them. They add a new level of complexity
+to markup and code, since you have to handle both local names and
+prefixes. However, namespaces are becoming more important in XML, and
+sooner or later, we all will have to deal with them. The popular
+transformation language XSLT uses namespaces to distinguish between
+tags that are instructions and tags that are data (i.e., which
+elements should be output and which should be used to control the
+output).
+</p>
+
+<p>You'll even see namespaces used in good old HTML.
+Namespaces provide a way to import specialized markup into documents,
+such as equations into regular HTML pages. The MathML language
+(<a href="http://www.w3.org/Math/">http://www.w3.org/Math/</a>) does
+just that. <a href="ch07_04.htm#perlxml-CHP-7-EX-1">Example 7-1</a> incorporates MathML into it
+with namespaces.
+</p>
+
+<a name="perlxml-CHP-7-EX-1" /><div class="example">
+<h4 class="objtitle">Example 7-1. A document with namespaces </h4>
+<blockquote><pre class="code">&lt;html&gt;
+&lt;body xmlns:eq="http://www.w3.org/1998/Math/MathML"&gt;
+&lt;h1&gt;Billybob's Theory&lt;/h1&gt;
+&lt;p&gt;
+It is well-known that cats cannot be herded easily. That is, they do
+not tend to run in a straight line for any length of time unless they
+really want to. A cat forced to run in a straight line against its
+will has an increasing probability, with distance, of deviating from
+the line just to spite you, given by this formula:&lt;/p&gt;
+&lt;p&gt;
+  &lt;!-- P = 1 - 1/(x^2) --&gt;
+  &lt;eq:math&gt;
+    &lt;eq:mi&gt;P&lt;/eq:mi&gt;&lt;eq:mo&gt;=&lt;/eq:mo&gt;&lt;eq:mn&gt;1&lt;/eq:mn&gt;&lt;eq:mo&gt;-&lt;/eq:mo&gt;
+    &lt;eq:mfrac&gt;
+      &lt;eq:mn&gt;1&lt;/eq:mn&gt;
+      &lt;eq:msup&gt;
+        &lt;eq:mi&gt;x&lt;/eq:mi&gt;
+        &lt;eq:mn&gt;2&lt;/eq:mn&gt;
+      &lt;/eq:msup&gt;
+    &lt;/eq:mfrac&gt;
+  &lt;/eq:math&gt;
+&lt;/p&gt;
+&lt;/body&gt;
+&lt;/html&gt;</pre></blockquote>
+</div>
+
+<p>The tags with <tt class="literal">eq:</tt> prefixes are part of a namespace
+identified by the URI <a href="http://www.w3.org/1998/Math/MathML">http://www.w3.org/1998/Math/MathML</a>, defined
+in an attribute in the <tt class="literal">&lt;body&gt;</tt> element. Using
+a namespace helps the browser discern between what is native to HTML
+and what is not. Browsers that understand MathML route the qualified
+elements to their equation formatter instead of the regular HTML
+formatter.
+</p>
+
+<p>Some browsers are confused by the MathML tags and render
+unpredictable results. One particularly useful utility is a program
+that detects and removes namespace-qualified elements that would gum
+up an older HTML processor. The following example uses DOM2 to sift
+through a document and strip out all elements that have a namespace
+prefix.
+</p>
+
+<p>The first step is to parse the file: </p>
+
+<blockquote><pre class="code">use XML::LibXML;
+
+my $parser = XML::LibXML-&gt;new( );
+my $doc = $parser-&gt;parse_file( shift @ARGV );</pre></blockquote>
+
+<p>Next, we locate the document element and run a recursive subroutine
+on it to ferret out the namespace-qualified elements. Afterwards, we
+print out the document:
+</p>
+
+<blockquote><pre class="code">my $mathuri = 'http://www.w3.org/1998/Math/MathML';
+my $root = $doc-&gt;getDocumentElement;
+&amp;amp;purge_nselems( $root );
+print $doc-&gt;toString;</pre></blockquote>
+
+<p>This routine takes an element node and, if it has a namespace prefix,
+removes it from its parent's content list.
+Otherwise, it goes on to process the descendants:
+</p>
+
+<blockquote><pre class="code">sub purge_nselems {
+  my $elem = shift;
+  return unless( ref( $elem ) =~ /Element/ );
+  if( $elem-&gt;prefix ) {
+    my $parent = $elem-&gt;parentNode;
+    $parent-&gt;removeChild( $elem );
+  } elsif( $elem-&gt;hasChildNodes ) {
+    my @children = $elem-&gt;getChildnodes;
+    foreach my $child ( @children ) {
+      &amp;purge_nselems( $child );
+    }
+  }
+}</pre></blockquote>
+
+<p>You might have noticed that this DOM implementation adds some Perlish
+conveniences over the recommended DOM interface. The call to
+<tt class="literal">getChildnodes</tt>, in an array context, returns a
+Perl list instead of a more cumbersome <tt class="literal">NodeList</tt>
+object. Called in a scalar context, it would return the number of
+child nodes for that node, so <tt class="literal">NodeList</tt>s
+aren't really used at all.
+</p>
+
+<p>Simplifications like this are common in the Perl world, and no one
+really seems to mind. The emphasis is usually on ease of use over
+rigorous object-oriented protocol. Of course, one would hope that all
+DOM implementations in the Perl world adopt the same conventions,
+which is why many long discussions on the
+<em class="emphasis">perl-xml</em> mailing list try to decide the best way
+to adopt standards. A current debate discusses how to implement SAX2
+(which supports namespaces) in the most logical, Perlish way.
+</p>
+
+<p>Matt Sergeant has stocked the <tt class="literal">XML::LibXML</tt> package
+with other goodies. The <tt class="literal">Node</tt> class has a method
+called <tt class="literal">findnodes(
+)</tt><a name="INDEX-670" /> <a name="INDEX-671" />, which takes an XPath expression as an
+argument, allowing retrieval of nodes in more flexible ways than
+permitted by the ordinary DOM interface. The parser has options that
+control how pedantically the parser runs, entity resolution, and
+whitespace significance. One can also opt to use special handlers for
+unparsed entities. Overall, this module is<a name="INDEX-672" /> excellent for
+DOM<a name="INDEX-673" />
+programming.
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch08_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">7.3. XML::DOM</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">8. Beyond Trees: XPath, XSLT, and More</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

@@ -1,0 +1,592 @@
+<?label 5. Authentication?><html><head><title>Authentication (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_09.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch05_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 5. Authentication</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch05_01.htm">Authentication Protocol</a><br />
+<a href="ch05_02.htm">Authentication Directives</a><br />
+<a href="ch05_03.htm">Passwords Under Unix</a><br />
+<a href="ch05_04.htm">Passwords Under Win32</a><br />
+<a href="ch05_05.htm">New Order Form</a><br />
+<a href="ch05_06.htm">Order, Allow, and Deny</a><br />
+<a href="ch05_07.htm">Digest Authentication</a><br />
+<a href="ch05_08.htm">Anonymous Access</a><br />
+<a href="ch05_09.htm">Experiments</a><br />
+<a href="ch05_10.htm">Automatic User Information</a><br />
+<a href="ch05_11.htm">Using .htaccess Files</a><br />
+<a href="ch05_12.htm">Overrides</a><br /></p></div>
+
+
+
+
+
+
+
+
+
+<p>
+<a name="INDEX-556" />The
+volume of business Butterthlies, Inc., is doing is stupendous, and
+naturally our competitors are anxious to look at sensitive
+information such as the discounts we give our salespeople. We have to
+seal their site off from the vulgar gaze by authenticating those who
+log on to it.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch05-1-fm2xml" />
+<h2 class="sect1">5.1. Authentication Protocol</h2>
+
+
+
+
+
+<p>Authentication is simple in principle. The client sends its name and
+password to Apache. Apache looks up its file of names and encrypted
+passwords to see whether the client is entitled to access. The
+webmaster can store a number of clients in a list -- either as a
+simple text file or as a database -- and thereby control access
+person by person.</p>
+
+
+
+
+
+<p>It is also possible to group a number of people into named groups and
+to give or deny access to these groups as a whole. So, throughout
+this chapter, <em class="emphasis">bill</em> and <em class="emphasis">ben
+</em>are in the group <em class="emphasis">directors</em>, and
+<em class="emphasis">daphne</em> and <em class="emphasis">sonia</em> are in the
+group <em class="emphasis">cleaners.</em> The webmaster can
+<tt class="literal">require</tt> user so and so or
+<tt class="literal">require</tt> group such and such. If you have to deal
+with large numbers of people, it is obviously easier to group them in
+this way.</p>
+
+
+
+
+
+<p>Each username/password pair is valid for a particular realm, named
+when the passwords are created. The browser asks for a URL; the
+server sends back "Authentication Required" (code 401)
+and the realm. If the browser already has a username/password for
+that realm, it sends the request again with the username/password. If
+not, it prompts the user, usually including the realm's name in
+the prompt, and sends that.</p>
+
+
+
+
+
+<p>Of course, all this is worryingly insecure since the password is sent
+unencrypted over the Web and any malign observer simply has to watch
+the traffic to get the password -- which is as good in his hands
+as in the legitimate client's. <a name="INDEX-557" />
+<a name="INDEX-558" /> <a name="INDEX-559" />
+<a name="INDEX-560" />Digest authentication improves
+on this by using a challenge/handshake protocol to avoid revealing
+the actual password. Well, it would, if any browsers supported the
+technique, which at the moment they don't. However, we include
+information concerning this procedure later in this chapter, in the
+hope that a miracle may occur during the lifetime of this edition.</p>
+
+
+
+
+
+<a name="ch05-2-fm2xml" /><div class="sect2">
+<h3 class="sect2">5.1.1. site.authent</h3>
+
+
+
+
+
+<p>Examples are found in <em class="filename">site.authent.</em> The Config
+file looks like this:</p>
+
+
+
+
+
+<blockquote><pre class="code">User webuser
+Group webgroup
+ServerName www.butterthlies.com
+NameVirtualHost 192.168.123.2
+
+&lt;VirtualHost www.butterthlies.com&gt;
+ServerAdmin sales@butterthlies.com
+DocumentRoot /usr/www/site.authent/htdocs/customers
+ServerName www.butterthlies.com
+ErrorLog /usr/www/site.authent/logs/error_log
+TransferLog /usr/www/site.authent/logs/customers/access_log
+ScriptAlias /cgi-bin /usr/www/cgi-bin
+&lt;/VirtualHost&gt;
+
+&lt;VirtualHost sales.butterthlies.com&gt;
+ServerAdmin sales_mgr@butterthlies.com
+DocumentRoot /usr/www/site.authent/htdocs/salesmen
+ServerName sales.butterthlies.com
+ErrorLog /usr/www/site.authent/logs/error_log
+TransferLog /usr/www/site.authent/logs/salesmen/access_log
+ScriptAlias /cgi-bin /usr/www/cgi-bin
+
+&lt;Directory /usr/www/site.authent/htdocs/salesmen&gt;
+AuthType Basic
+AuthName darkness
+AuthUserFile /usr/www/ok_users/sales
+AuthGroupFile /usr/www/ok_users/groups
+#AuthDBMUserFile /usr/www/ok_dbm/sales
+#AuthDBMGroupFile /usr/www/ok_dbm/groups
+require valid-user
+#require user daphne bill
+#require group cleaners
+#require group directors
+&lt;/Directory&gt;
+
+&lt;Directory /usr/www/cgi-bin&gt;
+AuthType Basic
+AuthName darkness
+AuthUserFile /usr/www/ok_users/sales
+AuthGroupFile /usr/www/ok_users/groups
+#AuthDBMUserFile /usr/www/ok_dbm/sales
+#AuthDBMGroupFile /usr/www/ok_dbm/groups
+require valid-user
+&lt;/Directory&gt;
+&lt;/VirtualHost&gt;</pre></blockquote>
+
+
+
+
+
+<p>What is going on here? Read on.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_09.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch05_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">4.9. Actions</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">5.2. Authentication Directives</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

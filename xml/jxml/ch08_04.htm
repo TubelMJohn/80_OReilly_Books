@@ -1,0 +1,132 @@
+<html><head><title>Gotcha! (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch08_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">8.4. Gotcha!</h2>
+
+<p>As with the other chapters on APIs, I will address a few more tricky
+items that relate to the topics in this chapter. These are common
+problems that can cause you to beat your head against the wall, so
+try and avoid them.
+</p>
+
+<a name="javaxml2-CHP-8-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">8.4.1. More on Subclassing</h3>
+
+<p><a name="INDEX-848" />
+<a name="INDEX-849" />Since I talked about factories and custom
+classes in this chapter, it's worth pointing out a few
+important things about subclassing that can be gotcha items. When you
+extend a class, and in particular the JDOM classes, you need to
+ensure that your custom behavior is going to be activated as you want
+it to. In other words, ensure that there is no path from an
+application through your subclass and to the superclass that
+isn't a path you are willing to live with. In almost every
+case, this involves ensuring that you override each constructor of
+the superclass. You'll notice that in <a href="ch08_02.htm#javaxml2-CHP-8-EX-1">Example 8-1</a>, the <tt class="literal">ORAElement</tt> class, I
+overrode all four of the <tt class="literal">Element</tt> class's
+constructors. This ensured that any application using
+<tt class="literal">ORAElement</tt> would have to create the object with
+one of these constructors. While that might seem like a trivial
+detail, imagine if I had left out the constructor that took in a name
+and URI for the element. This step effectively reduces the number of
+ways to construct the object by one. That might seem trivial, but
+it's not!
+</p>
+
+<p>Continuing with this hypothetical, you implement a
+<tt class="literal">CustomJDOMFactory</tt> class, like the one shown in
+<a href="ch08_02.htm#javaxml2-CHP-8-EX-2">Example 8-2</a>, and override the various
+<tt class="literal">element( )</tt> methods. However, you would probably
+forget to override <tt class="literal">element(String name,</tt>
+<tt class="literal">String uri)</tt>, since you already forgot to override
+that constructor in your subclass. Suddenly, you've got a
+problem. Every time an element is requested by name and URI (which is
+quite often in the <tt class="literal">SAXBuilder</tt> process, by the
+way), you are going to get a plain, vanilla
+<tt class="literal">Element</tt> instance. However, the other element
+creation methods all return instances of
+<tt class="literal">ORAElement</tt>. Just like that, because of one lousy
+constructor, your document is going to have two element
+implementations, almost certainly not what you wanted. It is crucial
+to inspect every means of object creation in your subclasses, and
+generally make sure you override every constructor that is public in
+the superclass.
+</p>
+
+</div>
+<a name="javaxml2-CHP-8-SECT-4.2" /><div class="sect2">
+<h3 class="sect2">8.4.2. Creating Invalid XML</h3>
+
+<p>Another tricky case to watch out for when subclassing is
+inadvertently creating invalid XML. Using JDOM, it's more or
+less impossible to create XML that is not well-formed, but consider
+the <tt class="literal">ORAElement</tt> subclass again. This subclass added
+the <tt class="literal">ora</tt> prefix to every element, which alone could
+cause it to fail validation. This is probably not a big deal, but you
+do need to comment out or remove the <tt class="literal">DOCTYPE</tt>
+declaration to avoid problems when reading the document back in.
+</p>
+
+<p>Even more importantly, you can get some unexpected results if you
+aren't careful. Look at this fragment of the XML generated
+using the <tt class="literal">ORAElement</tt> subclass, which only shows
+the last little bit of the serialized document:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE book SYSTEM "DTD/JavaXML.dtd"&gt;
+&lt;!-- Java and XML Contents --&gt;
+&lt;ora:book xmlns:ora="http://www.oreilly.com"&gt;
+  &lt;ora:title ora:series="Java"&gt;Java and XML&lt;/ora:title&gt;
+
+  &lt;!-- Other content --&gt;
+<tt class="userinput"><b>
+  &lt;ora:copyright&gt;
+
+&lt;ora:copyright&gt;
+  &lt;ora:year value="2001" /&gt;
+  &lt;ora:content&gt;All Rights Reserved, O'Reilly &amp;amp; Associates&lt;/ora:content&gt;
+&lt;/ora:copyright&gt;
+&lt;/ora:copyright&gt;</b></tt>
+&lt;/ora:book&gt;</pre></blockquote>
+
+<p>Notice that there are now <em class="emphasis">two</em>
+<tt class="literal">ora:copyright</tt> elements! What happened is that an
+existing element was in place in the O'Reilly namespace (the
+original <tt class="literal">ora:copyright</tt> element). However, the
+<tt class="literal">copyright</tt> element nested within that, with no
+namespace, was also assigned the <tt class="literal">ora</tt> prefix and
+O'Reilly namespace through the <tt class="literal">ORAElement</tt>
+class. The result is two elements with the same name and namespace,
+but differing content models. This makes validation very tricky, and
+is probably not what you intended. These are simple examples, but in
+more complex documents with more complex subclasses, you'll
+need to watch carefully what results you are generating, particularly
+with respect to a DTD, XML Schema, or other form of document
+constraints.<a name="INDEX-850" /> <a name="INDEX-851" /> 
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch08_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">8.3. Wrappers and Decorators</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">8.5. What's Next?</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

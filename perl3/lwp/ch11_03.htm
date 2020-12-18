@@ -1,0 +1,179 @@
+<html><head><title>Authentication (Perl &amp; LWP)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Sean Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001789L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl &amp; LWP" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; LWP" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch11_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">11.3. Authentication</h2>
+
+<p>HTTP Basic Authentication is the
+<a name="INDEX-638" />
+<a name="INDEX-639" />most common type of
+authentication supported at the level of HTTP. The exchange works
+like this:
+</p>
+
+<ol><li>
+The browser makes a request for a URL.
+</li><li>
+<p>The page is protected by Basic Authentication, so the server replies
+with a 401 Unauthorized status code. The response
+<a name="INDEX-640" />
+<a name="INDEX-641" />has
+a <tt class="literal">WWW-Authenticate</tt> header that specifies the
+authentication method ("basic") and
+the realm. "Realm" here is jargon
+for a string that identifies the locked-off area, which the browser
+is about to use in the next step.
+</p>
+</li><li>
+<p>The browser displays an "enter your username and
+password for <em class="replaceable"><tt>realm</tt></em>"
+dialog box. <a href="ch11_03.htm#perllwp-CHP-11-FIG-1">Figure 11-1</a> shows the dialog box for a
+part of www.unicode.org whose
+realm name is
+"Unicode-MailList-Archives."
+</p>
+</li><li>
+<p>The browser requests the URL again, this
+<a name="INDEX-642" />time with an
+<tt class="literal">Authorization</tt> header that encodes the username and
+password.
+</p>
+</li><li>
+<p>If the username and password are verified, the server sends the
+document in a normal successful HTTP response. If the username and
+password aren't correct, we go back to step 2.
+</p>
+</li></ol>
+<a name="perllwp-CHP-11-FIG-1" /><div class="figure"><img src="figs/plwp_1101.gif" alt="Figure 11-1" width="396" height="241" /></div><h4 class="objtitle">Figure 11-1. Authentication dialog box</h4>
+
+<a name="perllwp-CHP-11-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">11.3.1. Comparing Cookies with Basic Authentication</h3>
+
+<p>Like cookies, LWP implements HTTP Basic Authentication with
+attributes of an LWP::UserAgent object. There
+<a name="INDEX-643" />
+<a name="INDEX-644" />are basic differences, however.
+</p>
+
+<p>There's no such thing as an explicit HTTP error
+message that means "you needed to send me a proper
+cookie, so try again!". The
+"Register Now!" page that the
+<em class="emphasis">New York Times</em> site returned is not an error in
+any HTTP sense; as far as the browser is concerned, it asked for
+something, and got it.
+</p>
+
+<p>LWP's interface for HTTP cookies and HTTP Basic
+Authentication is different. To get an LWP::UserAgent browser object
+to implement cookies, one assigns it an object of class HTTP::Cookies
+(or a subclass), which represents a little database of cookies that
+this browser knows about. But there is no corresponding class for
+groups of username/password pairs, although I informally refer to the
+set of passwords that a user agent can consult as its
+"key ring."
+</p>
+
+</div>
+<a name="perllwp-CHP-11-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">11.3.2. Authenticating via LWP</h3>
+
+<p>To add a username and
+<a name="INDEX-645" />
+<a name="INDEX-646" />password to a browser
+object's key ring, call the
+<tt class="literal">credentials</tt> method on a user agent object:
+</p>
+
+<blockquote><pre class="code">$browser-&gt;credentials(
+  '<em class="replaceable"><tt>servername</em>:<em class="replaceable">portnumber</tt></em>',
+  '<em class="replaceable"><tt>realm-name</tt></em>',
+  '<em class="replaceable"><tt>username</em>' =&gt; '<em class="replaceable">password</tt></em>'
+);</pre></blockquote>
+
+<p>In most cases, the port number is 80, the default TCP/IP port for
+HTTP. For example:
+</p>
+
+<blockquote><pre class="code">my $browser = LWP::UserAgent-&gt;new;
+$browser-&gt;name('ReportsBot/1.01');
+
+$browser-&gt;credentials(
+  'reports.mybazouki.com:80',
+  'web_server_usage_reports',
+  'plinky' =&gt; 'banjo123'
+);
+
+my $response = $browser-&gt;get(
+  'http://reports.mybazouki.com/this_week/'
+);</pre></blockquote>
+
+<p>One can call the <tt class="literal">credentials</tt> method any number of
+times, to add all the server-port-realm-username-password keys to the
+browser's key ring, regardless of whether
+they'll actually be needed. For example, you could
+read them all in from a datafile at startup:
+</p>
+
+<blockquote><pre class="code">my $browser = LWP::UserAgent-&gt;new( );
+if(open(KEYS, "&lt; keyring.dat")) {
+  while(&lt;KEYS&gt;) {
+    chomp;
+    my @info = split "\t", $_, -1;
+    $browser-&gt;credential(@info) if @info == 4;
+  };
+  close(KEYS);
+}</pre></blockquote>
+
+</div>
+<a name="perllwp-CHP-11-SECT-3.3" /><div class="sect2">
+<h3 class="sect2">11.3.3. Security</h3>
+
+<p>Clearly, storing lots of passwords in a
+<a name="INDEX-647" />
+<a name="INDEX-648" />
+<a name="INDEX-649" />plain text file is not terribly good
+security practice, but the obvious alternative is not much better:
+storing the same data in plain text in a Perl file. One could make a
+point of prompting the user for the information every time,<a href="#FOOTNOTE-5">[5]</a> instead of storing it anywhere at all, but clearly this
+is useful only for interactive programs (as opposed to a programs run
+by <em class="filename">crontab</em>, for example).
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-5" /><p> [5]In fact, Ave Wrigley wrote a module to do exactly that.
+It's not part of the LWP distribution, but
+it's available in CPAN as LWP::AuthenAgent. The
+author describes it as "a simple subclass of
+LWP::UserAgent to allow the user to type in username/password
+information if required for authentication."</p>
+</blockquote>
+
+<p>In any case, HTTP Basic Authentication is not the height of security:
+the username and password are normally sent unencrypted. This and
+other security shortcomings with HTTP Basic Authentication are
+explained in greater detail in RFC 2617. See the <a href="ch00_01.htm">the Preface</a> for information on where to get a copy of RFC
+2617.
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch11_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">11.2. Adding Extra Request Header Lines</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">11.4. An HTTP Authentication Example:The Unicode Mailing Archive</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+</map>
+
+</body></html>

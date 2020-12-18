@@ -1,0 +1,467 @@
+<?label 4.6. Performance Tuning?><html><head><title>Performance Tuning (MySQL &amp; mSQL)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Randy Jay Yarger, George Reese and Tim King" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924347L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="MySQL &amp; mSQL" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="MySQL and mSQL" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">MySQL &amp; mSQL</a></td><td width="172" valign="top" align="right"><a href="ch05_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<a name="INDEX-259" /><h2 class="sect1">4.6. Performance Tuning</h2>
+
+
+
+
+
+<p>The difference between being a good DBA (Database Administrator) and
+being a top-notch DBA is the difference between knowing how to manage
+your database server and knowing how your database server lives and
+breathes. Solving performance problems is often a matter of
+understanding just how MySQL works under the covers so that you can
+optimize application performance to take advantage of those features.</p>
+
+
+
+
+
+<p>MySQL presents three main potential bottlenecks for any connection.
+The first possibility is the network connection between the client
+and the server. Second is the processing time needed for activities
+like building keys. Finally, disk I/O can be a problem. MySQL
+provides variables that enable you to match MySQL's operations
+to your application environment. You can set each of these variables
+using the -O option to mysqld.<a href="#FOOTNOTE-5">[5]</a> For example, you set
+<tt class="literal">back_log</tt> to 15 by adding the option <em class="emphasis">-O
+back_log=15</em> to the options for
+<em class="emphasis">mysqld</em>. The following is a list of useful
+variables.</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-5" /><p>[5]Remember that the
+options to <em class="filename">safe_mysqld</em> are passed on to
+<em class="filename">mysqld</em>.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<dl>
+<dt><b>
+<a name="INDEX-260" />back_log</b></dt>
+<dd><p>The number of TCP/IP connections that are queued at once. If you have
+many remote users connecting to your database simultaneously, you may
+need to increase this value. The trade-off for a high value is
+slightly increased memory and CPU usage.</p></dd>
+
+
+
+
+
+<dt><b>
+<a name="INDEX-261" />key_buffer</b></dt>
+<dd><p>A buffer allocated to store recently used keys. If you have slow
+queries, increasing this value could help. The trade-off is an
+increase in memory usage.</p></dd>
+
+
+
+
+
+<dt><b>
+<a name="INDEX-262" />max_connections</b></dt>
+<dd><p>The number of simultaneous connections allowed by the database
+server. If some users are being denied access during busy times, you
+may need to increase this value. The trade-off is a more heavily
+loaded server. In other words, CPU usage, memory usage, and disk I/O
+will increase.</p></dd>
+
+
+
+
+
+<dt><b>
+<a name="INDEX-263" />table_cache</b></dt>
+<dd><p>A buffer used to hold frequently accessed table data. If you gave the
+memory to hold them, keeping your tables in memory greatly reduces
+disk I/O. The trade-off is a significant increase in memory usage.</p></dd>
+
+</dl>
+
+
+
+
+
+<a name="ch04-27-fm2xml" /><div class="sect2">
+<a name="INDEX-264" /><h3 class="sect2">4.6.1. The MySQL Data Structure</h3>
+
+
+
+
+
+<p>MySQL stores each table as a set of three files. For example, a
+medium-sized table called <tt class="literal">mytable</tt> may look like
+this:</p>
+
+
+
+
+
+<blockquote><pre class="code">-rw-rw---- 1 root root  1034155 Jun  3 17:08 mytable.ISD
+-rw-rw---- 1 root root    50176 Jun  3 17:08 mytable.ISM
+-rw-rw---- 1 root root     9114 Jun  3 14:24 mytable.frm</pre></blockquote>
+
+
+
+
+
+<p>The <a name="INDEX-265" />ISD file
+contains the actual data. The <a name="INDEX-266" />ISM file contains information about the
+keys and other internal data that enables MySQL to find data in the
+ISD file quickly. The frm file contains the structure of the table
+itself.</p>
+
+
+
+
+
+<p>The ISM file is most important to the performance of MySQL. It is so
+important, in fact, that an entire utility,
+<em class="emphasis">isamchk</em>
+<a name="INDEX-267" />, is devoted to it. Running
+<em class="emphasis">isamchk -d </em>will display information about a
+table:</p>
+
+
+
+
+
+<blockquote><pre class="code"># isamchk -d mytable
+
+ISAM file:     mytable
+Data records:       1973  Deleted blocks:              0
+Recordlength:        343
+Record format: Packed
+
+table description:
+Key Start Len Index   Type
+1   2     50  unique  text packed stripped</pre></blockquote>
+
+
+
+
+
+<p>The important field to notice here is the "Deleted
+blocks" field. If this value is too high, then the file is
+wasting a lot of space. Fortunately, you can recover this space. The
+following command will examine the table and recreate it, removing
+most errors and eliminating unnecessary
+space:<a name="INDEX-268" /></p>
+
+
+
+
+
+<blockquote><pre class="code">isamchk -r <em class="replaceable">mytable</em></pre></blockquote>
+
+
+
+
+
+<p>You can obtain additional speed enhancements by running
+<em class="emphasis">isamchk -a</em> on the table. This command analyzes
+the distribution of data in a table. You should run it after you
+insert or delete numerous records from the table.</p>
+
+
+
+
+
+<a name="ch04-28-fm2xml" /><div class="sect3">
+<a name="INDEX-269" /><h3 class="sect3">4.6.1.1. Repairing damaged tables</h3>
+
+
+
+
+
+<p>Due to server crashes or other acts of nature, a table in your
+database may become corrupted. When this happens,
+<em class="emphasis">isamchk</em> provides several different levels of
+repair:</p>
+
+
+
+
+
+<blockquote><pre class="code">isamchk <em class="replaceable">mytable</em></pre></blockquote>
+
+
+
+
+
+<a name="ch04-29-fm2xml" /><blockquote><h4 class="objtitle">NOTE</h4>
+
+<p>If you alter a table using isamchk while the database server is
+running, you may have to run<a name="INDEX-270" /> <em class="emphasis">mysqladmin reload</em>
+to make the server see the updated table.</p>
+</blockquote>
+
+
+
+
+
+<p>This command will repair most common problems with tables. Adding the
+<em class="emphasis">-i</em> and <em class="emphasis">-v</em> options will
+provide extra output about what is wrong. You can use more than one
+<em class="emphasis">-v</em> for extra information.</p>
+
+
+
+
+
+<blockquote><pre class="code">isamchk -rq <em class="replaceable">mytable</em></pre></blockquote>
+
+
+
+
+
+<p>This command will perform a quick check -- and repair, if
+necessary -- of only the ISM file. It will not check for
+corruption of the<a name="INDEX-271" />
+ISD file.<a name="INDEX-272" />
+<a name="INDEX-273" /></p>
+
+
+
+
+
+<blockquote><pre class="code">isamchk -e <em class="replaceable">mytable</em></pre></blockquote>
+
+
+
+
+
+<p>Using this option, you can perform a full check and repair of
+everything, eliminating any possible corruption. This sort of check
+will naturally take much longer than a regular check. The command
+will exit upon encountering the first severe error. If you want to
+continue reparations even after severe corruption is encountered, you
+can pass it the <em class="emphasis">-v</em> option. This option will
+guarantee the resulting table to be clean of corruption, but you may
+lose some data in the process.</p>
+
+
+
+
+
+<a name="ch04-30-fm2xml" /><blockquote><h4 class="objtitle">NOTE</h4>
+
+<p>Always back up your data before running any command that may alter
+the contents of a table. The <em class="emphasis">isamchk</em> utility is
+very good about repairing errors, but sometimes that means erasing
+corrupt data that is interfering with the rest of the table. If you
+have a backup, you can use it to recover any data that
+<em class="emphasis">isamchk</em> erased.<a name="INDEX-274" /></p>
+</blockquote>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="ch04-31-fm2xml" /><div class="sect3">
+<h3 class="sect3">4.6.1.2. Removing and replacing keys</h3>
+
+
+
+
+
+<p>Keys can sometimes get in the way of database performance. If, for
+instance, you want to insert a large data set into a table, having
+MySQL index the keys after every insert can be very inefficient. In
+addition, if you have a table with corrupt keys, blindly repairing
+that table with <em class="emphasis">isamchk</em> could delete some of the
+data associated with the key.</p>
+
+
+
+
+
+<p>In these situations, it can be helpful to temporarily remove the keys
+from a table and then replace them when the troublesome work is
+finished. The following command will remove the key information from
+a table:</p>
+
+
+
+
+
+<blockquote><pre class="code">isamchk -rq -k0</pre></blockquote>
+
+
+
+
+
+<p>When you are ready to put them back in, issue this command to replace
+the keys:</p>
+
+
+
+
+
+<blockquote><pre class="code">isamchk -rq</pre></blockquote>
+
+
+
+
+
+<a name="ch04-32-fm2xml" /><blockquote><h4 class="objtitle">WARNING</h4>
+
+
+<p>Shut down the server before issuing <em class="emphasis">isamchk</em> with
+the <em class="emphasis">-r</em> option. If the server is
+running, <em class="emphasis">isamchk-r</em> could corrupt the table.</p>
+
+
+
+
+</blockquote>
+
+<p>The <em class="emphasis">isamchk</em>
+<a name="INDEX-275" /> command provides so many capabilities
+it can be hard to sift through them all. However, there are some
+basic guidelines to follow:</p>
+
+
+
+
+<ul><li><p>While the database is young, run <em class="emphasis">isamchk -a</em>
+often. For most database applications, the bulk of data is inserted
+near the beginning of the life of the database. If you run
+<em class="emphasis">isamchk</em> with the analyze option every time the
+size of your database doubles you can make sure the data is always
+kept in the most efficient form.</p></li><li><p>Run <em class="emphasis">isamchk -d</em> once or twice a year. If the
+number of deleted blocks used by your tables is a significant portion
+of your disk space run <em class="emphasis">isamchk -r</em> to rebuild
+your tables without the unneeded space. If you have an application
+that involves a great deal of deleting old data and inserting new
+data, run <em class="emphasis">isamchk -d</em> every couple of weeks and
+if the number of deleted blocks grows quickly, you may want to run
+<em class="emphasis">isamchk -r</em> routinely every month.</p></li><li><p>Except for removing and replacing keys, which should always be done
+anytime more than a few dozen rows is being inserted at once, all
+other forms of <em class="emphasis">isamchk</em> should be run only
+reactively, whenever inconsistencies in the database
+appear.<a name="INDEX-276" /></p></li></ul>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch04-33-fm2xml" /><div class="sect2">
+<a name="INDEX-277" /><h3 class="sect2">4.6.2. Troubleshooting</h3>
+
+
+
+
+
+<p>Even in the best of products, problems occur. Fortunately, many
+problems you might run into have happened to others. The following is
+a collection of frequently encountered trouble spots dealing with
+MySQL administration:</p>
+
+
+
+
+
+<dl>
+<dt><b>Changes to the access tables are not working.</b></dt>
+<dd><p>Do not forget to issue the command <em class="emphasis">mysqladmin
+reload</em> after making changes to access tables.</p></dd>
+
+
+
+
+
+<dt><b>MySQL is refusing connections at peak times.</b></dt>
+<dd><ol><li><p>You should first check how many connections the server allows. The
+command <em class="emphasis">mysqladmin variables</em> will show this
+value under <tt class="literal">max_connections</tt>. You can set this
+value higher by starting <em class="emphasis">mysqld</em> with the
+<em class="emphasis">-O max_connections=###</em> where
+<tt class="literal">###</tt> is the limit you wish to set.</p></li><li><p>You can also check with the <tt class="literal">back_log</tt> value which
+determines the size of the queue that MySQL creates for incoming
+connections. The default value is 5. Versions of MySQL prior to
+3.22.x could set this limit only as high as 64, but later versions
+can set it as high as 1024. Your operating system, however, may limit
+connections to 64.</p></li><li><p>Finally, this problem can also be caused by file descriptor limits.
+In this case, the symptoms are that no connections at all are being
+allowed when MySQL has a large number of threads running. Unix
+systems handle setting the number of file descriptors in many
+different ways, so refer to your system documentation on how to
+increase the limit.</p></li></ol></dd>
+
+
+
+
+
+<dt><b>MySQL claims to be unable to find a file that definitely exists, or it reports errors while reading it.</b></dt>
+<dd><p>Most of the time, this problem is a result of the file descriptor
+problem mentioned above. If, however, you increase MySQL's
+table cache, it will not have to open the table files so many times
+and you may avoid this problem. By default, the table cache value is
+64. You can increase this value through the
+<tt class="literal">table_cache</tt> variable.</p></dd>
+
+
+
+
+
+<dt><b>Threads start to pile up and they will not go away.</b></dt>
+<dd><p>Certain systems, including Linux and some setups using NFS, have a
+problem with their file locking mechanism. This problem can result in
+a thread freezing. The <em class="emphasis">mysqladmin processlist</em>
+can help identify this problem. If the frozen threads report
+"System lock" under the "Command" field, use
+the <em class="emphasis">--skip-locking</em> option when starting
+<em class="emphasis">mysqld</em>.</p></dd>
+
+</dl>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch05_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">4.5. MySQL Utilities</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">5. mSQL</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

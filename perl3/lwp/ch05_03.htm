@@ -1,0 +1,151 @@
+<html><head><title>Automating Form Analysis (Perl &amp; LWP)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Sean Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001789L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl &amp; LWP" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; LWP" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch05_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">5.3. Automating Form Analysis</h2>
+
+<p>Rather than searching
+<a name="INDEX-293" /> <a name="INDEX-294" />through HTML hoping that
+you've found all the form components, you can
+automate the task. <a href="ch05_03.htm#perllwp-CHP-5-EX-2">Example 5-2</a> contains a program,
+<em class="filename">formpairs.pl</em>, that extracts the names
+<a name="INDEX-295" />and
+values from GET or POST requests.
+</p>
+
+<a name="perllwp-CHP-5-EX-2" /><div class="example">
+<h4 class="objtitle">Example 5-2. formpairs.pl </h4>
+<blockquote><pre class="code">#!/usr/local/bin/perl -w
+# formpairs.pl - extract names and values from HTTP requests
+
+use strict;
+my $data;
+if(! $ENV{'REQUEST_METHOD'}) { # not run as a CGI
+  die "Usage: $0 \"url\"\n" unless $ARGV[0];
+  $data = $ARGV[0];
+  $data = $1 if $data =~ s/^\w+\:.*?\?(.+)//;
+  print "Data from that URL:\n(\n";
+} elsif($ENV{'REQUEST_METHOD'} eq 'POST') {
+  read(STDIN, $data, $ENV{'CONTENT_LENGTH'});
+  print "Content-type: text/plain\n\nPOST data:\n(\n";
+} else {
+  $data = $ENV{'QUERY_STRING'};
+  print "Content-type: text/plain\n\nGET data:\n(\n";
+}
+for (split '&amp;', $data, -1) {   # Assumes proper URLencoded input
+  tr/+/ /;   s/"/\\"/g;   s/=/\" =&gt; \"/;   s/%20/ /g;
+  s/%/\\x/g;  # so %0d =&gt; \x0d
+  print "  \"$_\",\n";
+}
+print ")\n";</pre></blockquote>
+</div>
+
+<p>That program, when run <a name="INDEX-296" />as a command-line utility, takes a
+URL as its one argument, decodes the encoded GET query, and prints it
+in more Perlish terms:
+</p>
+
+<blockquote><pre class="code">% perl formpairs.pl "http://www.census.gov/cgi-bin/gazetteer?city=IEG
+&amp;state=&amp;zip="
+<tt class="userinput"><b>Data from that URL:</b></tt>
+<tt class="userinput"><b>(</b></tt>
+<tt class="userinput"><b>  "city" =&gt; "IEG",</b></tt>
+<tt class="userinput"><b>  "state" =&gt; "",</b></tt>
+<tt class="userinput"><b>  "zip" =&gt; "",</b></tt>
+<tt class="userinput"><b>)</b></tt></pre></blockquote>
+
+<p>Using a more complex URL (wrapped here for readability) illustrates
+the benefit of it:
+</p>
+
+<blockquote><pre class="code">% perl -w formpairs.pl http://www.altavista.com/sites/search/web?q=
+pie+AND+rhubarb+AND+strawberry%0D%0AAND+NOT+crumb&amp;kl=en&amp;r=&amp;dt=tmperiod
+&amp;d2=0&amp;d0=&amp;d1=&amp;sc=on&amp;nbq=30&amp;pg=aq&amp;search=Search
+<tt class="userinput"><b>Data from that URL:</b></tt>
+<tt class="userinput"><b>(</b></tt>
+<tt class="userinput"><b>  "q" =&gt; "pie AND rhubarb AND strawberry\x0D\x0AAND NOT crumb",</b></tt>
+<tt class="userinput"><b>  "kl" =&gt; "en",</b></tt>
+<tt class="userinput"><b>  "r" =&gt; "",</b></tt>
+<tt class="userinput"><b>  "dt" =&gt; "tmperiod",</b></tt>
+<tt class="userinput"><b>  "d2" =&gt; "0",</b></tt>
+<tt class="userinput"><b>  "d0" =&gt; "",</b></tt>
+<tt class="userinput"><b>  "d1" =&gt; "",</b></tt>
+<tt class="userinput"><b>  "sc" =&gt; "on",</b></tt>
+<tt class="userinput"><b>  "nbq" =&gt; "30",</b></tt>
+<tt class="userinput"><b>  "pg" =&gt; "aq",</b></tt>
+<tt class="userinput"><b>  "search" =&gt; "Search",</b></tt>
+<tt class="userinput"><b>)</b></tt></pre></blockquote>
+
+<p>The same program also <a name="INDEX-297" />functions as a CGI, so
+if you want to see what data a given form ends up submitting, you can
+simply change the form element's
+<tt class="literal">action</tt> attribute to a URL where
+you've set up that program as a CGI. As a CGI, it
+accepts both GET and POST methods.
+</p>
+
+<p>For example:</p>
+
+<blockquote><pre class="code">&lt;form method="post" action="http://myhost.int/cgi-bin/formpairs.pl"&gt;
+Kind of pie: &lt;input name="what pie" size=15&gt;
+&lt;input type="submit" value="Mmm pie"&gt;
+&lt;/form&gt;</pre></blockquote>
+
+<p>When you fill the one blank out with "tasty
+pie!" and press the "Mmm
+pie" button, the CGI will print:
+</p>
+
+<blockquote><pre class="code"><b class="emphasis-bold">POST data:</b>
+(
+  "what pie" =&gt; "tasty pie\x21",
+)</pre></blockquote>
+
+<p>A more ad hoc solution that doesn't involve
+bothering with a CGI is to take the local copy of the form, set the
+form tag's <tt class="literal">method</tt> attribute to
+<tt class="literal">get</tt>, set its <tt class="literal">action</tt> attribute
+to <tt class="literal">dummy.txt</tt>, and create a file
+<em class="filename">dummy.txt</em> consisting of the text
+"Look at my URL!" or the like.
+Then, when you submit the form, you will see only the
+"Look at my URL!" page, but the
+browser's
+"Location"/"Address"/"URL"
+window will show a URL like this:
+</p>
+
+<blockquote><pre class="code">file:///C%7C/form_work/dummy.txt?what+pie=tasty+pie%21</pre></blockquote>
+
+<p>You can then copy that URL into a shell window as the argument to
+<em class="filename">formpairs.pl</em>:
+</p>
+
+<blockquote><pre class="code">% perl formpairs.pl "file:///C%7C/form_work/dummy.txt?what+pie=tasty+pie%21"
+<tt class="userinput"><b>Data from that URL:</b></tt>
+<tt class="userinput"><b>(</b></tt>
+<tt class="userinput"><b>  "what pie" =&gt; "tasty pie\x21",</b></tt>
+<tt class="userinput"><b>)</b></tt></pre></blockquote>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch05_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">5.2. LWP and GET Requests</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">5.4. Idiosyncrasies of HTML Forms</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+</map>
+
+</body></html>

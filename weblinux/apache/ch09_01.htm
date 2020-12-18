@@ -1,0 +1,510 @@
+<?label 9. Proxy Server?><html><head><title>Proxy Server (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_09.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch09_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 9. Proxy Server</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch09_01.htm">Proxy Directives</a><br />
+<a href="ch09_02.htm">Caching</a><br />
+<a href="ch09_03.htm">Setup</a><br /></p></div>
+
+
+
+
+
+
+
+
+
+<p>
+<a name="INDEX-883" /> <a name="INDEX-884" /> <a name="INDEX-885" /> <a name="INDEX-886" />An important concern on the Web is
+keeping the Bad Guys out of your network (see <a href="ch13_01.htm">Chapter 13, "Security"</a>). One established technique is to keep the
+network hidden behind a firewall; this works well, but as soon as you
+do it, it also means that everyone on the same network suddenly finds
+that their view of the Net has disappeared (rather like people living
+near Miami Beach before and after the building boom). This becomes an
+urgent issue at Buttherthlies, Inc., as competition heats up and
+naughty-minded Bad Guys keep trying to break our security and get in.
+We install a firewall and, anticipating the instant outcries from the
+marketing animals who need to get out on the Web and surf for prey,
+we also install a proxy server to get them out there.</p>
+
+
+
+
+
+<p>So, in addition to the Apache that serves clients visiting our sites
+and is protected by the firewall, we need a copy of Apache to act as
+a proxy server to let us, in our turn, access other sites out on the
+Web. Without the proxy server, those inside are safe but blind.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch09-24739" />
+<h2 class="sect1">9.1. Proxy Directives</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-887" />We
+are not concerned here with firewalls, so we take them for granted.
+The interesting thing is how we configure the proxy Apache to make
+life with a firewall tolerable to those behind it.</p>
+
+
+
+
+
+<p><em class="emphasis">site.proxy</em> has three subdirectories:
+<em class="emphasis">cache, proxy, real.</em> The Config file from
+<em class="filename">... /site. proxy/proxy</em> is as follows:</p>
+
+
+
+
+
+<blockquote><pre class="code">User webuser
+Group webgroup
+ServerName www.butterthlies.com
+
+Port 8000
+ProxyRequests on
+CacheRoot /usr/www/site.proxy/cache
+CacheSize 100000</pre></blockquote>
+
+
+
+
+
+<p>The points to notice are that:</p>
+
+
+
+
+
+<ul><li><p>On this site we use <tt class="literal">ServerName
+</tt> <em class="filename">www.butterthlies.com.</em></p></li><li><p>The <tt class="literal">Port</tt> number is set to 8000 so that we can
+change proxies without having to change users' Configs.</p></li><li><p>We turn <tt class="literal">ProxyRequests </tt>on and provide a directory
+for the cache, which we will discuss later in this chapter.</p></li><li><p><tt class="literal">CacheRoot</tt> is set up in a special directory.</p></li><li><p><tt class="literal">CacheSize</tt> is set to 100000 kilobytes.</p></li></ul>
+<a name="ch09-1-fm2xml" /><div class="sect2">
+<h3 class="sect2">9.1.1. ProxyRequests</h3>
+
+
+
+
+
+<blockquote><pre class="code">ProxyRequests [on|off]
+Default: off
+Server config</pre></blockquote>
+
+
+
+
+
+<p>This <a name="INDEX-888" />directive turns proxy serving on. Even
+if <tt class="literal">ProxyRequests</tt> is <tt class="literal">off</tt>,
+<tt class="literal">ProxyPass</tt> directives are still honored.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch09-2-fm2xml" /><div class="sect2">
+<h3 class="sect2">9.1.2. ProxyRemote</h3>
+
+
+
+
+
+<blockquote><pre class="code">ProxyRemote <em class="replaceable">remote-server</em> = <em class="replaceable">protocol</em>://<em class="replaceable">hostname</em>[:<em class="replaceable">port</em>]
+Server config</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-889" />
+<a name="INDEX-890" />This
+directive defines remote proxies to this proxy.
+<em class="replaceable">remote-server</em> is either the name of a URL
+scheme that the remote server supports, a partial URL for which the
+remote server should be used, or " * " to indicate that
+the server should be contacted for all requests.
+<em class="replaceable">protocol</em><em class="filename"> </em>is the
+protocol that should be used to communicate with the remote server.
+Currently, only HTTP is supported by this module. For example:</p>
+
+
+
+
+
+<blockquote><pre class="code">ProxyRemote ftp http://ftpproxy.mydomain.com:8080
+  ProxyRemote http://goodguys.com/ http://mirrorguys.com:8000
+  ProxyRemote * http://cleversite.com</pre></blockquote>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch09-3-fm2xml" /><div class="sect2">
+<h3 class="sect2">9.1.3. ProxyPass</h3>
+
+
+
+
+
+<blockquote><pre class="code">ProxyPass <em class="replaceable">path</em> <em class="replaceable">url</em>
+Server config</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-891" />This
+command runs on an ordinary server and translates requests for a
+named directory and below to a demand to a proxy server. So, on our
+ordinary Butterthlies site, we might want to pass requests to
+<em class="emphasis">/secrets</em> onto a proxy server
+<em class="filename">darkstar.com</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">ProxyPass /secrets http://darkstar.com</pre></blockquote>
+
+
+
+
+
+<p>Unfortunately, this is less useful than it might appear, since the
+proxy does not modify the HTML returned by
+<em class="emphasis">darkstar.com</em>. This means that URLs embedded in the
+HTML will refer to documents on the main server unless they have been
+written carefully. For example, suppose a document
+<em class="filename">one.html</em> is stored on
+<em class="emphasis">darkstar.com</em> with the URL
+<em class="emphasis">http://darkstar.com/one.html</em>, and we want it to
+refer to another document in the same directory. Then the following
+links will work, when accessed as
+<em class="emphasis">http://www.butterthlies.com/secrets/one.html</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">&lt;A HREF="two.html"&gt;Two&lt;/A&gt;
+&lt;A HREF="/secrets/two.html"&gt;Two&lt;/A&gt;
+&lt;A HREF="http://darkstar.com/two.html"&gt;Two&lt;/A&gt;</pre></blockquote>
+
+
+
+
+
+<p>But this example will not work:</p>
+
+
+
+
+
+<blockquote><pre class="code">&lt;A HREF="/two.html"&gt;Not two&lt;/A&gt;</pre></blockquote>
+
+
+
+
+
+<p>When accessed directly, through
+<em class="emphasis">http://darkstar.com/one.html</em>, these links work:</p>
+
+
+
+
+
+<blockquote><pre class="code">&lt;A HREF="two.html"&gt;Two&lt;/A&gt;
+&lt;A HREF="/two.html"&gt;Two&lt;/A&gt;
+&lt;A HREF="http://darkstar.com/two.html"&gt;Two&lt;/A&gt;</pre></blockquote>
+
+
+
+
+
+<p>But the following doesn't:</p>
+
+
+
+
+
+<blockquote><pre class="code">&lt;A HREF="/secrets/two.html"&gt;Two&lt;/A&gt;</pre></blockquote>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch09-4-fm2xml" /><div class="sect2">
+<h3 class="sect2">9.1.4. ProxyDomain</h3>
+
+
+
+
+
+<blockquote><pre class="code">ProxyDomain <em class="replaceable">Domain</em> 
+Server config</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-892" />This
+directive is only useful for Apache proxy servers within intranets.
+The <tt class="literal">ProxyDomain</tt> directive specifies the default
+domain to which the Apache proxy server will belong. If a request to
+a host without a domain name is encountered, a redirection response
+to the same host with the configured
+<em class="replaceable">Domain</em> appended will be generated.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch09-5-fm2xml" /><div class="sect2">
+<h3 class="sect2">9.1.5. NoProxy</h3>
+
+
+
+
+
+<blockquote><pre class="code">NoProxy<em class="replaceable"> </em>{ <em class="replaceable">Domain</em> | <em class="replaceable">SubNet</em> | <em class="replaceable">IpAddr</em> | <em class="replaceable">Hostname</em> } 
+Server config</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-893" />This
+directive is only useful for Apache proxy servers within intranets.
+The <tt class="literal">NoProxy</tt> directive specifies a list of subnets,
+IP addresses, hosts, and/or domains, separated by spaces. A request
+to a host that matches one or more of these is always served
+directly, without forwarding to the configured
+<tt class="literal">ProxyRemote</tt> proxy server(s).</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch09-6-fm2xml" /><div class="sect2">
+<h3 class="sect2">9.1.6. ProxyPassReverse</h3>
+
+
+
+
+
+<blockquote><pre class="code">ProxyPassReverse<em class="replaceable"> path url</em>
+Server config, virtual host</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-894" />A
+reverse proxy is a way to share load between several
+servers -- the frontend server simply accepts requests and
+forwards them to one of several backend servers. The optional module
+<em class="emphasis">mod_rewrite</em> has some special stuff in it to
+support this. This directive lets Apache adjust the URL in the
+<tt class="literal">Location</tt> response header. If a
+<tt class="literal">ProxyPass</tt> (or <em class="emphasis">mod_rewrite</em>)
+has been used to do reverse proxying, then this directive will
+rewrite <tt class="literal">Location</tt> headers coming back from the
+reverse proxied server so that they look as if they came from
+somewhere else (normally this server, of course).</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_09.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch09_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">8.9. Speling</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">9.2. Caching</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

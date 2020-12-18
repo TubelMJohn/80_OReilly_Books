@@ -1,0 +1,213 @@
+<html><head><title>XML::Simple (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch06_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">6.2. XML::Simple</h2>
+
+<p>The <a name="INDEX-493" /> <a name="INDEX-494" />simplest tree model can be found in Grant
+<a name="INDEX-495" />McLean's module
+<tt class="literal">XML::Simple</tt>. It's designed to
+facilitate the job of reading and saving datafiles. The programmer
+doesn't have to know much about XML and
+parsers -- only how to access arrays and hashes, the data
+structures used to store a document.
+</p>
+
+<p><a href="ch06_02.htm#perlxml-CHP-6-EX-1">Example 6-1</a> shows a simple datafile that a program
+might use to store information.
+</p>
+
+<a name="perlxml-CHP-6-EX-1" /><div class="example">
+<h4 class="objtitle">Example 6-1. A program datafile </h4>
+<blockquote><pre class="code">&lt;preferences&gt;
+  &lt;font role="default"&gt;
+    &lt;name&gt;Times New Roman&lt;/name&gt;
+    &lt;size&gt;14&lt;/size&gt;
+  &lt;/font&gt;
+  &lt;window&gt;
+    &lt;height&gt;352&lt;/height&gt;
+    &lt;width&gt;417&lt;/width&gt;
+    &lt;locx&gt;100&lt;/locx&gt;
+    &lt;locy&gt;120&lt;/locy&gt;
+  &lt;/window&gt;
+&lt;/preferences&gt;</pre></blockquote>
+</div>
+
+<p><tt class="literal">XML::Simple</tt> makes accessing information in the
+datafile remarkably easy. <a href="ch06_02.htm#perlxml-CHP-6-EX-2">Example 6-2</a> extracts
+default font information from it.
+</p>
+
+<a name="perlxml-CHP-6-EX-2" /><div class="example">
+<h4 class="objtitle">Example 6-2. Program to extract font information </h4>
+<blockquote><pre class="code">use XML::Simple;
+
+my $simple = XML::Simple-&gt;new( );             # initialize the object
+my $tree = $simple-&gt;XMLin( './data.xml' );   # read, store document
+
+# test access to the tree
+print "The user prefers the font " . $tree-&gt;{ font }-&gt;{ name } . " at " .
+    $tree-&gt;{ font }-&gt;{ size } . " points.\n";</pre></blockquote>
+</div>
+
+<p>First we initialize an <tt class="literal">XML::Simple</tt> object, then we
+trigger the parser with a call to its <tt class="literal">XMLin(
+)</tt><a name="INDEX-496" />
+method. This step returns a reference to the root of the tree, which
+is a hierarchical set of hashes. Element names provide keys to the
+hashes, whose values are either strings or references to other
+element hashes. Thus, we have a clear and concise way to access
+points deep in the document.
+</p>
+
+<p>To illustrate this idea, let's look at the data
+structure, using <tt class="literal">Data::Dumper</tt>, a module that
+serializes data structures. Just add these lines at the end of the
+program:
+</p>
+
+<blockquote><pre class="code">use Data::Dumper;
+print Dumper( $tree );</pre></blockquote>
+
+<p>And here's the output: </p>
+
+<blockquote><pre class="code">$tree = {
+          'font' =&gt; {
+                      'size' =&gt; '14',
+                      'name' =&gt; 'Times New Roman',
+                      'role' =&gt; 'default'
+                    },
+          'window' =&gt; {
+                        'locx' =&gt; '100',
+                        'locy' =&gt; '120',
+                        'height' =&gt; '352',
+                        'width' =&gt; '417'
+                      }
+        };</pre></blockquote>
+
+<p>The <tt class="literal">$tree</tt> variable represents the root element of
+the tree, <tt class="literal">&lt;preferences&gt;</tt>. Each entry in the
+hash it points to represents its child elements,
+<tt class="literal">&lt;font&gt;</tt> and
+<tt class="literal">&lt;window&gt;</tt>, accessible by their types. The
+entries point to hashes representing the third tier of elements.
+Finally, the values of these hash items are strings, the text found
+in the actual elements from the file. The whole document is
+accessible with a simple string of hash references.
+</p>
+
+<p>This example was not very complex. Much of the success of
+<tt class="literal">XML::Simple</tt>'s interface is that
+it relies on the XML to be simple. Looking back at our datafile,
+you'll note that no sibling elements have the same
+name. Identical names would be impossible to encode with hashes
+alone.
+</p>
+
+<p>Fortunately, <tt class="literal">XML::Simple</tt> has an answer. If an
+element has two or more child elements with the same name, it uses a
+list to contain all the like-named children in a group. Consider the
+revised datafile in <a href="ch06_02.htm#perlxml-CHP-6-EX-3">Example 6-3</a>.
+</p>
+
+<a name="perlxml-CHP-6-EX-3" /><div class="example">
+<h4 class="objtitle">Example 6-3. A trickier program datafile </h4>
+<blockquote><pre class="code">&lt;preferences&gt;
+  &lt;font role="console"&gt;
+    &lt;size&gt;9&lt;/size&gt;
+    &lt;fname&gt;Courier&lt;/fname&gt;
+  &lt;/font&gt;
+  &lt;font role="default"&gt;
+    &lt;fname&gt;Times New Roman&lt;/fname&gt;
+    &lt;size&gt;14&lt;/size&gt;
+  &lt;/font&gt;
+  &lt;font role="titles"&gt;
+    &lt;size&gt;10&lt;/size&gt;
+    &lt;fname&gt;Helvetica&lt;/fname&gt;
+  &lt;/font&gt;
+&lt;/preferences&gt;</pre></blockquote>
+</div>
+
+<p>We've thrown <tt class="literal">XML::Simple</tt> a curve
+ball. There are now three <tt class="literal">&lt;font&gt;</tt> elements in
+a row. How will <tt class="literal">XML::Simple</tt> encode that? Dumping
+the data structure gives us this output:
+</p>
+
+<blockquote><pre class="code">$tree = {
+          'font' =&gt; [
+                      {
+                        'fname' =&gt; 'Courier',
+                        'size' =&gt; '9',
+                        'role' =&gt; 'console'
+                      },
+                      {
+                        'fname' =&gt; 'Times New Roman',
+                        'size' =&gt; '14',
+                        'role' =&gt; 'default'
+                      },
+                      {
+                        'fname' =&gt; 'Helvetica',
+                        'size' =&gt; '10',
+                        'role' =&gt; 'titles'
+                      }
+                    ]
+        };</pre></blockquote>
+
+<p>Now the <tt class="literal">font</tt> entry's value is a
+reference to a list of hashes, each modeling one of the
+<tt class="literal">&lt;font&gt;</tt> elements. To select a font, you must
+iterate through the list until you find the one you want. This
+iteration clearly takes care of the like-named sibling problem.
+</p>
+
+<p>This new datafile also adds attributes to some elements. These
+attributes have been incorporated into the structure as if they were
+child elements of their host elements. Name clashes between
+attributes and child elements are possible, but this potential
+problem is resolved the same way as like-named sibling elements.
+It's convenient this way, as long as you
+don't mind if elements and attributes are treated
+the same.
+</p>
+
+<p>We know how to input XML documents to our program, but what about
+writing files? <tt class="literal">XML::Simple</tt> also has a method that
+outputs XML documents, <tt class="literal">XML_Out( )</tt>. You can
+either modify an existing structure or create a new document from
+scratch by building a data structure like the ones listed above and
+then passing it to the <tt class="literal">XML_Out( )</tt> method.
+</p>
+
+<p>Our conclusion? <tt class="literal">XML::Simple</tt> works well with simple
+XML documents, but runs into trouble with more complex markup. It
+can't handle elements with both text and elements as
+children (mixed content). It doesn't pay attention
+to node types other than elements, attributes, and text (like
+processing instructions or CDATA sections). Because hashes
+don't preserve the order of items, the sequence of
+elements may be scrambled. If none of these problems matters to you,
+then use <tt class="literal">XML::Simple</tt>. It will serve your<a name="INDEX-497" /> <a name="INDEX-498" /> needs well,
+minimizing the pain of XML markup and keeping your data accessible.
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch06_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">6. Tree Processing</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">6.3. XML::Parser's Tree Mode</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

@@ -1,0 +1,525 @@
+<?label A.7. DBI Statement Handle Objects ?><html><head><title>DBI Statement Handle Objects  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="appa_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="appa_08.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">A.7. DBI Statement Handle Objects </h2>
+
+
+
+<p>This section lists the methods and attributes associated with DBI
+statement handles.</p>
+
+
+
+<a name="appa-74-fm2xml" /><div class="sect2">
+<h3 class="sect2">A.7.1. Statement Handle Methods </h3>
+
+
+
+<p>The DBI defines the following methods for use on DBI statement
+handles:</p>
+
+
+
+
+<a name="INDEX-1090" /><a name="INDEX-1091" /><a name="INDEX-1092" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>bind_ param </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+
+$rc = $sth-&gt;bind_param($p_num, $bind_value) || die
+$sth-&gt;errstr;
+$rv = $sth-&gt;bind_param($p_num, $bind_value, \%attr)     || ...
+$rv = $sth-&gt;bind_param($p_num, $bind_value, $bind_type) || ...
+</pre></td><td align="right" /></tr></table><p>The <tt class="literal">bind_ param</tt>
+<a name="INDEX-1090" />
+<a name="INDEX-1091" />
+method can be used to bind a value with a <a name="INDEX-1092" />placeholder embedded in the prepared
+statement. Placeholders are indicated with the question mark
+character (<tt class="literal">?</tt>). For example:</p><blockquote><pre class="code">$dbh-&gt;{RaiseError} = 1;        # save having to check each method call
+$sth = $dbh-&gt;prepare("SELECT name, age FROM people WHERE name LIKE ?");
+$sth-&gt;bind_param(1, "John%");  # placeholders are numbered from 1
+$sth-&gt;execute;
+DBI::dump_results($sth);</pre></blockquote><p>Note that the <tt class="literal">?</tt> is not enclosed in quotation
+marks, even when the placeholder represents a string. Some drivers
+also allow placeholders like
+<tt class="literal">:</tt><em class="replaceable">name</em> and
+<tt class="literal">:</tt><em class="replaceable">n</em> (e.g.,
+<tt class="literal">:1</tt>, <tt class="literal">:2</tt>, and so on) in addition
+to <tt class="literal">?</tt>, but their use is not portable. Undefined
+bind values or <tt class="literal">undef</tt> can be used to indicate null
+values.</p><p>Some drivers do not support placeholders.</p><p>With most drivers, placeholders can't be used for any element
+of a statement that would prevent the database server from validating
+the statement and creating a query execution plan for it. For
+example:</p><blockquote><pre class="code">"SELECT name, age FROM ?"         # wrong (will probably fail)
+"SELECT name, ?   FROM people"    # wrong (but may not 'fail')</pre></blockquote><p>Also, placeholders can only represent single scalar values. For
+example, the following statement won't work as expected for
+more than one value:</p><blockquote><pre class="code">"SELECT name, age FROM people WHERE name IN (?)"    # wrong</pre></blockquote></div>
+<a name="appa-76-fm2xml" /><div class="sect3">
+<h3 class="sect3">A.7.1.1. Datatypes for placeholders </h3>
+
+
+
+<p>The <tt class="literal">\%attr</tt> parameter can be used to hint at which
+datatype the placeholder should have. Typically, the driver is
+interested in knowing only if the placeholder should be bound as a
+number or a string. For example:</p>
+
+
+
+<blockquote><pre class="code">$sth-&gt;bind_param(1, $value, { TYPE =&gt; SQL_INTEGER });</pre></blockquote>
+
+
+
+<p>As a shortcut for this common case, the datatype can be passed
+directly, in place of the <tt class="literal">\%attr</tt> hash reference.
+This example is equivalent to the one above:</p>
+
+
+
+<blockquote><pre class="code">$sth-&gt;bind_param(1, $value, SQL_INTEGER);</pre></blockquote>
+
+
+
+<p>The <tt class="literal">TYPE</tt> value indicates the standard
+(non-driver-specific) type for this parameter. To specify the
+driver-specific type, the driver may support a driver-specific
+attribute, such as <tt class="literal">{</tt> <tt class="literal">ora_type</tt>
+<tt class="literal">=</tt>&gt; <tt class="literal">97</tt> <tt class="literal">}</tt>.
+The datatype for a placeholder cannot be changed after the first
+<tt class="literal">bind_ param</tt> call. However, it can be left
+unspecified, in which case it defaults to the previous value.</p>
+
+
+
+<p>Perl only has string and number scalar datatypes. All database types
+that aren't numbers are bound as strings and must be in a
+format the database will understand.</p>
+
+
+
+<p>As an alternative to specifying the datatype in the <tt class="literal">bind_
+param</tt> call, you can let the driver pass the value as the
+default type (<tt class="literal">VARCHAR</tt>). You can then use an SQL
+function to convert the type within the statement. For example:</p>
+
+
+
+<blockquote><pre class="code">INSERT INTO price(code, price) VALUES (?, CONVERT(MONEY,?))</pre></blockquote>
+
+
+
+<p>The <tt class="literal">CONVERT</tt> function used here is just an example.
+The actual function and syntax will vary between different databases
+and is non-portable.</p>
+
+
+
+<p>See also <a href="appa_02.htm#appa-11-fm2xml">Section A.2.7, "Placeholders and Bind Values "</a> for more 
+<a name="INDEX-1093" /> <a name="INDEX-1094" />information.</p>
+
+
+
+<a name="INDEX-1095" /><a name="INDEX-1096" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>bind_param_inout </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$rc = $sth-&gt;bind_param_inout($p_num, \$bind_value, $max_len) || die $sth-&gt;errstr;
+$rv = $sth-&gt;bind_param_inout($p_num, \$bind_value, $max_len, \%attr) || ...
+$rv = $sth-&gt;bind_param_inout($p_num, \$bind_value, $max_len, $bind_type) || ...</pre></td><td align="right" /></tr></table><p>This method acts like <tt class="literal">bind_
+param</tt>
+<a name="INDEX-1095" />
+<a name="INDEX-1096" />,
+but also enables values to be updated by the statement. The statement
+is typically a call to a stored procedure. The
+<tt class="literal">$bind_value</tt> must be passed as a reference to the
+actual value to be used.</p><p>Note that unlike <tt class="literal">bind_ param</tt>, the
+<tt class="literal">$bind_value</tt> variable is not read when
+<tt class="literal">bind_ param_inout</tt> is called. Instead, the value in
+the variable is read at the time <tt class="literal">execute</tt> is
+called.</p><p>The additional <tt class="literal">$max_len</tt> parameter specifies the
+minimum amount of memory to allocate to
+<tt class="literal">$bind_value</tt> for the new value. If the value
+returned from the database is too big to fit, then the execution
+should fail. If unsure what value to use, pick a generous length,
+i.e., a length larger than the longest value that would ever be
+returned. The only cost of using a larger value than needed is wasted
+memory.</p><p>It is expected that few drivers will support this method. The only
+driver currently known to do so is <tt class="literal">DBD::Oracle</tt>
+(<tt class="literal">DBD::ODBC</tt> may support it in a future release).
+Therefore, it should not be used for database-independent
+applications.</p><p>Undefined values or <tt class="literal">undef</tt> are used to indicate
+null values. See also "<em class="emphasis">Placeholders and Bind
+Values"</em> for more information.</p></div>
+
+<a name="INDEX-1097" /><a name="INDEX-1098" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>execute </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$rv = $sth-&gt;execute                || die $sth-&gt;errstr;
+$rv = $sth-&gt;execute(@bind_values)  || die $sth-&gt;errstr;</pre></td><td align="right" /></tr></table><p>Performs <a name="INDEX-1097" />
+<a name="INDEX-1098" />whatever
+processing is necessary to execute the prepared statement. An
+<tt class="literal">undef</tt> is returned if an error occurs. A successful
+<tt class="literal">execute</tt> always returns true regardless of the
+number of rows affected, even if it's zero (see below). It is
+always important to check the return status of
+<tt class="literal">execute</tt> (and most other DBI methods) for errors.</p><p>For a <em class="emphasis">non</em>-<tt class="literal">SELECT</tt> statement,
+<tt class="literal">execute</tt> returns the number of rows affected, if
+known. If no rows were affected, then <tt class="literal">execute</tt>
+returns <tt class="literal">0E0</tt>, which Perl will treat as
+<tt class="literal">0</tt> but will regard as true. Note that it is
+<em class="emphasis">not</em> an error for no rows to be affected by a
+statement. If the number of rows affected is not known, then
+<tt class="literal">execute</tt> returns -<tt class="literal">1</tt>.</p><p>For <tt class="literal">SELECT</tt> statements, <tt class="literal">execute</tt>
+simply "starts" the query within the database engine. Use
+one of the fetch methods to retrieve the data after calling
+<tt class="literal">execute</tt>. The <tt class="literal">execute</tt> method
+does <em class="emphasis">not</em> return the number of rows that will be
+returned by the query (because most databases can't tell in
+advance), it simply returns a true value.</p><p>If any arguments are given, then <tt class="literal">execute</tt> will
+effectively call <tt class="literal">bind_ param</tt> for each value before
+executing the statement. Values bound in this way are usually treated
+as <tt class="literal">SQL_VARCHAR</tt> types unless the driver can
+determine the correct type (which is rare), or unless <tt class="literal">bind_
+param</tt> (or <tt class="literal">bind_ param_inout</tt>) has already
+been used to specify the type.</p></div>
+
+<a name="INDEX-1099" /><a name="INDEX-1100" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>fetchrow_arrayref </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$ary_ref = $sth-&gt;fetchrow_arrayref;
+$ary_ref = $sth-&gt;fetch;    # alias</pre></td><td align="right" /></tr></table><p>Fetches
+<a name="INDEX-1099" />
+<a name="INDEX-1100" />the
+next row of data and returns a reference to an array holding the
+field values. Null fields are returned as <tt class="literal">undef</tt>
+values in the array. This is the fastest way to fetch data,
+particularly if used with
+<tt class="literal">$sth-</tt>&gt;<tt class="literal">bind_columns</tt>.</p><p>If there are no more rows, or if an error occurs, then
+<tt class="literal">fetchrow_arrayref</tt> returns an
+<tt class="literal">undef</tt>. You should check
+<tt class="literal">$sth-</tt>&gt;<tt class="literal">err</tt> afterwards (or use
+the <tt class="literal">RaiseError</tt> attribute) to discover if the
+<tt class="literal">undef</tt> returned was due to an error.</p><p>Note that the same array reference will currently be returned for
+each fetch, so don't store the reference and then use it after
+a later fetch.</p></div>
+
+<a name="INDEX-1101" /><a name="INDEX-1102" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>fetchrow_array </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+ @ary = $sth-&gt;fetchrow_array;</pre></td><td align="right" /></tr></table><p>An alternative to
+<tt class="literal">fetchrow_arrayref</tt>
+<a name="INDEX-1101" />
+<a name="INDEX-1102" />.
+Fetches the next row of data and returns it as a list containing the
+field values. Null fields are returned as <tt class="literal">undef</tt>
+values in the list.</p><p>If there are no more rows, or if an error occurs, then
+<tt class="literal">fetchrow_array</tt> returns an empty list. You should
+check <tt class="literal">$sth-</tt>&gt;<tt class="literal">err</tt> afterwards
+(or use the <tt class="literal">RaiseError</tt> attribute) to discover if
+the empty list returned was due to an error.</p><p>In a scalar context, <tt class="literal">fetchrow_array</tt> returns the
+value of the first field. An <tt class="literal">undef</tt> is returned if
+there are no more rows or if an error occurred. Since that
+<tt class="literal">undef</tt> can't be distinguished from an
+<tt class="literal">undef</tt> returned because the first field value was
+NULL, you should exercise some caution if you use
+<tt class="literal">fetchrow_array</tt> in a scalar context.</p></div>
+
+<a name="INDEX-1103" /><a name="INDEX-1104" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>fetchrow_hashref </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+ $hash_ref = $sth-&gt;fetchrow_hashref;
+ $hash_ref = $sth-&gt;fetchrow_hashref($name);</pre></td><td align="right" /></tr></table><p>An alternative to
+<tt class="literal">fetchrow_arrayref</tt>
+<a name="INDEX-1103" />
+<a name="INDEX-1104" />.
+Fetches the next row of data and returns it as a reference to a hash
+containing field name and field value pairs. Null fields are returned
+as <tt class="literal">undef</tt> values in the hash.</p><p>If there are no more rows, or if an error occurs, then
+<tt class="literal">fetchrow_hashref</tt> returns an
+<tt class="literal">undef</tt>. You should check
+<tt class="literal">$sth-</tt>&gt;<tt class="literal">err</tt> afterwards (or use
+the <tt class="literal">RaiseError</tt> attribute) to discover if the
+<tt class="literal">undef</tt> returned was due to an error.</p><p>The optional <tt class="literal">$name</tt> parameter specifies the name of
+the statement handle attribute. For historical reasons it defaults to
+<tt class="literal">NAME</tt>; however, using either
+<tt class="literal">NAME_lc</tt> or <tt class="literal">NAME_uc</tt> is
+recommended for portability.</p><p>The keys of the hash are the same names returned by
+<tt class="literal">$sth-</tt>&gt;<tt class="literal">{$name}</tt>. If more than
+one field has the same name, there will only be one entry in the
+returned hash for those fields.</p><p>Because of the extra work <tt class="literal">fetchrow_hashref</tt> and
+Perl have to perform, this attribute is not as efficient as
+<tt class="literal">fetchrow_arrayref</tt> or
+<tt class="literal">fetchrow_array</tt>.</p><p>Currently, a new hash reference is returned for each row. This will
+change in the future to return the same hash ref each time, so
+don't rely on the current behavior.</p></div>
+
+<a name="INDEX-1105" /><a name="INDEX-1106" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>fetchall_arrayref </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$tbl_ary_ref = $sth-&gt;fetchall_arrayref;
+$tbl_ary_ref = $sth-&gt;fetchall_arrayref( $slice_array_ref );
+$tbl_ary_ref = $sth-&gt;fetchall_arrayref( $slice_hash_ref  );</pre></td><td align="right" /></tr></table><p>The
+<tt class="literal">fetchall_arrayref</tt>
+<a name="INDEX-1105" />
+<a name="INDEX-1106" />
+method can be used to fetch all the data to be returned from a
+prepared and executed statement handle. It returns a reference to an
+array that contains one reference per row.</p><p>If there are no rows to return, <tt class="literal">fetchall_arrayref</tt>
+returns a reference to an empty array. If an error occurs,
+<tt class="literal">fetchall_arrayref</tt> returns the data fetched thus
+far, which may be none. You should check
+<tt class="literal">$sth-</tt>&gt;<tt class="literal">err</tt> afterwards (or use
+the <tt class="literal">RaiseError</tt> attribute) to discover if the data
+is complete or was truncated due to an error.</p><p>When passed an array reference, <tt class="literal">fetchall_arrayref</tt>
+uses <tt class="literal">fetchrow_arrayref</tt> to fetch each row as an
+array ref. If the parameter array is not empty, then it is used as a
+slice to select individual columns by index number.</p><p>With no parameters, <tt class="literal">fetchall_arrayref</tt> acts as if
+passed an empty array ref.</p><p>When passed a hash reference, <tt class="literal">fetchall_arrayref</tt>
+uses <tt class="literal">fetchrow_hashref</tt> to fetch each row as a hash
+reference. If the parameter hash is not empty, then it is used as a
+slice to select individual columns by name. The names should be lower
+case regardless of the letter case in
+<tt class="literal">$sth-</tt>&gt;<tt class="literal">{NAME}</tt>. The values of
+the hash should be set to <tt class="literal">1</tt>.</p><p>For example, to fetch just the first column of every row:</p><blockquote><pre class="code">$tbl_ary_ref = $sth-&gt;fetchall_arrayref([0]);</pre></blockquote><p>To fetch the second to last and last column of every row:</p><blockquote><pre class="code">$tbl_ary_ref = $sth-&gt;fetchall_arrayref([-2,-1]);</pre></blockquote><p>To fetch only the fields called "foo" and
+"bar" of every row:</p><blockquote><pre class="code">$tbl_ary_ref = $sth-&gt;fetchall_arrayref({ foo=&gt;1, bar=&gt;1 });</pre></blockquote><p>The first two examples return a reference to an array of array refs.
+The last returns a reference to an array of hash refs.</p></div>
+
+<a name="INDEX-1107" /><a name="INDEX-1108" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>finish </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$rc  = $sth-&gt;finish;</pre></td><td align="right" /></tr></table><p>Indicates <a name="INDEX-1107" />
+<a name="INDEX-1108" />that
+no more data will be fetched from this statement handle before it is
+either executed again or destroyed. The <tt class="literal">finish</tt>
+method is rarely needed, but can sometimes be helpful in very
+specific situations to allow the server to free up resources (such as
+sort buffers).</p><p>When all the data has been fetched from a <tt class="literal">SELECT</tt>
+statement, the driver should automatically call
+<tt class="literal">finish</tt> for you. So you should not normally need to
+call it explicitly.</p><p>Consider a query like:</p><blockquote><pre class="code">SELECT foo FROM table WHERE bar=? ORDER BY foo</pre></blockquote><p>where you want to select just the first (smallest) "foo"
+value from a very large table. When executed, the database server
+will have to use temporary buffer space to store the sorted rows. If,
+after executing the handle and selecting one row, the handle
+won't be re-executed for some time and won't be
+destroyed, the <tt class="literal">finish</tt> method can be used to tell
+the server that the buffer space can be freed.</p><p>Calling <tt class="literal">finish</tt> resets the
+<tt class="literal">Active</tt> attribute for the statement. It may also
+make some statement handle attributes (such as
+<tt class="literal">NAME</tt> and <tt class="literal">TYPE</tt>) unavailable if
+they have not already been accessed (and thus cached).</p><p>The <tt class="literal">finish</tt> method does not affect the transaction
+status of the database connection. It has nothing to do with
+transactions. It's mostly an internal
+"housekeeping" method that is rarely needed.
+There's no need to call <tt class="literal">finish</tt> if
+you're about to destroy or re-execute the statement handle. See
+also <tt class="literal">disconnect</tt> and the <tt class="literal">Active</tt>
+attribute.</p></div>
+
+<a name="INDEX-1109" /><a name="INDEX-1110" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>rows </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$rv = $sth-&gt;rows;</pre></td><td align="right" /></tr></table><p>Returns the number of
+<a name="INDEX-1109" />
+<a name="INDEX-1110" />rows
+affected by the last row-affecting command, or -<tt class="literal">1</tt>
+if the number of rows is not known or not available.</p><p>Generally, you can only rely on a row count after a
+<em class="emphasis">non</em>-<tt class="literal">SELECT</tt>
+<tt class="literal">execute</tt> (for some specific operations like
+<tt class="literal">UPDATE</tt> and <tt class="literal">DELETE</tt>), or after
+fetching all the rows of a <tt class="literal">SELECT</tt> statement.</p><p>For <tt class="literal">SELECT</tt> statements, it is generally not
+possible to know how many rows will be returned except by fetching
+them all. Some drivers will return the number of rows the application
+has fetched so far, but others may return -<tt class="literal">1</tt> until
+all rows have been fetched. So use of the <tt class="literal">rows</tt>
+method or <tt class="literal">$DBI::rows</tt> with
+<tt class="literal">SELECT</tt> statements is not recommended.</p><p>One alternative method to get a row count for a
+<tt class="literal">SELECT</tt> is to execute a
+"<tt class="literal">SELECT</tt> <tt class="literal">COUNT(*)</tt>
+<tt class="literal">FROM ...</tt>" SQL statement with the same
+"<tt class="literal">...</tt>" as your query, and then fetch
+the row count from that.</p></div>
+
+<a name="INDEX-1111" /><a name="INDEX-1112" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>bind_col </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$rc = $sth-&gt;bind_col($column_number, \$var_to_bind);</pre></td><td align="right" /></tr></table><p>Binds an <a name="INDEX-1111" />
+<a name="INDEX-1112" />output
+column (field) of a <tt class="literal">SELECT</tt> statement to a Perl
+variable. See <tt class="literal">bind_columns</tt> for an example. Note
+that column numbers count up from 1.</p><p>Whenever a row is fetched from the database, the corresponding Perl
+variable is automatically updated. There is no need to fetch and
+assign the values manually. The binding is performed at a very low
+level using Perl aliasing, so there is no extra copying taking place.
+This makes using bound variables very efficient.</p><p>For maximum portability between drivers, <tt class="literal">bind_col</tt>
+should be called after <tt class="literal">execute</tt>. This restriction
+may be removed in a later version of the DBI.</p><p>You do not need to bind output columns in order to fetch data, but it
+can be useful for some applications that need either maximum
+performance or greater clarity of code. The <tt class="literal">bind_
+param</tt> method performs a similar but opposite function for
+input variables.</p></div>
+
+<a name="INDEX-1113" /><a name="INDEX-1114" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>bind_columns </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$rc = $sth-&gt;bind_columns(@list_of_refs_to_vars_to_bind);</pre></td><td align="right" /></tr></table><p>Calls
+<tt class="literal">bind_col</tt>
+<a name="INDEX-1113" />
+<a name="INDEX-1114" />
+for each column of the <tt class="literal">SELECT</tt> statement. The
+<tt class="literal">bind_columns</tt> method will die if the number of
+references does not match the number of fields.</p><p>For maximum portability between drivers,
+<tt class="literal">bind_columns</tt> should be called after
+<tt class="literal">execute</tt>.</p><p>For example:</p><blockquote><pre class="code">$dbh-&gt;{RaiseError} = 1; # Do this, or check every call for errors
+$sth = $dbh-&gt;prepare(q{ SELECT region, sales FROM sales_by_region });
+$sth-&gt;execute;
+my ($region, $sales);
+
+# Bind Perl variables to columns:
+$rv = $sth-&gt;bind_columns(\$region, \$sales);
+
+# You can also use Perl's \(...) syntax (see perlref docs):
+#     $sth-&gt;bind_columns(\($region, $sales));
+
+# Column binding is the most efficient way to fetch data
+while ($sth-&gt;fetch) {
+    print "$region: $sales\n";
+}</pre></blockquote><p>For compatibility with old scripts, the first parameter will be
+ignored if it is <tt class="literal">undef</tt> or a hash reference.</p></div>
+
+<a name="INDEX-1115" /><a name="INDEX-1116" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>dump_results </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$rows = $sth-&gt;dump_results($maxlen, $lsep, $fsep, $fh);</pre></td><td align="right" /></tr></table><p>Fetches <a name="INDEX-1115" />
+<a name="INDEX-1116" />all
+the rows from <tt class="literal">$sth</tt>, calls
+<tt class="literal">DBI::neat_list</tt> for each row, and prints the
+results to <tt class="literal">$fh</tt> (defaults to
+<tt class="literal">STDOUT</tt>) separated by <tt class="literal">$lsep</tt>
+(default <tt class="literal">"\n"</tt>). <tt class="literal">$fsep</tt> defaults
+to <tt class="literal">", "</tt> and <tt class="literal">$maxlen</tt> defaults to
+<tt class="literal">35</tt>.</p><p>This method is designed as a handy utility for prototyping and
+testing queries. Since it uses <tt class="literal">neat_list</tt> to format
+and edit the string for reading by humans, it is not recomended for
+data transfer applications.</p></div>
+</div>
+</div>
+
+
+
+
+
+
+
+
+<a name="appa-88-fm2xml" /><div class="sect2">
+<h3 class="sect2">A.7.2. Statement Handle Attributes </h3>
+
+
+
+<p>This section describes attributes specific to statement handles. Most
+of these attributes are read-only.</p>
+
+
+
+<p>Changes to these statement handle attributes do not affect any other
+existing or future statement handles.</p>
+
+
+
+<p>Attempting to set or get the value of an unknown attribute is fatal,
+except for private driver-specific attributes (which all have names
+starting with a lowercase letter).</p>
+
+
+
+<p>For example:</p>
+
+
+
+<blockquote><pre class="code">... = $h-&gt;{NUM_OF_FIELDS};    # get/read</pre></blockquote>
+
+
+
+<p>Note that some drivers cannot provide valid values for some or all of
+these attributes until after
+<tt class="literal">$sth-</tt>&gt;<tt class="literal">execute</tt> has been
+called.</p>
+
+
+
+<p>See also <tt class="literal">finish</tt> to learn more about the effect it
+may have on some attributes.</p>
+
+
+
+
+<a name="INDEX-1117" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>NUM_OF_FIELDS (integer, read-only) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>
+<a name="INDEX-1117" />Number of fields (columns) the
+prepared statement will return. Non-<tt class="literal">SELECT</tt>
+statements will have <tt class="literal">NUM_OF_FIELDS == 0</tt>.</p></div>
+
+<a name="INDEX-1118" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>NUM_OF_PARAMS (integer, read-only) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>
+<a name="INDEX-1118" />The number of parameters
+(placeholders) in the prepared statement. See "Substitution
+Variables" later in this appendix for more details.</p></div>
+
+<a name="INDEX-1119" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>NAME (array-ref, read-only) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>
+<a name="INDEX-1119" />Returns a reference to an array of
+field names for each column. The names may contain spaces but should
+not be truncated or have any trailing space. Note that the names have
+the letter case (upper, lower, or mixed) as returned by the driver
+being used. Portable applications should use
+<tt class="literal">NAME_lc</tt> or <tt class="literal">NAME_uc</tt>. For
+example:</p><blockquote><pre class="code">print "First column name: $sth-&gt;{NAME}-&gt;[0]\n";</pre></blockquote></div>
+
+<a name="INDEX-1120" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>NAME_lc (array-ref, read-only) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>Like <tt class="literal">NAME</tt>
+<a name="INDEX-1120" /> but always returns lowercase
+names.</p></div>
+
+<a name="INDEX-1121" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>NAME_uc (array-ref, read-only) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>Like <tt class="literal">NAME</tt>
+<a name="INDEX-1121" /> but always returns uppercase
+names.</p></div>
+
+<a name="INDEX-1122" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>TYPE (array-ref, read-only)  (NEW ) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>Returns <a name="INDEX-1122" />a reference to an array of integer
+values for each column. The value indicates the datatype of the
+corresponding column.</p><p>The values correspond to the international standards (ANSI X3.135 and
+ISO/IEC 9075), which, in general terms, means ODBC. Driver-specific
+types that don't exactly match standard types should generally
+return the same values as an ODBC driver supplied by the makers of
+the database. That might include private type numbers in ranges the
+vendor has officially registered.</p><p>For more information, see:</p><p><a href="ftp://jerry.ece.umassd.edu/isowg3/dbl/SQL_Registry">ftp://jerry.ece.umassd.edu/isowg3/dbl/SQL_Registry</a></p><p>Where there's no vendor-supplied ODBC driver to be compatible
+with, the DBI driver can use type numbers in the range that is now
+officially reserved for use by the DBI: -9999 to -9000.</p><p>All possible values for <tt class="literal">TYPE</tt> should have at least
+one entry in the output of the <tt class="literal">type_info_all</tt>
+method (see <tt class="literal">type_info_all</tt>).</p></div>
+
+<a name="INDEX-1123" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>PRECISION (array-ref, read-only) (NEW ) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>Returns a <a name="INDEX-1123" />reference to an array of integer
+values for each column. For non-numeric columns, the value generally
+refers to either the maximum length or the defined length of the
+column. For numeric columns, the value refers to the maximum number
+of significant digits used by the datatype (without considering a
+sign character or decimal point). Note that for floating-point types
+(REAL, FLOAT, DOUBLE), the "display size" can be up to
+seven characters greater than the precision. (for the sign + decimal
+point + the letter E + a sign + two or three digits).</p></div>
+
+<a name="INDEX-1124" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>SCALE (array-ref, read-only) (NEW ) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>Returns <a name="INDEX-1124" />a reference to an array of integer
+values for each column. NULL (<tt class="literal">undef</tt>) values
+indicate columns where scale is not applicable.</p></div>
+
+<a name="INDEX-1125" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>NULLABLE (array-ref, read-only) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>Returns <a name="INDEX-1125" />a reference to an array indicating the
+possibility of each column returning a NULL. Possible values are
+<tt class="literal">0</tt> = no, <tt class="literal">1</tt> = yes,
+<tt class="literal">2</tt> = unknown. For example:</p><blockquote><pre class="code">print "First column may return NULL\n" if $sth-&gt;{NULLABLE}-&gt;[0];</pre></blockquote></div>
+
+<a name="INDEX-1126" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>CursorName (string, read-only) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>Returns <a name="INDEX-1126" />the name of the cursor associated with
+the statement handle, if available. If not available, or if the
+database driver does not support the <tt class="literal">"where</tt>
+<tt class="literal">current of</tt> <tt class="literal">..."</tt> SQL
+syntax, then it returns <tt class="literal">undef</tt>.</p></div>
+
+<a name="INDEX-1127" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>Statement (string, read-only) (NEW ) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>Returns the <a name="INDEX-1127" />statement string passed to the
+<tt class="literal">prepare</tt> method.</p></div>
+
+<a name="INDEX-1128" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>RowsInCache (integer, read-only) </i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left" /><td align="right" /></tr></table><p>If the <a name="INDEX-1128" />driver supports a local row cache for
+<tt class="literal">SELECT</tt> statements, then this attribute holds the
+number of unfetched rows in the cache. If the driver doesn't,
+then it returns <tt class="literal">undef</tt>. Note that some drivers
+pre-fetch rows on execute, whereas others wait till the first fetch.</p><p>See also the <tt class="literal">RowCacheSize</tt> database handle
+attribute.</p></div>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="appa_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="appa_08.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">A.6. DBI Database Handle Objects </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">A.8. Further Information </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

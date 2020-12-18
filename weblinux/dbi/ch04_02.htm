@@ -1,0 +1,222 @@
+<?label 4.2. Handles ?><html><head><title>Handles  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch04_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">4.2. Handles </h2>
+
+
+
+<p>The DBI <a name="INDEX-349" />defines
+<a name="INDEX-350" />three
+main types of objects that you may use to interact with databases.
+These objects are known as <em class="emphasis">handles</em>. There are
+handles for drivers, which the DBI uses to create handles for
+database connections, which, in turn, can be used to create handles
+for individual database commands, known as statements. <a href="ch04_02.htm#ch04-37286">Figure 4-1</a> illustrates the overall structure of the way
+in which handles are related, and their meanings are described in the
+following sections.</p>
+
+
+
+<a name="ch04-37286" /><div class="figure"><img width="502" src="figs/dbi.0403.gif" height="300" alt="Figure 4-1" /></div><h4 class="objtitle">Figure 4-1. DBI handles</h4>
+
+<a name="ch04-ch04_driver_0" /><div class="sect2">
+<h3 class="sect2">4.2.1. Driver Handles </h3>
+
+
+
+<p><em class="emphasis">Driver handles</em> <a name="INDEX-351" />
+<a name="INDEX-352" />represent
+loaded drivers and are created when the driver is loaded and
+initialized by the DBI. There is exactly one driver handle per loaded
+driver. Initially, the driver handle is the only contact the DBI has
+with the driver, and at this stage, no contact has been made with any
+database through that driver.</p>
+
+
+
+<p>The only two significant methods available through the driver handle
+are
+<tt class="literal">data_sources()</tt>
+<a name="INDEX-353" />
+<a name="INDEX-354" />,
+to enumerate what can be connected to, and
+<tt class="literal">connect()</tt>
+<a name="INDEX-355" />
+<a name="INDEX-356" />,
+to actually make a connection. These methods are more commonly
+invoked as DBI class methods, however, which we will discuss in more
+detail later in this chapter.</p>
+
+
+
+<p>Since a driver handle completely encapsulates a driver, there's
+no reason why multiple drivers can't be simultaneously loaded.
+This is part of what makes the DBI such a powerful interface.</p>
+
+
+
+<p>For example, if a programmer is tasked with the job of transferring
+data from an Oracle database to an Informix database, it is possible
+to write a single DBI program that connects simultaneously to both
+databases and simply passes the data backwards and forwards as
+needed. In this case, two driver handles would be created, one for
+Oracle and one for Informix. No problems arise from this situation,
+since each driver handle is a completely separate Perl object.</p>
+
+
+
+<p>Within the DBI specification, a driver handle is usually referred to
+as <tt class="literal">$drh</tt>
+<a name="INDEX-357" />.</p>
+
+
+
+<p>Driver handles should not normally be referenced within your
+programs. The actual instantiation of driver handles happens
+``under the hood'' of DBI, typically when
+<tt class="literal">DBI-&gt;connect()</tt>
+<a name="INDEX-358" /> is called.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch04-ch04_database_0" /><div class="sect2">
+<h3 class="sect2">4.2.2. Database Handles </h3>
+
+
+
+<p><em class="emphasis">Database <a name="INDEX-359" />
+<a name="INDEX-360" />handles</em> are the first step towards actually
+doing work with the database, in that they
+<a name="INDEX-361" />encapsulate a single
+connection to a particular database. Prior to executing SQL
+statements within a database, we must actually
+<em class="emphasis">connect</em> to the database. This is usually
+achieved through the DBI's <tt class="literal">connect()</tt> method:</p>
+
+
+
+<blockquote><pre class="code">$dbh = DBI-&gt;connect( $data_source, ... );</pre></blockquote>
+
+
+
+<p>The majority of databases nowadays tend to operate in a multiuser
+mode, allowing many simultaneous connections, and database handles
+are designed accordingly. An example might be if you wanted to write
+a stock-monitoring program that simultaneously monitored data in
+tables within different user accounts in the database. A DBI script
+could make multiple connections to the database, one for each user
+account, and execute SQL statements on each. Database handles are
+completely encapsulated objects, meaning that transactions from one
+database handle cannot ``cross-over'' or
+``leak'' into another.</p>
+
+
+
+<p>Database handles are <em class="emphasis">children</em> of their
+corresponding driver handle, which supports the notion that we could
+also make multiple simultaneous connections to multiple database
+types, as well as multiple simultaneous connections to databases of
+the same type. For example, a more complicated DBI script could make
+two connections to each of an Oracle and an Informix database to
+perform the above-mentioned monitoring. <a href="ch04_02.htm#ch04-37286">Figure 4-1</a>,
+shown earlier, illustrates the capability of having multiple database
+handles connecting through a driver handle to an Oracle database.</p>
+
+
+
+<p>Keep in mind that had the monitoring program been written in C, two
+copies of code would be required, one for Oracle's programming
+interface and one for Informix's. DBI levels the playing field.</p>
+
+
+
+<p>Within the DBI specification and sample code, database handles are
+usually referred to 
+<a name="INDEX-362" /> <a name="INDEX-363" />as
+<tt class="literal">$dbh</tt>.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch04-ch04_statement_0" /><div class="sect2">
+<h3 class="sect2">4.2.3. Statement Handles </h3>
+
+
+
+<p><em class="emphasis">Statement handles</em> <a name="INDEX-364" />
+<a name="INDEX-365" />are the final type of object that DBI
+defines for database interaction and manipulation. These handles
+actually
+<a name="INDEX-366" />encapsulate individual SQL statements
+to be executed within the database.</p>
+
+
+
+<p>Statement handles are <em class="emphasis">children</em> of their
+corresponding database handle. Since statement handles are objects in
+their own right, data within one statement is protected from
+tampering or modification by other statement handles.</p>
+
+
+
+<p>For a given database handle, there is no practical limit to the
+number of statement handles that can be created and
+executed.<a href="#FOOTNOTE-35">[35]</a>
+Multiple statements can be created and executed within one script,
+and the data can be processed as it returns. A good example of this
+might be a data-mining robot that connects to a database, then
+executes a large number of queries that return all sorts of different
+types of information. Instead of attempting to write convoluted SQL
+to correlate the information within the database, the Perl script
+fetches all the data being returned from the many statements and
+performs analysis there, using the fully featured text and data
+manipulation routines that Perl has to offer.</p><blockquote>
+
+
+<a name="FOOTNOTE-35" /><p>[35]In reality, the number of concurrent
+statement handles is dependent on the underlying database. For
+information on how many concurrent statement handles your database
+can support, see <a href="appb_01.htm">Appendix B, "Driver and Database Characteristics "</a>.</p>
+
+
+</blockquote>
+
+
+
+<p>Within the DBI specification and sample code, statement handles are
+generally referred 
+<a name="INDEX-367" /> <a name="INDEX-368" />to <a name="INDEX-369" />as
+<tt class="literal">$sth</tt>.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch04_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">4. Programming with the DBI </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">4.3. Data Source Names </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

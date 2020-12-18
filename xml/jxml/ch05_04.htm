@@ -1,0 +1,165 @@
+<html><head><title>Gotcha! (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch05_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">5.4. Gotcha!</h2>
+
+<p>As in previous chapters, I want to revisit some of the common
+pitfalls for new XML Java developers. In this chapter, I have focused
+on the Document Object Model, and this section continues that
+emphasis. Although some of the points made here are more
+informational than directly affective on your programming, they can
+be helpful in making design decisions about when to use DOM, and
+instrumental in understanding what is going on under the hood of your
+XML applications.
+</p>
+
+<a name="javaxml2-CHP-5-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">5.4.1. Memory, Performance, and Deferred DOMs</h3>
+
+<p>Earlier, I described the reasons to use DOM or SAX. Although I
+emphasized that using the <a name="INDEX-514" />DOM requires that the entire XML
+document be read into memory and stored in a tree structure, enough
+cannot be said on the subject. All too common is the scenario where a
+developer loads up his extensive collection of complex XML documents
+into an XSLT processor and begins a series of offline
+transformations, leaving the process to grab a bite to eat. Upon
+returning, he finds that his Windows machine is showing the dreaded
+"blue screen of death" and his Linux box is screaming
+about memory problems. For this developer and the hundreds like him,
+beware the DOM for excessively large data!
+</p>
+
+<p>Using the <a name="INDEX-515" /> <a name="INDEX-516" /> <a name="INDEX-517" />DOM requires an amount of memory
+proportional to the size and complexity of an XML document. However,
+you should dig a bit further into your parser's documentation.
+Often, today's parsers contain a feature modeled on what it
+typically called a <em class="emphasis">deferred
+DOM</em><a name="INDEX-518" />
+<a name="INDEX-519" />. A
+deferred DOM tries to lower the memory cost of using DOM by not
+reading and allocating all information needed by a DOM node until
+that node is requested. Until that time, the nodes in existence, but
+not in use, are simply nulled out. This reduces the memory overhead
+for large documents when only a specific portion of the document must
+be processed. However, realize that with this decrease in memory,
+there is an increase in processing. Since nodes are not in memory,
+and must be filled with data when requested, there is generally more
+lag time when a node not previously accessed is requested. It's
+a tradeoff. However, a deferred DOM can often help save the day when
+dealing with large documents.
+</p>
+
+</div>
+<a name="javaxml2-CHP-5-SECT-4.2" /><div class="sect2">
+<h3 class="sect2">5.4.2. Polymorphism and the Node Interface</h3>
+
+<p>Previously in this chapter I stressed the tree model that DOM is
+built upon. I also told you that the key to this was a common
+interface,
+<tt class="literal">org.w3c.dom.Node</tt><a name="INDEX-520" />. This class provides common
+functionality for all DOM classes, but sometimes it provides more.
+For example, this class defines a method called
+<tt class="literal">getNodeValue( )</tt><a name="INDEX-521" />, which returns a <tt class="literal">String</tt>.
+Sounds like a good idea, right? Without having to cast the
+<tt class="literal">Node</tt> to a specific type, you can quickly get its
+value. However, things get a little sticky when you consider types
+like <tt class="literal">Element</tt>. Remember that an
+<tt class="literal">Element</tt> has no textual content, but instead has
+children of type <tt class="literal">Text</tt>. So an
+<tt class="literal">Element</tt> in DOM has no value that has any meaning;
+the result is that you get something like
+<tt class="literal">#ELEMENT#</tt>. The exact value is parser-dependent,
+but you get the idea.
+</p>
+
+<p>The same situation applies to other methods on the
+<tt class="literal">Node</tt> interface, like <tt class="literal">getNodeName(
+)</tt>. For <tt class="literal">Text</tt> nodes, you get
+<tt class="literal">#TEXT#</tt>, which doesn't help too much. So what
+exactly is the gotcha here? You simply need to be careful when
+working with different DOM types through the <tt class="literal">Node</tt>
+interface. You may get some unexpected results along with the
+convenience of the common interface.
+</p>
+
+</div>
+<a name="javaxml2-CHP-5-SECT-4.3" /><div class="sect2">
+<h3 class="sect2">5.4.3. DOM Parsers Throwing SAX Exceptions</h3>
+
+<p><a name="INDEX-522" /> <a name="INDEX-523" />In this chapter's example of
+using DOM, I did not explicitly list the exceptions that could result
+from a document parse; instead a higher-level exception was caught.
+This was because, as I mentioned, the process of generating a DOM
+tree is left up to the parser implementation, and is not always the
+same. However, it is typically good practice to catch the specific
+exceptions that can occur and react to them differently, as the type
+of exception gives information about the problem that occurred.
+Rewriting the <tt class="literal">SerializerTest</tt> class's parser
+invocation this way might make a surprising facet of this process
+surface. For Apache Xerces this could be done as follows:
+</p>
+
+<blockquote><pre class="code">    public void test(String xmlDocument, String outputFilename) 
+        throws Exception {
+
+        <tt class="userinput"><b>try {</b></tt>
+            File outputFile = new File(outputFilename);
+            DOMParser parser = new DOMParser( );
+            parser.parse(xmlDocument);
+            Document doc = parser.getDocument( );
+        <tt class="userinput"><b>} catch (IOException e) {
+            System.out.println("Error reading URI: " + e.getMessage( ));
+        } catch (SAXException e) {
+            System.out.println("Error in parsing: " + e.getMessage( ));
+        }</b></tt>
+
+        // Serialize
+        DOMSerializer serializer = new DOMSerializer( );
+        serializer.serialize(doc, new File(outputFilename));
+    }</pre></blockquote>
+
+<p>The
+<a name="INDEX-524" /><tt class="literal">IOException</tt>
+seen here should not come as a surprise, as it signifies an error in
+locating the specified filename as it did in the earlier SAX
+examples. Something else from the SAX section might make you think
+something was amiss; did you notice the
+<tt class="literal">SAXException</tt> that can be thrown? The DOM parser
+throws a SAX exception? Surely I have imported the wrong set of
+classes! Not so; these are the right classes. Remember that it would
+be possible to build a tree structure of the data in an XML document
+yourself, using SAX, but the DOM provides an alternative. However,
+this does not preclude SAX from being <em class="emphasis">used</em> in
+that alternative! In fact, SAX provides a lightweight, fast way to
+parse a document; in this case, it just happens that as it is parsed,
+it is inserted into a DOM tree. Because no standard for the DOM
+creation exists, this is acceptable and not even uncommon. So
+don't be surprised or taken aback when you find yourself
+importing and catching <tt class="literal">org.xml.sax.SAXException</tt> in
+your DOM applications.
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch05_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">5.3. Mutability</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">5.5. What's Next?</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

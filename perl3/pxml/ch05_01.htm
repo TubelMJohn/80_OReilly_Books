@@ -1,0 +1,583 @@
+<html><head><title>SAX (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch05_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h1 class="chapter">Chapter 5. SAX</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch05_01.htm">SAX Event Handlers</a><br />
+<a href="ch05_02.htm">DTD Handlers</a><br />
+<a href="ch05_03.htm">External Entity Resolution</a><br />
+<a href="ch05_04.htm">Drivers for Non-XML Sources</a><br />
+<a href="ch05_05.htm">A Handler Base Class</a><br />
+<a href="ch05_06.htm">XML::Handler::YAWriter as a Base Handler Class</a><br />
+<a href="ch05_07.htm">XML::SAX: The Second Generation</a><br /></p></div>
+
+
+
+<p><tt class="literal">XML::Parser</tt> has<a name="INDEX-363" /> done remarkably well as a multipurpose XML
+parser and stream generator, but it really isn't the
+future of Perl and XML. The problem is that we don't
+want one standard parser for all ends and purposes; we want to be
+able to choose from multiple parsers, each serving a different
+purpose. One parser might be written completely in Perl for
+portability, while another is accelerated with a core written in C.
+Or, you might want a parser that translates one format (such as a
+spreadsheet) into an XML stream. You simply can't
+anticipate all the things a parser might be called on to do. Even
+<tt class="literal">XML::Parser</tt>, with its many options and multiple
+modes of operation, can't please everybody. The
+future, then, is a multiplicity of parsers that cover any situation
+you encounter.
+</p>
+
+<p>An environment with multiple parsers demands some level of
+consistency. If every parser had its own interface, developers would
+go mad. Learning one interface and being able to expect all parsers
+to comply to that is better than having to learn a hundred different
+ways to do the same thing. We need a standard interface between
+parsers and code: a universal plug that is flexible and reliable,
+free from the individual quirks of any particular parser.
+</p>
+
+<p>The XML development world has settled on an event-driven interface
+called SAX. SAX evolved from discussions on the XML-DEV mailing list
+and, shepherded by David <a name="INDEX-364" />Megginson,<a href="#FOOTNOTE-24">[24]</a>
+was quickly shaped into a useful specification. The first
+incarnation, called SAX Level 1 (or just SAX1), supports elements,
+attributes, and processing instructions. It doesn't
+handle some other things like namespaces or CDATA sections, so the
+second iteration, SAX2, was devised, adding support for just about
+any event you can imagine in generic XML.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-24" /><p>[24]David Megginson
+maintains a web page about SAX at <a href="http://www.saxproject.org">http://www.saxproject.org</a>.</p> </blockquote>
+
+<p>SAX has been a huge success. Its simplicity makes it easy to learn
+and work with. Early development with XML was mostly in the realm of
+Java, so SAX was codified as an interface construct. An interface
+construct is a special kind of class that declares an
+object's methods without implementing them, leaving
+the implementation up to the developer.
+</p>
+
+<p>Enthusiasm for SAX soon infected the Perl community and
+implementations began to appear in CPAN, but there was a problem.
+Perl doesn't provide a rigorous way to define a
+standard interface like <a name="INDEX-365" />Java does. It has weak type checking
+and forgives all kinds of inconsistencies. Whereas Java compares
+argument types in functions with those defined in the interface
+construct at compile time, Perl quietly accepts any arguments you
+use. Thus, defining a standard in Perl is mostly a verbal activity,
+relying on the developer's experience and
+watchfulness to comply.
+</p>
+
+<p>One of the first Perl implementations of SAX is Ken
+McLeod's <tt class="literal">XML::Parser::PerlSAX</tt>
+module. As a subclass of <tt class="literal">XML::Parser</tt>, it modifies
+the stream of events from Expat to repackage them as SAX events.
+</p>
+
+
+<div class="sect1"><a name="perlxml-CHP-5-SECT-1" />
+<h2 class="sect1">5.1. SAX Event Handlers</h2>
+
+<p>To<a name="INDEX-366" />
+<a name="INDEX-367" /> use a typical SAX module
+in a program, you must pass it an object whose methods implement
+handlers for SAX events. <a href="ch05_01.htm#perlxml-CHP-5-TABLE-1">Table 5-1</a> describes the
+methods in a typical handler object. A SAX parser passes a hash to
+each handler containing properties relevant to the event. For
+example, in this hash, an element handler would receive the
+element's name and a list of attributes.
+</p>
+
+<a name="perlxml-CHP-5-TABLE-1" /><h4 class="objtitle">Table 5-1. PerlSAX handlers </h4><table border="1">
+
+
+
+
+<tr>
+<th>
+<p>Method name</p>
+</th>
+<th>
+<p>Event</p>
+</th>
+<th>
+<p>Properties</p>
+</th>
+</tr>
+
+
+<tr>
+<td>
+<p><tt class="literal">start_document</tt><a name="INDEX-368" />
+</p>
+</td>
+<td>
+<p>The document processing has started (this is the first event) </p>
+</td>
+<td>
+<p>(none defined)</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">end_document</tt><a name="INDEX-369" />
+</p>
+</td>
+<td>
+<p>The document processing is complete (this is the last event) </p>
+</td>
+<td>
+<p>(none defined)</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">start_element</tt><a name="INDEX-370" />
+</p>
+</td>
+<td>
+<p>An element start tag or empty element tag was found </p>
+</td>
+<td>
+<p>Name, Attributes</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">end_element</tt><a name="INDEX-371" />
+</p>
+</td>
+<td>
+<p>An element end tag or empty element tag was found </p>
+</td>
+<td>
+<p>Name</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">characters</tt><a name="INDEX-372" />
+</p>
+</td>
+<td>
+<p>A string of nonmarkup characters (character data) was found </p>
+</td>
+<td>
+<p>Data</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">processing_instruction</tt><a name="INDEX-373" />
+</p>
+</td>
+<td>
+<p>A parser encountered a processing instruction </p>
+</td>
+<td>
+<p>Target, Data</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">comment</tt><a name="INDEX-374" />
+</p>
+</td>
+<td>
+<p>A parser encountered a comment </p>
+</td>
+<td>
+<p>Data</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">start_cdata</tt><a name="INDEX-375" />
+</p>
+</td>
+<td>
+<p>The beginning of a CDATA section encountered (the following character
+data may contain reserved markup characters)
+</p>
+</td>
+<td>
+<p>(none defined)</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">end_cdata</tt><a name="INDEX-376" />
+</p>
+</td>
+<td>
+<p>The end of an encountered CDATA section </p>
+</td>
+<td>
+<p>(none defined)</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">entity_reference</tt><a name="INDEX-377" />
+</p>
+</td>
+<td>
+<p>An internal entity reference was found (as opposed to an external
+entity reference, which would indicate that a file needs to be
+loaded)
+</p>
+</td>
+<td>
+<p>Name, Value</p>
+</td>
+</tr>
+
+</table><p>
+
+<p>A few notes about handler methods: </p>
+
+<ul><li>
+<p>For an empty element, both the <tt class="literal">start_element( )</tt>
+and <tt class="literal">end_element( )</tt> handlers are called, in that
+order. No handler exists specifically for empty elements.
+</p>
+</li><li>
+<p>The <tt class="literal">characters( )</tt> handler may be called more
+than once for a string of contiguous character data, parceling it
+into pieces. For example, a parser might break text around an entity
+reference, which is often more efficient for the parser.
+</p>
+</li><li>
+<p>The <tt class="literal">characters( )</tt> handler will be called for any
+whitespace between elements, even if it doesn't seem
+like significant data. In XML, all characters are considered part of
+data. It's simply more efficient not to make a
+distinction otherwise.
+</p>
+</li><li>
+<p>Handling of processing instructions, comments, and CDATA sections is
+optional. In the absence of handlers, the data from processing
+instructions and comments is discarded. For CDATA sections, calls are
+still made to the <tt class="literal">characters(</tt> <tt class="literal">)</tt>
+handler as before so the data will not be lost.
+</p>
+</li><li>
+<p>The <tt class="literal">start_cdata( )</tt> and <tt class="literal">end_cdata(
+)</tt> handlers do not receive data. Instead, they merely act
+as signals to tell you whether reserved markup characters can be
+expected in future calls to the <tt class="literal">characters( )</tt>
+handler.
+</p>
+</li><li>
+<p>In the absence of an <tt class="literal">entity_reference( )</tt>
+handler, all internal entity references will be resolved
+automatically by the parser, and the resulting text or markup will be
+handled normally. If you do define an <tt class="literal">entity_reference(
+)</tt> handler, the entity references will not be expanded and
+you can do what you want with them.
+</p>
+</li></ul>
+<p>Let's show an example now. We'll
+write a program called a filter, a special processor that outputs a
+replica of the original document with a few modifications.
+Specifically, it makes these changes to a document:
+</p>
+
+<ul><li>
+<p>Turns every XML comment into a <tt class="literal">&lt;comment&gt;</tt>
+element
+</p>
+</li><li>
+<p>Deletes processing instructions </p>
+</li><li>
+<p>Removes tags, but leaves the content, for
+<tt class="literal">&lt;literal&gt;</tt> elements that occur within
+<tt class="literal">&lt;programlisting&gt;</tt> elements at any level
+</p>
+</li></ul>
+<p>The code for this program is listed in <a href="ch05_01.htm#perlxml-CHP-5-EX-1">Example 5-1</a>.
+Like the last program, we initialize the parser with a set of
+handlers, except this time they are bundled together in a convenient
+package: an object called <tt class="literal">MyHandler</tt>. Notice that
+we've implemented a few more handlers, since we want
+to be able to deal with comments, processing instructions, and the
+document prolog.
+</p>
+
+<a name="perlxml-CHP-5-EX-1" /><div class="example">
+<h4 class="objtitle">Example 5-1. Filter program </h4>
+<blockquote><pre class="code"># initialize the parser
+#
+use XML::Parser::PerlSAX;
+my $parser = XML::Parser::PerlSAX-&gt;new( Handler =&gt; MyHandler-&gt;new( ) );
+
+if( my $file = shift @ARGV ) {
+    $parser-&gt;parse( Source =&gt; {SystemId =&gt; $file} );
+} else {
+    my $input = "";
+    while( &lt;STDIN&gt; ) { $input .= $_; }
+    $parser-&gt;parse( Source =&gt; {String =&gt; $input} );
+}
+exit;
+
+#
+# global variables
+#
+my @element_stack;                # remembers element names
+my $in_intset;                    # flag: are we in the internal subset?
+
+###
+### Document Handler Package
+###
+package MyHandler;
+
+#
+# initialize the handler package
+#
+sub new {
+    my $type = shift;
+    return bless {}, $type;
+}
+
+#
+# handle a start-of-element event: output start tag and attributes
+#
+sub start_element {
+    my( $self, $properties ) = @_;
+    # note: the hash %{$properties} will lose attribute order
+
+    # close internal subset if still open
+    output( "]&gt;\n" ) if( $in_intset );
+    $in_intset = 0;
+
+    # remember the name by pushing onto the stack
+    push( @element_stack, $properties-&gt;{'Name'} );
+
+    # output the tag and attributes UNLESS it's a &lt;literal&gt;
+    # inside a &lt;programlisting&gt;
+    unless( stack_top( 'literal' ) and
+            stack_contains( 'programlisting' )) {
+        output( "&lt;" . $properties-&gt;{'Name'} );
+        my %attributes = %{$properties-&gt;{'Attributes'}};
+        foreach( keys( %attributes )) {
+            output( " $_=\"" . $attributes{$_} . "\"" );
+        }
+        output( "&gt;" );
+    }
+} 
+
+#
+# handle an end-of-element event: output end tag UNLESS it's from a
+# &lt;literal&gt; inside a &lt;programlisting&gt;
+#
+sub end_element {
+    my( $self, $properties ) = @_;
+    output( "&lt;/" . $properties-&gt;{'Name'} . "&gt;" )
+         unless( stack_top( 'literal' ) and
+                stack_contains( 'programlisting' ));
+    pop( @element_stack );
+}
+
+#
+# handle a character data event
+#
+sub characters {
+    my( $self, $properties ) = @_;
+    # parser unfortunately resolves some character entities for us,
+    # so we need to replace them with entity references again
+    my $data = $properties-&gt;{'Data'};
+    $data =~ s/\&amp;/\&amp;/;
+    $data =~ s/&lt;/\&amp;lt;/;
+    $data =~ s/&gt;/\&amp;gt;/;
+    output( $data );
+}
+
+#
+# handle a comment event: turn into a &lt;comment&gt; element
+#
+sub comment {
+    my( $self, $properties ) = @_;
+    output( "&lt;comment&gt;" . $properties-&gt;{'Data'} . "&lt;/comment&gt;" );
+}
+
+#
+# handle a PI event: delete it
+#
+sub processing_instruction {
+  # do nothing!
+}
+
+#
+# handle internal entity reference (we don't want them resolved)
+#
+sub entity_reference {
+    my( $self, $properties ) = @_;
+    output( "&amp;" . $properties-&gt;{'Name'} . ";" );
+}
+
+sub stack_top {
+    my $guess = shift;
+    return $element_stack[ $#element_stack ] eq $guess;
+}
+
+sub stack_contains {
+    my $guess = shift;
+    foreach( @element_stack ) {
+        return 1 if( $_ eq $guess );
+    }
+    return 0;
+}
+
+sub output {
+    my $string = shift;
+    print $string;
+}</pre></blockquote>
+</div>
+
+<p>Looking closely at the handlers, we see that one argument is passed,
+in addition to the obligatory object reference
+<tt class="literal">$self</tt>. This argument is a reference to a hash of
+properties about the event. This technique has one disadvantage: in
+the element start handler, the attributes are stored in a hash, which
+has no memory of the original attribute order. Semantically, this is
+not a big deal, since XML is supposed to be ignorant of attribute
+order. However, there may be cases when you want to replicate that
+order.<a href="#FOOTNOTE-25">[25]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-25" /><p>[25]In the case of our filter, we might want to
+compare the versions from before and after processing using a utility
+such as the Unix program <em class="emphasis">diff</em>. Such a comparison
+would yield many false differences where the order of attributes
+changed. Instead of using <em class="emphasis">diff</em>, you should
+consider using the module <tt class="literal">XML::SemanticDiff</tt> by Kip
+Hampton. This module would ignore syntactic differences and compare
+only the semantics of two documents.</p> </blockquote>
+
+<p>As a filter, this program preserves everything about the original
+document, except for the few details that have to be changed. The
+program preserves the document prolog, processing instructions, and
+comments. Even entity references should be preserved as they are
+instead of being resolved (as the parser may want to do). Therefore,
+the program has a few more handlers than in the last example, from
+which we were interested only in extracting very specific
+information.
+</p>
+
+<p>Let's test this program now. Our input datafile is
+listed in <a href="ch05_01.htm#perlxml-CHP-5-EX-2">Example 5-2</a>.
+</p>
+
+<a name="perlxml-CHP-5-EX-2" /><div class="example">
+<h4 class="objtitle">Example 5-2. Data for the filter </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+&lt;!DOCTYPE book
+  SYSTEM "/usr/local/prod/sgml/db.dtd"
+[
+  &lt;!ENTITY thingy "hoo hah blah blah"&gt;
+]&gt;
+
+&lt;book id="mybook"&gt;
+&lt;?print newpage?&gt;
+  &lt;title&gt;GRXL in a Nutshell&lt;/title&gt;
+  &lt;chapter id="intro"&gt;
+    &lt;title&gt;What is GRXL?&lt;/title&gt;
+&lt;!-- need a better title --&gt;
+    &lt;para&gt;
+Yet another acronym.  That was our attitude at first, but then we saw 
+the amazing uses of this new technology called
+&lt;literal&gt;GRXL&lt;/literal&gt;.  Consider the following program:
+    &lt;/para&gt;
+&lt;?print newpage?&gt;
+    &lt;programlisting&gt;AH aof -- %%%%
+{{{{{{ let x = 0 }}}}}}
+  print!  &lt;lineannotation&gt;&lt;literal&gt;wow&lt;/literal&gt;&lt;/lineannotation&gt;
+or not!&lt;/programlisting&gt;
+&lt;!-- what font should we use? --&gt;
+    &lt;para&gt;
+What does it do?  Who cares?  It's just lovely to look at.  In fact,
+I'd have to say, "&amp;thingy;".
+    &lt;/para&gt;
+&lt;?print newpage?&gt;
+  &lt;/chapter&gt;
+&lt;/book&gt;</pre></blockquote>
+</div>
+
+<p>The result, after running the program on the data, is shown in <a href="ch05_01.htm#perlxml-CHP-5-EX-3">Example 5-3</a>. 
+</p>
+
+<a name="perlxml-CHP-5-EX-3" /><div class="example">
+<h4 class="objtitle">Example 5-3. Output from the filter </h4>
+<blockquote><pre class="code">&lt;book id="mybook"&gt;
+  &lt;title&gt;GRXL in a Nutshell&lt;/title&gt;
+  &lt;chapter id="intro"&gt;
+    &lt;title&gt;What is GRXL?&lt;/title&gt;
+&lt;comment&gt; need a better title &lt;/comment&gt;
+    &lt;para&gt;
+Yet another acronym.  That was our attitude at first, but then we saw 
+the amazing uses of this new technology called
+&lt;literal&gt;GRXL&lt;/literal&gt;.  Consider the following program:
+    &lt;/para&gt;
+
+    &lt;programlisting&gt;AH aof -- %%%%
+{{{{{{ let x = 0 }}}}}}
+  print!  &lt;lineannotation&gt;wow&lt;/lineannotation&gt;
+or not!&lt;/programlisting&gt;
+&lt;comment&gt; what font should we use? &lt;/comment&gt;
+    &lt;para&gt;
+What does it do?  Who cares?  It's just lovely to look at.  In fact,
+I'd have to say, "&amp;thingy;".
+    &lt;/para&gt;
+
+  &lt;/chapter&gt;
+&lt;/book&gt;</pre></blockquote>
+</div>
+
+<p>Here's what the filter did right. It turned an XML
+comment into a <tt class="literal">&lt;comment&gt;</tt> element and deleted
+the processing instruction. The <tt class="literal">&lt;literal&gt;</tt>
+element in the <tt class="literal">&lt;programlisting&gt;</tt> was removed,
+with its contents left intact, while other
+<tt class="literal">&lt;literal&gt;</tt> elements were preserved. Entity
+references were left unresolved, as we wanted. So far, so good. But
+something's missing. The XML declaration, document
+type declaration, and internal subset are gone. Without the
+declaration for the entity <tt class="literal">thingy</tt>, this document
+is not valid. It looks like the handlers<a name="INDEX-378" /> <a name="INDEX-379" /> we had available to us were not
+sufficient.
+</p>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch05_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4.6. XML::Parser</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">5.2. DTD Handlers</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

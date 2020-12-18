@@ -1,0 +1,187 @@
+<html><head><title>LWP and GET Requests (Perl &amp; LWP)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Sean Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001789L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl &amp; LWP" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; LWP" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch05_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">5.2. LWP and GET Requests</h2>
+
+<p>The way you submit <a name="INDEX-278" />
+<a name="INDEX-279" />form data with LWP depends on whether
+the form's action is GET or POST. If
+it's a GET form, you construct a URL with encoded
+form data (possibly using the <tt class="literal">$url-&gt;query_form(
+)</tt> method) <a name="INDEX-280" />
+<a name="INDEX-281" />and call <tt class="literal">$browser-&gt;get(
+)</tt>. If it's a POST form, you call to call
+<tt class="literal">$browser-&gt;post( )</tt> and <a name="INDEX-282" />
+<a name="INDEX-283" />pass a reference to an array of form
+parameters. We cover POST later in this chapter.
+</p>
+
+<a name="perllwp-CHP-5-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">5.2.1. GETting Fixed URLs</h3>
+
+<p>If you know everything about <a name="INDEX-284" />
+<a name="INDEX-285" /> <a name="INDEX-286" />the GET form ahead of time, and you know
+everything about what you'd be typing (as if
+you're always searching on the name
+"Dulce"), you know the URL! Because
+the same data from the same GET form always makes for the same URL,
+you can just hardcode that:
+</p>
+
+<blockquote><pre class="code">$resp = $browser-&gt;get(
+  'http://www.census.gov/cgi-bin/gazetteer?city=Dulce&amp;state=&amp;zip='
+);</pre></blockquote>
+
+<p>And if there is a great big URL in which only one thing ever changes,
+you could just drop in the value, after URL-encoding it:
+</p>
+
+<blockquote><pre class="code">use URI::Escape ('uri_escape');
+$resp = $browser-&gt;get(
+  'http://www.census.gov/cgi-bin/gazetteer?city=' . 
+  uri_escape($city) .
+  '&amp;state=&amp;zip='
+);</pre></blockquote>
+
+<p>Note that you should not simply interpolate a raw unencoded value,
+like this:
+</p>
+
+<blockquote><pre class="code">$resp = $browser-&gt;get(
+  'http://www.census.gov/cgi-bin/gazetteer?city=' . 
+  $city .     <tt class="userinput"><b># wrong!</b></tt>
+  '&amp;state=&amp;zip='
+);</pre></blockquote>
+
+<p>The problem with doing it that way is that you have no real assurance
+that <tt class="literal">$city</tt>'s value
+doesn't need URL encoding. You may
+"know" that no unencoded town name
+ever needs escaping, but it's better to escape it
+anyway.
+</p>
+
+<p>If you're piecing together the parts of URLs and you
+<a name="INDEX-287" />
+<a name="INDEX-288" />find yourself calling
+<tt class="literal">uri_escape</tt> more than once per URL, then you should
+use the next method, <tt class="literal">query_form</tt>, which is simpler
+for URLs with lots of variable data.
+</p>
+
+</div>
+<a name="perllwp-CHP-5-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">5.2.2. GETting a query_form( ) URL</h3>
+
+<p>The tidiest way to <a name="INDEX-289" />
+<a name="INDEX-290" />submit GET form data is to make a new URI
+object, then add in the form pairs using the
+<tt class="literal">query_form</tt> method, before performing a
+<tt class="literal">$browser-&gt;get($url)</tt> request:
+</p>
+
+<blockquote><pre class="code">$url-&gt;query_form(<em class="replaceable"><tt>name</em> =&gt; <em class="replaceable">value</em>, <em class="replaceable">name</em> =&gt; <em class="replaceable">value</tt></em>, ...);</pre></blockquote>
+
+<p>For example:</p>
+
+<blockquote><pre class="code">use URI;
+my $url = URI-&gt;new( 'http://www.census.gov/cgi-bin/gazetteer' );
+my($city,$state,$zip) = ("<tt class="userinput"><b>Some City</b></tt>","<tt class="userinput"><b>Some State</b></tt>","<tt class="userinput"><b>Some Zip</b></tt>");
+<tt class="userinput"><b>$url-&gt;query_form</b></tt>(
+  # All form pairs:
+  'city'  =&gt; $city,
+  'state' =&gt; $state,
+  'zip'   =&gt; $zip,
+);
+
+print $url, "\n"; # so we can see it</pre></blockquote>
+
+<p>Prints:</p>
+
+<blockquote><pre class="code">http://www.census.gov/cgi-bin/gazetteer?city=<tt class="userinput"><b>Some+City</b></tt>&amp;state=<tt class="userinput"><b>Some+State</b></tt>&amp;zip=<tt class="userinput"><b>Some+Zip</b></tt></pre></blockquote>
+
+<p>From this, it's easy to write a small program (shown
+in <a href="ch05_02.htm#perllwp-CHP-5-EX-1">Example 5-1</a>) to perform a request on this URL and
+use some <a name="INDEX-291" /> <a name="INDEX-292" />simple regexps to extract the data
+from the HTML.
+</p>
+
+<a name="perllwp-CHP-5-EX-1" /><div class="example">
+<h4 class="objtitle">Example 5-1. gazetteer.pl </h4>
+<blockquote><pre class="code">#!/usr/bin/perl -w
+# gazetteer.pl - query the US Cenus Gazetteer database
+
+use strict;
+use URI;
+use LWP::UserAgent;
+
+die "Usage: $0 \"That Town\"\n" unless @ARGV == 1;
+my $name = $ARGV[0];
+my $url = <tt class="userinput"><b>URI-&gt;new</b></tt>('http://www.census.gov/cgi-bin/gazetteer');
+$url-&gt;<tt class="userinput"><b>query_form</b></tt>( 'city' =&gt; $name, 'state' =&gt; '', 'zip' =&gt; '');
+print $url, "\n";
+
+my $response = LWP::UserAgent-&gt;new-&gt;<tt class="userinput"><b>get</b></tt>( $url );
+die "Error: ", $response-&gt;status_line unless $response-&gt;is_success;
+extract_and_sort($response-&gt;content);
+
+sub extract_and_sort {  # A simple data extractor routine
+  die "No &lt;ul&gt;...&lt;/ul&gt; in content" unless $_[0] =~ m{&lt;ul&gt;(.*?)&lt;/ul&gt;}s;
+  my @pop_and_town;
+  foreach my $entry (split /&lt;li&gt;/, $1) {
+    next unless $entry =~ m{^&lt;strong&gt;(.*?)&lt;/strong&gt;(.*?)&lt;br&gt;}s;
+    my $town = "$1 $2";
+    next unless $entry =~ m{^Population \(.*?\): (\d+)&lt;br&gt;}m;
+    push @pop_and_town, sprintf "%10s %s\n", $1, $town;
+  }
+  print reverse sort @pop_and_town;
+}</pre></blockquote>
+</div>
+
+<p>Then run it from a prompt:</p>
+
+<blockquote><pre class="code">% perl gazetteer.pl Dulce
+<tt class="userinput"><b>http://www.census.gov/cgi-bin/gazetteer?city=Dulce&amp;state=&amp;zip=</b></tt>
+<tt class="userinput"><b>      2438 Dulce, NM  (cdp)</b></tt>
+<tt class="userinput"><b>       794 Agua Dulce, TX  (city)</b></tt>
+<tt class="userinput"><b>       136 Guayabo Dulce Barrio, PR  (county subdivision)</b></tt>
+ 
+% perl gazetteer.pl IEG
+<tt class="userinput"><b>http://www.census.gov/cgi-bin/gazetteer?city=IEG&amp;state=&amp;zip=</b></tt>
+<tt class="userinput"><b>   2498016 San Diego County, CA  (county)</b></tt>
+<tt class="userinput"><b>   1886748 San Diego Division, CA  (county subdivision)</b></tt>
+<tt class="userinput"><b>   1110549 San Diego, CA  (city)</b></tt>
+<tt class="userinput"><b>     67229 Boca Ciega Division, FL  (county subdivision)</b></tt>
+<tt class="userinput"><b>      6977 Rancho San Diego, CA  (cdp)</b></tt>
+<tt class="userinput"><b>      6874 San Diego Country Estates, CA  (cdp)</b></tt>
+<tt class="userinput"><b>      5018 San Diego Division, TX  (county subdivision)</b></tt>
+<tt class="userinput"><b>      4983 San Diego, TX  (city)</b></tt>
+<tt class="userinput"><b>      1110 Diego Herna]Ndez Barrio, PR  (county subdivision)</b></tt>
+<tt class="userinput"><b>       912 Riegelsville, PA  (county subdivision)</b></tt>
+<tt class="userinput"><b>       912 Riegelsville, PA  (borough)</b></tt>
+<tt class="userinput"><b>       298 New Riegel, OH  (village</b></tt>)</pre></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch05_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">5. Forms</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">5.3. Automating Form Analysis</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+</map>
+
+</body></html>

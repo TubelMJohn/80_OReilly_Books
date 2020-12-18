@@ -1,0 +1,298 @@
+<html><head><title>Even More Handlers (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch04_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">4.4. Even More Handlers</h2>
+
+<p>Now I want to show you two more handler classes that SAX offers. Both
+of these interfaces are no longer part of the core SAX distribution,
+and are located in the <tt class="literal">org.xml.sax.ext</tt>
+<a name="INDEX-427" />package
+to indicate they are extensions to SAX. However, most parsers (such
+as Apache Xerces) include these two classes for use. Check your
+vendor documentation, and if you don't have these classes, you
+can download them from the SAX web site. I warn you that not all SAX
+drivers support these extensions, so if your vendor doesn't
+include them, you may want to find out why, and see if an upcoming
+version of the vendor's software will support the SAX
+extensions.
+</p>
+
+<a name="javaxml2-CHP-4-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">4.4.1. LexicalHandler</h3>
+
+<p>The first of these two handlers is the most useful:
+<tt class="literal">org.xml.sax.ext.LexicalHandler</tt><a name="INDEX-428" /> <a name="INDEX-429" />.
+This handler provides methods that can receive notification of
+several lexical events such as comments, entity declarations, DTD
+declarations, and <tt class="literal">CDATA</tt> sections. In
+<tt class="literal">ContentHandler</tt>, these lexical events are
+essentially ignored, and you just get the data and declarations
+without notification of when or how they were provided.
+</p>
+
+<p>This is not really a general-use handler, as most applications
+don't need to know if text was in a <tt class="literal">CDATA</tt>
+section or not. However, if you are working with an XML editor,
+serializer, or other component that must know the exact
+<em class="emphasis">format</em> of the input document, not just its
+contents, the <tt class="literal">LexicalHandler</tt> can really help you
+out. To see this guy in action, you first need to add an import
+statement for <tt class="literal">org.xml.sax.ext.LexicalHandler</tt> to
+your <em class="emphasis">SAXTreeViewer.java</em> source
+file. Once that's done, you can add
+<tt class="literal">LexicalHandler</tt> to the
+<tt class="literal">implements</tt> clause in the nonpublic class
+<tt class="literal">JTreeContentHandler</tt> in that source file:
+</p>
+
+<blockquote><pre class="code">class JTreeContentHandler implements ContentHandler, LexicalHandler {
+    // Callback implementations
+}</pre></blockquote>
+
+<p>By reusing the content handler already in this class, our lexical
+callbacks can operate upon the <tt class="literal">JTree</tt> for visual
+display of these lexical callbacks. So now you need to add
+implementations for all the methods defined in
+<tt class="literal">LexicalHandler</tt>. Those methods are as follows:
+</p>
+
+<blockquote><pre class="code">public void startDTD(String name, String publicID, String systemID)
+        throws SAXException;
+public void endDTD( ) throws SAXException;
+public void startEntity(String name) throws SAXException;
+public void endEntity(String name) throws SAXException;
+public void startCDATA( ) throws SAXException;
+public void endCDATA( ) throws SAXException;
+public void comment(char[] ch, int start, int length)
+        throws SAXException;</pre></blockquote>
+
+<p>To get started, let's look at the first lexical event that
+might happen in processing an XML document: the start and end of a
+DTD reference or declaration. That triggers the <tt class="literal">startDTD(
+)</tt> and <tt class="literal">endDTD( )</tt> callbacks, shown here:
+</p>
+
+<blockquote><pre class="code">    public void startDTD(String name, String publicID,
+                         String systemID)
+        throws SAXException {
+            
+        DefaultMutableTreeNode dtdReference =
+            new DefaultMutableTreeNode("DTD for '" + name + "'");
+        if (publicID != null) {
+            DefaultMutableTreeNode publicIDNode =
+                new DefaultMutableTreeNode("Public ID: '" + 
+                    publicID + "'");
+            dtdReference.add(publicIDNode);
+        }
+        if (systemID != null) {
+            DefaultMutableTreeNode systemIDNode =
+                new DefaultMutableTreeNode("System ID: '" + 
+                    systemID + "'");
+            dtdReference.add(systemIDNode);
+        }            
+        current.add(dtdReference);
+    }
+     
+    public void endDTD( ) throws SAXException {
+        // No action needed here
+    }</pre></blockquote>
+
+<p>This adds a visual cue when a DTD is encountered, and a system ID and
+public ID if present. Continuing on, there are a pair of similar
+methods for entity references, <tt class="literal">startEntity( )</tt> and
+<tt class="literal">endEntity( )</tt>. These are triggered before and after
+(respectively) processing entity references. You can add a visual cue
+for this event as well, using the code shown here:
+</p>
+
+<blockquote><pre class="code">    public void startEntity(String name) throws SAXException {
+        DefaultMutableTreeNode entity = 
+            new DefaultMutableTreeNode("Entity: '" + name + "'");
+        current.add(entity);
+        current = entity;
+    }  
+ 
+    public void endEntity(String name) throws SAXException {
+        // Walk back up the tree
+        current = (DefaultMutableTreeNode)current.getParent( );
+    }</pre></blockquote>
+
+<p>This ensures that the content of, for example, the
+<tt class="literal">OReillyCopyright</tt> entity reference is included
+within an "Entity" tree node. Simple enough.
+</p>
+
+<p>Because the next lexical event is a <tt class="literal">CDATA</tt> section,
+and there aren't any currently in the <em class="emphasis">contents.xml</em> document, you may want to make
+the following change to that document (the <tt class="literal">CDATA</tt>
+allows the ampersand in the <tt class="literal">title</tt> element's
+content):
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+&lt;!DOCTYPE book SYSTEM "DTD/JavaXML.dtd"&gt;
+
+&lt;!-- Java and XML Contents --&gt;
+&lt;book xmlns="http://www.oreilly.com/javaxml2"
+      xmlns:ora="http://www.oreilly.com"
+&gt;<tt class="userinput"><b>
+  &lt;title ora:series="Java"&gt;&lt;![CDATA[Java &amp; XML]]&gt;&lt;/title&gt;</b></tt>
+  &lt;!-- Other content --&gt;
+&lt;/book&gt;</pre></blockquote>
+
+<p>With this change, you are ready to add code for the
+<tt class="literal">CDATA</tt> callbacks. Add in the following methods to
+the <tt class="literal">JTreeContentHandler</tt> class:
+</p>
+
+<blockquote><pre class="code">    public void startCDATA( ) throws SAXException {
+        DefaultMutableTreeNode cdata = 
+            new DefaultMutableTreeNode("CDATA Section");
+        current.add(cdata);
+        current = cdata;        
+    }
+ 
+    public void endCDATA( ) throws SAXException {
+        // Walk back up the tree
+        current = (DefaultMutableTreeNode)current.getParent( );
+    }</pre></blockquote>
+
+<p>This is old hat by now; the title element's content now appears
+as the child of a <tt class="literal">CDATA</tt> node. And with that, only
+one method is left, that which receives comment notification:
+</p>
+
+<blockquote><pre class="code">    public void comment(char[] ch, int start, int length)
+        throws SAXException {
+        
+        String comment = new String(ch, start, length);
+        DefaultMutableTreeNode commentNode = 
+            new DefaultMutableTreeNode("Comment: '" + comment + "'");
+        current.add(commentNode);
+    }</pre></blockquote>
+
+<p>This method behaves just like the <tt class="literal">characters( )</tt>
+and <tt class="literal">ignorableWhitespace( )</tt> methods. Keep in mind
+that only the text of the comment is reported to this method, not the
+surrounding &lt;! --  and  -- &gt; delimiters. With these
+changes in place, you can compile the example program and run it. You
+should get output similar to that shown in <a href="ch04_04.htm#javaxml2-CHP-4-FIG-3">Figure 4-3</a>. 
+</p>
+
+<a name="javaxml2-CHP-4-FIG-3" /><div class="figure"><img height="360" alt="Figure 4-3" src="figs/javax_0403.gif" width="481" /></div><h4 class="objtitle">Figure 4-3. Output with LexicalHandler implementation in place</h4>
+
+<p>You'll notice one oddity, though: an entity named
+<tt class="literal">[dtd]</tt>. This occurs anytime a
+<tt class="literal">DOCTYPE</tt> declaration is in place, and can be
+removed (you probably don't want it present) with a simple
+clause in the <tt class="literal">startEntity( )</tt> and
+<tt class="literal">endEntity( )</tt> methods:
+</p>
+
+<blockquote><pre class="code">    public void startEntity(String name) throws SAXException {
+      <tt class="userinput"><b>if (!name.equals("[dtd]")) {</b></tt>
+            DefaultMutableTreeNode entity = 
+                new DefaultMutableTreeNode("Entity: '" + name + "'");
+            current.add(entity);
+            current = entity;<tt class="userinput"><b>
+        }</b></tt>
+    }  
+ 
+    public void endEntity(String name) throws SAXException {
+        <tt class="userinput"><b>if (!name.equals("[dtd]")) {</b></tt>
+            // Walk back up the tree
+            current = (DefaultMutableTreeNode)current.getParent( );
+       <tt class="userinput"><b> }</b></tt>
+    }</pre></blockquote>
+
+<p>This clause removes the offending entity. That's really about
+all that there is to say about <tt class="literal">LexicalHandler</tt>.
+Although I've filed it under advanced SAX, it's pretty
+straightforward.<a name="INDEX-430" /> <a name="INDEX-431" /> 
+</p>
+
+</div>
+<a name="javaxml2-CHP-4-SECT-4.2" /><div class="sect2">
+<h3 class="sect2">4.4.2. DeclHandler</h3>
+
+<p>The last handler to deal with is the
+<tt class="literal">DeclHandler</tt><a name="INDEX-432" />
+<a name="INDEX-433" />.
+This interface defines methods that receive notification of specific
+events within a DTD, such as element and attribute declarations. This
+is another item only good for very specific cases; again, XML editors
+and components that must know the exact lexical structure of
+documents and their DTDs come to mind. I'm not going to show
+you an example of using the <tt class="literal">DeclHandler</tt>; at this
+point you know more than you'll probably ever need to about
+handling callback methods. Instead, I'll just give you a look
+at the interface, shown in <a href="ch04_04.htm#javaxml2-CHP-4-EX-6">Example 4-6</a>.
+</p>
+
+<a name="javaxml2-CHP-4-EX-6" /><div class="example">
+<h4 class="objtitle">Example 4-6. The DeclHandler interface </h4>
+<blockquote><pre class="code">package org.xml.sax.ext;
+
+import org.xml.sax.SAXException;
+
+public interface DeclHandler {
+
+    public void attributeDecl(String eltName, String attName,
+                              String type, String defaultValue,
+                              String value)
+        throws SAXException;
+    
+    public void elementDecl(String name, String model)
+        throws SAXException;
+    
+    public void externalEntityDecl(String name, String publicID,
+                                   String systemID)
+        throws SAXException;
+        
+    public void internalEntityDecl(String name, String value)
+        throws SAXException;
+}</pre></blockquote>
+</div>
+
+<p>This example is fairly self-explanatory. The first two methods handle
+the <tt class="literal">&lt;!ELEMENT&gt;</tt> and
+<tt class="literal">&lt;!ATTLIST&gt;</tt> constructs. The third,
+<tt class="literal">externalEntityDecl( )</tt>, reports entity declarations
+(through <tt class="literal">&lt;!ENTITY&gt;</tt>) that refer to external
+resources. The final method, <tt class="literal">internalEntityDecl(
+)</tt>, reports entities defined inline. That's all there
+is to it.
+</p>
+
+<p>And with that, I've given you everything that there is to know
+about SAX. Well, that's probably an exaggeration, but you
+certainly have plenty of tools to start you on your way. Now you just
+need to get coding to build up your own set of tools and tricks.
+Before closing the book on SAX, though, I want to cover a few common
+mistakes in dealing with SAX.
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch04_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4.3. Filters and Writers</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">4.5. Gotcha!</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

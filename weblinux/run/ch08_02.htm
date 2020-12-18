@@ -1,0 +1,317 @@
+<?label 8.2. Scheduling Jobs Using cron?><html><head><title>Scheduling Jobs Using cron (Running Linux)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Running Linux" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm" /></td><td width="172" valign="top" align="right"><a href="ch08_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">8.2. Scheduling Jobs Using cron</h2>
+
+<p><a name="INDEX-1764" />
+<a name="INDEX-1765" />
+<a name="INDEX-1766" />
+The original purpose of the computer was to automate routine tasks.
+If you must back up your disk at 1:00 A.M. every day, why should you
+have to enter the commands manually each time--particularly if it
+means getting out of bed?  You should be able to tell the computer
+to do it and then forget about it.  On Unix systems,
+<tt class="command">cron</tt> exists to perform this automating function.
+<a name="INDEX-1767" />
+Briefly, you use <tt class="command">cron</tt> by running the <tt class="command">crontab</tt>
+command and entering lines in a special format recognized by
+<tt class="command">cron</tt>.  Each line specifies a command to run and when to run
+it.</p>
+
+<p><a name="INDEX-1768" />
+<a name="INDEX-1769" />
+Behind your back, <tt class="command">crontab</tt> saves your commands in a file
+bearing your username in the <em class="filename">/var/spool/cron/crontabs</em>
+directory.  (For instance, the <tt class="command">crontab</tt> file for user mdw would be called
+<em class="filename">/var/spool/cron/crontabs/mdw</em>.)  A daemon called <tt class="command">crond</tt>
+reads this file regularly and executes the commands at the proper
+times.  One of the <em class="filename">rc</em> files on your system starts up
+<tt class="command">crond</tt> when the system boots.  There actually is no command
+named <tt class="command">cron</tt>, only the <tt class="command">crontab</tt> utility and the
+<tt class="command">crond</tt> daemon.</p>
+
+<p>On some systems, use of <tt class="command">cron</tt> is limited to the root
+user.  In any case, let's look at a useful command you might want
+to run as root and show how you'd specify it as a
+<tt class="command">crontab</tt> entry.  Suppose that every day you'd like to clean
+old files out of the <em class="filename">/tmp</em> directory, which is supposed to serve
+as temporary storage for files created by lots of utilities.</p>
+
+<p><a name="INDEX-1770" />
+Most systems remove the contents of <em class="filename">/tmp</em> when the system
+reboots, but if you keep it up for a long time, you may find it useful
+to use <tt class="command">cron</tt> to check for old files (say, files that haven't
+been accessed in the past three days).  The command
+you want to enter is:</p>
+
+<blockquote><pre class="code">ls -l <em class="replaceable">filename</em></pre></blockquote>
+
+<p>But how do you know which <em class="replaceable">filename</em> to specify?  You have to
+place the command inside a <tt class="command">find</tt> command, which lists all
+files beneath a directory and performs the operation you specify on
+each one.</p>
+
+<p>We've already seen the <tt class="command">find</tt> command in the section
+"<a href="ch08_01.htm#x-100-3-sysadm-backup-incremental">Section 8.1.2, "Incremental Backups"</a>."  Here, we'll
+specify <em class="filename">/tmp</em> as the directory to search, and use the
+<span class="option">-atime</span> option to find files whose last access
+time is more than three days in the past.  The <span class="option">-exec</span> option means
+"execute the following command on every file we find":</p>
+
+<blockquote><pre class="code">find /tmp \! -type d -atime +3 -exec ls -l {} \;</pre></blockquote>
+
+<p>The command we are asking <tt class="command">find</tt> to execute is
+<tt class="command">ls -l</tt>, which simply shows details about the
+files.  (Many people use a similar <tt class="command">crontab</tt> entry to
+remove files, but this is hard to do without leaving a security hole.)
+The funny string <tt class="literal">{}</tt> is just a way of
+saying "Do it to each file you find, according to the previous
+selection material."  The string <tt class="literal">\;</tt> tells <tt class="command">find</tt> that
+the <span class="option">-exec</span> option is finished.</p>
+
+<p>Now we have a command that looks for old files on <em class="filename">/tmp</em>.  We
+still have to say how often it runs.  The format used by
+<tt class="command">crontab</tt> consists of six fields:</p>
+
+<blockquote><pre class="code"><em class="replaceable">minute</em>   <em class="replaceable">hour</em>   <em class="replaceable">day</em>   <em class="replaceable">month</em>   <em class="replaceable">dayofweek</em>   <em class="replaceable">command</em></pre></blockquote>
+
+<?troff .Nd 10?><p>Fill the fields as follows:</p>
+
+<ol><li><p> Minute (specify from 0 to 59)</p></li><li><p> Hour (specify from 0 to 23)</p></li><li><p> Day of the month  (specify from 1 to 31)</p></li><li><p> Month  (specify from 1 to 12, or a name such as <tt class="literal">jan</tt>, <tt class="literal">feb</tt>, and so on)</p></li><li><p> Day of the week  (specify from 0 to 6 where 0 is Sunday,
+or a name such as <tt class="literal">mon</tt>, <tt class="literal">tue</tt>, and so on)</p></li><li><p> Command (can be multiple words)</p></li></ol><p><a name="INDEX-1771" />
+<a href="ch08_02.htm#x-100-3-cron-fields">Figure 8-1</a> shows a <tt class="command">cron</tt> entry with all the
+fields filled in.  The command is a shell script, run
+with the Bourne shell <tt class="command">sh</tt>.  But the entry is not too
+realistic: the script runs only when all the conditions in the first
+five fields are true.  That is, it has to run on a Sunday that falls
+on the 15th day of either January or July--not a common occurrence!
+So this is not a particularly useful example.</p>
+
+<a name="x-100-3-cron-fields" /><div class="figure"><img src="figs/rl3_0801.gif" alt="Figure 8-1" /></div><h4 class="objtitle">Figure 8-1. Sample cron entry</h4><p> 
+If you want a command to run every day at 1:00 A.M., specify the
+minute as 0 and the hour as 1.  The other three fields should be
+asterisks, which mean "every day and month at the given time."  The
+complete line in <tt class="command">crontab</tt> is:</p>
+
+<blockquote><pre class="code">0 1 * * * find /tmp -atime 3 -exec ls -l {} \;</pre></blockquote>
+
+<?troff .wcon_off?><p>Since there are a lot of fancy things you can do with the time fields,
+let's play with this command a bit more.   Suppose you want to run the
+command just on the first day of each month. 
+<?troff .ne 10?>
+You would keep the first
+two fields, but add a 1 in the third field:</p>
+
+<blockquote><pre class="code">0 1 1 * * find /tmp -atime 3 -exec ls -l {} \;</pre></blockquote>
+
+<p>To do it once a week on Monday, restore the third field to an asterisk
+but specify either 1 or <tt class="literal">mon</tt> as the fifth field:</p>
+
+<blockquote><pre class="code">0 1 * * mon find /tmp -atime 3 -exec ls -l {} \;</pre></blockquote>
+
+<p>To get even more sophisticated, there are ways to specify multiple
+times in each field.  Here, a comma means "run on the 1st and 15th
+day" of each month:</p>
+
+<blockquote><pre class="code">0 1 1,15 * * find /tmp -atime 3 -exec ls -l {} \;</pre></blockquote>
+
+<p>while a hyphen means "run every day from the 1st through the 15th,
+inclusive":</p>
+
+<blockquote><pre class="code">0 1 1-15 * * find /tmp -atime 3 -exec ls -l {} \;</pre></blockquote>
+
+<p>and a slash followed by a 5 means "run every fifth day" which comes
+out to the 1st, 6th, 11th, and so on:</p>
+
+<blockquote><pre class="code">0 1 */5 * * find /tmp -atime 3 -exec ls -l {} \;</pre></blockquote>
+
+<p>Now we're ready to actually put the entry in our <em class="filename">crontab</em> file.
+Become root (since this is the kind of thing root should
+do) and enter the <tt class="command">crontab</tt> command with the <span class="option">-e</span>
+option for "edit":</p>
+
+<blockquote><pre class="code">rutabaga# <tt class="userinput"><b>crontab -e</b></tt></pre></blockquote>
+
+<p>By default, this command starts a <tt class="command">vi</tt> edit session.  If you'd
+like to use Emacs instead, you can specify this before you start
+<tt class="command">crontab</tt>.
+For a Bourne-compliant shell, enter the command:
+
+<blockquote><pre class="code">rutabaga# export VISUAL=emacs</pre></blockquote>
+
+
+For the C shell:
+
+<blockquote><pre class="code">rutabaga# setenv VISUAL emacs</pre></blockquote></p>
+
+<p>The environment variable <tt class="literal">EDITOR</tt> also works in place of
+<tt class="literal">VISUAL</tt> for some versions of
+<tt class="command">crontab</tt>. Enter a line or two beginning with hash marks (#) to serve as
+comments explaining what you're doing, then put in your
+<tt class="command">crontab</tt> entry:</p>
+
+<blockquote><pre class="code"># List files on /tmp that are 3 or more days old.  Runs at 1:00 AM
+# each morning.
+0 1 * * * find /tmp -atime 3 -exec ls -l {} \;</pre></blockquote>
+
+<p>When you exit <tt class="command">vi</tt>, the commands are saved.  Look at your
+<em class="filename">crontab</em> entry by entering:</p>
+
+<blockquote><pre class="code">rutabaga# <tt class="userinput"><b>crontab -l</b></tt></pre></blockquote>
+
+<p><a name="INDEX-1772" />
+We have not yet talked about a critical aspect of our <em class="filename">crontab</em>
+entry: where does the output go?  By default, <tt class="command">cron</tt> saves up
+the standard output and standard error and sends them to the user as a
+mail message.  In this example, the mail goes to root, but
+that should automatically be directed to you as the system
+administrator.  Make sure the following line appears in
+<em class="filename">/usr/lib/aliases</em>
+(<em class="filename">/etc/aliases</em> on Debian):</p>
+
+<blockquote><pre class="code">root: <em class="replaceable">your-account-name</em></pre></blockquote>
+
+<p>In a moment, we'll show what to do if you want output saved in a file instead of
+being mailed to you.</p>
+
+<p><a name="INDEX-1773" />
+Here's another example of a common type of command used in
+<tt class="command">crontab</tt> files.  It performs a tape backup of a directory.
+We assume that someone has put a tape in the drive before the command
+runs.  First, an <tt class="command">mt</tt> command makes sure the tape in the
+<em class="filename">/dev/rft0</em> device is rewound to the beginning.  Then a
+<tt class="command">tar</tt> command transfers all the files from the directory
+<em class="filename">/src</em> to the tape.  A semicolon is used to separate the
+commands; that is standard shell syntax:</p>
+
+<blockquote><pre class="code"># back up the /src directory once every two months.
+0 2 1 */2 * mt -f /dev/rft0 rewind; tar cf /dev/rft0 /src</pre></blockquote>
+
+<p>The first two fields ensure that the command runs at 2:00 A.M., and the
+third field specifies the first day of the month.  The fourth field
+specifies every two months.  We could achieve the same effect, in a
+possibly more readable manner, by
+<?troff \p?> entering:</p>
+
+<blockquote><pre class="code">0 2 1 jan,mar,may,jul,sep,nov * mt -f /dev/rft0 rewind; \
+          tar cf /dev/rft0 /src</pre></blockquote>
+
+<p>The section "<a href="ch08_01.htm#x-100-3-sec-sysadm-backups">Section 8.1, "Making Backups"</a>" explains how to do backups on
+a regular basis.</p>
+
+<p><a name="INDEX-1774" />
+The following example uses <tt class="command">mailq</tt> every two days to test
+whether there is any mail stuck in the mail queue, and sends the mail
+administrator the results by mail.  If there is mail stuck in the mail
+queue, the report includes details about addressing and delivery
+problems, but otherwise the message is empty:</p>
+
+<blockquote><pre class="code">0 6 */2 * * mailq -v | \
+          mail -s "Tested Mail Queue for Stuck Email" postmaster</pre></blockquote>
+
+<p>Probably you don't want to receive a mail message every day when
+everything is going normally.  In the examples we've used so far, the
+commands do not produce any output unless they encounter errors.  But
+you may want to get into the habit of redirecting the
+ standard output
+to <em class="filename">/dev/null</em>, or sending it to a log file like this (note the
+use of two &gt; signs so that we don't wipe out previous output):
+<a name="INDEX-1775" />
+<a name="INDEX-1776" /></p>
+
+<blockquote><pre class="code">0 1 * * * find /tmp -atime 3 -exec ls -l {} \; &gt;&gt; /home/mdw/log</pre></blockquote>
+
+<p>In this entry, we redirect the standard output, but allow the standard
+error to be sent as a mail message.  This can be a nice feature,
+because we'll get a mail message if anything goes wrong.  If you want
+to make sure you don't receive mail under any circumstances, redirect
+both the standard output and the standard error to a file:</p>
+
+<blockquote><pre class="code">0 1 * * * find /tmp -atime 3 -exec ls -l {} \; &gt;&gt; /home/mdw/log 2&gt;&amp;1</pre></blockquote>
+
+<p>When you save output in a log file, you get the problem of a file that
+grows continuously.  You may want another <em class="filename">cron</em> entry that runs once a
+week or so, just to remove the file.</p>
+
+<p>Only Bourne shell commands can be used in <tt class="command">crontab</tt>
+entries.  That means you can't use any of the convenient extensions
+recognized by <tt class="command">bash</tt> and other modern shells, such as
+aliases or the use of <tt class="literal">~</tt> to mean "my home
+directory." You can use <tt class="literal">$HOME</tt>, however;
+<tt class="command">cron</tt> recognizes the <tt class="literal">$USER</tt>,
+<tt class="literal">$HOME</tt>, and <tt class="literal">$SHELL</tt> environment
+variables.  Each command runs with your home directory as its current
+directory.</p>
+
+<p>Some people like to specify absolute path names for commands, like
+<em class="filename">/usr/bin/find</em> and <em class="filename">/bin/rm</em>,
+in <tt class="command">crontab</tt> entries.  This ensures that the right
+command is always found, instead of relying on the path being set correctly.</p>
+
+<p>If a command gets too long and complicated to put on a single line,
+write a shell script and invoke it from <tt class="command">cron</tt>.  Make sure the
+script is executable (use <tt class="command">chmod +x</tt>) or execute it by using a
+shell like:</p>
+
+<blockquote><pre class="code">0 1 * * * sh runcron</pre></blockquote>
+
+<p><a name="INDEX-1777" />
+<a name="INDEX-1778" />
+As a system administrator, you often have to create <tt class="command">crontab</tt>
+files for dummy users, such as news 
+or UUCP.  Running all
+utilities as root would be overkill and possibly dangerous, so
+these special users exist instead.</p>
+
+<p>The choice of a user also affects file ownership: a <tt class="command">crontab</tt>
+file for news should run files owned by news, and so on.
+In general, make sure utilities are owned by the user in
+whose name you create the <tt class="command">crontab</tt> file.</p>
+
+<p>As root, you can
+	  edit other users' <tt class="command">crontab</tt> files by using:</p>
+
+<blockquote><pre class="code">tigger # <tt class="userinput"><b>crontab -u <em class="replaceable">user</em> -e</b></tt></pre></blockquote>
+
+<p>
+<img src="figs/bomb.gif">&nbsp;&nbsp;Also, think about who is going to use the output files you create.  If
+a file is created by a <tt class="command">cron</tt> entry running as news,
+you may have trouble reading the file later as another user.  You may
+have to use <tt class="command">chown</tt> or <tt class="command">chmod</tt> in your <tt class="command">cron</tt>
+script to make sure the file is usable later.  These commands are
+
+discussed in the section "<a href="ch04_14.htm#x-100-3-basic-permission">Section 4.14, "Changing the Owner, Group,
+ and Permissions"</a>" in
+<a href="ch04_01.htm">Chapter 4, "Basic Unix
+ Commands
+ and Concepts"</a>.</p>
+
+<p>Since you can't log in as news, you can edit news's crontab file
+as root using the command:</p>
+
+<blockquote><pre class="code">rutabaga# <tt class="userinput"><b>crontab -e -u news</b></tt></pre></blockquote>
+
+<a name="INDEX-1779" /><a name="INDEX-1780" /><a name="INDEX-1781" />
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch08_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">8. Other
+ Administrative
+ Tasks</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">8.3. Managing System Logs</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

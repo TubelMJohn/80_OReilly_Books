@@ -1,0 +1,493 @@
+<html><head><title>Castor (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch15_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">15.2. Castor</h2>
+
+<p><a name="INDEX-1410" />
+<a name="INDEX-1411" />
+<a name="INDEX-1412" />The
+first data binding framework I will discuss is Castor, hosted online
+at <a name="INDEX-1413" /><a href="http://castor.exolab.org">http://castor.exolab.org</a>. This framework has
+been around for quite a while, and the latest release as of this
+writing was Version 0.92. First, it should be made clear that Castor
+provides quite a bit more than just XML data binding. The
+<a name="INDEX-1414" />package
+provides bindings in Java for more than just XML; you can also work
+with LDAP objects, OQL for mapping SQL queries to objects, as well as
+Java Data Objects (JDO), a fairly new specification from Sun dealing
+with Java-to-RDBMS (relational database management system)
+persistence. However, this is an XML book, so I'm only going to
+talk about the XML bindings.
+</p>
+
+<a name="javaxml2-CHP-15-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">15.2.1. Installation</h3>
+
+<p>To get ready to use
+<a name="INDEX-1415" />
+<a name="INDEX-1416" />Castor,
+you'll need to download a release from the download page:
+<a href="http://castor.exolab.org/download.html">http://castor.exolab.org/download.html</a>. That
+page has links to the <a name="INDEX-1417" />Exolab FTP site (or you can FTP in
+manually, as I did), and lists the files available. I'd
+recommend getting the full release (in the event you want to play
+with OQL or JDO later), named <em class="emphasis">castor-0.9.2.zip</em> or <em class="emphasis">castor-0.9.2.tgz</em>. Extract the <em class="emphasis">jar</em> files from that archive, add them to your
+classpath, and you're ready to go.<a href="#FOOTNOTE-27">[27]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-27" /><p>[27]Actually,
+there are two <em class="emphasis">jar</em> files within
+the distribution: <em class="emphasis">castor-0.9.2.jar</em> and <em class="emphasis">castor-0.9.2-xml.jar</em>. The first is a superset
+of the second, so you only need the first; or if you want a smaller
+archive, you can just use the second for XML binding.</p>
+</blockquote>
+
+<a name="ch15-9-fm2xml" /><blockquote><b>NOTE:</b> 
+
+In this and subsequent examples, I've assumed that you still have a SAX-compliant XML parser, like Xerces, on your classpath in addition to the libraries discussed in this chapter. If you don't, add <em class="emphasis">xerces.jar</em> or your parser's <em class="emphasis">jar</em> file(s) to the classpath in addition to the data binding framework you are using.
+</p>
+</blockquote>
+</div>
+<a name="javaxml2-CHP-15-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">15.2.2. Source Generation</h3>
+
+<p><a name="INDEX-1418" /> <a name="INDEX-1419" />Castor does provide for class
+generation, using an existing set of constraints to create Java
+classes. You will need to have an XML Schema that constrains your XML
+to use this. <a href="ch15_02.htm#javaxml2-CHP-15-EX-2">Example 15-2</a> provides just such a schema
+for the document I showed you earlier in <a href="ch15_01.htm#javaxml2-CHP-15-EX-1">Example 15-1</a>.
+</p>
+
+<a name="javaxml2-CHP-15-EX-2" /><div class="example">
+<h4 class="objtitle">Example 15-2. XML Schema for <a href="ch15_01.htm#javaxml2-CHP-15-EX-1">Example 15-1</a> (using Castor) </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+
+&lt;schema xmlns="http://www.w3.org/2000/10/XMLSchema"
+        targetNamespace="http://www.homespuntapes.com"&gt;
+  &lt;element name="catalog"&gt;
+    &lt;complexType&gt;
+      &lt;sequence&gt;
+        &lt;element ref="item" minOccurs="1" maxOccurs="unbounded" /&gt;
+      &lt;/sequence&gt;
+    &lt;/complexType&gt;
+  &lt;/element&gt;
+
+  &lt;element name="item"&gt;
+    &lt;complexType&gt;
+      &lt;sequence&gt;
+        &lt;element name="title" type="string" /&gt;
+        &lt;element name="teacher" type="string" /&gt;
+        &lt;element name="guest" type="string" minOccurs="0" maxOccurs="unbounded" /&gt;
+        &lt;element name="description" type="string" /&gt;
+      &lt;/sequence&gt;
+      &lt;attribute name="id" type="string" /&gt;
+      &lt;attribute name="level"&gt;
+        &lt;simpleType&gt;
+          &lt;restriction base="integer"&gt; 
+            &lt;enumeration value="1" /&gt;
+            &lt;enumeration value="2" /&gt;
+            &lt;enumeration value="3" /&gt;
+            &lt;enumeration value="4" /&gt;
+            &lt;enumeration value="5" /&gt;
+          &lt;/restriction&gt;
+        &lt;/simpleType&gt;
+      &lt;/attribute&gt;
+    &lt;/complexType&gt;
+  &lt;/element&gt;
+&lt;/schema&gt;</pre></blockquote>
+</div>
+
+<p>Obviously, you may have XML schemas of your own that you want to try
+out; as long as they conform to the XML Schema specification, they
+should work with any examples in this section.
+</p>
+<blockquote><b>WARNING:</b> 
+
+At least as of this writing, Castor supported only the October 2000 XML Schema Candidate Recommendation, as opposed to the final version of that specification. This could require you to make some small modifications in your existing schemas to conform to that earlier specification if you're using Castor. Hopefully that framework will have caught up by the time you are reading this; you can verify the current level of compliance for XML Schema at <a href="http://castor.exolab.org/xmlschema.html">http://castor.exolab.org/xmlschema.html</a>.
+</p>
+</blockquote>
+<p>Once you have your <a name="INDEX-1420" />XML Schema defined, you are ready to
+generate classes for the constraints. I've named my schema from
+<a href="ch15_01.htm#javaxml2-CHP-15-EX-1">Example 15-1</a> <em class="emphasis">catalog.xsd</em>, as you'll see reflected in
+the example instructions coming up.
+</p>
+
+<p>Once you've got your schema, generating classes with Castor is
+a piece of cake. You'll need to use the
+<tt class="literal">org.exolab.castor.builder.SourceGenerator</tt> class,
+as shown here:<a name="INDEX-1421" />
+</p>
+
+<blockquote><pre class="code">java org.exolab.castor.builder.SourceGenerator -i castor/catalog.xsd
+    -package javaxml2.castor</pre></blockquote>
+
+<p>In this example, I'm running the command with my schema in a
+subdirectory of the current directory, called <em class="emphasis">castor/</em>. I specified the schema with the
+"-i" flag, and the package to generate the files within
+through the "-package" flag. There's a whole slew
+of other options you can check out by simply entering the class
+without any options. The class will spit out the various flags and
+options you can supply.
+</p>
+
+<p>Once the command executes (you'll get errors if your schema has
+problems), you will get a directory path correlating to the package
+you entered. In my example, I ended up with a <em class="emphasis">javaxml2</em> directory, and a <em class="emphasis">castor</em> directory within that. Within that
+directory, I ended up with a <em class="emphasis">Catalog.java</em> and <em class="emphasis">CatalogDescriptor.java</em> source file, and an
+<em class="emphasis">Item.java</em> and <em class="emphasis">ItemDescriptor.java</em> source file. For most
+situations, you'll only need to worry about working with the
+first of each of these pairs.
+</p>
+
+<p>You should also get a subdirectory called <em class="emphasis">types</em>, with some additional files within it.
+These are generated because of the user-defined type in the XML
+Schema for the "level" attribute. The result is a class
+called <tt class="literal">LevelType</tt>. Since there are only five
+allowed values, Castor must create custom classes for this type to
+handle it. These type classes are a pain to work with, as there is no
+way, for example, to do this:
+</p>
+
+<blockquote><pre class="code">// Create a new type with a value of "1"
+LevelType levelType = new LevelType(1);</pre></blockquote>
+
+<p>Instead, you'll need to get the value you want to use and
+convert it to a <tt class="literal">String</tt>. You can then use the
+<tt class="literal">valueOf( )</tt> method, which is static, to get an
+instance of <tt class="literal">LevelType</tt> with the correct value:
+</p>
+
+<blockquote><pre class="code">LevelType levelType = LevelType.valueOf("1");</pre></blockquote>
+
+<p>Of course, once you get used to this, it's not such a big deal.
+If this seems a little fuzzy, you'll see how to use this class
+in a practical situation in the next section, so don't worry
+too much about it just yet. You can compile the type files, as well
+as the other Castor-generated sources, with this simple command:
+</p>
+
+<blockquote><pre class="code">javac -d . javaxml2/castor/*.java javaxml2/castor/types/*.java</pre></blockquote>
+
+<p>At this point, you have classes that are ready to use. I won't
+show you the source for these files here, because it's quite
+long (and you can look at it yourself). I've listed the key
+methods for the <tt class="literal">Catalog</tt> class, though, so
+you'll get an idea of what to expect:
+</p>
+
+<blockquote><pre class="code">package javaxml2.castor;
+
+public class Catalog {
+
+    // Add a new Item
+    public void addItem( );
+    // Get the items as an Enumeration
+    public Enumeration enumerateItem( );
+    // Get all items
+    public Item[] getItem( );
+    // Get number of items
+    public getItemCount( );
+}</pre></blockquote>
+
+<p>Notice that you can add items, as well as move through the items
+available. The names of two of these methods, <tt class="literal">enumerateItem(
+)</tt><a name="INDEX-1422" />
+<a name="INDEX-1423" /> and <tt class="literal">getItem(
+)</tt><a name="INDEX-1424" />
+<a name="INDEX-1425" />, are a bit odd, so watch out for those. I
+did not expect <tt class="literal">getItem( )</tt> to return an array, and
+looked for <tt class="literal">getItems( )</tt> or <tt class="literal">getItemList(
+)</tt> first, myself. Once you've got these generated
+classes, though, you're ready to use them in your application.
+</p>
+
+</div>
+<a name="javaxml2-CHP-15-SECT-2.3" /><div class="sect2">
+<h3 class="sect2">15.2.3. Marshalling and Unmarshalling</h3>
+
+<p><a name="INDEX-1426" /> <a name="INDEX-1427" />After you've compiled the
+classes Castor generates, add them to your classpath. You can then
+use them in your own applications. <a href="ch15_02.htm#javaxml2-CHP-15-EX-3">Example 15-3</a> shows
+a basic HTML form that allows a user to enter information about a new
+item.
+</p>
+
+<a name="javaxml2-CHP-15-EX-3" /><div class="example">
+<h4 class="objtitle">Example 15-3. HTML form for adding items </h4>
+<blockquote><pre class="code">&lt;HTML&gt;
+ &lt;HEAD&gt;&lt;TITLE&gt;Add New Item to Catalog&lt;/TITLE&gt;&lt;/HEAD&gt;
+ &lt;BODY&gt;
+  &lt;H2 ALIGN="CENTER"&gt;Add New Item&lt;/H2&gt;
+  &lt;P ALIGN="CENTER"&gt;
+   &lt;FORM ACTION="/javaxml2/servlet/javaxml2.AddItemServlet" METHOD="POST"&gt;
+    &lt;TABLE WIDTH="80%" CELLSPACING="3" CELLPADDING="3" BORDER="3"&gt;
+     &lt;TR&gt;
+      &lt;TD WIDTH="50%" ALIGN="right"&gt;&lt;B&gt;Item ID:&lt;/B&gt;&lt;/TD&gt;
+      &lt;TD&gt;&lt;INPUT TYPE="text" NAME="id" /&gt;&lt;/TD&gt;
+     &lt;/TR&gt;
+     &lt;TR&gt;
+      &lt;TD WIDTH="50%" ALIGN="right"&gt;&lt;B&gt;Item Level:&lt;/B&gt;&lt;/TD&gt;
+      &lt;TD&gt;&lt;INPUT TYPE="text" NAME="level" SIZE="1" MAXLENGTH="1" /&gt;&lt;/TD&gt;
+     &lt;/TR&gt;
+     &lt;TR&gt;
+      &lt;TD WIDTH="50%" ALIGN="right"&gt;&lt;B&gt;Title:&lt;/B&gt;&lt;/TD&gt;
+      &lt;TD&gt;&lt;INPUT TYPE="text" NAME="title" SIZE="20" /&gt;&lt;/TD&gt;
+     &lt;/TR&gt;
+     &lt;TR&gt;
+      &lt;TD WIDTH="50%" ALIGN="right"&gt;&lt;B&gt;Teacher:&lt;/B&gt;&lt;/B&gt;&lt;/TD&gt;
+      &lt;TD&gt;&lt;INPUT TYPE="text" NAME="teacher" /&gt;&lt;/TD&gt;
+     &lt;/TR&gt;
+     &lt;TR&gt;&lt;TD COLSPAN="2" ALIGN="CENTER"&gt;&lt;B&gt;Guests:&lt;/B&gt;&lt;/TD&gt;&lt;/TR&gt;
+     &lt;TR&gt;
+      &lt;TD COLSPAN="2" ALIGN="CENTER"&gt;&lt;INPUT TYPE="text" NAME="guest" /&gt;&lt;/TD&gt;
+     &lt;/TR&gt;
+     &lt;TR&gt;
+      &lt;TD COLSPAN="2" ALIGN="CENTER"&gt;&lt;INPUT TYPE="text" NAME="guest" /&gt;&lt;/TD&gt;
+     &lt;/TR&gt;
+     &lt;TR&gt;
+      &lt;TD COLSPAN="2" ALIGN="CENTER"&gt;&lt;INPUT TYPE="text" NAME="guest" /&gt;&lt;/TD&gt;
+     &lt;/TR&gt;
+     &lt;TR&gt;
+      &lt;TD COLSPAN="2" ALIGN="CENTER"&gt;&lt;INPUT TYPE="text" NAME="guest" /&gt;&lt;/TD&gt;
+     &lt;/TR&gt;
+     &lt;TR&gt;&lt;TD COLSPAN="2" ALIGN="CENTER"&gt;&lt;B&gt;Description:&lt;/B&gt;&lt;/TD&gt;&lt;/TR&gt;
+     &lt;TR&gt;
+      &lt;TD COLSPAN="2" ALIGN="CENTER"&gt;
+       &lt;TEXTAREA NAME="description" COLS="30" ROWS="10"&gt;&lt;/TEXTAREA&gt;
+      &lt;/TD&gt;
+     &lt;/TR&gt;
+     &lt;TR&gt;
+      &lt;TD COLSPAN="2" ALIGN="CENTER"&gt;&lt;INPUT TYPE="submit" value="Add Item" /&gt;&lt;/TD&gt;
+     &lt;/TR&gt;
+    &lt;/TABLE&gt;
+   &lt;/FORM&gt;
+  &lt;/P&gt;
+ &lt;/BODY&gt;
+&lt;/HTML&gt;</pre></blockquote>
+</div>
+
+<p>You should have Tomcat or another servlet engine running from some of
+the previous chapters, so I won't get into those details. Drop
+this form into one of your web applications, and then enter in and
+compile the servlet shown in <a href="ch15_02.htm#javaxml2-CHP-15-EX-4">Example 15-4</a>.<a name="INDEX-1428" />
+<a name="INDEX-1429" />
+</p>
+
+<a name="javaxml2-CHP-15-EX-4" /><div class="example">
+<h4 class="objtitle">Example 15-4. The AddItemServlet for Castor </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+// Castor classes
+import org.exolab.castor.xml.Marshaller;
+import org.exolab.castor.xml.Unmarshaller;
+
+// Castor generated classes
+import javaxml2.castor.Catalog;
+import javaxml2.castor.Item;
+import javaxml2.castor.types.LevelType;
+
+public class AddItemServlet extends HttpServlet {
+
+    private static final String CATALOG_FILE =
+        "c:\\java\\tomcat\\webapps\\javaxml2\\catalog.xml";
+
+    public void doPost(HttpServletRequest req, HttpServletResponse res)
+        throws ServletException, IOException {
+
+        PrintWriter out = res.getWriter( );
+        res.setContentType("text/html");
+
+        // Get input parameters
+        String id = req.getParameterValues("id")[0];
+        String levelString = req.getParameterValues("level")[0];
+        String title = req.getParameterValues("title")[0];
+        String teacher = req.getParameterValues("teacher")[0];
+        String[] guests = req.getParameterValues("guest");
+        String description = req.getParameterValues("description")[0];
+
+        // Create new item
+        Item item = new Item( );
+        item.setId(id);
+        item.setLevel(LevelType.valueOf(levelString));
+        item.setTitle(title);
+        item.setTeacher(teacher);
+        if (guests != null) {
+            for (int i=0; i&lt;guests.length; i++) {
+                if (!guests[i].trim( ).equals("")) {
+                    item.addGuest(guests[i]);
+                }
+            }
+        }
+        item.setDescription(description);
+
+        try {
+            // Load current catalog
+            File catalogFile = new File(CATALOG_FILE);
+            FileReader reader = new FileReader(catalogFile);
+            Catalog catalog = 
+                (Catalog)Unmarshaller.unmarshal(Catalog.class, reader);
+
+            // Add item
+            catalog.addItem(item);
+
+            // Write back out modified catalog
+            FileWriter writer = new FileWriter(catalogFile);
+            Marshaller.marshal(catalog, writer);
+
+            out.println("Item added.");
+        } catch (Exception e) {
+            out.println("Error loading/writing catalog: " + e.getMessage( ));
+        } finally {
+            out.close( );
+        }
+    }
+
+    public void doGet(HttpServletRequest req, HttpServletResponse res)
+        throws ServletException, IOException {
+
+        doPost(req, res);
+    }
+}</pre></blockquote>
+</div>
+
+<p>This servlet accepts the parameters from the form shown in <a href="ch15_02.htm#javaxml2-CHP-15-EX-3">Example 15-3</a>. It first reads in the XML representing the
+current catalog (called <em class="emphasis">catalog.xml</em> and also in my servlet's
+web application folder). At this point, the servlet needs to access
+the current catalog; of course, I could write a bunch of SAX code
+here, but why? Castor does the job nicely. I use a
+<tt class="literal">FileReader</tt> to provide read access to the XML
+document, and a <tt class="literal">FileWriter</tt> to provide write
+access. The rest of the work is taken care of by Castor. Once the
+servlet gets the form values, it creates a new
+<tt class="literal">Item</tt> instance (using Castor's generated
+classes) and sets the various values on this class. You'll
+notice that because "level" is a custom type (remember
+the earlier discussion?), the servlet uses the static method
+<tt class="literal">LevelType.valueOf(String)</tt> to convert the
+<tt class="literal">String</tt> value for the item level into the correct
+instance of the <tt class="literal">LevelType</tt> class. This is one of
+Castor's minor drawbacks; the custom classes for user-defined
+types are a bit unwieldy until you get used to them.
+</p>
+
+<p>Once the servlet has a ready-to-use instance of a new
+<tt class="literal">Item</tt>, it uses the
+<tt class="literal">org.exolab.castor.Unmarshaller</tt> class to get the
+current catalog. This couldn't be much simpler; the servlet
+passes in the class to unmarshal to, and access to the file (through
+the <tt class="literal">FileReader</tt> I just mentioned). The result is a
+Java <tt class="literal">Object</tt>, which can be cast to the class type
+supplied. At this point, adding the item is a piece of cake!
+You're working in Java, rather than in XML, and can simply
+invoke <tt class="literal">addItem( )</tt> and pass in the newly created
+<tt class="literal">Item</tt> instance. Then, the process is reversed.
+<tt class="literal">Marshaller</tt> (in the same package as its sister
+<tt class="literal">Unmarshaller</tt>) is used via the static
+<tt class="literal">marshal( )</tt> method to write the
+<tt class="literal">Catalog</tt> instance back to XML, using a
+<tt class="literal">FileWriter</tt>. Piece of cake, isn't it? Once
+this process completes, you get a new entry in the XML file (you may
+have to stop your servlet engine to get access to it), which should
+look something like this:
+</p>
+
+<blockquote><pre class="code">&lt;item id="CD-KAU-PV99" level="1"&gt;
+  &lt;title&gt;Parking Lot Pickers, Vol. 3&lt;/title&gt;
+  &lt;teacher&gt;Steve Kaufman&lt;/teacher&gt;
+  &lt;guest&gt;Debbie Barbra&lt;/guest&gt;
+  &lt;guest&gt;Donnie Barbra&lt;/guest&gt;
+  &lt;description&gt;This video teaches you what to play when the 
+   singing stops, bluegrass style!&lt;/description&gt;
+ &lt;/item&gt;</pre></blockquote>
+
+<p>And that's really it. <a name="INDEX-1430" /> <a name="INDEX-1431" />There are quite a few more options to
+use with the <tt class="literal">Marshaller</tt> and
+<tt class="literal">Unmarshaller</tt>, so check out the API documentation.
+And, just to make sure you can follow along, here are the pertinent
+files and directories in my web application that make this all work:
+</p>
+
+<blockquote><pre class="code">$TOCAT_HOME/lib/xerces.jar
+$TOMCAT_HOME/webapps/javaxml2/addItem.html
+$TOMCAT_HOME/webapps/javaxml2/catalog.xml
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/lib/castor-0.9.2.jar
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/classes/javaxml2/AddItemServlet.class
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/classes/javaxml2/castor/Catalog.class
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/classes/javaxml2/castor/Catalog.class
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/classes/javaxml2/castor/
+    CatalogDescriptor.class
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/classes/javaxml2/castor/
+    CatalogDescriptor$1.class
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/classes/javaxml2/castor/Item.class
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/classes/javaxml2/castor/
+    ItemDescriptor.class
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/classes/javaxml2/castor/
+    ItemDescriptor$1.class
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/classes/javaxml2/castor/
+    ItemDescriptor$2.class
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/classes/javaxml2/castor/
+    ItemDescriptor$3.class
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/classes/javaxml2/castor/
+    ItemDescriptor$4.class
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/classes/javaxml2/castor/
+    ItemDescriptor$5.class
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/classes/javaxml2/castor/
+    ItemDescriptor$6.class
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/classes/javaxml2/castor/types/
+    LevelType.class
+$TOMCAT_HOME/webapps/javaxml2/WEB-INF/classes/javaxml2/castor/types/
+    LevelTypeDescriptor.class</pre></blockquote>
+
+<p>There's a lot more to Castor, as there will be to each of the
+packages I talk about. This short introduction should get you
+started, and the documentation provided will help you through the
+rest. Of particular interest is the ability to define mappings that
+allow you, for example, to convert an XML element named
+"item" to a Java variable named "inventory".
+This allows for different representations of the same data within
+Java and XML, and can also really help you convert between legacy
+Java classes. Imagine converting an old Java class to a new XML
+format, and then unmarshalling that new XML back into new Java
+classes. In two easy steps, all of your old Java code is updated to a
+new format! Pretty slick, huh? On the other hand, Castor's lack
+of support for the latest schema recommendation and generation of
+concrete classes instead of interfaces is a drawback. Try it out for
+yourself, though, and see how you like it. Each of the frameworks in
+this chapter has pros and cons, so pick the one that's right
+for you.<a name="INDEX-1432" />
+<a name="INDEX-1433" />
+<a name="INDEX-1434" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch15_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">15. Data Binding</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">15.3. Zeus</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

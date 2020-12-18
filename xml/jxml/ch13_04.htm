@@ -1,0 +1,1022 @@
+<html><head><title>Putting It All Together (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch13_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch13_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">13.4. Putting It All Together</h2>
+
+<p><a name="INDEX-1297" />With that
+fairly basic understanding of WSDL added to the UDDI discussion,
+you're ready for a complete web services example. In this
+section, I detail the process of writing a SOAP service (a messaging
+one, this time), registering it with a UDDI registry, finding it
+using UDDI, getting the WSDL descriptor, and then interacting with
+the service via a client.
+</p>
+
+<p>For the example, I add a little more complexity. Here's the
+scenario. CDs-R-Us is a new company that wants to provide CDs to
+distributors around the world. Since they are late to
+market, they seek to gain business by providing a high-tech
+interface, using web services to make interaction easy. They are
+going to provide the ability to send XML messages requesting CDs
+through SOAP. Their applications will fulfill these orders by looking
+up the CD on their catalog server (running, of course, a heavy-duty
+version of the CDCatalog service from last chapter), and then
+returning an invoice. There are actually two SOAP transactions going
+on: one from the client to CDs-R-Us, which is messaging-based, and
+one internal to CDs-R-Us, which is RPC-based. <a href="ch13_04.htm#javaxml2-CHP-13-FIG-3">Figure 13-3</a> shows the complete process flow. They also
+want to register their messaging service with a UDDI registry so
+potential clients can find them.
+</p>
+
+<a name="javaxml2-CHP-13-FIG-3" /><div class="figure"><img height="107" alt="Figure 13-3" src="figs/javax_1303.gif" width="378" /></div><h4 class="objtitle">Figure 13-3. Process flow for the example application</h4>
+
+<a name="javaxml2-CHP-13-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">13.4.1. A Messaging Service</h3>
+
+<p><a name="INDEX-1298" /> <a name="INDEX-1299" />Since <a name="INDEX-1300" />we'll
+be using <tt class="literal">CDCatalog</tt> from last chapter for the RPC
+client, I can skip right to the new code, the messaging service. This
+should receive an XML purchase order and make a request to the
+catalog service on another machine on CDs-R-Us's local network;
+in other words, the messaging service is also a SOAP-RPC client. This
+is perfectly legal in the web services world and quite common. One
+business receives information from another, and in turn starts an
+interaction with <em class="emphasis">another</em> business. If this still
+seems odd, ask your home builder how many subcontractors he employs,
+and then ask each of them how many subcontractors
+<em class="emphasis">they</em> employ; it would probably blow your mind!
+</p>
+
+<p>First, let's define the purchase order (PO) format that
+CDs-R-Us requires. The <a name="INDEX-1301" /> <a name="INDEX-1302" />XML
+Schema for the PO document is shown in <a href="ch13_04.htm#javaxml2-CHP-13-EX-2">Example 13-2</a>.
+</p>
+
+<a name="javaxml2-CHP-13-EX-2" /><div class="example">
+<h4 class="objtitle">Example 13-2. po.xsd XML Schema </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+
+&lt;xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns="http://www.cds-r-us.com"
+           targetNamespace="http://www.cds-r-us.com"&gt;
+  &lt;xs:element name="purchaseOrder"&gt;
+    &lt;xs:complexType&gt;
+      &lt;xs:sequence&gt;
+        &lt;xs:element ref="recipient" /&gt;
+        &lt;xs:element ref="order" /&gt;
+      &lt;/xs:sequence&gt;
+      &lt;xs:attribute name="orderDate" type="xs:string" /&gt;
+    &lt;/xs:complexType&gt;
+  &lt;/xs:element&gt;
+
+  &lt;xs:element name="recipient"&gt;
+    &lt;xs:complexType&gt;
+      &lt;xs:sequence&gt;
+        &lt;xs:element ref="name" /&gt;
+        &lt;xs:element ref="street" /&gt;
+        &lt;xs:element ref="city" /&gt;
+        &lt;xs:element ref="state" /&gt;
+        &lt;xs:element ref="postalCode" /&gt;
+      &lt;/xs:sequence&gt;
+      &lt;xs:attribute name="country" type="xs:string" /&gt;
+    &lt;/xs:complexType&gt;
+  &lt;/xs:element&gt;
+
+  &lt;xs:element name="name" type="xs:string"/&gt;
+  &lt;xs:element name="street" type="xs:string" /&gt;
+  &lt;xs:element name="city" type="xs:string" /&gt;
+  &lt;xs:element name="state" type="xs:string" /&gt;
+  &lt;xs:element name="postalCode" type="xs:short" /&gt;
+
+  &lt;xs:element name="order"&gt;
+    &lt;xs:complexType&gt;
+      &lt;xs:sequence&gt;
+        &lt;xs:element ref="cd" maxOccurs="unbounded" /&gt;
+      &lt;/xs:sequence&gt;
+    &lt;/xs:complexType&gt;
+  &lt;/xs:element&gt;
+
+  &lt;xs:element name="cd"&gt;
+    &lt;xs:complexType&gt;
+      &lt;xs:attribute name="artist" type="xs:string" /&gt;
+      &lt;xs:attribute name="title" type="xs:string" /&gt;
+    &lt;/xs:complexType&gt;
+  &lt;/xs:element&gt;
+&lt;/xs:schema&gt;</pre></blockquote>
+</div>
+
+<p>With that schema in place, a typical PO would look something like
+<a href="ch13_04.htm#javaxml2-CHP-13-EX-3">Example 13-3</a>.
+</p>
+
+<a name="javaxml2-CHP-13-EX-3" /><div class="example">
+<h4 class="objtitle">Example 13-3. Example PO for CDs </h4>
+<blockquote><pre class="code">&lt;purchaseOrder orderDate="07.23.2001" 
+    xmlns="http://www.cds-r-us.com"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+    xsi:schemaLocation="http://www.cds-r-us.com po.xsd"
+&gt;
+  &lt;recipient country="USA"&gt;
+    &lt;name&gt;Dennis Scannell&lt;/name&gt;
+    &lt;street&gt;175 Perry Lea Side Road&lt;/street&gt;
+    &lt;city&gt;Waterbury&lt;/city&gt;
+    &lt;state&gt;VT&lt;/state&gt;
+    &lt;postalCode&gt;05676&lt;/postalCode&gt;
+  &lt;/recipient&gt;
+  &lt;order&gt;
+    &lt;cd artist="Brooks Williams" title="Little Lion" /&gt;
+    &lt;cd artist="David Wilcox" title="What You Whispered" /&gt;
+  &lt;/order&gt;
+&lt;/purchaseOrder&gt;</pre></blockquote>
+</div>
+
+<p><a name="INDEX-1303" />
+<a name="INDEX-1304" />The
+service should accept an XML document like <a href="ch13_04.htm#javaxml2-CHP-13-EX-3">Example 13-3</a>, figure out what information is relevant, and
+then pass that information on to the CD catalog service through RPC.
+Once it gets a response, it formulates some sort of invoice or
+acknowledgment for the messaging client, and sends that message back.
+I keep things simple for the purpose of this example, but you can
+easily see where to add additional processing as we walk through the
+code.
+</p>
+
+<p>Writing a service that accepts XML messages is a bit different from
+writing one that accepts RPC requests; with messaging, you need to
+interact more directly with the request and response objects, and
+your class needs to know about SOAP. Remember that in the RPC-style
+processing, the class receiving requests didn't know a thing
+about RPC or SOAP, and was therefore encapsulated fairly well. With a
+messaging-style service, all methods that can be interacted with must
+follow this convention:
+</p>
+
+<blockquote><pre class="code">public void methodName(SOAPEnvelope env, SOAPContext req, SOAPContext res)
+    throws java.io.IOException, javax.mail.MessagingException;</pre></blockquote>
+
+<p>This should feel somewhat similar to how servlets work; you get a
+request and response object to interact with, as well as the actual
+SOAP envelope for the message sent across the wire. You can see the
+expected <tt class="literal">IOException</tt> that may be thrown when
+network and related errors occur; additionally, a
+<tt class="literal">MessagingException</tt> (from the JavaMail package) can
+result from problems with the SOAP message envelope.
+<a name="INDEX-1305" />
+<a name="INDEX-1306" />Additionally, the method name must be
+the same as the name of the root element of the message
+content! This is easy to forget; in our
+case, it means that the method receiving XML must be called
+<tt class="literal">purchaseOrder</tt>, since that is the root element in
+<a href="ch13_04.htm#javaxml2-CHP-13-EX-3">Example 13-3</a>. With this knowledge, it's
+possible to set up the skeleton for a message service. This skeleton
+is shown in <a href="ch13_04.htm#javaxml2-CHP-13-EX-4">Example 13-4</a>; in addition to putting in
+the framework for receiving a SOAP message, it also has the logic to
+make the appropriate call to the <tt class="literal">CDCatalog</tt> service
+on another machine. I've left a comment as a placeholder for
+the messaging code we'll look at in a moment.<a name="INDEX-1307" />
+</p>
+
+<a name="javaxml2-CHP-13-EX-4" /><div class="example">
+<h4 class="objtitle">Example 13-4. Skeleton for CDs-R-Us messaging service </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Hashtable;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Vector;
+import javax.mail.MessagingException;
+
+// SOAP imports
+import org.apache.soap.Constants;
+import org.apache.soap.Envelope;
+import org.apache.soap.Fault;
+import org.apache.soap.SOAPException;
+import org.apache.soap.encoding.SOAPMappingRegistry;
+import org.apache.soap.encoding.soapenc.BeanSerializer;
+import org.apache.soap.rpc.Call;
+import org.apache.soap.rpc.Parameter;
+import org.apache.soap.rpc.Response;
+import org.apache.soap.rpc.SOAPContext;
+import org.apache.soap.util.xml.QName;
+
+public class OrderProcessor {
+
+    /** Mapping for CD class */
+    private SOAPMappingRegistry registry;
+
+    /** The serializer for the CD class */
+    private BeanSerializer serializer;
+
+    /** The RPC Call object */
+    private Call call;
+
+    /** Parameters for call */
+    private Vector params;
+
+    /** Response from RPC call */
+    private Response rpcResponse;
+
+    /** The URL to connect to */
+    private URL rpcServerURL;         
+
+    public void initialize( ) {
+        // Set up internal URL for SOAP-RPC
+        try {
+            rpcServerURL = 
+                new URL("http://localhost:8080/soap/servlet/rpcrouter");
+        } catch (MalformedURLException neverHappens) {
+            // ignored
+        }
+
+        // Set up a SOAP mapping to translate CD objects
+        registry = new SOAPMappingRegistry( );
+        serializer = new BeanSerializer( );
+        registry.mapTypes(Constants.NS_URI_SOAP_ENC,
+            new QName("urn:cd-catalog-demo", "cd"),
+            CD.class, serializer, serializer); 
+
+        // Build a Call to the internal SOAP service
+        call = new Call( );        
+        call.setSOAPMappingRegistry(registry);
+        call.setTargetObjectURI("urn:cd-catalog");
+        call.setMethodName("getCD");
+        call.setEncodingStyleURI(Constants.NS_URI_SOAP_ENC);
+
+        // Set up input
+        params = new Vector( );
+    }
+
+    public void purchaseOrder(Envelope env, SOAPContext req, SOAPContext res)
+        throws IOException, MessagingException {
+
+        // Set up SOAP environment
+        initialize( );
+
+        // Set up list of CDs successfully ordered
+        List orderedCDs = new LinkedList( );
+
+        // Set up hashtable of failed orders
+        Hashtable failedCDs = new Hashtable( );
+
+        <tt class="userinput"><b>// Parse incoming message and get list of CDS ordered</b></tt>
+
+        // Loop through each ordered CD from the PO request
+            String artist = "";
+            String title = "";
+
+            // Set up input
+            params.clear( );
+            params.addElement(new Parameter("title", String.class, title, null));
+            call.setParams(params);
+
+            try {  
+                // Invoke the call
+                rpcResponse = call.invoke(rpcServerURL, "");
+
+                if (!rpcResponse.generatedFault( )) {
+                    Parameter returnValue = rpcResponse.getReturnValue( );
+                    CD cd = (CD)returnValue.getValue( );
+
+                    // See if the CD is available
+                    if (cd == null) {
+                        failedCDs.put(title, "Requested CD is not available.");
+                        continue;
+                    }
+ 
+                    // Verify it's by the right artist
+                    if (cd.getArtist( ).equalsIgnoreCase(artist)) {
+                        // Add this CD to the successful orders
+                        orderedCDs.add(cd); 
+                    } else {
+                        // Add this to the failed orders
+                        failedCDs.put(title, "Incorrect artist for specified CD.");
+                    }
+                } else {
+                    Fault fault = rpcResponse.getFault( );
+                    failedCDs.put(title, fault.getFaultString( ));
+                }
+            } catch (SOAPException e) {
+                failedCDs.put(title, "SOAP Exception: " + e.getMessage( ));
+            }
+
+        <tt class="userinput"><b>// At the end of the loop, return something useful to the client</b></tt>
+    }
+}</pre></blockquote>
+</div>
+
+<a name="ch13-5-fm2xml" /><blockquote><b>NOTE:</b> 
+In this example and in the rest of the chapter, I use the hostname
+<em class="emphasis">http://localhost:8080</em> to
+represent a SOAP service running on your local machine. Most of you
+will be testing the example locally, and this will help you avoid
+putting in fictional hostnames and getting frustrated when things
+don't work.
+</p>
+
+<p>In a real environment you would expect the client to connect to a CDs-R-Us machine, like <em class="emphasis">http://www.cds-r-us.com</em>, and the messaging service to connect to an internal machine running the CD catalog, such as <em class="emphasis">http://catalog.cds-r-us.com</em>, perhaps behind an external firewall. Still, I'd rather your code work right away than try and put false hostnames in the example code. That's why everything uses the local machine as the hostname.
+</p>
+</blockquote>
+
+
+<p>I briefly run through what is going on here, and then get to the
+interesting aspect: the messaging interaction. First, the
+<tt class="literal">initialize( )</tt> method is used to set up an RPC call
+for each client. This <tt class="literal">Call</tt> object is used and
+reused, so no resources are wasted on a single client. At the same
+time, each client gets their own <tt class="literal">Call</tt> object,
+ensuring that synchronization and threading issues don't
+surface. Next, some storage is set up: a <tt class="literal">List</tt> for
+successful orders, and a <tt class="literal">Hashtable</tt> for failed
+ones. The <tt class="literal">Hashtable</tt> has the title of the ordered
+CD as the key, and error information as the value. Then, the SOAP
+message from the client would be read (here's where I've
+left a placeholder, for now). For each CD ordered, a looping process
+begins. The CD title and artist are extracted from the message, and
+an RPC call is invoked to obtain the requested CD object. Depending
+on the result from the request to the CD catalog, the CD is added to
+the list of successful or failed orders. At the end of the loop, a
+message would be constructed and sent back to the client.
+</p>
+
+<p>It's worth noting that the <tt class="literal">CDCatalog</tt> is a
+simple version, and not complete in this context. A real CD catalog
+service would probably check for a CD in its inventory, ensure copies
+are available, remove one CD from the inventory, report its SKU, etc.
+In this case, all the CD catalog service does is check for the
+requested CD in its list of available CDs. Still, you get the
+idea.<a name="INDEX-1308" />
+</p>
+
+<p>Now that this skeleton is in place, you are ready to interact with
+the user's message. Let's take care of some additional
+classes that will be used. Add the import statements shown
+here:<a name="INDEX-1309" />
+</p>
+
+<blockquote><pre class="code">import java.io.IOException;<tt class="userinput"><b>
+import java.io.StringWriter;</b></tt>
+import java.net.MalformedURLException;
+import java.net.URL;<tt class="userinput"><b>
+import java.util.Enumeration;</b></tt>
+import java.util.Hashtable;<tt class="userinput"><b>
+import java.util.Iterator;</b></tt>
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Vector;
+import javax.mail.MessagingException;
+<tt class="userinput"><b>
+// DOM
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.w3c.dom.Text;</b></tt>
+
+// SOAP imports
+import org.apache.soap.Constants;
+import org.apache.soap.Envelope;
+import org.apache.soap.Fault;
+import org.apache.soap.SOAPException;
+import org.apache.soap.encoding.SOAPMappingRegistry;
+import org.apache.soap.encoding.soapenc.BeanSerializer;
+import org.apache.soap.rpc.Call;
+import org.apache.soap.rpc.Parameter;
+import org.apache.soap.rpc.Response;
+import org.apache.soap.rpc.SOAPContext;
+import org.apache.soap.util.xml.QName;</pre></blockquote>
+
+<p>The code needs to use DOM to work with the XML in the message sent by
+the client; that message is what I want to look at first. You
+remember the XML shown in <a href="ch13_04.htm#javaxml2-CHP-13-EX-3">Example 13-3</a>, which is the
+content of the message that the service expects to receive. However,
+the message will be wrapped in some SOAP specifics, and ends up
+looking like <a href="ch13_04.htm#javaxml2-CHP-13-EX-5">Example 13-5</a> before it's sent. The
+extra information is used by SOAP to allow interpretation of the
+message.
+</p>
+
+<a name="javaxml2-CHP-13-EX-5" /><div class="example">
+<h4 class="objtitle">Example 13-5. The SOAP-ready document from <a href="ch13_04.htm#javaxml2-CHP-13-EX-3">Example 13-3</a> </h4>
+<blockquote><pre class="code">&lt;s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"&gt;
+ &lt;s:Body&gt;
+  &lt;purchaseOrder orderDate="07.23.2001" 
+      xmlns="urn:cd-order-service"
+  &gt;
+    &lt;recipient country="USA"&gt;
+      &lt;name&gt;Dennis Scannell&lt;/name&gt;
+      &lt;street&gt;175 Perry Lea Side Road&lt;/street&gt;
+      &lt;city&gt;Waterbury&lt;/city&gt;
+      &lt;state&gt;VT&lt;/state&gt;
+      &lt;postalCode&gt;05676&lt;/postalCode&gt;
+    &lt;/recipient&gt;
+    &lt;order&gt;
+      &lt;cd artist="Brooks Williams" title="Little Lion" /&gt;
+      &lt;cd artist="David Wilcox" title="What You Whispered" /&gt;
+    &lt;/order&gt;
+  &lt;/purchaseOrder&gt;
+ &lt;/s:Body&gt;
+&lt;/s:Envelope&gt;</pre></blockquote>
+</div>
+
+<p>The actual message is in the body of the SOAP envelope. The
+corollaries to these structures in Apache SOAP are
+<tt class="literal">org.apache.soap.Envelope</tt><a name="INDEX-1310" />
+and
+<tt class="literal">org.apache.soap.Body</tt><a name="INDEX-1311" />.
+To get the entries in the body, use
+<tt class="literal">envelope.getBody().getBodyEntries(
+)</tt><a name="INDEX-1312" />
+<a name="INDEX-1313" />, which returns a <tt class="literal">Vector</tt>.
+The first (and only) item in this <tt class="literal">Vector</tt> in this
+example turns out to be a DOM <tt class="literal">Element</tt>, which is
+the Java equivalent for the XML <tt class="literal">purchaseOrder</tt>
+element. That, of course, is exactly what we want. Once that element
+is obtained, you can use normal DOM methods to walk the DOM tree and
+get each ordered CD. Add the following code to your
+<tt class="literal">purchaseOrder( )</tt> method, which extracts and
+iterates through each CD requested by the client:
+</p>
+
+<blockquote><pre class="code">    public void purchaseOrder(Envelope env, SOAPContext req, SOAPContext res)
+        throws IOException, MessagingException {
+
+        // Set up SOAP environment
+        initialize( );
+
+        // Set up list of CDs successfully ordered
+        List orderedCDs = new LinkedList( );
+
+        // Set up hashtable of failed orders
+        Hashtable failedCDs = new Hashtable( );
+<tt class="userinput"><b>
+        // Get the purchaseOrder element - always the first body entry
+        Vector bodyEntries = env.getBody().getBodyEntries( );
+        Element purchaseOrder = (Element)bodyEntries.iterator().next( );</b></tt>
+<tt class="userinput"><b>
+        // In a real application, do something with the buyer information
+ 
+        // Get the CDs ordered
+        Element order = 
+            (Element)purchaseOrder.getElementsByTagName("order").item(0);
+        NodeList cds = order.getElementsByTagName("cd");</b></tt>
+<tt class="userinput"><b>
+        // Loop through each ordered CD from the PO request
+        for (int i=0, len=cds.getLength( ); i&lt;len; i++) {
+            Element cdElement = (Element)cds.item(i);
+            String artist = cdElement.getAttribute("artist");
+            String title = cdElement.getAttribute("title");</b></tt>
+
+            // Set up input for SOAP-RPC call, shown in Example 13-4
+            params.clear( );
+            params.addElement(new Parameter("title", String.class, title, null));
+            call.setParams(params);
+
+            try {  <tt class="userinput"><b>
+                // Existing RPC code from code, shown in Example 13-4</b></tt>
+            } catch (SOAPException e) {
+                failedCDs.put(title, "SOAP Exception: " + e.getMessage( ));
+            }
+        }
+<tt class="userinput"><b>
+        // At the end of the loop, return something useful to the client</b></tt>
+    }</pre></blockquote>
+
+<p>Once this code completes, the list of ordered CDs that were
+successful is in the <tt class="literal">orderedCDs</tt>
+<tt class="literal">List</tt>, and the failed orders are in the
+<tt class="literal">failedCDs</tt> <tt class="literal">Hashtable</tt>. Since the
+client a<a name="INDEX-1314" />lready knows how to "speak"
+XML (it sent an XML message), it makes sense to send an XML response.
+Rather than constructing a response from scratch, formatting it for
+SOAP, and manually responding, it's possible to use the
+<tt class="literal">Envelope</tt> object the code just read from. Add in
+the code shown here, which generates a response:
+</p>
+
+<blockquote><pre class="code">    public void purchaseOrder(Envelope env, SOAPContext req, SOAPContext res)
+        throws IOException, MessagingException {
+<tt class="userinput"><b>
+        // Existing code for Messaging parsing, shown above</b></tt>
+
+        // Loop through each ordered CD from the PO request
+        for (int i=0, len=cds.getLength( ); i&lt;len; i++) {
+            Element cdElement = (Element)cds.item(i);
+            String artist = cdElement.getAttribute("artist");
+            String title = cdElement.getAttribute("title");
+
+            // Set up input
+            params.clear( );
+            params.addElement(new Parameter("title", String.class, title, null));
+            call.setParams(params);
+
+            try {  
+                // Existing RPC code from code, shown in <a href="ch13_04.htm#javaxml2-CHP-13-EX-4">Example 13-4</a>
+            } catch (SOAPException e) {
+                failedCDs.put(title, "SOAP Exception: " + e.getMessage( ));
+            }
+        }
+<tt class="userinput"><b>
+        // At the end of the loop, return something useful to the client
+        Document doc = new org.apache.xerces.dom.DocumentImpl( );
+        Element response = doc.createElement("response");
+        Element orderedCDsElement = doc.createElement("orderedCDs");
+        Element failedCDsElement = doc.createElement("failedCDs");
+        response.appendChild(orderedCDsElement);
+        response.appendChild(failedCDsElement);
+
+        // Add the ordered CDs
+        for (Iterator i = orderedCDs.iterator(); i.hasNext( ); ) {
+            CD orderedCD = (CD)i.next( );
+            Element cdElement = doc.createElement("orderedCD");
+            cdElement.setAttribute("title", orderedCD.getTitle( ));
+            cdElement.setAttribute("artist", orderedCD.getArtist( ));
+            cdElement.setAttribute("label", orderedCD.getLabel( ));
+            orderedCDsElement.appendChild(cdElement);
+        }
+
+        // Add the failed CDs
+        Enumeration keys = failedCDs.keys( );
+        while (keys.hasMoreElements( )) {
+            String title = (String)keys.nextElement( );
+            String error = (String)failedCDs.get(title);
+            Element failedElement = doc.createElement("failedCD");
+            failedElement.setAttribute("title", title);
+            failedElement.appendChild(doc.createTextNode(error));
+            failedCDsElement.appendChild(failedElement);
+        }
+
+        // Set this as the content of the envelope
+        bodyEntries.clear( );
+        bodyEntries.add(response);
+        StringWriter writer = new StringWriter( );
+        env.marshall(writer, null);
+
+        // Send the envelope back to the client
+        res.setRootPart(writer.toString( ), "text/xml");</b></tt>
+    }</pre></blockquote>
+
+<p>This builds up a new XML tree with the successful and failed orders
+within it. It then sets the tree as the content of the
+envelope's <tt class="literal">Body</tt>, replacing the original
+request from the client. Next, the envelope has to be converted to a
+textual format, which can be sent as the response using the
+<tt class="literal">SOAPContext</tt> <tt class="literal">res</tt> object. SOAP
+provides a means of doing this, through the <tt class="literal">marshall(
+)</tt><a name="INDEX-1315" />
+<a name="INDEX-1316" /> method. Supplying the method a
+<tt class="literal">StringWriter</tt> means that the value "dropped
+into" that writer can be extracted as a
+<tt class="literal">String</tt> for use later. The second argument is an
+instance of
+<tt class="literal">org.apache.soap.util.xml.XMLJavaMappingRegistry</tt>.
+An example is the <tt class="literal">SOAPMappingRegistry</tt> class, a
+subclass of <tt class="literal">XMLJavaMappingRegistry</tt> used earlier
+and in the last chapter; since no special types need to be mapped, a
+<tt class="literal">null</tt> argument suffices.
+</p>
+
+<p>Finally, the result of all this work and serialization is set as the
+content of the response, through the <tt class="literal">setRootPart(
+)</tt><a name="INDEX-1317" />
+element. The second value of this method is the HTML-style content
+type. Since the code sends back XML, the correct value is
+"text/xml". Once the client gets that response, it can
+figure out the content is in an XML format and decode it. Other than
+setting this content on the <tt class="literal">SOAPContext</tt> response
+object, you don't need to do anything else in order to
+communicate back to the client. Once this method completes, the SOAP
+server will automatically return that object to the client, along
+with any information you've put within it. This is also a lot
+like working with the <tt class="literal">HttpServletResponse</tt> object
+in servlets, if you are familiar with that methodology.
+</p>
+
+<p>At this point, you can compile the <tt class="literal">OrderProcessor</tt>
+class, and deploy it to your SOAP server:
+</p>
+
+<blockquote><pre class="code">java org.apache.soap.server.ServiceManagerClient 
+    http://localhost:8080/soap/servlet/rpcrouter deploy xml/OrderProcessorDD.xml</pre></blockquote>
+
+<p>Once this is done, you're ready to register the service with a
+UDDI registry.
+</p>
+
+</div>
+<a name="javaxml2-CHP-13-SECT-4.2" /><div class="sect2">
+<h3 class="sect2">13.4.2. Registering with UDDI</h3>
+
+<p><a name="INDEX-1318" /> <a name="INDEX-1319" />To begin the process of registering
+your service, make sure it is publicly accessible. You can't
+register a service that is only available on your local machine
+(<em class="emphasis">http://localhost:8080</em> and the
+like). If you are in the testing or experimentation phase, read
+through this section and file it away for later use. If you are ready
+to actually register a service on a network somewhere, be sure you
+know the hostname of the machine where it can be accessed. Then hop
+online and visit <a href="http://www.uddi.org">http://www.uddi.org</a>.
+</p>
+
+<p>Once you're at the UDDI website, click the
+"Register" link at the top right of the screen (see <a href="ch13_02.htm#javaxml2-CHP-13-FIG-2">Figure 13-2</a> if you are lost at this point). Then select
+the node to register your service within. Right now, registering in
+one makes it accessible in all, so this is a fairly meaningless
+decision. I chose IBM in my case, and click the "Go"
+button. At this point, you'll need an account to access the IBM
+registry. If you don't have one, it's free to sign up and
+get one; click the "Register" button over on the left,
+and follow the instructions there. Once you're registered,
+login through the "Login" link on the left (see <a href="ch13_04.htm#javaxml2-CHP-13-FIG-4">Figure 13-4</a>). You also must provide an activation key,
+supplied via email after registration on your first login.
+</p>
+
+<a name="javaxml2-CHP-13-FIG-4" /><div class="figure"><img height="375" alt="Figure 13-4" src="figs/javax_1304.gif" width="481" /></div><h4 class="objtitle">Figure 13-4. Logging into the IBM UDDI registry</h4>
+
+<p>Once you make it through the registration and account activation
+process, you're ready to publish your service. First select
+whether you want to add a new business; this is generally a good
+idea. I've added a new business, shown in <a href="ch13_04.htm#javaxml2-CHP-13-FIG-5">Figure 13-5</a>. 
+</p>
+
+<a name="javaxml2-CHP-13-FIG-5" /><div class="figure"><img height="342" alt="Figure 13-5" src="figs/javax_1305.gif" width="481" /></div><h4 class="objtitle">Figure 13-5. Adding a new business to the UDDI registry</h4>
+
+<p>You can then add services and attach them to your business, which
+adds an additional layer of organization to your searches. You can
+optionally add business contacts, locations, and more. Once
+that's done, you are ready to add your service to the registry.
+</p>
+
+<p>Select "Add a new service" and enter in the name of your
+service; in this example, it would be
+<tt class="literal">cd-order-service</tt>. You'll be given options to
+enter the description, access point, and service location for the
+service. I entered "This service allows ordering CDs via a
+purchase order" as my description. For my access point, I
+selected "http" and then
+"newInstance.com/soap/servlet/rpcrouter" for the access
+point. Do the same for your service, using your own hostname and URL.
+You can then specify a service locator, which is a formal set of
+standards for categorizing your service; I'm not going to get
+into this here, but you can read up on it at the web site. Once
+you're finished entering information, you should have something
+that looks similar to <a href="ch13_04.htm#javaxml2-CHP-13-FIG-6">Figure 13-6</a>.
+</p>
+
+<a name="javaxml2-CHP-13-FIG-6" /><div class="figure"><img height="359" alt="Figure 13-6" src="figs/javax_1306.gif" width="481" /></div><h4 class="objtitle">Figure 13-6. Results from adding a service</h4>
+
+<p>At this point things begin to get a little less efficent.
+Unfortunately, there is no capability to upload a WSDL document
+describing your service: that would allow a description, in technical
+terms, to be made available with your service for those who may want
+to be clients of the service. The only information allowed is the
+service name and access point (or points, if it's available at
+multiple locations). However, this does make it possible for anyone
+with a UDDI registration and login to search for a service and a
+related business. So you've registered your service, and
+it's available for anyone else to search for.<a name="INDEX-1320" /> <a name="INDEX-1321" />
+</p>
+
+</div>
+<a name="javaxml2-CHP-13-SECT-4.3" /><div class="sect2">
+<h3 class="sect2">13.4.3. Searching a UDDI Registry</h3>
+
+<p><a name="INDEX-1322" />
+<a name="INDEX-1323" />The opposite side of this coin is looking
+for a service; I'm moving from the service provider realm into
+that of the client, the service consumer. If you want to use SOAP,
+WSDL, and the rest, visit the UDDI web site's registry online
+and login, then search for services (like the one you just
+registered). This is simple: just click the "Find" link,
+select the node to search within (again, I chose "IBM"),
+and enter the name of the service to look for. You'll need to
+login if you haven't already.
+</p>
+
+<p>This is another area where web services is still evolving; searches
+are pretty basic, and can only be done based on a service name. If I
+name my service "Reading Library Service" and you enter
+"book" as the search text, you'll never find my
+service. You would need to enter "reading" or
+"library" to get my service. Still, it is a good start.
+Once you've registered your service, you can enter
+"cd" as your search text. Specify that you want to find
+services, as opposed to businesses or service types. Then, click the
+"Find" button on the search screen. You should get
+results similar to those shown in <a href="ch13_04.htm#javaxml2-CHP-13-FIG-7">Figure 13-7</a> (which
+includes the CD service I added, and may include other readers'
+services once this book is out).
+</p>
+
+<a name="javaxml2-CHP-13-FIG-7" /><div class="figure"><img height="359" alt="Figure 13-7" src="figs/javax_1307.gif" width="481" /></div><h4 class="objtitle">Figure 13-7. Search results with search text of "cd"</h4>
+
+<p>You can click on the service name and find the access point I entered
+earlier, as well as any other information I supplied (such as whether
+I selected a service type or category). Again, you might expect to be
+able to download WSDL from this service description, but that's
+not currently an option. At this point, you contact the business
+which has a service you are interested in, determine available
+methods to use from them, and set up any cost-based arragements
+required to use their services.
+</p>
+
+<p>The UDDI registries still have some work left; however, the
+infrastructure is in place for a powerful means of registering and
+searching for web services. Additionally, as WSDL becomes available
+to upload (for service providers) and download (for service
+consumers), personal interaction will not be required to use a
+service. Despite the lack of human contact and immersion in LCD
+screens, this means more services are used, which in turn causes more
+services to be developed.<a name="INDEX-1324" /> <a name="INDEX-1325" />
+</p>
+
+</div>
+<a name="javaxml2-CHP-13-SECT-4.4" /><div class="sect2">
+<h3 class="sect2">13.4.4. WSDL</h3>
+
+<p>Now I spend some time talking about how useful
+<a name="INDEX-1326" />WSDL documents are. I'll
+tell you how to take one and run a simple tool, like the IBM WSTK
+mentioned earlier in the chapter, and generate a Java client.
+I'd like to describe how WSDL is a lifesaver, right now, today!
+However, that's not yet the case; instead, I'll let you
+know what is going on with Java and WSDL, so you'll be prepared
+when all the pieces fall into place.
+</p>
+
+<p>Expect to see an array of tools beginning to appear that allow you to
+take a Java service, like the <tt class="literal">OrderProcessor</tt> or
+<tt class="literal">CDCatalog</tt> classes, and generate WSDL for those
+services. In fact, some of these tools are already available.
+IBM's WSTK is one I've already mentioned, and there are
+other packages from The Mind Electric
+(<a name="INDEX-1327" />
+<a name="INDEX-1328" />
+<a name="INDEX-1329" />
+<a name="INDEX-1330" />
+<a name="INDEX-1331" />Glue, at
+<a href="http://www.themindelectric.com">http://www.themindelectric.com</a>),
+Silverstream (<a href="http://www.silverstream.com">http://www.silverstream.com</a>), and SOAPWiz
+(<a href="http://www.bju.edu/cps/faculty/sschaub/soapwiz/)">http://www.bju.edu/cps/faculty/sschaub/soapwiz/)</a>.
+I tried these with varying levels of success. In simple cases like
+<tt class="literal">CDCatalog</tt>, the tools could usually generate WSDL
+(although IBM's toolkit choked on the method retuning a
+<tt class="literal">Hashtable</tt>). This is because the methods expect as
+input, and return as output, fairly primitive Java types like
+<tt class="literal">String</tt> and <tt class="literal">CD</tt>, which is made up
+of primitives.
+</p>
+
+<p>The problems began when I tried to use these tools on the
+<tt class="literal">OrderProcessor</tt> class. Since this class is
+message-based, instead of RPC-based, it has some complex types as
+input: <tt class="literal">Envelope</tt> and
+<tt class="literal">SOAPContext</tt>. Because these are complex types,
+which in turn are made up of complex types, WSDL generators tend to
+get confused very fast, and generally end up choking and spewing out
+stack traces. The tools still have some work to do in order to handle
+message-based SOAP services or extremely complex RPC-based services.
+</p>
+
+<p>The end result is twofold: first, it should get you excited about the
+future. As tools emerge that can handle these more complex types, it
+will be easy to generate WSDL from even complex SOAP services. Then,
+those same tools can even generate clients that speak to these
+services. Imagine searching the UDDI registry for a service,
+downloading its WSDL descriptor, and using a tool to generate a
+client that speaks to the service. With only a small amount of code
+modification specific to your business needs, you're working
+with the new service. The future is bright for web services (as well
+as for a book on the subject, I imagine!).
+</p>
+
+<p>The second result is that you are still going to have to pick up a
+phone and talk to someone about their service, at least for the short
+term. Once someone tells you the method signatures that you can
+interact with, or sends it to you in email (we programmer-types tend
+to be poor communicators in person), you are ready to code up a
+client, as I now describe.
+</p>
+
+</div>
+<a name="javaxml2-CHP-13-SECT-4.5" /><div class="sect2">
+<h3 class="sect2">13.4.5. Writing a Client</h3>
+
+<p><a name="INDEX-1332" />Once you find the service you want, a
+set of methods to use, and the messages you're allowed to send,
+you're ready to write a client. <a href="ch13_04.htm#javaxml2-CHP-13-EX-6">Example 13-6</a>
+shows this client, ready to compile and use.<a name="INDEX-1333" />
+</p>
+
+<a name="javaxml2-CHP-13-EX-6" /><div class="example">
+<h4 class="objtitle">Example 13-6. The CDOrderer client </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.net.URL;
+import javax.xml.parsers.DocumentBuilder;
+
+// SAX and DOM imports
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+
+// SOAP imports
+import org.apache.soap.Constants;
+import org.apache.soap.Envelope;
+import org.apache.soap.SOAPException;
+import org.apache.soap.messaging.Message;
+import org.apache.soap.transport.SOAPTransport;
+import org.apache.soap.util.xml.XMLParserUtils;
+
+public class CDOrderer {
+
+    public void order(URL serviceURL, String msgFilename) 
+        throws IOException, SAXException, SOAPException {
+
+        // Parse the XML message
+        FileReader reader = new FileReader(msgFilename);
+        DocumentBuilder builder = XMLParserUtils.getXMLDocBuilder( );
+        Document doc = builder.parse(new InputSource(reader));
+        if (doc == null) {
+            throw new SOAPException(Constants.FAULT_CODE_CLIENT, 
+                "Error parsing XML message.");
+        }
+
+        // Create the message envelope
+        Envelope msgEnvelope = Envelope.unmarshall(doc.getDocumentElement( ));
+
+        // Send the message
+        Message msg = new Message( );
+        msg.send(serviceURL, "urn:cd-order-service", msgEnvelope);
+
+        // Handle the response
+        SOAPTransport transport = msg.getSOAPTransport( );
+        BufferedReader resReader = transport.receive( );
+
+        String line;
+        while ((line = resReader.readLine( )) != null) {
+            System.out.println(line);
+        }
+    }
+
+    public static void main(String[] args) {
+        if (args.length != 1) {
+            System.out.println("Usage: java javaxml2.CDOrderer " +
+                "[XML Message Filename]");
+            return;
+        }
+
+        try {
+            URL serviceURL = 
+                new URL("http://localhost:8080/soap/servlet/messagerouter");
+
+            CDOrderer orderer = new CDOrderer( );
+            orderer.order(serviceURL, args[0]);
+        } catch (Exception e) {
+            e.printStackTrace( );
+        }
+    }
+}</pre></blockquote>
+</div>
+
+<p>This is a very simple, trivial client. It reads in an XML message
+supplied on the command line, and converts that to a SOAP
+<tt class="literal">Envelope</tt>. The
+<tt class="literal">org.apache.soap.messaging.Message</tt> object is used
+to encapsulate the envelope and send it to the service URN and
+hostname specified. The response is obtained through the
+<tt class="literal">SOAPTransport</tt> from the <tt class="literal">Message</tt>,
+and I simply echoed the resulting message to the screen. In your own
+applications, you could write this to another XML file, extract it
+and use DOM or JDOM to manipulate it, and then continue processing.
+</p>
+
+<p>Instead of directly instantiating an instance of
+<tt class="literal">org.apache.xerces.dom.DocumentImpl</tt>, I used the
+JAXP
+<tt class="literal">DocumentBuilder</tt><a name="INDEX-1334" />
+<a name="INDEX-1335" />
+class and SOAP's
+<tt class="literal">XMLUtils</tt><a name="INDEX-1336" />
+<a name="INDEX-1337" />
+class to avoid a vendor-specific piece of code. This is a better
+practice than that shown in the
+<tt class="literal">OrderProcessor</tt><a name="INDEX-1338" />
+<a name="INDEX-1339" />
+class, where the Xerces class is directly referenced. I show both
+just to give you a good idea of the difference; I recommend changing
+the code in <tt class="literal">OrderProcessor</tt> to mimic the client
+shown here.
+</p>
+
+<p><a name="INDEX-1340" />
+<a name="INDEX-1341" />Once you've ensured all the
+required SOAP client classes are in your classpath, and compiled the
+<tt class="literal">CDOrderer</tt> class, you are ready to try things out.
+Ensure that the services at <tt class="literal">urn:cd-order-service</tt>
+and <tt class="literal">urn:cd-catalog</tt> are deployed and available.
+Additionally, you may want to add one or both of the CDs in the
+<em class="emphasis">po.xml</em> document, from <a href="ch13_04.htm#javaxml2-CHP-13-EX-2">Example 13-2</a> and <a href="ch13_04.htm#javaxml2-CHP-13-EX-3">Example 13-3</a>. I tried it
+once with a single CD added to the catalog, to see both a successful
+and failed order, and then with both added to see it succeed on both:
+</p>
+
+<blockquote><pre class="code">C:\javaxml2\build&gt;java javaxml2.CDAdder 
+    http://localhost:8080/soap/servlet/rpcrouter 
+    "Little Lion" "Brooks Williams" "Signature Sounds"
+Adding CD titled 'Little Lion' by 'Brooks Williams', on the label 
+    Signature Sounds
+Successful CD Addition.</pre></blockquote>
+
+<p>Make sure you have the SOAP-suitable XML shown in <a href="ch13_04.htm#javaxml2-CHP-13-EX-5">Example 13-5</a> saved; I used the filename <em class="emphasis">poMsg.xml</em> in my <em class="emphasis">xml</em> directory. Finally, you're ready to
+run the client:
+</p>
+
+<blockquote><pre class="code">bmclaugh@GANDALF
+$ java javaxml2.CDOrderer c:\javaxml2\ch13\xml\poMsg.xml
+&lt;?xml version='1.0' encoding='UTF-8'?&gt;
+&lt;s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"&gt;
+&lt;s:Body&gt;
+&lt;response&gt;
+ &lt;orderedCDs&gt;
+  &lt;orderedCD artist="Brooks Williams" label="Signature Sounds" 
+             title="Little Lion"/&gt;
+ &lt;/orderedCDs&gt;
+ &lt;failedCDs&gt;
+  &lt;failedCD title="What You Whispered"&gt;Requested CD is not available.&lt;/failedCD&gt;
+ &lt;/failedCDs&gt;
+&lt;/response&gt;
+&lt;/s:Body&gt;
+&lt;/s:Envelope&gt;</pre></blockquote>
+
+<p>The program spits out the XML response from the server; I formatted
+my response to make it more readable. You should get a similar output
+(in this example, I've added the Brooks Williams CD but not the
+David Wilcox CD to the catalog, as shown previously) in your tests.
+</p>
+
+<p>At this point, you should be feeling pretty comfortable with writing
+both SOAP servers and client. Additionally, you probably realize that
+UDDI and WSDL are not that complex. Used with SOAP, they provide a
+nice framework for web services and interbusiness communication. I
+also recommend you take a look at some of the more advanced
+properties of Apache SOAP, or the SOAP implementation you are using.
+For example, Apache SOAP supports using SMTP (the Simple Mail
+Transport Protocol) as a transport for RPC and messaging. I
+don't cover this, because it's a more advanced SOAP
+topic, and because the specification does not yet cover SMTP as a
+transport. In other words, it's implementation-dependent, and I
+avoid those cases as much as possible. In any case, getting to know
+the ins and outs of your SOAP implementation only increases the
+effectiveness of your web services.<a name="INDEX-1342" /><a name="INDEX-1343" /><a name="INDEX-1344" />
+</p>
+
+</div>
+<a name="javaxml2-CHP-13-SECT-4.6" /><div class="sect2">
+<h3 class="sect2">13.4.6. Where Do I Go From Here?</h3>
+
+<p>If you're like me, you probably are ready for about three or
+four more chapters of this stuff. A chapter on working with UDDI
+registries programmatically, another chapter on working with WSDL,
+some more examples. . . it would be fun. Of course, then this would
+be a book on web services, not Java and XML. However, there are
+several resources online you should check out to get to the next
+level. First, try <a name="INDEX-1345" />
+<a name="INDEX-1346" /><a href="http://www.webservices.org">http://www.webservices.org</a>, which has a lot
+of additional introductory material. Then check out IBM's site
+on the subject, at <a href="http://www.ibm.com/developerworks/webservices">http://www.ibm.com/developerworks/webservices</a>;
+if you are working with Microsoft clients (C#, Visual Basic, and COM
+objects), you'll want to visit <a href="http://msdn.microsoft.com/soap">http://msdn.microsoft.com/soap</a>. In other
+words, use this chapter as a solid jumping off point, visit the web
+services sites mentioned here, and look for upcoming books from
+O'Reilly on SOAP.
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch13_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch13_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">13.3. WSDL</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">13.5. What's Next?</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

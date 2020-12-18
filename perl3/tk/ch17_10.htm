@@ -1,0 +1,224 @@
+<html><head><title>tkneko&#x2014;Animating the Neko on a Canvas (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch17_09.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch17_11.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">17.10. tkneko&#x2014;Animating the Neko on a Canvas</h2>
+
+<p><a name="INDEX-2731" /><a name="INDEX-2732" /><a name="INDEX-2733" />A more
+interesting task is emulating Masayuki Koba's
+<i class="command">xneko</i> game, where a neko chases after the cursor,
+running up, down, left, right, and in circles, stopping only when the
+cursor stops. If the cursor stays motionless long enough, the neko
+falls into a deep sleep. When the cursor moves again, the neko
+awakens and resumes chasing the cursor. The neko is confined to the
+MainWindow, but if the cursor leads him to a window edge, he
+scratches to get free and eventually either falls asleep or resumes
+running.
+</p>
+
+<p>To simulate motion, we display images of the neko at various
+positions on the Canvas at tenth of a second intervals (anything
+slower presents unacceptable flicker). The images we have to work
+with are shown in <a href="ch17_07.htm#mastperltk-CHP-17-FIG-14">Figure 17-14</a>. To make the neko run
+left, we repeatedly display the <em class="filename">left1.ppm</em> and
+<em class="filename">left2.ppm</em> images. (If the images display at the
+same Canvas coordinate, the neko runs in place. We might as well have
+used Tk::Animation if we wanted that effect.)
+</p>
+
+<p>The neko's actions are state driven.<a href="#FOOTNOTE-44">[44]</a></p><blockquote class="footnote"> <a name="FOOTNOTE-44" /><p> [44] The
+"togi" states are from the original Japanese code. We
+don't pretend to know what they mean, although they are the
+"scratching the wall" states.</p> </blockquote>
+
+<p>There are in fact five distinct states: the neko is either waking, moving,
+stopping, scratching, or sleeping. The <i class="command">tkneko</i>
+states are encoded in a Perl hash with compiled (for efficiency)
+regular expressions as keys and code references (the state
+processors) as values:
+</p>
+
+<blockquote><pre class="code">%states = (
+    qr/AWAKE/                   =&gt; \&amp;do_awake,
+    qr/UP|UPRIGHT|RIGHT|DWRIGHT|DOWN|DWLEFT|LEFT|UPLEFT/ =&gt; \&amp;do_move,
+    qr/STOP/                    =&gt; \&amp;do_stop,
+    qr/UTOGI|RTOGI|DTOGI|LTOGI/ =&gt; \&amp;do_togi,
+    qr/SLEEP/                   =&gt; \&amp;do_sleep,
+);           # neko state table</pre></blockquote>
+
+<p>The states that are dependent on the neko's direction (but
+otherwise equivalent) are further divided into substates, described
+by a regular expression with alternatives.
+</p>
+
+<p><tt class="literal">go_neko</tt>, the animation main loop, is activated by
+a repeating 100 millisecond timer event. The subroutine's job
+is simply to call a subroutine based on the animation's current
+state, <tt class="literal">$state</tt>. The subroutine in turn selects an
+appropriate PPM image and displays it on the canvas.
+</p>
+
+<p>As long as the neko stays in a constant state, running left for
+example, the variable <tt class="literal">$state_count</tt> keeps
+incrementing, and the state processing subroutine
+<tt class="literal">do_move</tt> can use this to alternately select the
+<em class="filename">left1.ppm</em> or <em class="filename">left2.ppm</em>
+image. The debug <tt class="literal">-textvariable</tt>
+<tt class="literal">$where</tt> shows this state information as well as the
+neko's current Canvas coordinates, <tt class="literal">$nx</tt> and
+<tt class="literal">$ny</tt>. <a href="ch17_10.htm#mastperltk-CHP-17-FIG-17">Figure 17-17</a> shows the neko
+in its sleep state.
+</p>
+
+<blockquote><pre class="code">$mw-&gt;repeat(100 =&gt; \&amp;go_neko);
+
+sub go_neko {
+
+    $state_count++;              # current state's cycle count
+    $where = sprintf("state=%-7s state_count=%05d, nx=%04d, ny=%04d",
+                     $state, $state_count, $nx, $ny);
+
+  STATES:
+    foreach my $regex (keys %states) {
+        next STATES unless $state =~ /^($regex)$/;
+        &amp;{$states{$regex}}($1);
+        return;
+    }
+
+} # end go_neko</pre></blockquote>
+
+<p><a name="INDEX-2734" /><a name="INDEX-2735" /><a name="INDEX-2736" />We create all the PPM images during
+initialization, make Canvas image items of them, and store the item
+IDs in the <tt class="literal">%pixmaps</tt> hash, indexed by filename. But
+we don't want all these individual animation frames visible
+unless they're needed, so we position them off-Canvas at the
+invisible coordinates (-1000, -1000).
+</p>
+
+<blockquote><pre class="code">foreach my $pfn ( &lt;$image_base/*.ppm&gt; ) {
+    my $bpfn = basename $pfn;
+    $pixmaps{$bpfn} = $canvas-&gt;createImage(-1000, -1000,
+        -image =&gt; $canvas-&gt;Photo(-file =&gt; $pfn));
+}  </pre></blockquote>
+
+<a name="mastperltk-CHP-17-FIG-17" /><div class="figure"><img src="figs/mptk.1717.gif" alt="Figure 17-17" width="335" height="155" /></div><h4 class="objtitle">Figure 17-17.  The neko has spent 79 cycles in the SLEEP state</h4>
+
+<a name="mastperltk-CHP-17-SIDEBAR-1" /><blockquote><table border="1" cellpadding="6"><tr><td>
+<h4 class="objtitle">Hidden Canvas Items</h4>
+
+<p>After this chapter was written, Tk 800.018 introduced the
+-<tt class="literal">state</tt> option for individual Canvas items, whose
+value can be <tt class="literal">normal</tt>, <tt class="literal">disabled</tt>,
+or <tt class="literal">hidden</tt>. We can take advantage of this and
+instead of moving an image offscreen, simply mark it as
+<tt class="literal">hidden</tt>:
+</p>
+
+<blockquote><pre class="code">$canvas-&gt;itemconfigure($pixmaps{$pxid}, -state =&gt; 'hidden');</pre></blockquote>
+
+<p>This is the preferred solution, because to be sure that the image we
+move is offscreen, we need to factor in the current
+-<tt class="literal">scrollregion</tt>:
+</p>
+
+<blockquote><pre class="code">@scrollregion = @{$canvas-&gt;cget(-scrollregion) };
+$canvas-&gt;coords($pixmaps{$pxid},
+$scrollregion[0] - 1000, $scrollregion[1] - 1000);</pre></blockquote>
+
+<p>The <tt class="literal">-scrollregion</tt> option is a reference to an
+array of two canvas coordinates (four items): the top-left corner and
+bottom-right corner of a bounding box describing the maximum extents
+that one may scroll the canvas. For instance:
+</p>
+
+<blockquote><pre class="code">$canvas-&gt;configure(-scrollregion =&gt; [-1100, -1100, 400, 400]);</pre></blockquote>
+
+<p>defines a square canvas 1500 pixels per side that in theory can be
+scrolled up-and-left so that our "hidden" Canvas items
+become visible. To be <em class="emphasis">really</em> sure the image is
+hidden, we should substitute the image's width and height for
+the constants 1000.
+</p>
+</td></tr></table><p></blockquote>
+
+<p>When a state processing subroutine selects an image (animation frame)
+for display, it calls the <tt class="literal">frame</tt> subroutine with
+the new pixmap name. After hiding the old image,
+<tt class="literal">frame</tt> moves the new image to the neko's
+current Canvas position.<a href="#FOOTNOTE-45">[45]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-45" /><p> [45] Once again, for Tk Version
+800.018 and newer it's preferable to set an image's state
+to <tt class="literal">hidden</tt> to make it disappear, and
+<tt class="literal">normal</tt> to make it visible.</p> </blockquote>
+
+<blockquote><pre class="code">sub frame {
+    $canvas-&gt;coords($pixmaps{$pix}, -1000, -1000);
+    $pix = "$_[0].ppm";
+    $canvas-&gt;coords($pixmaps{$pix}, $nx, $ny);
+}</pre></blockquote>
+
+<p>So <tt class="literal">do_move</tt> might make a call such as this to make
+the neko run left:
+</p>
+
+<blockquote><pre class="code">frame 'left' . (($state_count % 2) + 1);</pre></blockquote>
+
+<p>Of course, in the actual program, the direction isn't a
+hardcoded string but the back-reference <tt class="literal">$1</tt> from
+the state table's regular expression match.
+</p>
+
+<p>To make the neko follow the cursor, we use Tk's
+<tt class="literal">pointerxy</tt> command to get the cursor's
+coordinates, compute a heading from the neko to the cursor, and then
+map that value to a new state. <tt class="literal">$r2d</tt> is the
+radian-to-degree conversion factor, and <tt class="literal">$h</tt> is the
+new heading, in degrees.
+</p>
+
+<blockquote><pre class="code">($x, $y) = $canvas-&gt;pointerxy;
+
+my $h = int( $r2d * atan2( ($y - $ny), ($x - $nx) ) ) % 360;
+my($degrees, $dir);
+
+foreach (
+         [[ 22.5,  67.5], 'DWRIGHT'],
+         [[ 67.5, 112.5], 'DOWN'],
+         [[112.5, 157.5], 'DWLEFT'],
+         [[157.5, 202.5], 'LEFT'],
+         [[202.5, 247.5], 'UPLEFT'],
+         [[247.5, 292.5], 'UP'],
+         [[292.5, 337.5], 'UPRIGHT'],
+         [[337.5,  22.5], 'RIGHT'],
+         ) {
+    ($degrees, $dir) = ($_-&gt;[0], $_-&gt;[1]);
+    last if $h &gt;= $degrees-&gt;[0] and $h &lt; $degrees-&gt;[1];
+} # forend
+
+set_state $dir;</pre></blockquote>
+
+<p>And that's really all there is to it. As you'd expect,
+there are many tiny details we've ignored, so the entire
+program is available at the O'Reilly web site. <a name="INDEX-2737" /><a name="INDEX-2738" />
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch17_09.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch17_11.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">17.9. Tk::Animation</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">17.11. Tile and Transparent Images</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

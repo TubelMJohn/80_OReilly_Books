@@ -1,0 +1,708 @@
+<?label 6.3. Transactions, Locking, and Isolation ?><html><head><title>Transactions, Locking, and Isolation  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch07_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">6.3. Transactions, Locking, and Isolation </h2>
+
+
+
+<p>The <a name="INDEX-803" />final <a name="INDEX-804" />topic
+<a name="INDEX-805" />in <a name="INDEX-806" />this chapter deals with the
+important (and hair-raising!) topic of transaction handling.</p>
+
+
+
+<p>Transaction handling is a feature of the more powerful database
+systems in which SQL statements can be grouped into logical chunks.
+Each chunk is known as a <em class="emphasis">transaction</em>, and the
+operations it performs are guaranteed to be atomic for the purposes
+of recovery. According to the ANSI/ISO SQL standard, a transaction
+begins with the first executable SQL statement and ends when it is
+explicitly committed or rolled back.</p>
+
+
+
+<p>The process of <a name="INDEX-807" />committing data writes it into the database
+tables and make it visible to other concurrent users.
+<a name="INDEX-808" /> <a name="INDEX-809" />Rolling back discards any changes that have
+been made to any tables since the beginning of the current
+transaction.</p>
+
+
+
+<p>The standard example to explain transactions is a bank transfer in
+which a customer transfers $1000 from one bank account to another.
+The bank transfer consists of three distinct stages:</p>
+
+
+
+<ol><li><p>Decrease the source account by the required amount.</p></li><li><p>Increase the target account by the required amount.</p></li><li><p>Write a journal entry recording the transfer.</p></li></ol>
+<p>When viewed as three separate stages, the possibility of disaster is
+quite obvious. Suppose there's a power outage between stages 1
+and 2. The hapless customer is now $1000 poorer, as the money has
+neither reached the target account nor been logged in the transfer
+journal. The bank is now $1000 richer.<a href="#FOOTNOTE-62">[62]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-62" /><p>[62]No wonder the
+money is decremented first.</p>
+
+
+</blockquote>
+
+
+
+<p>Of course, if the power outage occurred between stages 2 and 3, the
+customer would have the correct amount of money in the correct
+accounts, but the bank would have no record of the transactions. This
+would lead to all sorts of book-keeping problems.</p>
+
+
+
+<p>The answer is to treat the three separate stages as one logical unit,
+or transaction. Thus, when stage 1 starts executing, the transaction
+is started automatically. The same transaction continues until stage
+3 is completed, after which point the transaction can be terminated
+with all the changes either being committed to the database or rolled
+back and discarded. Therefore, if a power outage happens at any point
+during the transaction, the entire transaction can be automatically
+rolled back when the database restarts and no permanent changes to
+the data will have been made.</p>
+
+
+
+<p>A transaction is an all-or-nothing situation. Either it all works, or
+it all fails -- which is great news for our luckless bank
+customer.</p>
+
+
+
+<p>Transactions are also sometimes described as having
+<a name="INDEX-810" />A.C.I.D. properties:</p>
+
+
+
+<dl>
+<dt><b>Atomic  </b></dt>
+<dd><p>A transaction's changes to the database are atomic: either all
+happen or none happen.</p></dd>
+
+
+
+<dt><b>Consistent  </b></dt>
+<dd><p>A transaction is a correct transformation of the state. The actions
+taken as a group do not violate any of the integrity constraints
+associated with the state.</p></dd>
+
+
+
+<dt><b>Isolated </b></dt>
+<dd><p>Even though transactions can execute concurrently, it appears to each
+transaction that others executed either before or after it.</p></dd>
+
+
+
+<dt><b>Durable  </b></dt>
+<dd><p>Once a transaction completes successfully (e.g.,
+<tt class="literal">commit()</tt> returns success), then its changes to the
+state of the database survive any later failures.</p></dd>
+
+</dl>
+
+
+
+<p>Implementing <a name="INDEX-811" />ACID transaction handling within a
+database requires the use of a journal log file, along with some
+sophisticated techniques and much careful coding. That's why
+it's rare to find ACID transactions supported on free databases
+(with the notable exception of PostgreSQL), and why it carries a
+performance penalty when it is supported.</p>
+
+
+
+<p>On the upside, full transaction handling brings with it far greater
+safety from power failures, client failures, database failures, and
+other popular forms of disaster. Simple explicit locking mechanisms
+do not afford the same level of safety and recoverability, as we
+shall discuss later.</p>
+
+
+
+<p>Since not all database systems support transaction processing, you
+may not have the luxury of being able to roll back from inadvertent
+data corruptions or be saved from power outage. But if your database
+does support transactions, the DBI makes it easy to manage them in a
+portable manner.</p>
+
+
+
+<a name="ch06-9-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.3.1. Automatic Transaction Handling </h3>
+
+
+
+<p>The <a name="INDEX-812" />ISO
+<a name="INDEX-813" />standard for
+<a name="INDEX-814" />SQL defines a particular model for
+transactions. It says that a database connection is always
+<em class="emphasis">in</em> a transaction. Each and every transaction
+will end with either a commit or a rollback, and every new
+transaction will begin with the next statement executed. Most systems
+also define an
+<em class="emphasis">auto-commit</em>
+<a name="INDEX-815" /> mechanism that acts as if
+<tt class="literal">commit()</tt>
+<a name="INDEX-816" /> <a name="INDEX-817" />
+is automatically called after each statement.</p>
+
+
+
+<p>The DBI standard tries to find a way to let all drivers for all
+databases appear to offer the same facilities, as much as possible.
+It does this by relying on the fact that there's little
+practical difference between a database that supports transactions
+but has auto-commit enabled, versus a database that doesn't
+support transactions at all.</p>
+
+
+
+<p>The DBI standard also tries to ensure that an application written to
+require transactions can't accidentally be run against a
+database that doesn't support them. It does this by treating an
+attempt to disable auto-commit as a fatal error for such a database.</p>
+
+
+
+<p>Given that the ability to enable and disable auto-commit is
+important, the DBI defines a <a name="INDEX-818" />database handle attribute
+called <tt class="literal">AutoCommit</tt> that regulates whether or not
+DBI should <em class="emphasis">appear to</em> automatically force a data
+commit after every statement.</p>
+
+
+
+<p>For example, if you issue a statement like
+<tt class="literal">$dbh-</tt>&gt;<tt class="literal">do()</tt> that deletes some
+data within your database, and <tt class="literal">AutoCommit</tt> is set
+to a true value, you cannot roll back your change even if the
+database supports transactions.</p>
+
+
+
+<p>The DBI defaults to having <tt class="literal">AutoCommit</tt> enabled,
+making this potentially dangerous behavior automatic unless
+explicitly disabled. This is due to the precedent set by ODBC and
+JDBC. It was probably a mistake for the DBI to put standards
+compliance above safety in this case. A future version may issue a
+warning if <tt class="literal">AutoCommit</tt> is not specified as an
+attribute to <tt class="literal">DBI-</tt>&gt;<tt class="literal">connect()</tt>,
+so it's worth getting used to adding it now.</p>
+
+
+
+<p>The behavior of changing this attribute depends on which type of
+<a name="INDEX-819" />transaction handling your database
+supports. There are three possibilities:</p>
+
+
+
+<dl>
+<dt><b>No transaction support </b></dt>
+<dd><p>Databases that have no transaction support are treated as always
+having <tt class="literal">AutoCommit</tt> enabled. Attempting to disable
+<tt class="literal">AutoCommit</tt> will result in a fatal error.</p></dd>
+
+
+
+<dt><b>Always active transaction support </b></dt>
+<dd><p>This group of databases includes mainstream commercial RDBMS
+products, such as Oracle, that support the ANSI/ISO standard for
+transaction behavior.</p>
+
+
+
+<p>If <tt class="literal">AutoCommit</tt> is switched from being enabled to
+disabled, no immediate actions should occur. Any future statements
+that you issue become part of a new transaction that must be
+committed or rolled back.</p>
+
+
+
+<p>If <tt class="literal">AutoCommit</tt> is switched from being disabled to
+enabled, any outstanding database changes will be automatically
+committed.</p></dd>
+
+
+
+<dt><b>Explicit transaction support </b></dt>
+<dd><p>Some databases, such as Informix, support the idea that transactions
+are optional and must be explicitly started by applications when
+required.</p>
+
+
+
+<p>The DBI attempts to treat these systems as systems that have always
+active transactions. To accomplish this, the DBI requires the driver
+to automatically begin a transaction when
+<tt class="literal">AutoCommit</tt> is switched from enabled to disabled.
+Once a transaction has been committed or rolled back, the driver will
+automatically start a new transaction.</p></dd>
+
+</dl>
+
+
+
+<p>Therefore, despite its database independence, the DBI offers both
+simple automatic transaction committing and powerful manual
+transaction processing modes.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch06-10-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.3.2. Forcing a Commit </h3>
+
+
+
+<p>The DBI <a name="INDEX-820" />defines a method called
+<tt class="literal">commit()</tt> for explicitly committing any uncommitted
+data within the current transaction. This method is executed against
+a valid database handle:</p>
+
+
+
+<blockquote><pre class="code">$dbh-&gt;commit();</pre></blockquote>
+
+
+
+<p>If <tt class="literal">commit()</tt> is invoked while
+<tt class="literal">AutoCommit</tt> is enabled, a warning will be displayed
+similar to:</p>
+
+
+
+<blockquote><pre class="code">commit ineffective with AutoCommit</pre></blockquote>
+
+
+
+<p>which merely tells you that the database changes have already been
+committed. This warning will also be displayed when
+<tt class="literal">commit()</tt> is invoked against a database that has no
+transaction support because, by definition,
+<tt class="literal">AutoCommit</tt> will be <a name="INDEX-821" />enabled.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch06-11-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.3.3. Rolling Back Changes </h3>
+
+
+
+<p>The <a name="INDEX-822" />corollary
+<a name="INDEX-823" />operation to committing data to the
+database is to roll it back. The DBI defines a method called
+<tt class="literal">rollback()</tt>, which can be used to roll back the
+most recent uncommitted database changes.</p>
+
+
+
+<p>Like <tt class="literal">commit()</tt>, the
+<tt class="literal">rollback()</tt>
+<a name="INDEX-824" />
+<a name="INDEX-825" />
+method is executed against a database handle:</p>
+
+
+
+<blockquote><pre class="code">$dbh-&gt;rollback();</pre></blockquote>
+
+
+
+<p>Similarly, if <tt class="literal">rollback()</tt> is invoked while
+<tt class="literal">AutoCommit</tt> is enabled, a warning will be displayed
+similar to:</p>
+
+
+
+<blockquote><pre class="code">rollback ineffective with AutoCommit</pre></blockquote>
+
+
+
+<p>signifying that the database changes have already been committed.
+This warning will also be displayed when
+<tt class="literal">rollback()</tt> is invoked against a database that has
+no transaction support because, by definition,
+<tt class="literal">AutoCommit</tt> will be <a name="INDEX-826" />enabled.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch06-12-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.3.4. Disconnecting, One Way or Another </h3>
+
+
+
+<p>The <a name="INDEX-827" />transaction
+<a name="INDEX-828" />effect of explicitly disconnecting from a
+database while <tt class="literal">AutoCommit</tt> is disabled is, sadly,
+undefined. Some database systems, such as Oracle and Ingres, will
+automatically commit any outstanding changes. However, other database
+systems, such as Informix, will roll back any outstanding changes.
+Because of this, applications not using <tt class="literal">AutoCommit</tt>
+should <em class="emphasis">always</em> explicitly call
+<tt class="literal">commit()</tt> or <tt class="literal">rollback()</tt> before
+calling
+<tt class="literal">disconnect()</tt>
+<a name="INDEX-829" />
+<a name="INDEX-830" />.</p>
+
+
+
+<p>So what happens if you don't explicitly call
+<tt class="literal">disconnect()</tt>, or don't have the chance to
+because the program exits after a <tt class="literal">die</tt>? Well,
+because DBI handles are object references, we can be sure that Perl
+itself will call the <tt class="literal">DESTROY</tt> method for us on each
+handle if the program exits, the handle goes out of scope, or the
+only copy of a handle is overwritten by another value.</p>
+
+
+
+<p>The actual implementation of the
+<tt class="literal">DESTROY</tt>
+<a name="INDEX-831" /> method is in the hands of the driver
+author. If the database handle is still connected then it
+<em class="emphasis">should</em> automatically call
+<tt class="literal">rollback()</tt> (unless <tt class="literal">AutoCommit</tt>
+is enabled) before calling <tt class="literal">disconnect()</tt>. Calling
+<tt class="literal">rollback()</tt> in <tt class="literal">DESTROY</tt> is
+critical. If the driver doesn't, then a program aborting due to
+a <tt class="literal">die</tt> part way though a transaction may actually
+"accidentally" commit the incomplete transaction!
+Fortunately, all the drivers that we're aware of that support
+transactions do the right thing.</p>
+
+
+
+<p>As an extra sanity check, if you disconnect from a database while you
+still have active statement handles, you will get a warning. We
+discussed active statement handles and related topics in <a href="ch05_01.htm">Chapter 5, "Interacting with the Database "</a>.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch06-13-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.3.5. Combining Automatic Error Handling with Transactions </h3>
+
+
+
+<p>Transactions, <a name="INDEX-832" />as you've probably realized by
+now, are closely related to <a name="INDEX-833" />error handling. This is especially
+true when you have to clean up after an error by putting everything
+in the database back to the way it was before the transaction
+started.</p>
+
+
+
+<p><a href="ch04_01.htm">Chapter 4, "Programming with the DBI "</a>, we discussed error
+handling in some detail and sang the praises of using the
+<tt class="literal">RaiseError</tt> attribute for automatic error detection.</p>
+
+
+
+<p>Imagine combining the automatic error <em class="emphasis">detection</em>
+of the DBI's
+<tt class="literal">RaiseError</tt>
+<a name="INDEX-834" /> attribute and the error
+<em class="emphasis">trapping</em> of Perl's <tt class="literal">eval</tt>
+<tt class="literal">{</tt> <tt class="literal">...</tt> <tt class="literal">}</tt> and
+the error <em class="emphasis">handling</em> properties of transactions.
+The result is a simple yet powerful way to write robust applications
+in Perl.</p>
+
+
+
+<p>There is a fairly common structure to these kind of applications, so
+to help us discuss the issues, we've included the following
+example.<a name="INDEX-835" /> <a name="INDEX-836" /></p>
+
+
+
+<p>This outline example processes CSV files containing sales data from
+one country, it fetches currency exchange rate information from a web
+site and adds that to the data, it then performs a series of inserts,
+selects, updates and more inserts of the data to update the database.
+That processing is repeated for a series of countries.</p>
+
+
+
+<p> Here's the code:</p>
+
+
+
+<blockquote><pre class="code">### Connect to the database with transactions and error handing enabled
+my $dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" , {
+    AutoCommit =&gt; 0,
+    RaiseError =&gt; 1,
+} );
+
+### Keep a count of failures. Used for program exit status
+my @failed;
+
+foreach my $country_code ( qw(US CA GB IE FR) ) {
+
+    print "Processing $country_code\n";
+
+    ### Do all the work for one country inside an eval
+    eval {
+
+        ### Read, parse and sanity check the data file (e.g., using DBD::CSV)
+        my $data = load_sales_data_file( "$country_file.csv" );
+
+        ### Add data from the Web (e.g., using the LWP modules)
+        add_exchange_rates( $data, $country_code,
+                            "http://exchange-rate-service.com" );
+
+        ### Perform database loading steps (e.g., using DBD::Oracle)
+        insert_sales_data( $dbh, $data );
+        update_country_summary_data( $dbh, $data );
+        insert_processed_files( $dbh, $country_code );
+
+        ### Everything done okay for this file, so commit the database changes
+        $dbh-&gt;commit();
+
+    };
+
+    ### If something went wrong...
+    if ($@) {
+
+        ### Tell the user that something went wrong, and what went wrong
+        warn "Unable to process $country_code: $@\n";
+        ### Undo any database changes made before the error occured
+        $dbh-&gt;rollback();
+
+        ### Keep track of failures
+        push @failed, $country_code;
+
+    }
+}
+$dbh-&gt;disconnect();
+
+### Exit with useful status value for caller
+exit @failed ? 1 : 0;</pre></blockquote>
+
+
+
+<p>In the following list, we make some observations about how and why
+the code is structured the way it is and discuss a few related
+issues:</p>
+
+
+
+<dl>
+<dt><b>Unit of work </b></dt>
+<dd><p>A key design issue is what the "unit of work" should be.
+In other words, how much work should we do before committing and thus
+how much would be undone by a rollback on error? The smallest unit
+should correspond to the smallest logically complete change to the
+database. In our example, that corresponds to the complete processing
+of one country file, and that's what we've chosen as the
+unit of work here.</p>
+
+
+
+<p>We could have opted for a larger unit of work. Processing all the
+files as one unit would be another obvious choice. In that case,
+we'd simply need to move the <tt class="literal">foreach</tt> loop to
+inside the <tt class="literal">eval</tt>. You should be aware that most
+databases have limits on the amount of database changes you can make
+without committing. It's usually large, and always
+configurable, but you need to be aware that there are limits that may
+bite you if you try to do too much.</p></dd>
+
+
+
+<dt><b>Where to commit </b></dt>
+<dd><p>It's important to have the <tt class="literal">commit()</tt> inside
+the <tt class="literal">eval</tt>. The commit call is the most critical
+part of the transaction. Don't assume that the
+<tt class="literal">commit()</tt> will succeed just because the previous
+statements didn't return an error. Databases are free to defer
+much of the real work till commit is called.</p>
+
+
+
+<p>The <tt class="literal">commit()</tt> call should be the very last thing
+before the end of the <tt class="literal">eval</tt> block. Sometimes
+it's more tricky. Imagine that the requirements changed and you
+were asked to make the script delete the files as it processed them.
+Where would you put the <tt class="literal">unlink()</tt> call? Before or
+after the <tt class="literal">commit()</tt>? Think about that for a moment.
+Remember that there's always the risk that either the
+<tt class="literal">commit()</tt> or the <tt class="literal">unlink()</tt> could
+fail. You need to weigh up both the risks and the after effects of
+either case.</p>
+
+
+
+<p>Here's how it applies in our example: if you commit first and
+the unlink fails, then you'll process the file again the next
+time the script is run. If you unlink first and the commit fails,
+then you've lost the data. In this case, the lesser of the two
+evils is clearly to commit first and risk double processing,
+especially as double processing is probably easy to avoid by checking
+the data in the file against what's already in the database.</p>
+
+
+
+<p>In the real world, things can be rather more complex. However, there
+are plenty of creative ways to address this <em class="emphasis">two system
+commit</em>
+<a name="INDEX-837" /> problem. The most important thing to
+remember is that there <em class="emphasis">is</em> a problem to address
+whenever some change outside the database has to be
+<em class="emphasis">committed</em> at the same time that the database
+changes are committed.</p></dd>
+
+
+
+<dt><b>When things go wrong </b></dt>
+<dd><p>The first thing to do in your <tt class="literal">if ($@) {...}</tt> block
+is to print an error message. The error message code helps document
+what the error handling block is dealing with. And doing it first
+avoids the risk that another fatal error will happen before your
+message is printed, thus masking the underlying problem.</p>
+
+
+
+<p>Please do yourself and your users a favor by
+<em class="emphasis">always</em> including as much useful information in
+your error messages as possible. It sounds simple, but over and over
+again we see code like:</p>
+
+
+
+<blockquote><pre class="code">$dbh-&gt;commit() or die "commit failed!"; # DUMB!</pre></blockquote>
+
+
+
+<p>Using <tt class="literal">RaiseError</tt> helps here because it generates a
+message (or Perl <tt class="literal">$@</tt> variable value) that includes
+the underlying error from the driver, and the driver and method
+names.<a href="#FOOTNOTE-63">[63]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-63" /><p>[63]It also includes the filename and line number
+of the code where the error happened, but you can strip that off
+using a regular expression if you like.</p>
+
+
+</blockquote>
+
+
+
+<p>So, if you catch an error using <tt class="literal">eval</tt>, remember to
+print the contents of <tt class="literal">$@</tt>. But don't stop at
+that. In most applications, there are variables that indicate
+what's being processed at the time. Including one or more of
+those, like <tt class="literal">$country_code</tt> in our example, adds
+valuable context to the error message.</p>
+
+
+
+<p>As a general guide, every <tt class="literal">die</tt> or
+<tt class="literal">warn</tt> should have at least one variable
+interpolated into it, not counting <tt class="literal">$!</tt> or
+<tt class="literal">$@</tt>.</p></dd>
+
+
+
+<dt><b>Consider protecting the rollback </b></dt>
+<dd><p>So things have gone wrong, you've printed your error message,
+now it's time to <tt class="literal">rollback()</tt>. Pause for a
+moment. Remember that the database handle you're using has
+<tt class="literal">RaiseError</tt> set. That means that if the rollback
+itself fails then a new exception will be "thrown" and
+the script will immediately exit or jump into the arms of an
+enclosing <tt class="literal">eval</tt>.</p>
+
+
+
+<p>Ask yourself if you're happy for a rollback error to trigger
+another exception. If not, then wrap it in an <tt class="literal">eval</tt>
+like this:</p>
+
+
+
+<blockquote><pre class="code">eval { $dbh-&gt;rollback };</pre></blockquote>
+
+
+
+<p>Likely reasons for <tt class="literal">rollback()</tt> failing include
+database server shutdown or network communications failure, either of
+which may have been the cause of the error you're handling now.
+A rollback failure generally means that the database server is having
+a problem, and it's not worth trying to continue, so the
+default behavior is often what you want.</p></dd>
+
+
+
+<dt><b>Exit status </b></dt>
+<dd><p>Returning a reliable success/fail exit status from your scripts, even
+if you don't think you'll need it, is just good design.
+We recommend good design.</p></dd>
+
+
+
+<dt><b>Death by misadventure </b></dt>
+<dd><p>One of the important things to remember with transactions is that
+<em class="emphasis">any</em> calls made within an <tt class="literal">eval</tt>
+block can cause the program to die, and many of these calls may be
+totally unrelated to DBI. Therefore, by using an
+<tt class="literal">eval</tt> to trap <em class="emphasis">any</em> sort of
+problem whatsoever, you guarantee that you can cleanly roll back any
+<a name="INDEX-838" />incomplete <a name="INDEX-839" />transactions.<a name="INDEX-840" /></p></dd>
+
+</dl>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch07_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">6.2. Handling LONG/LOB Data </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">7. ODBC and the DBI </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

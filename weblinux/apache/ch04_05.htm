@@ -1,0 +1,170 @@
+<?label 4.5. Debugging Scripts?><html><head><title>Debugging Scripts (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch04_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">4.5. Debugging Scripts</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-482" />
+<a name="INDEX-483" />Because CGI scripts run underneath Apache, it can be awkward to debug
+them. When a script fails, you normally don't get much help on
+the browser screen, but the error log can be much more informative
+and is the first thing to check (by default, it is
+<em class="filename">.../logs/error_log</em>, but you can set it to what
+you like with the <tt class="literal">ErrorLog</tt> directive).</p>
+
+
+
+
+
+<p>If you are programming your script in Perl, the <em class="filename">
+CGI::Carp</em> module can be helpful. However, most other
+languages<a href="#FOOTNOTE-39">[39]</a> you might want to use for CGI do not have anything so
+useful. If you are programming in a high-level language and want to
+run a debugger, it is usually impossible to do so directly. However,
+it is possible to simulate the environment in which an Apache script
+runs. The first thing to do is to become the user that Apache runs as
+(often <em class="emphasis">webserv</em>). Then, remember that Apache
+always runs a script in the script's own directory, so go to
+that directory. Next, Apache passes most of the information a script
+needs in environment variables. Determine what those environment
+variables should be (either by thinking about it or, more reliably,
+by temporarily replacing your CGI with one that executes
+<em class="emphasis">env</em>, as illustrated above), and write a little
+script that sets them, then runs your CGI (possibly under a
+debugger). Since Apache sets a vast number of environment variables,
+it is worth knowing that most CGI scripts hardly use
+any -- usually only <tt class="literal">QUERY_STRING</tt> (or
+<tt class="literal">PATH_INFO</tt>, less often). Of course, if you wrote
+the script and all its libraries, you'll know what it used, but
+that isn't always the case. So, to give a concrete example,
+suppose we wanted to debug the <em class="emphasis">mycgi</em> script
+given earlier. We'd go into <em class="emphasis">.../cgi-bin</em>
+and write a script called, say, <em class="emphasis">debug.cgi</em>, that
+looked something like this:</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-39" /><p>[39]We'll include ordinary shell scripts
+as "languages," which, in many senses, they are.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<blockquote><pre class="code">#!/bin/sh
+QUERY_STRING='2315_order=20&amp;2316_order=10&amp;card_type=Amex'
+export QUERY_STRING
+gdb myecho</pre></blockquote>
+
+
+
+
+
+<p>We'd run it by typing:</p>
+
+
+
+
+
+<blockquote><pre class="code">chmod +x debug.cgi
+./debug.cgi</pre></blockquote>
+
+
+
+
+
+<p>Once <em class="filename">gdb</em> came up, we'd hit
+<tt class="literal">r&lt;CR&gt;</tt> and the script would run.<a href="#FOOTNOTE-40">[40]</a></p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-40" /><p>[40]Obviously, if we really wanted to debug it, we'd set some
+breakpoints first.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<p>A couple of things may trip you up here. The first is that if the
+script expects the <tt class="literal">POST</tt> method -- that is, if
+<tt class="literal">REQUEST_METHOD</tt> is set to
+<tt class="literal">POST</tt> -- the script will (if it is working
+correctly) expect the <tt class="literal">QUERY_STRING</tt> to be supplied
+on its standard input rather than in the environment. Most scripts
+use a library to process the query string, so the simple solution is
+to not set <tt class="literal">REQUEST_METHOD</tt> for debugging, or to set
+it to <tt class="literal">GET</tt> instead. If you really must use
+<tt class="literal">POST</tt>, then the script would become:</p>
+
+
+
+
+
+<blockquote><pre class="code">#!/bin/sh
+REQUEST_METHOD=POST
+export REQUEST_METHOD
+myecho &lt;&lt; EOF
+2315_order=20&amp;2316_order=10&amp;card_type=Amex
+EOF</pre></blockquote>
+
+
+
+
+
+<p>Note that this time we didn't run the debugger, for the simple
+reason that the debugger also wants input from standard input. To
+accommodate that, put the query string in some file and tell the
+debugger to use that file for standard input (in <em class="filename">gdb
+</em>'s case, that means type <tt class="literal">r</tt>
+<tt class="literal">&lt;</tt> <em class="replaceable">yourfile</em>).</p>
+
+
+
+
+
+<p>The second tricky thing occurs if you are using Perl and the standard
+Perl module <em class="filename">CGI.pm</em>. In this case,
+<em class="filename">CGI</em> helpfully detects that you aren't
+running under Apache and prompts for the query string. It also wants
+the individual items separated by newlines instead of ampersands. The
+simple solution is to do something very similar to the solution to
+the <tt class="literal">POST</tt> problem we just discussed, except with
+newlines.<a name="INDEX-484" />
+<a name="INDEX-485" /></p>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch04_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">4.4. Useful Scripts</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">4.6. Setting Environment Variables</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

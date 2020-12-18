@@ -1,0 +1,1216 @@
+<html><head><title>Servlet Implementation (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch07_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">7.4. Servlet Implementation</h2>
+
+<p><a name="INDEX-860" />We are almost finished! The
+remaining piece of the puzzle is to coordinate activity between the
+web browser, database, domain objects, JDOM producers, and XSLT
+stylesheets. This task lies in the servlet implementation and related
+classes. In an XSLT-driven web application, the servlet itself really
+does not do all that much. Instead, it acts as a mediator between all
+of the other actions taking place in the application.
+</p>
+
+<p><a href="ch07_04.htm#javaxslt-CHP-7-FIG-9">Figure 7-9</a> shows the UML class diagram for the
+<tt class="literal">com.oreilly.forum.servlet</tt> package. This design
+consists of a few key classes along with numerous subclasses of
+<tt class="literal">Renderer</tt> and <tt class="literal">ReqHandler</tt>. These
+subclasses are very repetitive in nature, which is indicative of the
+highly structured application design that XML and XSLT facilitate.
+</p>
+
+<a name="javaxslt-CHP-7-FIG-9" /><div class="figure"><img src="figs/jxt_0709.gif" alt="Figure 7-9" width="443" height="350" /></div><h4 class="objtitle">Figure 7-9. Servlet design</h4>
+
+<p>A single-servlet design has been adopted for this application. In
+this approach, the
+<tt class="literal">ForumServlet</tt><a name="INDEX-861" />
+intercepts all inbound requests from clients. The requests are then
+delegated to subclasses of <tt class="literal">ReqHandler</tt>, which
+handle requests for individual pages. Once the request has been
+processed, a subclass of <tt class="literal">Renderer</tt> selects the XML
+and XSLT stylesheet. <tt class="literal">XSLTRenderHelper</tt> does the
+actual XSLT transformation, sending the resulting XHTML back to the
+browser.
+</p>
+
+<p>This is not designed to be a heavyweight web application framework.
+Instead, it is just a simple set of coding conventions and patterns
+that help keep the application highly modular. It is easy to
+eliminate the <tt class="literal">ReqHandler</tt> classes and use several
+servlets instead. The main advantage of explicit request handlers and
+renderers is that the design is clearly modularized, which may
+promote more consistency across a team of developers.
+</p>
+
+<p>The overall <a name="INDEX-862" />flow of control may be the hardest part
+to understand. Once this flow is clear, the implementation is a
+matter of creating additional request handlers and renderers. <a href="ch07_04.htm#javaxslt-CHP-7-FIG-10">Figure 7-10</a> is a UML sequence diagram that shows how a
+single web browser request is intercepted and processed.
+</p>
+
+<a name="javaxslt-CHP-7-FIG-10" /><div class="figure"><img src="figs/jxt_0710.gif" alt="Figure 7-10" width="467" height="374" /></div><h4 class="objtitle">Figure 7-10. Sequence diagram</h4>
+
+<p>When a browser issues a request, it is always directed to the single
+servlet. This servlet then locates the appropriate request handler
+based on information found in the requested URL. The request handler
+is responsible for interacting with the data adapter layer to create
+and update domain objects and for creating the appropriate renderer.
+</p>
+
+<p>Once the renderer is created, the servlet asks it to <tt class="literal">render(
+)</tt> its content. The renderer then asks the appropriate JDOM
+producer to create the XML data and performs the transformation using
+an XSLT stylesheet. The result of the transformation is sent back to
+the client browser.
+</p>
+
+<p>One request handler might map to several renderers. For example,
+suppose the user is trying to post a new message and submits this
+information to the <tt class="literal">PostMsgReqHandler</tt> class. If the
+request handler determines that some required fields are missing, it
+can return an instance of the <tt class="literal">PostMsgRenderer</tt>
+class. This allows the user to fill in the remaining fields. On the
+other hand, if a database error occurs, an instance of
+<tt class="literal">ErrorRenderer</tt> can be returned. Otherwise,
+<tt class="literal">ViewMsgRenderer</tt> is returned when the message is
+successfully posted. Because request handlers and renderers are
+cleanly separated, renderers can be invoked from any request handler.
+</p>
+
+<p>The code for <tt class="literal">ForumServlet</tt> is shown in <a href="ch07_04.htm#javaxslt-CHP-7-EX-25">Example 7-25</a>. As already mentioned, this is the only
+servlet in the
+application.<a name="INDEX-863" />
+<a name="INDEX-864" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-25" /><div class="example">
+<h4 class="objtitle">Example 7-25. ForumServlet.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.servlet;
+
+import com.oreilly.forum.ForumConfig;
+import com.oreilly.forum.jdbcimpl.DBUtil;
+import java.io.*;
+import java.util.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+
+/**
+ * The single servlet in the discussion forum.
+ */
+public class ForumServlet extends HttpServlet {
+    private ReqHandlerRegistry registry;
+
+    /**
+     * Registers all request handlers and sets up the
+     * ForumConfig object.
+     */
+    public void init(ServletConfig sc) throws ServletException {
+        super.init(sc);
+
+        // get initialization parameters from the deployment
+        // descriptor (web.xml)
+        String jdbcDriverClassName = sc.getInitParameter(
+                "jdbcDriverClassName");
+        String databaseURL = sc.getInitParameter(
+                "databaseURL");
+        String adapterClassName = sc.getInitParameter(
+                "adapterClassName");
+        ForumConfig.setValues(jdbcDriverClassName,
+                databaseURL, adapterClassName);
+
+        try {
+            // load all request handlers
+            this.registry = new ReqHandlerRegistry(new HomeReqHandler( ));
+            this.registry.register(new PostMsgReqHandler( ));
+            this.registry.register(new ViewMonthReqHandler( ));
+            this.registry.register(new ViewMsgReqHandler( ));
+        } catch (Exception ex) {
+            log(ex.getMessage( ), ex);
+            throw new UnavailableException(ex.getMessage( ), 10);
+        }
+    }
+
+    /**
+     * Closes all database connections. This method is invoked
+     * when the Servlet is unloaded.
+     */
+    public void destroy( ) {
+        super.destroy( );
+        DBUtil.closeAllConnections( );
+    }
+
+    protected void doPost(HttpServletRequest request,
+            HttpServletResponse response) throws IOException,
+            ServletException {
+        ReqHandler rh = this.registry.getHandler(request);
+        Renderer rend = rh.doPost(this, request, response);
+        rend.render(this, request, response);
+    }
+
+    protected void doGet(HttpServletRequest request,
+            HttpServletResponse response) throws IOException,
+            ServletException {
+        ReqHandler rh = this.registry.getHandler(request);
+        Renderer rend = rh.doGet(this, request, response);
+        rend.render(this, request, response);
+    }
+} </pre></blockquote>
+</div>
+
+<p><tt class="literal">ForumServlet</tt> overrides the <tt class="literal">init(
+)</tt> method to perform one-time initialization before any
+client requests are handled. This is where context initialization
+parameters are read from the deployment descriptor and stored in the
+<tt class="literal">ForumConfig</tt> instance:
+</p>
+
+<blockquote><pre class="code">String jdbcDriverClassName = sc.getInitParameter("jdbcDriverClassName");
+String databaseURL = sc.getInitParameter("databaseURL");
+String adapterClassName = sc.getInitParameter("adapterClassName");
+ForumConfig.setValues(jdbcDriverClassName, databaseURL, adapterClassName);</pre></blockquote>
+
+<p>The <tt class="literal">init( )</tt> method then sets up instances of each
+type of request handler. These are registered with the
+<tt class="literal">ReqHandlerRegistry</tt> class, which has the ability to
+locate request handlers later on.
+</p>
+
+<p>In the <tt class="literal">destroy( )</tt> method, which is called when the
+servlet is unloaded, any outstanding database connections are closed:
+</p>
+
+<blockquote><pre class="code">public void destroy( ) {
+    super.destroy( );
+    DBUtil.closeAllConnections( );
+}</pre></blockquote>
+
+<p>While this currently has no real effect, the code was put in place
+because a future version of the software may use database connection
+pooling. This allows the application to close all connections in the
+pool just before exiting.
+</p>
+
+<p>The only remaining methods in the servlet are <tt class="literal">doGet(
+)</tt> and <tt class="literal">doPost( )</tt>, which are virtually
+identical. All these methods do is locate the appropriate request
+handler instance, ask the handler to perform a GET or POST, and then
+use the renderer to send a response to the client.
+</p>
+
+<p>The code for <em class="filename">ReqHandler.java</em> is shown in <a href="ch07_04.htm#javaxslt-CHP-7-EX-26">Example 7-26</a>. This is an abstract class that provides
+<tt class="literal">doGet( )</tt> and <tt class="literal">doPost( )</tt> methods.
+By default, each method returns an error message back to the client,
+so a derived class must override one or both methods to enable HTTP
+GET and/or POST. Once the method is complete, the derived class must
+return an instance of <tt class="literal">Renderer</tt>, which produces the
+next page to
+display.<a name="INDEX-865" />
+<a name="INDEX-866" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-26" /><div class="example">
+<h4 class="objtitle">Example 7-26. ReqHandler.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.servlet;
+
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+
+/**
+ * All request handlers must extend from this class.
+ */
+public abstract class ReqHandler {
+    protected abstract String getPathInfo( );
+
+    protected Renderer doGet(HttpServlet servlet, HttpServletRequest request,
+            HttpServletResponse response)
+            throws IOException, ServletException {
+        return new ErrorRenderer("GET not allowed");
+    }
+
+    protected Renderer doPost(HttpServlet servlet, HttpServletRequest request,
+            HttpServletResponse response)
+            throws IOException, ServletException {
+        return new ErrorRenderer("POST not allowed");
+    }
+} </pre></blockquote>
+</div>
+
+<p>The <tt class="literal">Renderer</tt> class is shown in <a href="ch07_04.htm#javaxslt-CHP-7-EX-27">Example 7-27</a>. This class, like
+<tt class="literal">ReqHandler</tt>, is abstract. Derived classes are
+responsible for nothing more than producing content to the
+<tt class="literal">HttpServletResponse</tt>. Basically, each page in the
+discussion forum application is created using a subclass of
+<tt class="literal">Renderer</tt>.<a name="INDEX-867" />
+<a name="INDEX-868" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-27" /><div class="example">
+<h4 class="objtitle">Example 7-27. Renderer.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.servlet;
+
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+
+/**
+ * All page renderers must extend from this class.
+ */
+public abstract class Renderer {
+    public abstract void render(HttpServlet servlet,
+            HttpServletRequest request, HttpServletResponse response)
+            throws IOException, ServletException;
+} </pre></blockquote>
+</div>
+
+<p>The most basic renderer is <tt class="literal">ErrorRenderer</tt>, which is
+shown in <a href="ch07_04.htm#javaxslt-CHP-7-EX-28">Example 7-28</a>. This class displays an error
+message in a web browser using simple <tt class="literal">println( )</tt>
+statements that generate HTML. Unlike all other parts of this
+application, the <tt class="literal">ErrorRenderer</tt> class does not use
+XML and XSLT. The reason for this is that a large percentage of
+errors occurs because an XML parser is not properly configured on the
+CLASSPATH.<a href="#FOOTNOTE-33">[33]</a> If this
+sort of error occurs, this renderer will not be
+affected.<a name="INDEX-869" />
+<a name="INDEX-870" />
+</p><blockquote class="footnote"> <a name="FOOTNOTE-33" /><p> [33] CLASSPATH issues are discussed in great
+detail in <a href="ch09_01.htm">Chapter 9, "Development Environment, Testing, and Performance"</a>.</p> </blockquote>
+
+<a name="ch07-19-fm2xml" /><blockquote><b>NOTE:</b> 
+
+<tt class="literal">ErrorRenderer</tt> can be written to use XML and XSLT, provided that a <tt class="literal">try</tt>/<tt class="literal">catch</tt> block catches any transformation errors and reverts to <tt class="literal">println( )</tt> statements for error reporting.
+</p></blockquote>
+<a name="javaxslt-CHP-7-EX-28" /><div class="example">
+<h4 class="objtitle">Example 7-28. ErrorRenderer.java  </h4>
+<blockquote><pre class="code">package com.oreilly.forum.servlet;
+
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+
+/**
+ * Shows an error page. Since errors are frequently caused by improperly
+ * configured JAR files, XML And XSLT are not used by this class.
+ * If XML and XSLT were used, then the same CLASSPATH issue that caused
+ * the original exception to occur would probably cause this page
+ * to fail as well.
+ */
+public class ErrorRenderer extends Renderer {
+    private String message;
+    private Throwable throwable;
+
+    public ErrorRenderer(Throwable throwable) {
+        this(throwable, throwable.getMessage( ));
+    }
+
+    public ErrorRenderer(String message) {
+        this(null, message);
+    }
+
+    public ErrorRenderer(Throwable throwable, String message) {
+        this.throwable = throwable;
+        this.message = message;
+    }
+
+    public void render(HttpServlet servlet, HttpServletRequest request,
+            HttpServletResponse response)
+            throws IOException, ServletException {
+        response.setContentType("text/html");
+        PrintWriter pw = response.getWriter( );
+        // just show a simple error page for now.
+        pw.println("&lt;html&gt;");
+        pw.println("&lt;body&gt;");
+        pw.println("&lt;p&gt;");
+        pw.println(this.message);
+        pw.println("&lt;/p&gt;");
+        if (this.throwable != null) {
+            pw.println("&lt;pre&gt;");
+            this.throwable.printStackTrace(pw);
+            pw.println("&lt;/pre&gt;");
+        }
+        pw.println("&lt;/body&gt;&lt;/html&gt;");
+    }
+} </pre></blockquote>
+</div>
+
+<p><tt class="literal">XSLTRenderHelper</tt>, shown in <a href="ch07_04.htm#javaxslt-CHP-7-EX-29">Example 7-29</a>, is a utility class used by all remaining
+renderers. This class does the low-level XSLT
+<a name="INDEX-871" />transformations, eliminating a lot of
+duplicated code in each of the renderers.
+<tt class="literal">XSLTRenderHelper</tt> also maintains a cache of
+stylesheet filenames so they do not have to be repeatedly located
+using the <tt class="literal">ServletContext.getRealPath( )</tt>
+method.<a name="INDEX-872" />
+<a name="INDEX-873" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-29" /><div class="example">
+<h4 class="objtitle">Example 7-29. XSLTRenderHelper.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.servlet;
+
+import com.oreilly.javaxslt.util.StylesheetCache;
+import java.io.*;
+import java.net.URL;
+import java.util.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import javax.xml.transform.*;
+import javax.xml.transform.stream.*;
+import org.jdom.*;
+import org.jdom.output.*;
+
+/**
+ * A helper class that makes rendering of XSLT easier. This
+ * eliminates the need to duplicate a lot of code for each
+ * of the web pages in this app.
+ */
+public class XSLTRenderHelper {
+    private static Map filenameCache = new HashMap( );
+
+    /**
+     * Perform an XSLT transformation.
+     *
+     * @param servlet provides access to the ServletContext so
+     *                the XSLT directory can be determined.
+     * @param xmlJDOMData JDOM data for the XML Document.
+     * @param xsltBaseName the name of the stylesheet without a directory.
+     * @param response the Servlet response to write output to.
+     */
+    public static void render(HttpServlet servlet, Document xmlJDOMData,
+            String xsltBaseName, HttpServletResponse response)
+            throws ServletException, IOException {
+
+        String xsltFileName = null;
+        try {
+            // figure out the complete XSLT stylesheet file name
+            synchronized (filenameCache) {
+                xsltFileName = (String) filenameCache.get(xsltBaseName);
+                if (xsltFileName == null) {
+                    ServletContext ctx = servlet.getServletContext( );
+                    xsltFileName = ctx.getRealPath(
+                            "/WEB-INF/xslt/" + xsltBaseName);
+                    filenameCache.put(xsltBaseName, xsltFileName);
+                }
+            }
+
+            // write the JDOM data to a StringWriter
+            StringWriter sw = new StringWriter( );
+            XMLOutputter xmlOut = new XMLOutputter("", false, "UTF-8");
+            xmlOut.output(xmlJDOMData, sw);
+
+            response.setContentType("text/html");
+            Transformer trans = StylesheetCache.newTransformer(xsltFileName);
+
+            // pass a parameter to the XSLT stylesheet
+            trans.setParameter("rootDir", "/forum/");
+
+            trans.transform(new StreamSource(new StringReader(sw.toString( ))),
+                            new StreamResult(response.getWriter( )));
+        } catch (IOException ioe) {
+            throw ioe;
+        } catch (Exception ex) {
+            throw new ServletException(ex);
+        }
+    }
+
+    private XSLTRenderHelper( ) {
+    }
+} </pre></blockquote>
+</div>
+
+<p><tt class="literal">XSLTRenderHelper</tt> performs the XSLT transformation
+by first converting the JDOM <tt class="literal">Document</tt> into a
+<tt class="literal">String</tt> of XML and then reading that
+<tt class="literal">String</tt> back into a JAXP-compliant XSLT processor.
+This is not necessarily the most efficient way to integrate JDOM with
+JAXP, but it works reliably with some beta versions of JDOM. By the
+time you read this, JDOM will have more standardized APIs for
+integrating with JAXP.
+</p>
+
+<p>Another utility class, <tt class="literal">ReqHandlerRegistry</tt>, is
+shown in <a href="ch07_04.htm#javaxslt-CHP-7-EX-30">Example 7-30</a>. This class is responsible for
+locating instances of <tt class="literal">ReqHandler</tt> based on
+<em class="emphasis">path information</em> found in the request URL.
+Basically, path information is any text that occurs after a slash
+character (<tt class="literal">/</tt>) following the servlet mapping.
+<tt class="literal">HttpServletRequest</tt> includes a method called
+<tt class="literal">getPathInfo( )</tt> that returns any path information
+that is
+present.<a name="INDEX-874" />
+<a name="INDEX-875" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-30" /><div class="example">
+<h4 class="objtitle">Example 7-30. ReqHandlerRegistry.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.servlet;
+
+import java.util.*;
+import javax.servlet.http.*;
+
+/**
+ * A utility class that locates request handler instances based
+ * on extra path information.
+ */
+public class ReqHandlerRegistry {
+    private ReqHandler defaultHandler;
+    private Map handlerMap = new HashMap( );
+
+    public ReqHandlerRegistry(ReqHandler defaultHandler) {
+        this.defaultHandler = defaultHandler;
+    }
+
+    public void register(ReqHandler handler) {
+        this.handlerMap.put(handler.getPathInfo( ), handler);
+    }
+
+    public ReqHandler getHandler(HttpServletRequest request) {
+        ReqHandler rh = null;
+        <tt class="userinput"><b>String pathInfo = request.getPathInfo( );
+        if (pathInfo != null) {</b></tt>
+            int firstSlashPos = pathInfo.indexOf('/');
+            int secondSlashPos = (firstSlashPos &gt; -1) ?
+                    pathInfo.indexOf('/', firstSlashPos+1) : -1;
+
+            String key = null;
+            if (firstSlashPos &gt; -1) {
+                if (secondSlashPos &gt; -1) {
+                    key = pathInfo.substring(firstSlashPos+1, secondSlashPos);
+                } else {
+                    key = pathInfo.substring(firstSlashPos+1);
+                }
+            } else {
+                key = pathInfo;
+            }
+            if (key != null &amp;&amp; key.length( ) &gt; 0) {
+                rh = (ReqHandler) this.handlerMap.get(key);
+            }
+        }
+        return (rh != null) ? rh : this.defaultHandler;
+    }
+} </pre></blockquote>
+</div>
+
+<p>Throughout the discussion forum application, URLs take on the
+following form:
+</p>
+
+<blockquote><pre class="code">http://hostname:port/forum/main/home</pre></blockquote>
+
+<p>In this URL, <tt class="literal">forum</tt> represents the web application
+and is the name of the WAR file. The next part of the URL,
+<tt class="literal">main</tt>, is a mapping to
+<tt class="literal">ForumServlet</tt>. Since the WAR file and servlet will
+not change, this part of the URL remains constant. The remaining
+data, <tt class="literal">/home</tt>, is path information. This is the
+portion of the URL that <tt class="literal">ReqHandlerRegistry</tt> uses to
+locate instances of <tt class="literal">ReqHandler</tt>. If the path
+information is <tt class="literal">null</tt> or does not map to any request
+handlers, the default request handler is returned. This simply
+returns the user to the home page.
+</p>
+
+<p>The first real request handler, <tt class="literal">HomeReqHandler</tt>, is
+shown in <a href="ch07_04.htm#javaxslt-CHP-7-EX-31">Example 7-31</a>. This class is quite simple and
+merely returns an instance of <tt class="literal">HomeRenderer</tt>. The
+code is simple because the home page does not have any modes of
+operation other than to display all message boards. Other request
+handlers are more complex because they must process
+<tt class="literal">HttpServletRequest</tt> parameters.
+</p>
+
+<a name="javaxslt-CHP-7-EX-31" /><div class="example">
+<h4 class="objtitle">Example 7-31. HomeReqHandler.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.servlet;
+
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+
+/**
+ * This is the 'default' request handler in the app. The
+ * first inbound request generally goes to an instance
+ * of this class, which returns the home page renderer.
+ */
+public class HomeReqHandler extends ReqHandler {
+
+    protected String getPathInfo( ) {
+        return "home";
+    }
+
+    protected Renderer doGet(HttpServlet servlet, HttpServletRequest request,
+            HttpServletResponse response)
+            throws IOException, ServletException {
+        return new HomeRenderer( );
+    }
+
+} </pre></blockquote>
+</div>
+
+<p>All of the request handlers must override the <tt class="literal">getPathInfo(
+)</tt> method. This determines the path info portion of the URL,
+so each request handler must return a unique string.
+</p>
+
+<p>The renderer for the home page, shown in <a href="ch07_04.htm#javaxslt-CHP-7-EX-32">Example 7-32</a>, is also quite simple. As with the home
+request handler, this renderer is simple because it has only one mode
+of operation. Like other renderers, this class gets some data from
+the database using the <tt class="literal">DataAdapter</tt> class, asks a
+JDOM producer to convert the data into XML, and then tells
+<tt class="literal">XSLTRenderHelper</tt> which XSLT stylesheet to use when
+performing the
+transformation.<a name="INDEX-876" />
+<a name="INDEX-877" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-32" /><div class="example">
+<h4 class="objtitle">Example 7-32. HomeRenderer.java  </h4>
+<blockquote><pre class="code">package com.oreilly.forum.servlet;
+
+import com.oreilly.forum.*;
+import com.oreilly.forum.adapter.*;
+import com.oreilly.forum.domain.*;
+import com.oreilly.forum.xml.*;
+import java.io.*;
+import java.util.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import org.jdom.*;
+
+/**
+ * Shows the home page.
+ */
+public class HomeRenderer extends Renderer {
+
+    public void render(HttpServlet servlet, HttpServletRequest request,
+            HttpServletResponse response)
+            throws IOException, ServletException {
+        try {
+            // get the data for the home page
+            DataAdapter adapter = DataAdapter.getInstance( );
+
+            // an iterator of BoardSummary objects
+            Iterator boards = adapter.getAllBoards( );
+
+            // convert the data into XML (a JDOM Document)
+            Document doc = new Document(HomeJDOM.produceElement(boards));
+
+            // apply the appropriate stylesheet
+            XSLTRenderHelper.render(servlet, doc, "home.xslt", response);
+        } catch (DataException de) {
+            new ErrorRenderer(de).render(servlet, request, response);
+        }
+    }
+} </pre></blockquote>
+</div>
+
+<p><tt class="literal">ViewMonthReqHandler</tt>, shown in <a href="ch07_04.htm#javaxslt-CHP-7-EX-33">Example 7-33</a>, is slightly more complex than the home page
+request handler. Since this request handler requires the board id,
+month number, and year number as parameters, it must perform
+validation before it can handle the request
+properly.<a name="INDEX-878" />
+<a name="INDEX-879" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-33" /><div class="example">
+<h4 class="objtitle">Example 7-33. ViewMonthReqHandler.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.servlet;
+
+import com.oreilly.forum.*;
+import com.oreilly.forum.adapter.*;
+import com.oreilly.forum.domain.*;
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+
+/**
+ * Handle a request to view a month for a message board.
+ */
+public class ViewMonthReqHandler extends ReqHandler {
+
+    protected String getPathInfo( ) {
+        return "viewMonth";
+    }
+
+    protected Renderer doGet(HttpServlet servlet, HttpServletRequest request,
+            HttpServletResponse response)
+            throws IOException, ServletException {
+        try {
+            DataAdapter adapter = DataAdapter.getInstance( );
+
+            // these are all required parameters
+            long boardID = 0L;
+            int month = 0;
+            int year = 0;
+            <tt class="userinput"><b>try {
+                boardID = Long.parseLong(request.getParameter("boardID"));
+                month = Integer.parseInt(request.getParameter("month"));
+                year = Integer.parseInt(request.getParameter("year"));
+            } catch (Exception ex) {
+                return new ErrorRenderer("Invalid request");
+            }</b></tt>
+            BoardSummary board = adapter.getBoardSummary(boardID);
+            if (board == null) {
+                return new ErrorRenderer("Invalid request");
+            }
+
+            return new ViewMonthRenderer(board, new MonthYear(month, year));
+        } catch (DataException de) {
+            return new ErrorRenderer(de);
+        }
+    }
+} </pre></blockquote>
+</div>
+
+<p><a name="INDEX-880" />Throughout this application, a
+seemingly harsh approach to error handling is followed. If any
+"impossible" requests are detected, the user is presented
+with a terse error message:
+</p>
+
+<blockquote><pre class="code">try {
+    boardID = Long.parseLong(request.getParameter("boardID"));
+    month = Integer.parseInt(request.getParameter("month"));
+    year = Integer.parseInt(request.getParameter("year"));
+} catch (Exception ex) {<tt class="userinput"><b>
+    return new ErrorRenderer("Invalid request");</b></tt>
+}</pre></blockquote>
+
+<p><a name="INDEX-881" />When
+considering error-handling approaches, the primary concern should be
+break-in attempts by hackers. It is far too easy for a user to
+determine which parameters are passed to a web application and then
+try to wreak havoc by manually keying in various permutations of
+those parameters. By checking for illegal parameters and simply
+rejecting them as invalid, a web application gains a big security
+advantage.
+</p>
+
+<a name="javaxslt-CHP-7-SIDEBAR-4" /><blockquote><table border="1" cellpadding="6"><tr><td>
+<h4 class="objtitle">Web Application Security</h4>
+&nbsp;
+<p><a name="INDEX-882" />
+<a name="INDEX-883" />In the
+<tt class="literal">ViewMonthRegHandler</tt> class, a
+<tt class="literal">NumberFormatException</tt> is thrown if any of these
+parameters are nonnumeric or <tt class="literal">null</tt>. Basically,
+there are only two possible causes for this sort of error. First, one
+of the XSLT stylesheets may have a bug, making it forget to pass one
+of these required parameters. If this is the case, a developer should
+theoretically catch this error during development and testing. The
+second possibility is that someone is manually keying in parameters
+without using the standard XHTML user interface. This could be a
+hacker attacking the site by probing for an application error, so we
+simply deny the request.
+</p>
+&nbsp;
+<p>Standalone GUI applications do not have to contend with such issues
+because the user interface can prevent illegal user input. But web
+applications are essentially wide open for the entire world to see,
+so developers must adopt a highly defensive style of programming. If
+suppressing hack attempts is not a priority, the code could simply
+redirect the user to the home page when an illegal request occurs. It
+might be a good idea to write a log file entry that contains the
+requesting user's IP address and any other relevant information
+when errors occur. Log entries can be very useful when diagnosing
+application bugs as well.
+</p>
+</td></tr></table><p></blockquote>
+
+<p><tt class="literal">ViewMonthRenderer</tt> is shown in <a href="ch07_04.htm#javaxslt-CHP-7-EX-34">Example 7-34</a>. This is another simple class that displays an
+entire month's worth of messages in a given board. Although the
+XHTML display can be quite complex for this page, the JDOM producer
+and XSLT stylesheet handle the real work, keeping the Java code to a
+minimum.
+</p>
+
+<a name="javaxslt-CHP-7-EX-34" /><div class="example">
+<h4 class="objtitle">Example 7-34. ViewMonthRenderer.java</h4><a name="INDEX-884" />
+<a name="INDEX-885" />
+<blockquote><pre class="code">package com.oreilly.forum.servlet;
+
+import com.oreilly.forum.*;
+import com.oreilly.forum.adapter.*;
+import com.oreilly.forum.domain.*;
+import com.oreilly.forum.xml.*;
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import org.jdom.*;
+
+/**
+ * Renders a page that shows all messages in a given month.
+ */
+public class ViewMonthRenderer extends Renderer {
+
+    private BoardSummary board;
+    private MonthYear month;
+
+    public ViewMonthRenderer(BoardSummary board, MonthYear month) {
+        this.board = board;
+        this.month = month;
+    }
+
+    public void render(HttpServlet servlet, HttpServletRequest request,
+            HttpServletResponse response)
+            throws IOException, ServletException {
+        try {
+            // convert the data into XML (a JDOM Document)
+            Document doc = new Document(ViewMonthJDOM.produceElement(
+                    this.board, this.month));
+
+            // apply the appropriate stylesheet
+            XSLTRenderHelper.render(servlet, doc,
+                    "viewMonth.xslt", response);
+        } catch (DataException de) {
+            throw new ServletException(de);
+        }
+    }
+} </pre></blockquote>
+</div>
+
+<p><tt class="literal">ViewMsgReqHandler</tt>, shown in <a href="ch07_04.htm#javaxslt-CHP-7-EX-35">Example 7-35</a>, requires a parameter named
+<tt class="literal">msgID</tt>. As before, if this parameter is invalid, an
+error page is displayed to the user. Otherwise, an instance of
+<tt class="literal">ViewMsgRenderer</tt> is returned to the
+servlet.<a name="INDEX-886" />
+<a name="INDEX-887" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-35" /><div class="example">
+<h4 class="objtitle">Example 7-35. ViewMsgReqHandler.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.servlet;
+
+import com.oreilly.forum.*;
+import com.oreilly.forum.adapter.*;
+import com.oreilly.forum.domain.*;
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+
+/**
+ * Handle a request to view a message.
+ */
+public class ViewMsgReqHandler extends ReqHandler {
+
+    protected String getPathInfo( ) {
+        return "viewMsg";
+    }
+
+    protected Renderer doGet(HttpServlet servlet, HttpServletRequest request,
+            HttpServletResponse response)
+            throws IOException, ServletException {
+        try {
+            DataAdapter adapter = DataAdapter.getInstance( );
+
+            // msgID is a required parameter and must be valid
+            String msgIDStr = request.getParameter("msgID");
+
+            if (msgIDStr == null) {
+                servlet.log("Required parameter 'msgID' was missing");
+                return new ErrorRenderer("Invalid request");
+            }
+
+            Message msg = adapter.getMessage(Long.parseLong(msgIDStr));
+            MessageSummary inResponseTo = null;
+            if (msg.getInReplyTo( ) &gt; -1) {
+                inResponseTo = adapter.getMessage(msg.getInReplyTo( ));
+            }
+            <tt class="userinput"><b>return new ViewMsgRenderer(msg, inResponseTo);</b></tt>
+        } catch (NumberFormatException nfe) {
+            servlet.log("'msgID' parameter was not a number");
+            return new ErrorRenderer("Invalid request");
+        } catch (DataException de) {
+            return new ErrorRenderer(de);
+        }
+    }
+} </pre></blockquote>
+</div>
+
+<p>The corresponding renderer, <tt class="literal">ViewMsgRenderer</tt>, is
+shown in <a href="ch07_04.htm#javaxslt-CHP-7-EX-36">Example 7-36</a>. This class follows the same
+basic approach as other renderers: it produces a JDOM
+<tt class="literal">Document</tt> and uses
+<tt class="literal">XSLTRenderHelper</tt> to perform the XSLT
+transformation.<a name="INDEX-888" />
+<a name="INDEX-889" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-36" /><div class="example">
+<h4 class="objtitle">Example 7-36. ViewMsgRenderer.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.servlet;
+
+import com.oreilly.forum.*;
+import com.oreilly.forum.domain.*;
+import com.oreilly.forum.xml.*;
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import org.jdom.*;
+
+/**
+ * Show the "view message" page.
+ */
+public class ViewMsgRenderer extends Renderer {
+
+    private Message message;
+    private MessageSummary inResponseTo;
+
+    public ViewMsgRenderer(Message message, MessageSummary inResponseTo) {
+        this.message = message;
+        this.inResponseTo = inResponseTo;
+    }
+
+    public void render(HttpServlet servlet, HttpServletRequest request,
+            HttpServletResponse response)
+            throws IOException, ServletException {
+
+        // convert the data into XML (a JDOM Document)
+        Document doc = new Document(ViewMessageJDOM.produceElement(
+                this.message, this.inResponseTo));
+
+        // apply the appropriate stylesheet
+        XSLTRenderHelper.render(servlet, doc, "viewMsg.xslt", response);
+    }
+} </pre></blockquote>
+</div>
+
+<p>The next class, <tt class="literal">PostMsgReqHandler</tt>, is shown in
+<a href="ch07_04.htm#javaxslt-CHP-7-EX-37">Example 7-37</a>. In the <tt class="literal">doGet( )</tt>
+method, the <tt class="literal">mode</tt> parameter indicates whether the
+user is trying to post a new message or reply to an existing message.
+The <tt class="literal">doGet( )</tt> method is invoked as a result of an
+HTTP GET request, such as the user clicking on a hyperlink or typing
+in a
+URL.<a name="INDEX-890" />
+<a name="INDEX-891" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-37" /><div class="example">
+<h4 class="objtitle">Example 7-37. PostMsgReqHandler.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.servlet;
+
+import com.oreilly.forum.*;
+import com.oreilly.forum.adapter.*;
+import com.oreilly.forum.domain.*;
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+
+/**
+ * Handles GET and POST requests for the page that allows users
+ * to post or reply to a message.
+ */
+public class PostMsgReqHandler extends ReqHandler {
+
+    protected String getPathInfo( ) {
+        return "postMsg";
+    }
+
+    /**
+     * When an HTTP GET is issued, show the web page for the
+     * first time.
+     */
+    protected Renderer doGet(HttpServlet servlet, HttpServletRequest request,
+            HttpServletResponse response)
+            throws IOException, ServletException {
+        try {
+            <tt class="userinput"><b>// mode must be "postNewMsg" or "replyToMsg"
+            String mode = request.getParameter("mode");</b></tt>
+
+            DataAdapter adapter = DataAdapter.getInstance( );
+            <tt class="userinput"><b>if ("replyToMsg".equals(mode)) {</b></tt>
+                long origMsgID = Long.parseLong(
+                        request.getParameter("origMsgID"));
+                Message inResponseToMsg = adapter.getMessage(origMsgID);
+                if (inResponseToMsg != null) {
+                    return new PostMsgRenderer(inResponseToMsg);
+                }
+            <tt class="userinput"><b>} else if ("postNewMsg".equals(mode)) {</b></tt>
+                long boardID = Long.parseLong(
+                        request.getParameter("boardID"));
+                BoardSummary board = adapter.getBoardSummary(boardID);
+                if (board != null) {
+                    return new PostMsgRenderer(board);
+                }
+            }
+
+            return new ErrorRenderer("Invalid request");
+        } catch (NumberFormatException nfe) {
+            return new ErrorRenderer(nfe);
+        } catch (DataException de) {
+            return new ErrorRenderer(de);
+        }
+    }
+
+    /**
+     * Handles HTTP POST requests, indicating that the user has
+     * filled in the form and pressed the Submit button.
+     */
+    protected Renderer doPost(HttpServlet servlet, HttpServletRequest request,
+            HttpServletResponse response)
+            throws IOException, ServletException {
+
+        // if the user hit the Cancel button, return to the home page
+        if (request.getParameter("cancelBtn") != null) {
+            return new HomeRenderer( );
+        }
+
+        // lots of error checking follows...
+        if (request.getParameter("submitBtn") == null) {
+            servlet.log("Expected 'submitBtn' parameter to be present");
+            return new ErrorRenderer("Invalid request");
+        }
+
+        // a null parameter indicates either a hack attempt, or a
+        // syntax error in the HTML
+        String mode = request.getParameter("mode");
+        String msgSubject = request.getParameter("msgSubject");
+        String authorEmail = request.getParameter("authorEmail");
+        String msgText = request.getParameter("msgText");
+        if (mode == null || msgSubject == null || authorEmail == null
+                || msgText == null) {
+            return new ErrorRenderer("Invalid request");
+        }
+        // one of these may be null
+        String origMsgIDStr = request.getParameter("origMsgID");
+        String boardIDStr = request.getParameter("boardID");
+        if (origMsgIDStr == null &amp;&amp; boardIDStr == null) {
+            return new ErrorRenderer("Invalid request");
+        }
+
+        long origMsgID = 0;
+        long boardID = 0;
+        try {
+            origMsgID = (origMsgIDStr != null) ? Long.parseLong(origMsgIDStr) : 0;
+            boardID = (boardIDStr != null) ? Long.parseLong(boardIDStr) : 0;
+        } catch (NumberFormatException nfe) {
+            return new ErrorRenderer("Invalid request");
+        }
+
+        // remove extra whitespace then verify that the user filled
+        // in all required fields
+        <tt class="userinput"><b>msgSubject = msgSubject.trim( );
+        authorEmail = authorEmail.trim( );
+        msgText = msgText.trim( );</b></tt>
+
+        try {
+            DataAdapter adapter = DataAdapter.getInstance( );
+            if (msgSubject.length( ) == 0
+                    || authorEmail.length( ) == 0
+                    || msgText.length( ) == 0) {
+                BoardSummary board = (boardIDStr == null) ? null
+                        : adapter.getBoardSummary(boardID);
+                MessageSummary inResponseToMsg = (origMsgIDStr == null) ? null
+                        : adapter.getMessage(origMsgID);
+
+                <tt class="userinput"><b>return new PostMsgRenderer(board, inResponseToMsg,
+                        true, msgSubject, authorEmail, msgText);</b></tt>
+            }
+
+            //
+            // If this point is reached, no errors were detected so the
+            // new message can be posted, or a response can be created
+            //
+            Message msg = null;
+            if ("replyToMsg".equals(mode)) {
+                msg = adapter.replyToMessage(origMsgID, msgSubject,
+                        authorEmail, msgText);
+            } else if ("postNewMsg".equals(mode)) {
+                msg = adapter.postNewMessage(boardID, msgSubject,
+                        authorEmail, msgText);
+            }
+
+
+            if (msg != null) {
+                MessageSummary inResponseTo = null;
+                if (msg.getInReplyTo( ) &gt; -1) {
+                    inResponseTo = adapter.getMessage(msg.getInReplyTo( ));
+                }
+                return new ViewMsgRenderer(msg, inResponseTo);
+            }
+            return new ErrorRenderer("Invalid request");
+        } catch (DataException dex) {
+            return new ErrorRenderer(dex);
+        }
+    }
+} </pre></blockquote>
+</div>
+
+<p>Unlike other request handlers in this application,
+<tt class="literal">PostMsgReqHandler</tt> also has a <tt class="literal">doPost(
+)</tt> method. The <tt class="literal">doGet( )</tt> method is
+responsible for returning a renderer that displays the XHTML form,
+while the <tt class="literal">doPost( )</tt> method is responsible for
+processing the form submission. Because the XHTML form contains
+several required fields and buttons, the <tt class="literal">doPost( )</tt>
+method is far more complex than <tt class="literal">doGet( )</tt>. As the
+code reveals, almost all of this complexity is introduced because of
+error checking and validation logic.
+</p>
+
+<p>The <tt class="literal">doPost( )</tt> method checks for illegal/impossible
+parameters first, returning an error page if any problems occur.
+Next, it checks to see what the user typed in. If the user left a
+required field blank, the parameter value will be an empty string
+rather than <tt class="literal">null</tt>. Of course, leading and trailing
+spaces must be trimmed in case the user hit the space bar:
+</p>
+
+<blockquote><pre class="code">msgSubject = msgSubject.trim( );
+authorEmail = authorEmail.trim( );
+msgText = msgText.trim( );</pre></blockquote>
+
+<p>If any of these fields are empty, the
+<tt class="literal">PostMsgRenderer</tt> is returned with form field values
+pre-filled:
+</p>
+
+<blockquote><pre class="code">return new PostMsgRenderer(board, inResponseToMsg,
+        true, msgSubject, authorEmail, msgText);</pre></blockquote>
+
+<p>This gives the user an opportunity to fill in missing values and try
+to submit the form again. If all is well, an instance of
+<tt class="literal">ViewMsgRenderer</tt> is returned. This allows the user
+to view the message that was just submitted.
+</p>
+
+<p>The source code for <tt class="literal">PostMsgRenderer</tt> is shown in
+<a href="ch07_04.htm#javaxslt-CHP-7-EX-38">Example 7-38</a>.<a name="INDEX-892" />
+<a name="INDEX-893" />
+</p>
+
+<a name="javaxslt-CHP-7-EX-38" /><div class="example">
+<h4 class="objtitle">Example 7-38. PostMsgRenderer.java </h4>
+<blockquote><pre class="code">package com.oreilly.forum.servlet;
+
+import com.oreilly.forum.*;
+import com.oreilly.forum.domain.*;
+import com.oreilly.forum.xml.*;
+import java.io.*;
+import java.util.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import org.jdom.*;
+
+/**
+ * Show the web page that allows a user to post or reply to
+ * a message.
+ */
+public class PostMsgRenderer extends Renderer {
+    private MessageSummary inResponseToMsg;
+    private BoardSummary board;
+    private String msgSubject;
+    private String authorEmail;
+    private String msgText;
+    private boolean showError;
+
+    /**
+     * This constructor indicates that the user is replying to an
+     * existing message.
+     */
+    public PostMsgRenderer(Message inResponseToMsg) {
+        this.board = inResponseToMsg.getBoard( );
+        this.inResponseToMsg = inResponseToMsg;
+        this.showError = false;
+        this.msgSubject = "Re: " + inResponseToMsg.getSubject( );
+        this.authorEmail = "";
+
+        StringTokenizer st = new StringTokenizer(
+                inResponseToMsg.getText( ), "\n");
+        StringBuffer buf = new StringBuffer( );
+        buf.append("\n");
+        buf.append("\n&gt; -----Original Message-----");
+        buf.append("\n&gt;   Posted by ");
+        buf.append(inResponseToMsg.getAuthorEmail( ));
+        buf.append(" on ");
+        buf.append(inResponseToMsg.getCreateDate().toString( ));
+        buf.append("\n");
+        while (st.hasMoreTokens( )) {
+            String curLine = st.nextToken( );
+            buf.append("&gt; ");
+            buf.append(curLine);
+            buf.append("\n");
+        }
+        buf.append("&gt; ");
+        this.msgText = buf.toString( );
+    }
+
+    /**
+     * This constructor indicates that the user is posting
+     * a new message.
+     */
+    public PostMsgRenderer(BoardSummary board) {
+        this(board, null, false, "", "", "");
+    }
+
+    /**
+     * This constructor is used when the user submitted a form
+     * but did not fill out all required fields.
+     */
+    public PostMsgRenderer(BoardSummary board,
+            MessageSummary inResponseToMsg,
+            boolean showError,
+            String msgSubject,
+            String authorEmail,
+            String msgText) {
+        this.board = board;
+        this.inResponseToMsg = inResponseToMsg;
+        this.showError = showError;
+        this.msgSubject = msgSubject;
+        this.authorEmail = authorEmail;
+        this.msgText = msgText;
+    }
+
+    public void render(HttpServlet servlet, HttpServletRequest request,
+            HttpServletResponse response)
+            throws IOException, ServletException {
+
+        // convert the data into XML (a JDOM Document)
+        Document doc = new Document(PostMessageJDOM.produceElement(
+                this.board,
+                this.inResponseToMsg,
+                this.showError,
+                this.msgSubject,
+                this.authorEmail,
+                this.msgText));
+
+        // apply the appropriate stylesheet
+        XSLTRenderHelper.render(servlet, doc, "postMsg.xslt", response);
+    }
+} </pre></blockquote>
+</div>
+
+<p>As the code shows, this class has several constructors that support
+different modes of operation. The first constructor does the most
+work, prefixing the original message with <tt class="literal">&gt;</tt>
+characters as many email clients do when creating replies to existing
+messages. Other than having several constructors, however, the
+renderer works just like other renderers in the application. The JDOM
+producer and XSLT stylesheet actually do most of the work,
+distinguishing between the various modes of operation.<a name="INDEX-894" />
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch07_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">7.3. Making the XML Dynamic</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">7.5. Finishing Touches</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

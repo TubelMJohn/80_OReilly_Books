@@ -1,0 +1,192 @@
+<html><head><title>XML::TreeBuilder (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch06_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">6.5. XML::TreeBuilder</h2>
+
+<p><tt class="literal">XML::TreeBuilder</tt><a name="INDEX-508" /> <a name="INDEX-509" /> is a factory class that builds a tree of
+<tt class="literal">XML::Element</tt> objects. The
+<tt class="literal">XML::Element</tt> class inherits from the older
+<tt class="literal">HTML::Element</tt> class that comes with the
+<tt class="literal">HTML::Tree</tt> package. Thus, you can build the tree
+from a file with <tt class="literal">XML::TreeBuilder</tt> and use the
+<tt class="literal">XML::Element</tt> accessor methods to move around, grab
+data from the tree, and change the structure of the tree as needed.
+We're going to focus on that last thing: using
+accessor methods to assemble a tree of our own.
+</p>
+
+<p>For example, we're going to write a program that
+manages a simple, prioritized
+"to-do" list that uses an XML
+datafile to store entries. Each item in the list has an
+"immediate" or
+"long-term" priority. The program
+will initialize the list if it's empty or the file
+is missing. The user can add items by using <tt class="literal">-i</tt> or
+<tt class="literal">-l</tt> (for
+"immediate" or
+"long-term," respectively),
+followed by a description. Finally, the program updates the datafile
+and prints it out on the screen.
+</p>
+
+<p>The first part of the program, listed in <a href="ch06_05.htm#perlxml-CHP-6-EX-7">Example 6-7</a>, sets up the tree structure. If the datafile
+can be found, it is read and used to build the tree. Otherwise, the
+tree is built from scratch.
+</p>
+
+<a name="perlxml-CHP-6-EX-7" /><div class="example">
+<h4 class="objtitle">Example 6-7. To-do list manager, first part </h4>
+<blockquote><pre class="code">use XML::TreeBuilder;
+use XML::Element;
+use Getopt::Std;
+
+# command line options
+# -i         immediate
+# -l         long-term
+#
+my %opts;
+getopts( 'il', \%opts );
+
+# initialize tree
+my $data = 'data.xml';
+my $tree;
+
+# if file exists, parse it and build the tree
+if( -r $data ) {
+    $tree = XML::TreeBuilder-&gt;new( );
+    $tree-&gt;parse_file($data);
+
+# otherwise, create a new tree from scratch
+} else {
+    print "Creating new data file.\n";
+    my @now = localtime;
+    my $date = $now[4] . '/' . $now[3];
+    $tree = XML::Element-&gt;new( 'todo-list', 'date' =&gt; $date );
+    $tree-&gt;push_content( XML::Element-&gt;new( 'immediate' ));
+    $tree-&gt;push_content( XML::Element-&gt;new( 'long-term' ));
+}</pre></blockquote>
+</div>
+
+<p>A few notes on initializing the structure are necessary. The minimal
+structure of the datafile is this:
+</p>
+
+<blockquote><pre class="code">&lt;todo-list date="DATE"&gt;
+  &lt;immediate&gt;&lt;/immediate&gt;
+  &lt;long-term&gt;&lt;/long-term&gt;
+&lt;/todo-list&gt;</pre></blockquote>
+
+<p>As long as the <tt class="literal">&lt;immediate&gt;</tt> and
+<tt class="literal">&lt;long-term&gt;</tt> elements are present, we have
+somewhere to put schedule items. Thus, we need to create three
+elements using the <tt class="literal">XML::Element</tt> constructor method
+<tt class="literal">new( )</tt>, which uses its argument to set the name of
+the element. The first call of this method also includes an argument
+<tt class="literal">'date' =&gt; $date</tt> to create an attribute named
+"date." After creating element
+nodes, we have to connect them. The <tt class="literal">push_content(
+)</tt> method adds a node to an element's
+content list.
+</p>
+
+<p>The next part of the program updates the datafile, adding a new item
+if the user supplies one. Where to put the item depends on the option
+used (<span class="option">-i</span> or <span class="option">-l</span>). We use the
+<tt class="literal">as_XML</tt> method to output XML, as shown in <a href="ch06_05.htm#perlxml-CHP-6-EX-8">Example 6-8</a>. 
+</p>
+
+<a name="perlxml-CHP-6-EX-8" /><div class="example">
+<h4 class="objtitle">Example 6-8. To-do list manager, second part </h4>
+<blockquote><pre class="code"># add new entry and update file
+if( %opts ) {
+    my $item = XML::Element-&gt;new( 'item' );
+    $item-&gt;push_content( shift @ARGV );
+    my $place;
+    if( $opts{ 'i' }) {
+        $place = $tree-&gt;find_by_tag_name( 'immediate' );
+    } elsif( $opts{ 'l' }) {
+        $place = $tree-&gt;find_by_tag_name( 'long-term' );
+    }
+    $place-&gt;push_content( $item );
+}
+open( F, "&gt;$data" ) or die( "Couldn't update schedule" );
+print F $tree-&gt;as_XML;
+close F;</pre></blockquote>
+</div>
+
+<p>Finally, the program outputs the current schedule to the terminal. We
+use the <tt class="literal">find_by_tag_name( )</tt> method to descend from
+an element to a child with a given tag name. If more than one element
+match, they are supplied in a list. Two methods retrieve the contents
+of an element: <tt class="literal">attr_get_i( )</tt> for attributes and
+<tt class="literal">as_text( )</tt> for character data. <a href="ch06_05.htm#perlxml-CHP-6-EX-9">Example 6-9</a> has the rest of the code.
+</p>
+
+<a name="perlxml-CHP-6-EX-9" /><div class="example">
+<h4 class="objtitle">Example 6-9. To-do list manager, third part </h4>
+<blockquote><pre class="code"># output schedule
+print "To-do list for " . $tree-&gt;attr_get_i( 'date' ) . ":\n";
+print "\nDo right away:\n";
+my $immediate = $tree-&gt;find_by_tag_name( 'immediate' );
+my $count = 1;
+foreach my $item ( $immediate-&gt;find_by_tag_name( 'item' )) {
+    print $count++ . '. ' . $item-&gt;as_text . "\n";
+}
+print "\nDo whenever:\n";
+my $longterm = $tree-&gt;find_by_tag_name( 'long-term' );
+$count = 1;
+foreach my $item ( $longterm-&gt;find_by_tag_name( 'item' )) {
+    print $count++ . '. ' . $item-&gt;as_text . "\n";
+}</pre></blockquote>
+</div>
+
+<p>To test the code, we created this datafile with several calls to the
+program (whitespace was added to make it more readable):
+</p>
+
+<blockquote><pre class="code">&lt;todo-list date="7/3"&gt;
+  &lt;immediate&gt;
+    &lt;item&gt;take goldfish to the vet&lt;/item&gt;
+    &lt;item&gt;get appendix removed&lt;/item&gt;
+  &lt;/immediate&gt;
+  &lt;long-term&gt;
+    &lt;item&gt;climb K-2&lt;/item&gt;
+    &lt;item&gt;decipher alien messages&lt;/item&gt;
+  &lt;/long-term&gt;
+&lt;/todo-list&gt;</pre></blockquote>
+
+<p>The output<a name="INDEX-510" /> <a name="INDEX-511" /> to the screen was this:
+</p>
+
+<blockquote><pre class="code">To-do list for 7/3:
+
+Do right away:
+1. take goldfish to the vet
+2. get appendix removed
+
+Do whenever:
+1. climb K-2
+2. decipher alien messages</pre></blockquote>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch06_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">6.4. XML::SimpleObject</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">6.6. XML::Grove</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

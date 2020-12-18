@@ -1,0 +1,391 @@
+<html><head><title>XSLT Part 2 -- Beyond the Basics (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch03_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 3. XSLT Part 2 -- Beyond the Basics</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#javaxslt-CHP-3-SECT-1">Conditional Processing</a><br />
+<a href="ch03_02.htm">Parameters and Variables</a><br />
+<a href="ch03_03.htm">Combining Multiple Stylesheets</a><br />
+<a href="ch03_04.htm">Formatting Text and Numbers</a><br />
+<a href="ch03_05.htm">Schema Evolution</a><br />
+<a href="ch03_06.htm">Ant Documentation Stylesheet</a><br /></p></div><p>As you may have guessed, this chapter is a continuation of the
+material presented in the previous chapter. The basic syntax of XSLT
+should make sense by now. If not, it is probably a good idea to sit
+down and write a few stylesheets to gain some basic familiarity with
+the technology. What we have seen so far covers the basic mechanics
+of XSLT but does not take full advantage of the programming
+capabilities this language has to offer. In particular, this chapter
+will show how to write more reusable, modular code through features
+such as named templates, parameters, and variables.
+</p>
+
+<p>The chapter concludes with a real-world example that uses XSLT to
+produce HTML documentation for
+<a name="INDEX-294" /></a>Ant build files. Ant is
+a Java build tool that uses XML files instead of
+<em class="filename">Makefiles</em> to drive the compilation process.
+Since XML is used, XSLT is a natural choice for producing
+documentation about the build process.
+</p><div class="sect1"><a name="javaxslt-CHP-3-SECT-1" /></a>
+<h2 class="sect1">3.1. Conditional Processing</h2>
+
+<p>In the previous chapter, we saw a template that output the name of a
+president or vice president. Its basic job was to display the first
+name, middle name, and last name. A nonbreaking space was printed
+between each piece of data so the fields did not run into each other.
+What we did not see was that many presidents do not have middle
+names, so our template ended up printing the first name, followed by
+two spaces, followed by the last name. To fix this, we need to check
+for the existence of a middle name before simply outputting its
+content and a space. This requires <em class="emphasis">conditional
+logic</em><a name="INDEX-295" /></a>, a feature found in just about every
+programming language in existence.
+</p>
+
+<p>XSLT provides two mechanisms that support conditional logic:
+<tt class="literal">&lt;xsl:if&gt;</tt><a name="INDEX-296" /></a> <a name="INDEX-297" /></a>
+and <tt class="literal">&lt;xsl:choose&gt;</tt>. These allow a stylesheet
+to produce different output depending on the results of a
+<em class="emphasis">boolean expression</em><a name="INDEX-298" /></a>, which must yield
+<tt class="literal">true</tt> or <tt class="literal">false</tt> as defined by the
+XPath specification.
+</p>
+
+<a name="javaxslt-CHP-3-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">3.1.1. &lt;xsl:if&gt;</h3>
+
+<p>The behavior of the <tt class="literal">&lt;xsl:if&gt;</tt> element is
+comparable to the following Java code:
+</p>
+
+<blockquote><pre class="code">if (boolean-expression) {
+  // do something
+}</pre></blockquote>
+
+<p>In XSLT, the syntax is as follows:</p>
+
+<blockquote><pre class="code">&lt;xsl:if test="boolean-expression"&gt;
+  &lt;!-- Content: template --&gt;
+&lt;/xsl:if&gt;</pre></blockquote>
+
+<p>The <tt class="literal">test</tt> attribute is required and must contain a
+boolean expression. If the result is <tt class="literal">true</tt>, the
+content of this element is instantiated; otherwise, it is skipped.
+The code in <a href="ch03_01.htm#javaxslt-CHP-3-EX-1">Example 3-1</a> illustrates several uses of
+<tt class="literal">&lt;xsl:if&gt;</tt> and related XPath expressions. Code
+that is highlighted will be discussed in the next several paragraphs.
+</p>
+
+<a name="javaxslt-CHP-3-EX-1" /></a><div class="example">
+<h4 class="objtitle">Example 3-1. &lt;xsl:if&gt; examples </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;xsl:stylesheet version="1.0" 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+  &lt;xsl:output method="html"/&gt;
+  &lt;!--******************************************************
+      ** "/" template
+      ***************************************************--&gt;
+  &lt;xsl:template match="/"&gt;
+    &lt;html&gt;
+      &lt;body&gt;
+        &lt;h1&gt;Conditional Processing Examples&lt;/h1&gt;
+        &lt;xsl:apply-templates select="presidents"/&gt;
+      &lt;/body&gt;
+    &lt;/html&gt;
+  &lt;/xsl:template&gt;
+  &lt;!--******************************************************
+      ** "presidents" template
+      ***************************************************--&gt;
+  &lt;xsl:template match="presidents"&gt;
+    &lt;h3&gt;
+      List of
+        <tt class="userinput"><b>&lt;xsl:value-of select="count(president)"/&gt;</b></tt>
+      Presidents
+    &lt;/h3&gt;
+    &lt;ul&gt;
+      &lt;xsl:for-each select="president"&gt;
+        &lt;li&gt;
+          &lt;!-- display every other row in bold --&gt;
+          <tt class="userinput"><b>&lt;xsl:if test="(position( ) mod 2) = 0"&gt;</b></tt>
+            &lt;xsl:attribute name="style"&gt;
+              &lt;xsl:text&gt;font-weight: bold;&lt;/xsl:text&gt;
+            &lt;/xsl:attribute&gt;
+          <tt class="userinput"><b>&lt;/xsl:if&gt;</b></tt>
+          &lt;xsl:apply-templates select="name"/&gt;
+          &lt;!-- display some text after the last element --&gt;
+          <tt class="userinput"><b>&lt;xsl:if test="position() = last( )"&gt;</b></tt>
+            &lt;xsl:text&gt; (current president)&lt;/xsl:text&gt;
+          <tt class="userinput"><b>&lt;/xsl:if&gt;</b></tt>
+        &lt;/li&gt;
+      &lt;/xsl:for-each&gt;
+    &lt;/ul&gt;
+  &lt;/xsl:template&gt;
+  &lt;!--******************************************************
+      ** "name" template
+      ***************************************************--&gt;
+  &lt;xsl:template match="name"&gt;
+    &lt;xsl:value-of select="last"/&gt;
+    &lt;xsl:text&gt;, &lt;/xsl:text&gt;
+    &lt;xsl:value-of select="first"/&gt;
+    <tt class="userinput"><b>&lt;xsl:if test="middle"&gt;</b></tt>
+      &lt;xsl:text&gt; disable-output-escaping="yes"&gt;&amp;amp;nbsp;&lt;/xsl:text&gt;
+      &lt;xsl:value-of select="middle"/&gt;
+    <tt class="userinput"><b>&lt;/xsl:if&gt;</b></tt>
+  &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+</div>
+
+<p>The first thing the <tt class="literal">match="presidents"</tt> template
+outputs is a heading that displays the number of presidents:
+</p>
+
+<blockquote><pre class="code">List of<tt class="userinput"><b>
+  &lt;xsl:value-of select="count(president)"/&gt;</b></tt>
+Presidents</pre></blockquote>
+
+<p>The <tt class="literal">count( )</tt><a name="INDEX-299" /></a>
+<a name="INDEX-300" /></a> function is an
+<a name="INDEX-301" /></a>XPath <em class="emphasis">node
+set</em><a name="INDEX-302" /></a> function and returns the number of
+elements in a node set. In this case, the node set is the list of
+<tt class="literal">&lt;president&gt;</tt> elements that are direct
+children of the <tt class="literal">&lt;presidents&gt;</tt> element, so the
+number of presidents in the XML file is displayed. The next block of
+code does the bulk of the work in this stylesheet, outputting each
+president as a list item using a
+<a name="INDEX-303" /></a>loop:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:for-each select="president"&gt;
+  &lt;li&gt;
+    &lt;!-- display every other row in bold --&gt;<tt class="userinput"><b>
+    &lt;xsl:if test="(position( ) mod 2) = 0"&gt;</b></tt>
+      &lt;xsl:attribute name="style"&gt;
+        &lt;xsl:text&gt;font-weight: bold;&lt;/xsl:text&gt;
+      &lt;/xsl:attribute&gt;<tt class="userinput"><b>
+    &lt;/xsl:if&gt;</b></tt></pre></blockquote>
+<p>In this example, the &lt;xsl:for-each&gt;<a name="INDEX-304" /></a>
+<a name="INDEX-305" /></a> loop first selects
+all &lt;president&gt; elements that are immediate children of the
+&lt;presidents&gt; element. As the loop iterates over this node set,
+the position( )<a name="INDEX-306" /></a>
+function returns an integer representing the current node position
+within the current node list, beginning with index 1. The mod
+operator computes the remainder following a truncating division, just
+as Java and ECMAScript do for their % operator. The XPath expression
+(position( ) mod 2) = 0 will return true for even numbers; therefore
+the style attribute will be added to the &lt;li&gt; tag for every
+other president, making that list item bold.
+</p>
+
+<p>This template continues as follows:</p>
+<blockquote><pre class="code">
+&lt;xsl:apply-templates select="name"/&gt;
+&lt;!-- display some text after the last element --&gt;<tt class="userinput"><b>
+&lt;xsl:if test="position() = last( )"&gt;</b></tt>
+  &lt;xsl:text&gt; (current president)&lt;/xsl:text&gt;<tt class="userinput"><b>
+&lt;/xsl:if&gt;</b></tt>
+&lt;/li&gt;
+&lt;/xsl:for-each&gt;</pre></blockquote>
+
+<p>The <tt class="literal">last( )</tt><a name="INDEX-307" /></a> function returns an integer indicating the
+size of the current context; in this case, it returns the number of
+presidents. When the position is equal to this count, the additional
+text <tt class="literal">(current president)</tt> is appended to the result
+tree. Java programmers should note that XPath uses a single
+<tt class="literal">=</tt><a name="INDEX-308" /></a> character for comparisons instead of
+<tt class="literal">==</tt><a name="INDEX-309" /></a>, as Java does. A portion of the HTML
+for our list ends up looking like this:
+</p>
+
+<blockquote><pre class="code">&lt;li&gt;Washington, George&lt;/li&gt;
+&lt;li style="font-weight: bold;"&gt;Adams, John&lt;/li&gt;
+&lt;li&gt;Jefferson, Thomas&lt;/li&gt;
+&lt;li style="font-weight: bold;"&gt;Madison, James&lt;/li&gt;
+&lt;li&gt;Monroe, James&lt;/li&gt;
+&lt;li style="font-weight: bold;"&gt;Adams, John&amp;nbsp;Quincy&lt;/li&gt;
+&lt;li&gt;Jackson, Andrew&lt;/li&gt;
+...remaining HTML omitted
+&lt;li&gt;Bush, George (current president)&lt;/li&gt;</pre></blockquote>
+
+<p>The name output has been improved from the previous chapter and now
+uses <tt class="literal">&lt;xsl:if&gt;</tt> to determine if the middle
+name is present:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:template match="name"&gt;
+  &lt;xsl:value-of select="last"/&gt;
+  &lt;xsl:text&gt;, &lt;/xsl:text&gt;
+  &lt;xsl:value-of select="first"/&gt;<tt class="userinput"><b>
+  &lt;xsl:if test="middle"&gt;</b></tt>
+    &lt;xsl:text&gt; disable-output-escaping="yes"&gt;&amp;amp;nbsp;&lt;/xsl:text&gt;
+    &lt;xsl:value-of select="middle"/&gt;<tt class="userinput"><b>
+  &lt;/xsl:if&gt;</b></tt>
+&lt;/xsl:template&gt;</pre></blockquote>
+
+<p><a name="INDEX-310" /></a>In this case,
+<tt class="literal">&lt;xsl:if test="middle"&gt;</tt> checks for the
+existence of a node set rather than for a boolean value. If any
+<tt class="literal">&lt;middle&gt;</tt> elements are found, the content of
+<tt class="literal">&lt;xsl:if&gt;</tt> is instantiated. The test does not
+have to be this simplistic; any of the XPath location paths from the
+previous chapter would work here as well.
+</p>
+
+<p>As written here, if any <tt class="literal">&lt;middle&gt;</tt> elements
+are found, the first one is printed. Later, in <a href="ch03_03.htm#javaxslt-CHP-3-EX-7">Example 3-7</a>, <tt class="literal">&lt;xsl:for-each&gt;</tt> will
+be used to print all middle names for presidents, such as George
+Herbert Walker Bush.
+</p>
+
+<p>Checking for the existence of an attribute is very similar to
+checking for the existence of an element. For example:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:if test="@someAttribute"&gt;
+  ...execute this code if "someAttribute" is present
+&lt;/xsl:if&gt;</pre></blockquote>
+
+<p>Unlike most programming languages, <tt class="literal">&lt;xsl:if&gt;</tt>
+does not have a corresponding <tt class="literal">else</tt> or
+<tt class="literal">otherwise</tt> clause. This is only a minor
+inconvenience<a href="#FOOTNOTE-9">[9]</a> because the
+<tt class="literal">&lt;xsl:choose&gt;</tt> element provides this
+functionality.<a name="INDEX-311" /></a> <a name="INDEX-312" /></a> 
+</p><blockquote class="footnote"> <a name="FOOTNOTE-9" /></a><p> [9] <tt class="literal">&lt;xsl:choose&gt;</tt>
+requires a lot of typing.</p> </blockquote>
+
+</div>
+<a name="javaxslt-CHP-3-SECT-1.2" /></a><div class="sect2">
+<h3 class="sect2">3.1.2. &lt;xsl:choose&gt;, &lt;xsl:when&gt;, and &lt;xsl:otherwise&gt;</h3>
+
+<p><a name="INDEX-313" /></a>The XSLT equivalent of
+<a name="INDEX-314" /></a>Java's
+<tt class="literal">switch</tt> statement is
+<tt class="literal">&lt;xsl:choose&gt;</tt><a name="INDEX-315" /></a> <a name="INDEX-316" /></a>,
+which is virtually identical<a href="#FOOTNOTE-10">[10]</a> in terms of functionality.
+<tt class="literal">&lt;xsl:choose&gt;</tt> must contain one or more
+<tt class="literal">&lt;xsl:when&gt;</tt><a name="INDEX-317" /></a> <a name="INDEX-318" /></a>
+elements followed by an optional
+<tt class="literal">&lt;xsl:otherwise&gt;</tt><a name="INDEX-319" /></a>
+<a name="INDEX-320" /></a>
+element. <a href="ch03_01.htm#javaxslt-CHP-3-EX-2">Example 3-2</a> illustrates how to use this
+feature. This example also uses
+<tt class="literal">&lt;xsl:variable&gt;</tt>, which will be covered in the
+next section.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-10" /></a><p> [10] Java's
+<tt class="literal">switch</tt> statement only works with
+<tt class="literal">char</tt>, <tt class="literal">byte</tt>,
+<tt class="literal">short</tt>, or <tt class="literal">int</tt>.</p>
+</blockquote>
+
+<a name="javaxslt-CHP-3-EX-2" /></a><div class="example">
+<h4 class="objtitle">Example 3-2. &lt;xsl:choose&gt; </h4>
+<blockquote><pre class="code">&lt;xsl:template match="presidents"&gt;
+  &lt;h3&gt;Color Coded by Political Party&lt;/h3&gt;
+  &lt;ul&gt;
+    &lt;xsl:for-each select="president"&gt;
+      &lt;xsl:variable name="color"&gt;
+        &lt;!-- define the color value based on political party --&gt;
+        <tt class="userinput"><b>&lt;xsl:choose&gt;
+          &lt;xsl:when test="party = 'Democratic'"&gt;
+            &lt;xsl:text&gt;blue&lt;/xsl:text&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:when test="party = 'Republican'"&gt;
+            &lt;xsl:text&gt;green&lt;/xsl:text&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:when test="party = 'Democratic Republican'"&gt;
+            &lt;xsl:text&gt;purple&lt;/xsl:text&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:when test="party = 'Federalist'"&gt;
+            &lt;xsl:text&gt;brown&lt;/xsl:text&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:when test="party = 'Whig'"&gt;
+            &lt;xsl:text&gt;black&lt;/xsl:text&gt;
+          &lt;/xsl:when&gt;
+          &lt;!-- never executed in this example --&gt;
+          &lt;xsl:otherwise&gt;
+            &lt;xsl:text&gt;red&lt;/xsl:text&gt;
+          &lt;/xsl:otherwise&gt;
+        &lt;/xsl:choose&gt;</b></tt>
+      &lt;/xsl:variable&gt;
+      &lt;li&gt;
+        &lt;font color="{$color}"&gt;
+          &lt;!-- show the party name --&gt;
+          &lt;xsl:apply-templates select="name"/&gt;
+          &lt;xsl:text&gt; - &lt;/xsl:text&gt;
+          &lt;xsl:value-of select="party"/&gt;
+        &lt;/font&gt;
+      &lt;/li&gt;
+    &lt;/xsl:for-each&gt;
+  &lt;/ul&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+</div>
+
+<p>In this example, the list of presidents is displayed in order along
+with the political party of each president. The
+<tt class="literal">&lt;xsl:when&gt;</tt> elements test for each possible
+party, setting the value of a variable. This variable,
+<tt class="literal">color</tt>, is then used in a font tag to set the
+current color to something different for each party. The
+<tt class="literal">&lt;xsl:otherwise&gt;</tt> element is never executed
+because all of the political parties are listed in the
+<tt class="literal">&lt;xsl:when&gt;</tt> elements. If a new president
+affiliated with some other political party is ever elected, then none
+of the <tt class="literal">&lt;xsl:when&gt;</tt> conditions would be
+<tt class="literal">true</tt>, and the font color would be red.
+</p>
+
+<p>One difference between the XSLT approach and a pure Java approach is
+that XSLT does not require <tt class="literal">break</tt> statements
+between <tt class="literal">&lt;xsl:when&gt;</tt> elements. In XSLT, the
+<tt class="literal">&lt;xsl:when&gt;</tt> elements are evaluated in the
+order in which they appear, and the first one with a test expression
+resulting in <tt class="literal">true</tt> is evaluated. All others are
+skipped. If no <tt class="literal">&lt;xsl:when&gt;</tt> elements match,
+then <tt class="literal">&lt;xsl:otherwise&gt;</tt>, if present, is
+evaluated.
+</p>
+
+<p>Since <tt class="literal">&lt;xsl:if&gt;</tt> has no corresponding
+<tt class="literal">&lt;xsl:else&gt;</tt>,
+<tt class="literal">&lt;xsl:choose&gt;</tt> can be used to mimic the
+desired functionality as shown here:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:choose&gt;
+  &lt;xsl:when test="condition"&gt;
+    &lt;!-- if condition --&gt;
+  &lt;/xsl:when&gt;
+  &lt;xsl:otherwise&gt;
+    &lt;!-- else condition --&gt;
+  &lt;/xsl:otherwise&gt;
+&lt;/xsl:choose&gt;</pre></blockquote>
+
+<p>As with other parts of XSLT, the XML syntax forces a lot more typing
+than Java programmers are accustomed to, but the mechanics of
+<tt class="literal">if</tt>/<tt class="literal">else</tt> are faithfully
+preserved.<a name="INDEX-321" /></a> <a name="INDEX-322" /></a><a name="INDEX-323" /></a> <a name="INDEX-324" /></a><a name="INDEX-325" /></a> <a name="INDEX-326" /></a><a name="INDEX-327" /></a> 
+</p>
+
+</div>
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch03_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">2.6. Outputting Dynamic Attributes</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">3.2. Parameters and Variables</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

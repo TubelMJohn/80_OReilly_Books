@@ -1,0 +1,733 @@
+<html><head><title>Ant Documentation Stylesheet (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch04_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">3.6. Ant Documentation Stylesheet</h2>
+
+<p><a name="INDEX-399" />Apache's
+<a name="INDEX-400" />Ant has taken the
+Java development community by storm, supplementing traditional Java
+IDEs and outright replacing <em class="filename">Makefiles</em> on most
+Java development projects. Ant is a build tool, similar to the
+<em class="filename">make</em> utility, only it uses XML files instead of
+<em class="filename">Makefiles</em>. In addition to a portable build file
+based on XML, Ant itself is written in Java and has few
+platform-specific dependencies. Finally, since Ant can reuse the same
+running instance of the Java Virtual Machine for nearly every step of
+the build process, it is blazingly fast. Ant can be downloaded from
+<a name="INDEX-401" /> <a name="INDEX-402" /><a href="http://jakarta.apache.org">http://jakarta.apache.org</a> and is open source
+software.
+</p>
+
+<a name="javaxslt-CHP-3-SECT-6.1" /><div class="sect2">
+<h3 class="sect2">3.6.1. Ant Basics</h3>
+
+<p>Ant is driven by an XML <em class="emphasis">build
+file</em><a name="INDEX-403" />,
+which consists of one
+<em class="emphasis">project</em><a name="INDEX-404" />.
+This project contains one or more
+<em class="emphasis">targets</em><a name="INDEX-405" />,
+and targets can have dependencies on one another. The project and
+targets are represented as <tt class="literal">&lt;project&gt;</tt> and
+<tt class="literal">&lt;target&gt;</tt><a name="INDEX-406" />
+in the XML build file; <tt class="literal">&lt;project&gt;</tt> must be the
+document root element. It is common to have a "prepare"
+target that builds the output directories and a "compile"
+target that depends on the "prepare" target. If you tell
+Ant to execute the "compile" target, it first checks to
+see that the "prepare" target has created the necessary
+directories. The structure of an
+<a name="INDEX-407" />Ant build file looks like this:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+&lt;project name="SampleProject" default="compile" basedir="."&gt;
+
+  &lt;!-- global properties --&gt;
+  &lt;property name="srcdir" value="src"/&gt;
+  &lt;property name="builddir" value="build"/&gt;
+
+  &lt;target name="prepare" description="Creates the output directories"&gt;
+    ...tasks
+  &lt;/target&gt;
+
+  &lt;target name="compile" depends="prepare"&gt;
+    ...tasks
+  &lt;/target&gt;
+
+  &lt;target name="distribute" depends="compile"&gt;
+    ...tasks
+  &lt;/target&gt;
+&lt;/project&gt;</pre></blockquote>
+
+<p>For each target, <a name="INDEX-408" />Ant is smart enough to know if files
+have been modified and if it needs to do any work. For compilation,
+the timestamps of <em class="filename">.class</em> files are compared to
+timestamps of <em class="filename">.java</em> files. Through these
+dependencies, Ant can avoid unnecessary compilation and perform quite
+well. Although the targets shown here contain only single
+dependencies, it is possible for a target to depend on several other
+targets:
+</p>
+
+<blockquote><pre class="code">&lt;target name="X" depends="A,B,C"&gt;</pre></blockquote>
+
+<p>Although Ant build files are much simpler than corresponding
+<em class="filename">Makefiles</em>, complex projects can introduce many
+dependencies that are difficult to visualize. It can be helpful to
+view the complete list of targets with dependencies displayed
+visually, such as in a hierarchical tree view. XSLT can be used to
+generate this sort of report.
+</p>
+
+</div>
+<a name="javaxslt-CHP-3-SECT-6.2" /><div class="sect2">
+<h3 class="sect2">3.6.2. Stylesheet Functionality</h3>
+
+<p><a name="INDEX-409" /> <a name="INDEX-410" />Since the build file is
+XML, XSLT makes it easy to generate HTML web pages that summarize the
+targets and dependencies. Our stylesheet also shows a list of
+<em class="emphasis">global properties</em> and can easily be extended to
+display anything else contained in the build file.
+</p>
+
+<p>Although this stylesheet creates several useful HTML tables in its
+report, its most interesting feature is the ability to display a
+complete dependency graph of all Ant build targets. The output for
+this graph is shown in <a href="ch03_06.htm#javaxslt-CHP-3-EX-13">Example 3-13</a>.
+</p>
+
+<a name="javaxslt-CHP-3-EX-13" /><div class="example">
+<h4 class="objtitle">Example 3-13. Target dependencies </h4>
+<blockquote><pre class="code">clean
+   all (depends on clean, dist)
+prepare
+   tomcat (depends on prepare)
+      j2ee (depends on tomcat)
+         j2ee-dist (depends on j2ee)
+      main (depends on tomcat, webapps)
+         dist (depends on main, webapps)
+            dist-zip (depends on dist)
+            all (depends on clean, dist)
+   webapps (depends on prepare)
+      dist (depends on main, webapps)
+         dist-zip (depends on dist)
+         all (depends on clean, dist)
+      main (depends on tomcat, webapps)
+         dist (depends on main, webapps)
+            dist-zip (depends on dist)
+            all (depends on clean, dist)
+targets</pre></blockquote>
+</div>
+
+<p>This is actually the output from the Ant build file included with
+Apache's Tomcat. The list of top-level targets is shown at the
+root level, and dependent targets are indented and listed next. The
+targets shown in parentheses list what each target depends on. This
+tree view is created by recursively analyzing the dependencies, which
+appear in the Ant build file as follows:
+</p>
+
+<blockquote><pre class="code">&lt;target name="all" depends="clean,dist"&gt;</pre></blockquote>
+
+<p><a href="ch03_06.htm#javaxslt-CHP-3-FIG-1">Figure 3-1</a> shows a portion of the output in a web
+browser. A table listing all targets follows the dependency graph.
+The output concludes with a table of all global properties defined in
+the Ant build file.
+</p>
+
+<a name="javaxslt-CHP-3-FIG-1" /><div class="figure"><img src="figs/jxt_0301.gif" alt="Figure 3-1" width="460" height="506" /></div><h4 class="objtitle">Figure 3-1. Antdoc sample output</h4>
+
+<p>The comma-separated list of dependencies presents a challenge that is
+best handled through recursion. For each target in the build file, it
+is necessary to print a list of targets that depend on that target.
+It is possible to have many dependencies, so an Ant build file may
+contain a <tt class="literal">&lt;target&gt;</tt> that looks like this:
+</p>
+
+<blockquote><pre class="code">&lt;target name="docs" depends="clean, prepare.docs, compile"&gt;</pre></blockquote>
+
+<p>In the first prototype of the Antdoc stylesheet, the algorithm to
+print the dependency graph uses simple substring operations to
+determine if another target depends on the current target. This turns
+out to be a problem because two unrelated targets might have similar
+names, so some Ant build files cause infinite recursion in the
+stylesheet. In the preceding example, the original prototype of
+Antdoc says that <tt class="literal">"docs"</tt> depends on itself because
+its list of dependencies contains the text
+<tt class="literal">prepare.docs</tt>.
+</p>
+
+<p>In the finished version of Antdoc, the list of target dependencies is
+cleaned up to remove spaces and commas. For example, <tt class="literal">"clean,
+prepare.docs, compile"</tt> is converted into
+<tt class="literal">"|clean|prepare.docs|compile|"</tt>. By placing the
+pipe (<tt class="literal">|</tt><a name="INDEX-411" />) character before and after every
+dependency, it becomes much easier to locate dependencies by
+searching for strings.
+</p>
+
+</div>
+<a name="javaxslt-CHP-3-SECT-6.3" /><div class="sect2">
+<h3 class="sect2">3.6.3. The Complete Example</h3>
+
+<p>The complete XSLT stylesheet is listed in <a href="ch03_06.htm#javaxslt-CHP-3-EX-14">Example 3-14</a>. Comments within the code explain what happens
+in each step. To use this stylesheet, simply invoke your favorite
+XSLT processor at the command line, passing
+<em class="filename">antdoc.xslt</em> and your Ant <a name="INDEX-412" />build
+file as parameters.
+</p>
+
+<a name="javaxslt-CHP-3-EX-14" /><div class="example">
+<h4 class="objtitle">Example 3-14. antdoc.xslt </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!--
+  **************************************************************
+  ** Antdoc v1.0
+  **
+  ** Written by Eric Burke (burke_e@ociweb.com)
+  **
+  ** Uses XSLT to generate HTML summary reports of Ant build
+  ** files.
+  ***********************************************************--&gt;
+&lt;xsl:stylesheet version="1.0" 
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+  <tt class="userinput"><b>&lt;xsl:output method="xml" 
+      doctype-public="-//W3C//DTD XHTML 1.0 Strict//EN" 
+      doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd" 
+      indent="yes" encoding="UTF-8"/&gt;</b></tt>
+
+  &lt;!-- global variable: the project name --&gt;
+  &lt;xsl:variable name="projectName" select="/project/@name"/&gt;
+  &lt;xsl:template match="/"&gt;
+    <tt class="userinput"><b>&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;</b></tt>
+      &lt;head&gt;
+        &lt;title&gt;Ant Project Summary - 
+            &lt;xsl:value-of select="$projectName"/&gt;&lt;/title&gt;
+      &lt;/head&gt;
+      &lt;body&gt;
+        &lt;h1&gt;Ant Project Summary&lt;/h1&gt;
+        &lt;xsl:apply-templates select="project"/&gt;
+      &lt;/body&gt;
+    &lt;/html&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;!--
+  ***************************************************************
+  ** "project" template
+  ************************************************************--&gt;
+  &lt;xsl:template match="project"&gt;
+    &lt;!-- show the project summary table, listing basic info
+         such as name, default target, and base directory --&gt;
+    &lt;table border="1" cellpadding="4" cellspacing="0"&gt;
+      &lt;tr&gt;&lt;th colspan="2"&gt;Project Summary&lt;/th&gt;&lt;/tr&gt;
+      &lt;tr&gt;
+        &lt;td&gt;Project Name:&lt;/td&gt;
+        &lt;td&gt;&lt;xsl:value-of select="$projectName"/&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+        &lt;td&gt;Default Target:&lt;/td&gt;
+        &lt;td&gt;&lt;xsl:value-of select="@default"/&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+        &lt;td&gt;Base Directory:&lt;/td&gt;
+        &lt;td&gt;&lt;xsl:value-of select="@basedir"/&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+    &lt;/table&gt;
+
+    &lt;!-- show all target dependencies as a tree --&gt;
+    &lt;h3&gt;Target Dependency Tree&lt;/h3&gt;
+    <tt class="userinput"><b>&lt;xsl:apply-templates select="target[not(@depends)]" mode="tree"&gt;
+      &lt;xsl:sort select="@name"/&gt;
+    &lt;/xsl:apply-templates&gt;</b></tt>
+    &lt;p/&gt;
+
+    &lt;!-- Show a table of all targets --&gt;
+    &lt;table border="1" cellpadding="4" cellspacing="0"&gt;
+      &lt;tr&gt;&lt;th colspan="3"&gt;List of Targets&lt;/th&gt;&lt;/tr&gt;
+      &lt;tr&gt;
+        &lt;th&gt;Name&lt;/th&gt;
+        &lt;th&gt;Dependencies&lt;/th&gt;
+        &lt;th&gt;Description&lt;/th&gt;
+      &lt;/tr&gt;
+      &lt;xsl:apply-templates select="target" mode="tableRow"&gt;
+        &lt;xsl:sort select="count(@description)" order="descending"/&gt;
+        &lt;xsl:sort select="@name"/&gt;
+      &lt;/xsl:apply-templates&gt;
+    &lt;/table&gt;
+    &lt;p/&gt;
+    &lt;xsl:call-template name="globalProperties"/&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;!--
+  ***************************************************************
+  ** Create a table of all global properties.
+  ************************************************************--&gt;
+  &lt;xsl:template name="globalProperties"&gt;
+    &lt;xsl:if test="property"&gt;
+      &lt;table border="1" cellpadding="4" cellspacing="0"&gt;
+        &lt;tr&gt;&lt;th colspan="2"&gt;Global Properties&lt;/th&gt;&lt;/tr&gt;
+        &lt;tr&gt;
+          &lt;th&gt;Name&lt;/th&gt;
+          &lt;th&gt;Value&lt;/th&gt;
+        &lt;/tr&gt;
+        &lt;xsl:apply-templates select="property" mode="tableRow"&gt;
+          &lt;xsl:sort select="@name"/&gt;
+        &lt;/xsl:apply-templates&gt;
+      &lt;/table&gt;
+    &lt;/xsl:if&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;!--
+  ***************************************************************
+  ** Show an individual property in a table row.
+  ************************************************************--&gt;
+  &lt;xsl:template match="property[@name]" mode="tableRow"&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&lt;xsl:value-of select="@name"/&gt;&lt;/td&gt;
+      &lt;td&gt;
+        &lt;xsl:choose&gt;
+          <tt class="userinput"><b>&lt;xsl:when test="not(@value)"&gt;
+            &lt;xsl:text disable-output-escaping="yes"&gt;&amp;amp;nbsp;&lt;/xsl:text&gt;
+          &lt;/xsl:when&gt;</b></tt>
+          &lt;xsl:otherwise&gt;
+            &lt;xsl:value-of select="@value"/&gt;
+          &lt;/xsl:otherwise&gt;
+        &lt;/xsl:choose&gt;
+      &lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;!--
+  ***************************************************************
+  ** "target" template, mode=tableRow
+  ** Print a target name and its list of dependencies in a 
+  ** table row.
+  ************************************************************--&gt;
+  &lt;xsl:template match="target" mode="tableRow"&gt;
+    &lt;tr valign="top"&gt;
+      &lt;td&gt;&lt;xsl:value-of select="@name"/&gt;&lt;/td&gt;
+      &lt;td&gt;
+        &lt;xsl:choose&gt;
+          &lt;xsl:when test="@depends"&gt;
+            &lt;xsl:call-template name="parseDepends"&gt;
+              &lt;xsl:with-param name="depends" select="@depends"/&gt;
+            &lt;/xsl:call-template&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:otherwise&gt;-&lt;/xsl:otherwise&gt;
+        &lt;/xsl:choose&gt;
+      &lt;/td&gt;
+      &lt;td&gt;
+        &lt;xsl:if test="@description"&gt;
+          &lt;xsl:value-of select="@description"/&gt;
+        &lt;/xsl:if&gt;
+        &lt;xsl:if test="not(@description)"&gt;
+          &lt;xsl:text&gt;-&lt;/xsl:text&gt;
+        &lt;/xsl:if&gt;
+      &lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;!--
+  ***************************************************************
+  ** "parseDepends" template
+  ** Tokenizes and prints a comma separated list of dependencies.
+  ** The first token is printed, and the remaining tokens are
+  ** recursively passed to this template.
+  ************************************************************--&gt;
+  &lt;xsl:template name="parseDepends"&gt;
+    &lt;!-- this parameter contains the list of dependencies --&gt;
+    &lt;xsl:param name="depends"/&gt;
+
+    &lt;!-- grab everything before the first comma,
+         or the entire string if there are no commas --&gt;
+    &lt;xsl:variable name="firstToken"&gt;
+      &lt;xsl:choose&gt;
+        &lt;xsl:when test="contains($depends, ',')"&gt;
+          &lt;xsl:value-of 
+            select="normalize-space(substring-before($depends, ','))"/&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:otherwise&gt;
+          &lt;xsl:value-of select="normalize-space($depends)"/&gt;
+        &lt;/xsl:otherwise&gt;
+      &lt;/xsl:choose&gt;
+    &lt;/xsl:variable&gt;
+
+    &lt;xsl:variable name="remainingTokens" 
+      select="normalize-space(substring-after($depends, ','))"/&gt;
+
+    &lt;!-- output the first dependency --&gt;
+    &lt;xsl:value-of select="$firstToken"/&gt;
+
+    &lt;!-- recursively invoke this template with the remainder
+         of the comma separated list --&gt;
+    &lt;xsl:if test="$remainingTokens"&gt;
+      &lt;xsl:text&gt;, &lt;/xsl:text&gt;
+      &lt;xsl:call-template name="parseDepends"&gt;
+        &lt;xsl:with-param name="depends" select="$remainingTokens"/&gt;
+      &lt;/xsl:call-template&gt;
+    &lt;/xsl:if&gt;
+
+  &lt;/xsl:template&gt;
+
+  &lt;!--
+  ***************************************************************
+  ** This template will begin a recursive process that forms a
+  ** dependency graph of all targets.
+  ************************************************************--&gt;
+  <tt class="userinput"><b>&lt;xsl:template match="target" mode="tree"&gt;
+    &lt;xsl:param name="indentLevel" select="'0'"/&gt;
+    &lt;xsl:variable name="curName" select="@name"/&gt;
+    &lt;div style="text-indent: {$indentLevel}em;"&gt;
+      &lt;xsl:value-of select="$curName"/&gt;</b></tt>
+
+      &lt;!-- if the 'depends' attribute is present, show the
+           list of dependencies --&gt;
+      <tt class="userinput"><b>&lt;xsl:if test="@depends"&gt;
+        &lt;xsl:text&gt; (depends on &lt;/xsl:text&gt;
+        &lt;xsl:call-template name="parseDepends"&gt;
+          &lt;xsl:with-param name="depends" select="@depends"/&gt;
+        &lt;/xsl:call-template&gt;
+        &lt;xsl:text&gt;)&lt;/xsl:text&gt;
+      &lt;/xsl:if&gt;</b></tt>
+    &lt;/div&gt;
+
+    &lt;!-- set up the indentation --&gt;
+    <tt class="userinput"><b>&lt;xsl:variable name="nextLevel" select="$indentLevel+1"/&gt;</b></tt>
+
+    &lt;!-- search all other &lt;target&gt; elements that have "depends"
+         attributes --&gt;
+    <tt class="userinput"><b>&lt;xsl:for-each select="../target[@depends]"&gt;
+
+      &lt;!-- Take the comma-separated list of dependencies and
+           "clean it up". See the comments for the "fixDependency"
+           template --&gt;
+      &lt;xsl:variable name="correctedDependency"&gt;
+        &lt;xsl:call-template name="fixDependency"&gt;
+          &lt;xsl:with-param name="depends" select="@depends"/&gt;
+        &lt;/xsl:call-template&gt;
+      &lt;/xsl:variable&gt;
+
+      &lt;!-- Now the dependency list is pipe (|) delimited, making
+           it easier to reliably search for substrings. Recursively
+           instantiate this template for all targets that depend
+           on the current target --&gt;
+      &lt;xsl:if test="contains($correctedDependency,concat('|',$curName,'|'))"&gt;
+        &lt;xsl:apply-templates select="." mode="tree"&gt;
+          &lt;xsl:with-param name="indentLevel" select="$nextLevel"/&gt;
+        &lt;/xsl:apply-templates&gt;
+      &lt;/xsl:if&gt;
+    &lt;/xsl:for-each&gt;</b></tt>
+  &lt;/xsl:template&gt;
+
+  &lt;!--
+  ***************************************************************
+  ** This template takes a comma-separated list of dependencies
+  ** and converts all commas to pipe (|) characters. It also
+  ** removes all spaces. For instance:
+  **
+  ** Input: depends="a, b,c "
+  ** Ouput: |a|b|c|
+  **
+  ** The resulting text is much easier to parse with XSLT.
+  ************************************************************--&gt;
+  <tt class="userinput"><b>&lt;xsl:template name="fixDependency"&gt;
+    &lt;xsl:param name="depends"/&gt;</b></tt>
+
+    &lt;!-- grab everything before the first comma,
+         or the entire string if there are no commas --&gt;
+    <tt class="userinput"><b>&lt;xsl:variable name="firstToken"&gt;
+      &lt;xsl:choose&gt;
+        &lt;xsl:when test="contains($depends, ',')"&gt;
+          &lt;xsl:value-of 
+            select="normalize-space(substring-before($depends, ','))"/&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:otherwise&gt;
+          &lt;xsl:value-of select="normalize-space($depends)"/&gt;
+        &lt;/xsl:otherwise&gt;
+      &lt;/xsl:choose&gt;
+    &lt;/xsl:variable&gt;</b></tt>
+
+    &lt;!-- define a variable that contains everything after the
+         first comma --&gt;
+    <tt class="userinput"><b>&lt;xsl:variable name="remainingTokens" 
+      select="normalize-space(substring-after($depends, ','))"/&gt;
+
+    &lt;xsl:text&gt;|&lt;/xsl:text&gt;
+    &lt;xsl:value-of select="$firstToken"/&gt;
+    &lt;xsl:choose&gt;
+      &lt;xsl:when test="$remainingTokens"&gt;
+        &lt;xsl:call-template name="fixDependency"&gt;
+          &lt;xsl:with-param name="depends" select="$remainingTokens"/&gt;
+        &lt;/xsl:call-template&gt;
+      &lt;/xsl:when&gt;
+      &lt;xsl:otherwise&gt;
+        &lt;xsl:text&gt;|&lt;/xsl:text&gt;
+      &lt;/xsl:otherwise&gt;
+    &lt;/xsl:choose&gt;</b></tt>
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+</div>
+
+<a name="javaxslt-CHP-3-SECT-6.3.1" /><div class="sect3">
+<h3 class="sect3">3.6.3.1. Specifying XHTML output</h3>
+
+<p><a name="INDEX-413" />One of the first things this
+stylesheet does is set the output method to <tt class="literal">"xml"</tt>
+because the resulting page will be <a name="INDEX-414" />XHTML instead of HTML. The
+<tt class="literal">doctype-public</tt> and
+<tt class="literal">doctype-system</tt> are required for valid XHTML and
+indicate the strict DTD in this case:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:output method="xml" 
+    doctype-public="-//W3C//DTD XHTML 1.0 Strict//EN" 
+    doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd" 
+    indent="yes" encoding="UTF-8"/&gt;</pre></blockquote>
+
+<p>The remaining XHTML requirement is to declare the namespace of the
+<tt class="literal">&lt;html&gt;</tt> element:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:template match="/"&gt;
+  &lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+    ...
+  &lt;/html&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+
+<p>Because of these XSLT elements, the result tree will contain the
+following XHTML:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;!DOCTYPE html PUBLIC 
+  "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"&gt;
+&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+  ...
+&lt;/html&gt;</pre></blockquote>
+
+</div>
+
+<a name="javaxslt-CHP-3-SECT-6.3.2" /><div class="sect3">
+<h3 class="sect3">3.6.3.2. Creating the dependency graph</h3>
+
+<p>The most interesting and difficult aspect of this stylesheet is its
+ability to display the complete dependency graph for all Ant build
+targets. The first step is to locate all of the targets that do not
+have any dependencies. As shown in <a href="ch03_06.htm#javaxslt-CHP-3-EX-13">Example 3-13</a>,
+these targets are named <tt class="literal">clean</tt>,
+<tt class="literal">prepare</tt>, and <tt class="literal">targets</tt> for the
+Tomcat build file. They are selected by looking for
+<tt class="literal">&lt;target&gt;</tt> elements that do not have an
+attribute named <tt class="literal">depends</tt>:
+</p>
+
+<blockquote><pre class="code">&lt;!-- show all target dependencies as a tree --&gt;
+&lt;h3&gt;Target Dependency Tree&lt;/h3&gt;
+&lt;xsl:apply-templates select="target[not(@depends)]" mode="tree"&gt;
+  &lt;xsl:sort select="@name"/&gt;
+&lt;/xsl:apply-templates&gt;</pre></blockquote>
+
+<p>The <tt class="literal">[not(@depends)]</tt> predicate will refine the list
+of <tt class="literal">&lt;target&gt;</tt> elements to include only those
+that do not have an attribute named <tt class="literal">depends</tt>. The
+<tt class="literal">&lt;xsl:apply-templates&gt;</tt> will instantiate the
+following template without any parameters:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:template match="target" mode="tree"&gt;
+  &lt;xsl:param name="indentLevel" select="'0'"/&gt;
+  &lt;xsl:variable name="curName" select="@name"/&gt;</pre></blockquote>
+
+<p>If you refer to <a href="ch03_06.htm#javaxslt-CHP-3-EX-14">Example 3-14</a>, you will see that this
+is the second-to-last template in the stylesheet. Since it is broken
+up into many pieces here, you may find it easier to refer to the
+original code as this description progresses. Since the
+<tt class="literal">indentLevel</tt> parameter is not specified, it
+defaults to <tt class="literal">'0'</tt>, which makes sense for the
+top-level targets. As this template is instantiated recursively, the
+level of indentation increases. The
+<tt class="literal">curName</tt><a name="INDEX-415" /> variable is local to this template and
+contains the current Ant target name. Lines of text are indented
+using a <tt class="literal">style</tt> attribute:
+</p>
+
+<blockquote><pre class="code">&lt;div style="text-indent: {$indentLevel}em;"&gt;</pre></blockquote>
+
+<p>CSS is used to indent everything contained within the
+<tt class="literal">&lt;div&gt;</tt> tag by the specified number of
+<tt class="literal">em</tt> s.<a href="#FOOTNOTE-13">[13]</a> The value of
+the current target name is then printed using the appropriate
+indentation:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-13" /><p> [13] An <tt class="literal">em</tt> is
+approximately equal to the width of a lowercase letter
+"m" in the current font.</p> </blockquote>
+
+<blockquote><pre class="code">&lt;xsl:value-of select="$curName"/&gt;</pre></blockquote>
+
+<p>If the current <tt class="literal">&lt;target&gt;</tt> element in the Ant
+build file has a <tt class="literal">depends</tt> attribute, its
+dependencies are printed next to the target name as part of the
+report. The <tt class="literal">parseDepends</tt> template handles this
+task. This template, also part of <a href="ch03_06.htm#javaxslt-CHP-3-EX-14">Example 3-14</a>, is
+instantiated using <tt class="literal">&lt;xsl:call-template&gt;</tt>, as
+shown here:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:if test="@depends"&gt;
+  &lt;xsl:text&gt; (depends on &lt;/xsl:text&gt;
+  &lt;xsl:call-template name="parseDepends"&gt;
+    &lt;xsl:with-param name="depends" select="@depends"/&gt;
+  &lt;/xsl:call-template&gt;
+  &lt;xsl:text&gt;)&lt;/xsl:text&gt;
+&lt;/xsl:if&gt;</pre></blockquote>
+
+<p>To continue with the dependency graph, the <tt class="literal">target</tt>
+template must instantiate itself recursively. Before doing this, the
+indentation must be increased. Since XSLT does not allow variables to
+be modified, a new variable is created:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:variable name="nextLevel" select="$indentLevel+1"/&gt;</pre></blockquote>
+
+<p>When the template is recursively instantiated,
+<tt class="literal">nextLevel</tt> will be passed as the value for the
+<tt class="literal">indentLevel</tt> parameter:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:apply-templates select="." mode="tree"&gt;
+  &lt;xsl:with-param name="indentLevel" select="$nextLevel"/&gt;
+&lt;/xsl:apply-templates&gt;</pre></blockquote>
+
+<p>The remainder of the template is not duplicated here, but is
+emphasized in <a href="ch03_06.htm#javaxslt-CHP-3-EX-14">Example 3-14</a>. The basic algorithm is as
+follows:
+</p>
+
+<ul><li>
+<p>Use <tt class="literal">&lt;xsl:for-each&gt;</tt> to select all targets
+that have dependencies.
+</p>
+</li><li>
+<p>Instantiate the "fixDependency" template to replace
+commas with <tt class="literal">|</tt> characters.
+</p>
+</li><li>
+<p>Recursively instantiate the "target" template for all
+targets that depend on the current target.
+</p>
+</li></ul>
+</div>
+
+<a name="javaxslt-CHP-3-SECT-6.3.3" /><div class="sect3">
+<h3 class="sect3">3.6.3.3. Cleaning up dependency lists</h3>
+
+<p>The final template in the Antdoc stylesheet is responsible for
+tokenizing a comma-separated list of dependencies, inserting pipe
+(<tt class="literal">|</tt>) characters between each dependency:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:template name="fixDependency"&gt;
+  &lt;xsl:param name="depends"/&gt;</pre></blockquote>
+
+<p>The <tt class="literal">depends</tt> parameter may contain text such as
+"a, b, c." The template tokenizes this text, producing
+the following output:
+</p>
+
+<blockquote><pre class="code">|a|b|c|</pre></blockquote>
+
+<p>Since XSLT does not have an equivalent to Java's
+<tt class="literal">StringTokenizer</tt> class, recursion is required once
+again. The technique is to process the text before the first comma
+then recursively process everything after the comma. The following
+code assigns everything before the first comma to the
+<tt class="literal">firstToken</tt> variable:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:variable name="firstToken"&gt;
+  &lt;xsl:choose&gt;
+    &lt;xsl:when test="contains($depends, ',')"&gt;
+      &lt;xsl:value-of 
+        select="normalize-space(substring-before($depends, ','))"/&gt;
+    &lt;/xsl:when&gt;
+    &lt;xsl:otherwise&gt;
+      &lt;xsl:value-of select="normalize-space($depends)"/&gt;
+    &lt;/xsl:otherwise&gt;
+  &lt;/xsl:choose&gt;
+&lt;/xsl:variable&gt;</pre></blockquote>
+
+<p>If the <tt class="literal">depends</tt> parameter contains a comma, the
+<tt class="literal">substring-before( )</tt> function locates the text
+before the comma, and <tt class="literal">normalize-space( )</tt> trims
+whitespace. If no commas are found, there must be only one
+dependency.
+</p>
+
+<p>Next, any text after the first comma is assigned to the
+<tt class="literal">remainingTokens</tt> variable. If there are no commas,
+the <tt class="literal">remainingTokens</tt> variable will contain an empty
+string:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:variable name="remainingTokens" 
+  select="normalize-space(substring-after($depends, ','))"/&gt;</pre></blockquote>
+
+<p>The template then outputs a pipe character followed by the value of
+the first token:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:text&gt;|&lt;/xsl:text&gt;
+&lt;xsl:value-of select="$firstToken"/&gt;</pre></blockquote>
+
+<p>Next, if the <tt class="literal">remainingTokens</tt> variable is nonempty,
+the <tt class="literal">fixDependency</tt> template is instantiated
+recursively. Otherwise, another pipe character is output at the end:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:choose&gt;
+  &lt;xsl:when test="$remainingTokens"&gt;
+    &lt;xsl:call-template name="fixDependency"&gt;
+      &lt;xsl:with-param name="depends" select="$remainingTokens"/&gt;
+    &lt;/xsl:call-template&gt;
+  &lt;/xsl:when&gt;
+  &lt;xsl:otherwise&gt;
+    &lt;xsl:text&gt;|&lt;/xsl:text&gt;
+  &lt;/xsl:otherwise&gt;
+&lt;/xsl:choose&gt;</pre></blockquote>
+
+<p>Ideally, these descriptions will help clarify some of the more
+complex aspects of this stylesheet. The only way to really learn how
+this all works is to experiment, changing parts of the XSLT
+stylesheet and then viewing the results in a web browser. You should
+also make use of a command-line XSLT processor and view the results
+in a text editor. This is important because browsers may skip over
+tags they do not understand, so you might not see mistakes until you
+view the source.<a name="INDEX-416" /><a name="INDEX-417" /><a name="INDEX-418" /> 
+</p>
+
+</div>
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch04_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">3.5. Schema Evolution</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">4. Java-Based Web Technologies</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

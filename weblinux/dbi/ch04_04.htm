@@ -1,0 +1,401 @@
+<?label 4.4. Connection and Disconnection ?><html><head><title>Connection and Disconnection  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch04_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">4.4. Connection and Disconnection </h2>
+
+
+
+<p>The main activity in database programming usually involves the
+execution of SQL statements within a database. However, to accomplish
+this task, a <em class="emphasis">connection</em> to a database must be
+established first. Furthermore, after all the work has been done, it
+is good manners to <em class="emphasis">disconnect</em> from the database
+to free up both your local machine resources and, more importantly,
+valuable database resources.</p>
+
+
+
+<a name="ch04-ch04_connection_1" /><div class="sect2">
+<h3 class="sect2">4.4.1. Connection </h3>
+
+
+
+<p>In <a name="INDEX-395" />the case of simple databases, such as
+flat-file or Berkeley DB files,
+``connecting'' is usually as simple as
+opening the files for reading or using the tie mechanism. However, in
+larger database systems, connecting may be considerably more
+complicated.</p>
+
+
+
+<p>A relatively simple RDBMS is mSQL, which has a simple method of
+connection: to connect, a program connects to a TCP/IP port on the
+computer running the database. This establishes a live connection
+within the database. However, more complex systems, such as Oracle,
+have a lot more internal security and housekeeping work that must be
+performed at connection time. They also have more data that needs to
+be specified by the program, such as the username and password that
+you wish to connect with.</p>
+
+
+
+<p>By looking at a broad spectrum of database systems, the
+<a name="INDEX-396" />information
+required to connect can be boiled down to:</p>
+
+
+
+<ol><li><p>The <em class="emphasis">data source name</em>, a string containing
+information specifying the driver to use, what database you wish to
+connect to, and possibly its whereabouts. This argument takes the
+format discussed in the previous section and is highly
+database-specific.</p></li><li><p>The <em class="emphasis">username</em> that you wish to connect to the
+database as. To elaborate on the concept of usernames a little
+further, some databases partition the database into separate areas,
+called schemas, in which different users may create tables and
+manipulate data. Users cannot affect tables and data created by other
+users. This setup is similar to accounts on a multiuser computer
+system, in that users may create their own files, which can be
+manipulated by them, but not necessarily by other users. In fact,
+users may decide to disallow all access to their files, or tables,
+from all other users, or allow access to a select group or all
+users.<a href="#FOOTNOTE-39">[39]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-39" /><p>[39]In general, this is true. However, some
+database systems, such as MySQL, support different users but only one
+schema.</p>
+
+
+</blockquote>
+
+
+
+<p>Most major database systems enforce a similar security policy,
+usually with an administrator having access to an account that allows
+them to read, modify, and delete any user's tables and data.
+All other users must connect as themselves. On these systems, your
+database username may be the same as your system login username, but
+it doesn't have to be.</p>
+
+
+
+<p>More minimal database systems may not have any concept of
+username-based authentication, but you still need to supply the
+username and password arguments, typically as empty strings.</p></li><li><p>The <em class="emphasis">password</em> associated with the supplied
+username.</p></li></ol>
+<p>In light of these common arguments, the syntax for connecting to
+databases using DBI is to use the
+<tt class="literal">connect()</tt>
+<a name="INDEX-397" />
+<a name="INDEX-398" />
+call, defined as follows:</p>
+
+
+
+<blockquote><pre class="code">$dbh = DBI-&gt;connect( $data_source, $username, $password, \%attr );</pre></blockquote>
+
+
+
+<p>The final argument, <tt class="literal">\%attr</tt>, is optional and may be
+omitted. <tt class="literal">\%attr</tt>
+<a name="INDEX-399" /> is a reference to a hash
+that contains <em class="emphasis">handle attributes</em> to be applied to
+this connection. One of the most important items of the information
+supplied in this hash is whether or not automatic error handling
+should be supplied by DBI. We will discuss this in further detail in
+the following section, but the two common attributes are called
+<tt class="literal">RaiseError</tt>
+<a name="INDEX-400" />
+and <tt class="literal">PrintError</tt>
+<a name="INDEX-401" />,
+which cause the DBI to die or print a warning automatically when a
+database error is detected.</p>
+
+
+
+<p>This method, when invoked, returns a <em class="emphasis">database
+handle</em> if the connection has been successfully made to the
+database. Upon failure, the value <tt class="literal">undef</tt> is
+returned.</p>
+
+
+
+<p>To illustrate the
+<tt class="literal">DBI-</tt>&gt;<tt class="literal">connect()</tt> method,
+assume that we have an Oracle database called
+<tt class="literal">archaeo</tt>. To connect to this database, we might use
+the following code:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch04/connect/ex1: Connects to an Oracle database.
+
+use DBI;            # Load the DBI module
+
+### Perform the connection using the Oracle driver
+my $dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" )
+    or die "Can't connect to Oracle database: $DBI::errstr\n";
+
+exit;</pre></blockquote>
+
+
+
+<p>This simple example illustrates the use of the
+<tt class="literal">DBI-</tt>&gt;<tt class="literal">connect()</tt> method to make
+one connection to the database. We also perform error checking on the
+call to ensure that the connection occurs; upon failure, the error
+message will be printed along with the database-specific reason for
+the failure, which will be contained within the variable
+<tt class="literal">$DBI::errstr</tt>.<a href="#FOOTNOTE-40">[40]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-40" /><p>[40]Actually, the error
+message will be displayed twice for reasons that will be explained in
+<a href="ch04_05.htm#ch04-ch04_error_0">Section 4.5, "Error Handling "</a> later in this chapter.</p>
+
+
+</blockquote>
+
+
+
+<p>A more complicated example might be to connect twice to the same
+database from within the one script:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch04/connect/ex2: Connects to two Oracle databases simultaneously 
+#                   with identical arguments. This is to illustrate 
+#                   that all database handles, even if identical
+#                   argument-wise, are completely separate from
+#                   one another.
+
+use DBI;            # Load the DBI module
+
+### Perform the connection using the Oracle driver
+my $dbh1 = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" )
+    or die "Can't make 1st database connect: $DBI::errstr\n";
+
+my $dbh2 = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" )
+    or die "Can't make 2nd database connect: $DBI::errstr\n";
+
+exit;</pre></blockquote>
+
+
+
+<p>or to connect simultaneously to two different databases. For example:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch04/connect/ex3: Connects to two Oracle databases simultaneously.
+
+use DBI;            # Load the DBI module
+
+### Perform the connection using the Oracle driver
+my $dbh1 = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" )
+    or die "Can't connect to 1st Oracle database: $DBI::errstr\n";
+
+my $dbh2 = DBI-&gt;connect( "dbi:Oracle:seconddb", "username", "password" )
+    or die "Can't connect to 2nd Oracle database: $DBI::errstr\n";
+
+exit;</pre></blockquote>
+
+
+
+<p>This former example is quite interesting, because even though we have
+used identical arguments to
+<tt class="literal">DBI-</tt>&gt;<tt class="literal">connect()</tt>, the two
+database handles created are completely separate and do not share any
+information.</p>
+
+
+
+<p>A final example of using
+<tt class="literal">DBI-</tt>&gt;<tt class="literal">connect()</tt> is to connect
+to two different databases (one Oracle, one mSQL) within the same
+script. In this case, DBI's automatic error reporting mechanism
+will be disabled in the mSQL database by passing an attribute hash to
+the <tt class="literal">connect()</tt> call, as shown here:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch04/connect/ex4: Connects to two database, one Oracle, one mSQL
+#                   simultaneously. The mSQL database handle has 
+#                   auto-error-reporting disabled.
+
+use DBI;            # Load the DBI module
+
+### Perform the connection using the Oracle driver
+my $dbh1 = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" )
+    or die "Can't connect to Oracle database: $DBI::errstr\n";
+
+my $dbh2 = DBI-&gt;connect( "dbi:mSQL:seconddb", "username", "password" , {
+            PrintError =&gt; 0
+        } )
+    or die "Can't connect to mSQL database: $DBI::errstr\n";
+
+exit;</pre></blockquote>
+
+
+
+<p>The <tt class="literal">$username</tt> and <tt class="literal">$password</tt>
+arguments should be specified but may be empty (
+<tt class="literal">''</tt> ) if not required. As discussed previously, the
+<tt class="literal">$data_source</tt>
+<a name="INDEX-402" /> argument can also be undefined and the
+value of the environment variable <tt class="literal">DBI_DSN</tt> will be
+used instead, if it has
+<a name="INDEX-403" /> <a name="INDEX-404" />been <a name="INDEX-405" />set.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch04-ch04_disconnection_0" /><div class="sect2">
+<h3 class="sect2">4.4.2. Disconnection </h3>
+
+
+
+<p>Explicit
+<a name="INDEX-406" />disconnection from the database is not
+strictly necessary if you are exiting from your program after you
+have performed all the work, but it is a good idea. We strongly
+recommend that you get into the habit of disconnecting explicitly.</p>
+
+
+
+<p>DBI provides a method through which programmers may disconnect a
+given database handle from its database. This is good practice,
+especially in programs in which you have performed multiple
+connections or will be carrying out multiple sequential connections.</p>
+
+
+
+<p>The <a name="INDEX-407" />
+<a name="INDEX-408" />method
+for performing disconnections is:</p>
+
+
+
+<blockquote><pre class="code">$rc = $dbh-&gt;disconnect();</pre></blockquote>
+
+
+
+<p>According to this definition, <tt class="literal">disconnect()</tt> is
+invoked against a specific database handle. This preserves the notion
+that database handles are completely discrete. With multiple database
+handles active at any given time, each one must explictly be
+disconnected.</p>
+
+
+
+<p>An example of using <tt class="literal">disconnect()</tt> might look like:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch04/disconnect/ex1: Connects to an Oracle database
+#                      with auto-error-reporting disabled
+#                      then performs an explicit disconnection.
+
+use DBI;            # Load the DBI module
+
+### Perform the connection using the Oracle driver
+my $dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" , {
+            PrintError =&gt; 0
+        } )
+    or die "Can't connect to Oracle database: $DBI::errstr\n";
+
+### Now, disconnect from the database
+$dbh-&gt;disconnect
+    or warn "Disconnection failed: $DBI::errstr\n";
+
+exit;</pre></blockquote>
+
+
+
+<p>Upon successful disconnection, the return value will be true.
+Otherwise, it will be false. In practice, failure to disconnect
+usually means that the connection has already been lost for some
+reason. After disconnecting the database handle can't be used
+for anything worthwhile.</p>
+
+
+
+<p>What happens if you don't explicitly disconnect? Since DBI
+handles are references to Perl objects, Perl's own garbage
+collector will move in and sweep up any object trash you leave lying
+around. It does that by calling the object's
+<tt class="literal">DESTROY</tt>
+<a name="INDEX-409" /> method when there are no longer any
+references to the object held by your script, or when Perl is
+exiting.</p>
+
+
+
+<p>The <tt class="literal">DESTROY</tt> method for a database handle will call
+<tt class="literal">disconnect()</tt> for you, if you've left the
+handle connected, in order to disconnect cleanly from the database.
+But it will complain about having to do so by issuing a warning:</p>
+
+
+
+<blockquote><pre class="code">Database handle destroyed without explicit disconnect.</pre></blockquote>
+
+
+
+<p>A major caveat with the <tt class="literal">disconnect()</tt> method
+regards its behavior towards automatically committing transactions at
+disconnection. For example, if a program has updated data but has not
+called
+<tt class="literal">commit()</tt>
+<a name="INDEX-410" />
+<a name="INDEX-411" />
+or
+<tt class="literal">rollback()</tt>
+<a name="INDEX-412" />
+<a name="INDEX-413" /><span class="acronym">
+bef</span>ore calling <tt class="literal">disconnect()</tt>, the action
+taken by different database systems varies. Oracle will automatically
+commit the modifications, whereas Informix may not. To deal with
+this, the <tt class="literal">DESTROY</tt> method has to call
+<tt class="literal">rollback()</tt> before <tt class="literal">disconnect()</tt>
+if <tt class="literal">AutoCommit</tt> is not enabled. In <a href="ch06_01.htm">Chapter 6, "Advanced DBI "</a>, we'll discuss the effect of
+<tt class="literal">disconnect()</tt> and <tt class="literal">DESTROY</tt> on
+transactions in more detail.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch04_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">4.3. Data Source Names </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">4.5. Error Handling </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

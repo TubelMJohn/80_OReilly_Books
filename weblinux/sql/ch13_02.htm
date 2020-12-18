@@ -1,0 +1,1045 @@
+<?label 13.2. Object-oriented Database Access in C++?><html><head><title>Object-oriented Database Access in C++ (MySQL &amp; mSQL)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Randy Jay Yarger, George Reese and Tim King" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924347L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="MySQL &amp; mSQL" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="MySQL and mSQL" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">MySQL &amp; mSQL</a></td><td width="172" valign="top" align="right"><a href="ch14_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">13.2. Object-oriented Database Access in C++</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-785" />The C APIs work great for procedural C development. They do not,
+however, fit into the object-oriented world of C++ all that well. In
+order to demonstrate how these two APIs work in real code, we will
+spend the rest of the chapter using them to create a C++ API for
+object-oriented database development.</p>
+
+
+
+
+
+<p>Because we are trying to illustrate MySQL and mSQL database access,
+we will focus on issues specific to MySQL and mSQL and not try to
+create the perfect general C++ API. In the MySQL and mSQL world,
+there are three basic concepts: the connection, the result set, and
+the rows in the result set. We will use these concepts as the core of
+the object model on which our library will be based. <a href="ch13_02.htm#ch13-30696">Figure 13-1</a> shows these objects in a UML
+diagram.<a href="#FOOTNOTE-20">[20]</a></p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-20" /><p>[20]
+<a name="INDEX-786" />
+<a name="INDEX-787" />
+<a name="INDEX-788" />
+<a name="INDEX-789" />UML is the new Unified Modeling
+Language created by Grady Booch, Ivar Jacobson, and James Rumbaugh as
+a new standard for documenting the object-oriented design and
+analysis.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<a name="ch13-30696" /><div class="figure"><img width="502" src="figs/MSQL.1301.gif" height="307" alt="Figure 13-1" /></div><h4 class="objtitle">Figure 13-1. Object-oriented database access library</h4>
+
+<a name="ch13-1-fm2xml" /><div class="sect2">
+<a name="INDEX-790" /><h3 class="sect2">13.2.1. The Database Connection</h3>
+
+
+
+
+
+<p>Database access in any environment starts with the connection. As you
+saw in the first two examples, MySQL and mSQL have two different ways
+of representing the same concept -- a connection to the database.
+We will start our object-oriented library by abstracting on that
+concept and creating a
+<tt class="literal">Connection</tt>
+<a name="INDEX-791" /> object. A <tt class="literal">Connection</tt>
+object should be able to establish a connection to the server, select
+the appropriate database, send queries, and return results. <a href="ch13_02.htm#ch13-27971">Example 13-1</a> is the header file that declares the interface
+for the <tt class="literal">Connection</tt> object.</p>
+
+
+
+
+
+<a name="ch13-27971" /><div class="example">
+<h4 class="objtitle">Example 13-1. The Connection Class Header </h4>
+
+<a name="INDEX-792" />
+
+
+<blockquote><pre class="code">#ifndef l_connection_h
+#define l_connection_h
+
+#include &lt;sys/time.h&gt;
+
+#if defined(HAS_MSQL)
+#include &lt;msql.h&gt;
+#elif defined(HAS_MYSQL)
+#include &lt;mysql.h&gt;
+#endif
+
+#include "result.h"
+
+class Connection {
+private:
+    int affected_rows;
+#if defined(HAS_MSQL)    
+    int connection;
+#elif defined(HAS_MYSQL)
+    MYSQL mysql;
+    MYSQL *connection;
+#else
+    #error No database defined.
+#endif
+
+public:
+    Connection(char *, char *);
+    Connection(char *, char *, char *, char *);
+    ~Connection();
+    
+    void Close();
+    void Connect(char *host, char *db, char *uid, char *pw);
+    int GetAffectedRows();
+    char *GetError();
+    int IsConnected();
+    Result *Query(char *);
+};
+
+#endif // l_connection_h</pre></blockquote>
+</div>
+
+
+
+
+
+<p>The methods the <tt class="literal">Connection</tt> class will expose to
+the world are uniform no matter which database engine you use.
+Underneath the covers, however, the class will have private data
+members specific to the library you compile it against. For making a
+connection, the only distinct data members are those that represent a
+database connection. As we noted earlier, mSQL uses an
+<tt class="literal">int</tt> to represent a connection and MySQL uses a
+<tt class="literal">MYSQL</tt> pointer with an additional MYSQL value to
+handle establishing the connection.</p>
+
+
+
+
+
+<a name="ch13-2-fm2xml" /><div class="sect3">
+<h3 class="sect3">13.2.1.1. Connecting to the database</h3>
+
+
+
+
+
+<p>Any applications we write against this API now need only to create a
+new <tt class="literal">Connection</tt> instance using one of the
+associated constructors in order to connect to the database.
+Similarly, an application can disconnect by deleting the
+<tt class="literal">Connection</tt> instance. It can even reuse a
+<tt class="literal">Connection</tt> instance by making direct calls to
+<tt class="literal">Close()</tt> and <tt class="literal">Connect()</tt>. <a href="ch13_02.htm#ch13-76555">Example 13-1</a> shows the implementation for the constructors
+and the <tt class="literal">Connect()</tt> method.</p>
+
+
+
+
+
+<a name="ch13-76555" /><div class="example">
+<h4 class="objtitle">Example 13-1. Connecting to MySQL and mSQL Inside the Connection Class </h4>
+
+
+
+
+<blockquote><pre class="code">#include "connection.h"
+
+Connection::Connection(char *host, char *db) {
+#if defined(HAS_MSQL)
+    connection = -1;
+#elif defined(HAS_MYSQL)
+    connection = (MYSQL *)NULL;
+#else
+    #error No database linked.
+#endif    
+    Connect(host, db, (char *)NULL, (char *)NULL);
+}
+
+Connection::Connection(char *host, char *db, char *uid, char *pw) {
+#if defined(HAS_MSQL)
+    connection = -1;
+#elif defined(HAS_MYSQL)
+    connection = (MYSQL *)NULL;
+#else
+    #error No database linked.
+#endif    
+    Connect(host, db, uid, pw);
+}
+
+void Connection::Connect(char *host, char *db, char *uid, char *pw) {
+    int state;
+
+    if( IsConnected() ) {
+        throw "Connection has already been established.";
+    }
+#if defined(HAS_MSQL)
+    connection = msqlConnect(host);
+    state = msqlSelectDB(connection, db);
+#elif defined (HAS_MYSQL)
+    mysql_init(&amp;mysql);
+    connection = mysql_real_connect(&amp;mysql, host, 
+                                    uid, pw,
+                                    db, 0, 0);
+#else
+    #error No database linked.
+#endif  
+    if( !IsConnected() ) {
+        throw GetError();
+    }
+    if( state &lt; 0 ) {
+        throw GetError();
+    }
+}</pre></blockquote>
+</div>
+
+
+
+
+
+<p>The two constructors are clearly designed to support the different
+parameters required by MySQL and mSQL connections. The API,
+nevertheless, should allow for both constructors to work against
+either database. The API accomplishes this by ignoring the user ID
+and password when an application using a mSQL calls the 4-argument
+constructor. Similarly, null values are passed to MySQL for the user
+ID and password when the 2-argument constructor is called. The actual
+database connectivity occurs in the
+<tt class="literal">Connect()</tt>
+<a name="INDEX-793" /> method.</p>
+
+
+
+
+
+<p>The <tt class="literal">Connect()</tt> method encapsulates all steps
+required for a connection. For MySQL, it calls
+<tt class="literal">mysql_real_connect()</tt>
+<a name="INDEX-794" />. For mSQL, it instead calls
+<tt class="literal">msqlConnect()</tt> followed by
+<tt class="literal">msqlSelectDB()</tt>
+<a name="INDEX-795" />. If either step fails,
+<tt class="literal">Connect()</tt> throws an exception.</p>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="ch13-3-fm2xml" /><div class="sect3">
+<a name="INDEX-796" /><h3 class="sect3">13.2.1.2. Disconnecting from the database</h3>
+
+
+
+
+
+<p>A <tt class="literal">Connection</tt>'s other logic function is to
+disconnect from the database and free up the resources it has hidden
+from the application. This functionality occurs in the
+<tt class="literal">Close()</tt> method. <a href="ch13_02.htm#ch13-11536">Example 13-1</a>
+provides all of the functionality for disconnecting from MySQL and
+mSQL.</p>
+
+
+
+
+
+<a name="ch13-11536" /><div class="example">
+<h4 class="objtitle">Example 13-1. Freeing up Database Resources </h4>
+
+
+
+
+<blockquote><pre class="code">Connection::~Connection() {
+    if( IsConnected() ) {
+        Close();
+    }
+}
+
+void Connection::Close() {
+    if( !IsConnected() ) {
+        return;
+    }
+#if defined(HAS_MSQL)    
+    msqlClose(connection);
+    connection = -1;
+#elif defined(HAS_MYSQL)    
+    mysql_close(connection);
+    connection = (MYSQL *)NULL;
+#else
+    #error No database linked.
+#endif    
+}</pre></blockquote>
+</div>
+
+
+
+
+
+<p>The <tt class="literal">mysql_close()</tt>
+<a name="INDEX-797" /> and
+<tt class="literal">msqlClose()</tt>
+<a name="INDEX-798" /> methods respectively free up the
+resources associated with connections to MySQL and mSQL.</p>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="ch13-4-fm2xml" /><div class="sect3">
+<h3 class="sect3">13.2.1.3. Making Calls to the database</h3>
+
+
+
+
+
+<p>In between opening a connection and closing it, you generally want to
+send statements to the database. The <tt class="literal">Connection</tt>
+class accomplishes this via a
+<tt class="literal">Query()</tt>
+<a name="INDEX-799" /> method that takes a SQL statement as an
+argument. If the statement was a query, it returns an instance of the
+<tt class="literal">Result</tt> class from the object model in <a href="ch13_02.htm#ch13-30696">Figure 13-1</a>. If, on the other hand, the statement was an
+update, the method will return <tt class="literal">NULL</tt> and set the
+<tt class="literal">affected_rows</tt>
+<a name="INDEX-800" /> value to the number of rows affected by
+the update. <a href="ch13_02.htm#ch13-43109">Example 13-1</a> shows how the
+<tt class="literal">Connection</tt> class handles queries against MySQL and
+mSQL
+<a name="INDEX-801" />
+<a name="INDEX-802" />databases.</p>
+
+
+
+
+
+<a name="ch13-43109" /><div class="example">
+<h4 class="objtitle">Example 13-1. Querying the Database </h4>
+
+
+
+
+<blockquote><pre class="code">Result *Connection::Query(char *sql) {
+    T_RESULT *res;
+    int state;
+
+    // if not connectioned, there is nothing we can do
+    if( !IsConnected() ) {
+        throw "Not connected.";
+    }
+    // execute the query
+#if defined(HAS_MSQL)    
+    state = msqlQuery(connection, sql);
+#elif defined(HAS_MYSQL)    
+    state = mysql_query(connection, sql);
+#else
+    #error No database linked.
+#endif
+    // an error occurred
+    if( state &lt; 0 ) {
+        throw GetError();
+    }
+    // grab the result, if there was any
+#if defined(HAS_MSQL)
+    res = msqlStoreResult();
+#elif defined(HAS_MYSQL)
+    res = mysql_store_result(connection);
+#else
+    #error No database linked.
+#endif
+    // if the result was null, it was an update or an error occurred
+    // NOTE: mSQL does not throw errors on msqlStoreResult()
+    if( res == (T_RESULT *)NULL ) {
+        // just set affected_rows to the return value from msqlQuery()
+#if defined(HAS_MSQL)
+        affected_rows = state;
+#elif defined(HAS_MYSQL)
+        // field_count != 0 means an error occurred
+        int field_count = mysql_num_fields(connection);
+
+        if( field_count != 0 ) {
+            throw GetError();
+        }
+        else {
+            // store the affected_rows
+            affected_rows = mysql_affected_rows(connection);
+        }
+#else
+        #error No database linked.
+#endif
+        // return NULL for updates
+        return (Result *)NULL;
+    }
+    // return a Result instance for queries
+    return new Result(res);
+}</pre></blockquote>
+</div>
+
+
+
+
+
+<p>The first part of a making-a-database call is calling either
+<tt class="literal">mysql_query()</tt>
+<a name="INDEX-803" /> or
+<tt class="literal">msqlQuery()</tt>
+<a name="INDEX-804" /> with the SQL to be executed. Both APIs
+return a nonzero on error. The next step is to call
+<tt class="literal">mysql_store_result()</tt>
+<a name="INDEX-805" /> or
+<tt class="literal">msqlStoreResult()</tt> to check if results were
+generated and make those results usable by your application. At this
+point, the two database engines differ a bit on the processing
+details.</p>
+
+
+
+
+
+<p>Under the mSQL API,
+<tt class="literal">msqlStoreResult()</tt>
+<a name="INDEX-806" /> will not generate an error. This
+function is used by an application to move a newly generated result
+set into storage to be managed by the application instead of by the
+mSQL API. In other words, when you call
+<tt class="literal">msqlQuery()</tt>, it stores any results in a temporary
+area in memory managed by the API. Any subsequent call to
+<tt class="literal">msqlQuery()</tt>
+<a name="INDEX-807" /> will wipe out that storage area. In
+order to store that result in an area of memory managed by your
+application, you need to call <tt class="literal">msqlStoreResult()</tt>.</p>
+
+
+
+
+
+<p>Because <tt class="literal">msqlStoreResult()</tt> does not generate an
+error, you need to worry about only two possibilities when you make
+an <tt class="literal">msqlStoreResult()</tt> call. If the call to the
+database was a query that generated a result set,
+<tt class="literal">msqlStoreResult()</tt> returns a pointer to an
+<tt class="literal">m_result</tt> structure to be managed by the
+application. For any other kind of call (an update, insert, delete,
+or create), <tt class="literal">msqlStoreResult()</tt> returns
+<tt class="literal">NULL</tt>. You can then find out how many rows were
+affected by a non-query through the return value from the original
+<tt class="literal">msqlQuery()</tt> call.</p>
+
+
+
+
+
+<p>Like the <tt class="literal">msqlStoreResult()</tt> call,
+<tt class="literal">mysql_store_result()</tt> is used to place the results
+generated by a query into storage managed by the application. Unlike
+the mSQL version, you need to wrapper
+<tt class="literal">mysql_store_result()</tt> with some exception handling.
+Specifically, a <tt class="literal">NULL</tt> return value from
+<tt class="literal">mysql_store_result()</tt> can mean either the call was
+a nonquery or an error occurred in storing the results. A call to
+<tt class="literal">mysql_num_fields()</tt>
+<a name="INDEX-808" /> will tell you which is in fact the
+case. A field count not equal to zero means an error occurred. The
+number of affected rows, on the other hand, may be determined by a
+call to
+<tt class="literal">mysql_affected_rows()</tt>
+<a name="INDEX-809" />.<a href="#FOOTNOTE-21">[21]</a></p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-21" /><p>[21]One particular
+situation behaves differently. MySQL is optimized for cases where you
+delete all records in a table. This optimization incorrectly causes
+some versions of MySQL to return
+for a <tt class="literal">mysql_affected_rows()</tt> call.</p>
+
+
+
+
+</blockquote>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="ch13-5-fm2xml" /><div class="sect3">
+<h3 class="sect3">13.2.1.4. Other Connection behaviors</h3>
+
+
+
+
+
+<p>Throughout the <tt class="literal">Connection</tt> class are calls to two
+support methods,
+<tt class="literal">IsConnected()</tt>
+<a name="INDEX-810" /> and
+<tt class="literal">GetError()</tt>
+<a name="INDEX-811" />. Testing for connection status is
+simple -- you just check the value of the connection attribute. It
+should be non-NULL for MySQL and something other than -1 for mSQL.
+Error messages, on the other hand, require some explanation.</p>
+
+
+
+
+
+<p>Retrieving error messages under mSQL is very simple and
+straightforward. You just use the value of the
+<tt class="literal">msqlErrMsg</tt>
+<a name="INDEX-812" /> global variable. This value is exactly
+what our <tt class="literal">GetError()</tt> method returns for mSQL.
+MySQL, however, is a little more complicated. Being multithreaded, it
+needs to provide threadsafe access to any error messages. It manages
+to make error handling work in a multithreaded environment by hiding
+error messages behind the <tt class="literal">mysql_error()</tt> function.
+<a href="ch13_02.htm#ch13-17674">Example 13-1</a> shows MySQL and mSQL error handling in
+the <tt class="literal">GetError()</tt> method as well as connection
+testing in <tt class="literal">IsConnected()</tt>.</p>
+
+
+
+
+
+<a name="ch13-17674" /><div class="example">
+<h4 class="objtitle">Example 13-1. Reading Errors and Other Support Tasks of the Connection Class </h4>
+
+
+
+
+<blockquote><pre class="code">int Connection::GetAffectedRows() {
+    return affected_rows;
+}
+
+char *Connection::GetError() {
+#if defined(HAS_MSQL)
+    return msqlErrMsg;
+#elif defined(HAS_MYSQL)
+    if( IsConnected() ) {
+        return mysql_error(connection);
+    }
+    else {
+        return mysql_error(&amp;mysql);
+    }
+#else
+    #error No database linked.
+#endif
+}
+
+int Connection::IsConnected() {
+#if defined(HAS_MSQL)
+    return !(connection &lt; 0);
+#elif defined(HAS_MYSQL)
+    return !(!connection);
+#else
+    #error No database linked.
+#endif  
+)<a name="INDEX-813" /></pre></blockquote>
+</div>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch13-6-fm2xml" /><div class="sect2">
+<a name="INDEX-814" /><h3 class="sect2">13.2.2. Error Handling Issues</h3>
+
+
+
+
+
+<p>While the error handling above is rather simple because we have
+encapsulated it into a simple API call in the
+<tt class="literal">Connection</tt> class, you should be aware of several
+potential pitfalls you can encounter. First, under mSQL, error
+handling is global to an application. For applications supporting
+multiple connections, the value of
+<tt class="literal">msqlErrMsg</tt>
+<a name="INDEX-815" /> represents the last error from the most
+recent call to any mSQL API function. More to the point, even though
+mSQL itself is single threaded, you can write multithreaded
+applications against it -- but you need to be very careful about
+how you manage access to error messages. Specifically, you will need
+to write your own threadsafe API on top of the mSQL C API that copies
+error messages and associates them with the proper connections.</p>
+
+
+
+
+
+<p>Both database engines manage the storage of error messages inside
+their respective APIs. Because you have no control over that storage,
+you may run into another issue regarding the persistence of error
+messages. In our C++ API, we are handling the error messages right
+after they occur -- before the application makes any other
+database calls. If we wanted to move on with other processing before
+dealing with an error message, we would need to copy the error
+message into storage managed by our application.<a name="INDEX-816" /></p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch13-7-fm2xml" /><div class="sect2">
+<a name="INDEX-817" /><h3 class="sect2">13.2.3. Result Sets</h3>
+
+
+
+
+
+<p>The <tt class="literal">Result</tt> class is an abstraction on the MySQL
+and mSQL result concepts. Specifically, should provide access to the
+data in a result set as well as the meta-data surrounding that result
+set. According to the object model from <a href="ch13_02.htm#ch13-30696">Figure 13-1</a>,
+our <tt class="literal">Result </tt>class will support looping through the
+rows of a result set and getting the row count of a result set. <a href="ch13_02.htm#ch13-20151">Example 13-1</a> is the header file for the
+<tt class="literal">Result</tt> class.</p>
+
+
+
+
+
+<a name="ch13-20151" /><div class="example">
+<h4 class="objtitle">Example 13-1. The Interface for a Result Class in result.h </h4>
+
+
+
+
+<blockquote><pre class="code">#ifndef l_result_h
+#define l_result_h
+
+#include &lt;sys/time.h&gt;
+
+#if defined(HAS_MSQL)
+#include &lt;msql.h&gt;
+#elif defined(HAS_MYSQL)
+#include &lt;mysql.h&gt;
+#endif
+
+#include "row.h"
+
+class Result {
+private:
+    int row_count;
+    T_RESULT *result;
+    Row *current_row;
+
+public:
+    Result(T_RESULT *);
+    ~Result();
+    
+    void Close();
+    Row *GetCurrentRow();
+    int GetRowCount();
+    int Next();
+};
+
+#endif // l_result_h</pre></blockquote>
+</div>
+
+
+
+
+
+<a name="ch13-8-fm2xml" /><div class="sect3">
+<h3 class="sect3">13.2.3.1. Navigating results</h3>
+
+
+
+
+
+<p>Our <tt class="literal">Result</tt> class enables a developer to work
+through a result set one row at a time. Upon getting a
+<tt class="literal">Result</tt> instance from a call to
+<tt class="literal">Query()</tt>
+<a name="INDEX-818" />
+<a name="INDEX-819" />
+<a name="INDEX-820" />, an application should call
+<tt class="literal">Next()</tt> and <tt class="literal">GetCurrentRow()</tt> in
+succession until <tt class="literal">Next()</tt> returns 0. <a href="ch13_02.htm#ch13-32791">Example 13-1</a> shows how this functionality looks for MySQL
+and mSQL.</p>
+
+
+
+
+
+<a name="ch13-32791" /><div class="example">
+<h4 class="objtitle">Example 13-1. Result Set Navigation </h4>
+
+
+
+
+<blockquote><pre class="code">int Result::Next() {
+    T_ROW row;
+    
+    if( result == (T_RESULT *)NULL ) {
+        throw "Result set closed.";
+    }
+#if defined(HAS_MSQL)    
+    row = msqlFetchRow(result);
+#elif defined(HAS_MYSQL)
+    row = mysql_fetch_row(result);
+#else
+    #error No database linked.
+#endif    
+    if( !row ) {
+        current_row = (Row *)NULL;
+        return 0;
+    }
+    else {
+        current_row = new Row(result, row);
+        return 1;
+    }
+}
+
+Row *Result::GetCurrentRow() {
+    if( result == (T_RESULT *)NULL ) {
+        throw "Result set closed.";
+    }
+    return current_row;
+}</pre></blockquote>
+</div>
+
+
+
+
+
+<p>The <em class="emphasis">row.h</em> header file in <a href="ch13_02.htm#ch13-80561">Example 13-1</a> defines <tt class="literal">T_ROW</tt> and
+<tt class="literal">T_RESULT</tt> based on which database engine the
+application is being compiled for. The functionality for moving to
+the next row in both databases is identical and simple. You simple
+call
+<tt class="literal">mysql_fetch_row()</tt>
+<a name="INDEX-821" /> or
+<tt class="literal">msqlFetchRow()</tt>
+<a name="INDEX-822" />. If the call returns
+<tt class="literal">NULL</tt>, there are no more rows left to process.</p>
+
+
+
+
+
+<p>In an object-oriented environment, this is the only kind of
+navigation you should ever use. A database API in an OO world exists
+only to provide you access to the data -- not as a tool for the
+manipulation of that data. Manipulation should be encapsulated in
+domain objects. Not all applications, however, are object-oriented
+applications. MySQL and mSQL each provides a function that allows you
+to move to specific rows in the database. These methods are
+<tt class="literal">mysql_data_seek()</tt> and
+<tt class="literal">msqlDataSeek()</tt> respectively.</p>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="ch13-9-fm2xml" /><div class="sect3">
+<a name="INDEX-823" /><a name="INDEX-824" /><a name="INDEX-825" /><a name="INDEX-826" /><h3 class="sect3">13.2.3.2. Cleaning up and row count
+
+
+</h3>
+
+
+
+
+
+<p>Database applications need to clean up after themselves. In talking
+about the <tt class="literal">Connection</tt> class, we mentioned how the
+result sets associated with a query are moved into storage managed by
+the application. The <tt class="literal">Close()</tt> method in the
+<tt class="literal">Result</tt> class frees the storage associated with
+that result. <a href="ch13_02.htm#ch13-11066">Example 13-1</a> shows how to clean up
+results and get a row count for a result set.</p>
+
+
+
+
+
+<a name="ch13-11066" /><div class="example">
+<h4 class="objtitle">Example 13-1. Clean up and Row Count </h4>
+
+
+
+
+<blockquote><pre class="code">void Result::Close() {
+    if( result == (T_RESULT *)NULL ) {
+        return;
+    }
+#if defined(HAS_MSQL)    
+    msqlFreeResult(result);
+#elif defined(HAS_MYSQL)    
+    mysql_free_result(result);
+#else
+    #error No database linked.
+#endif    
+    result = (T_RESULT *)NULL;
+}
+
+int Result::GetRowCount() {
+    if( result == (T_RESULT *)NULL ) {
+        throw "Result set closed.";
+    }
+    if( row_count &gt; -1 ) {
+        return row_count;
+    }
+    else {
+#if defined(HAS_MSQL)
+        row_count = msqlNumRows(result);
+#elif defined(HAS_MYSQL)    
+        row_count = mysql_num_rows(result);
+#else
+        #error No database linked.
+#endif  
+        return row_count;
+    }
+}<a name="INDEX-827" /></pre></blockquote>
+</div>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch13-10-fm2xml" /><div class="sect2">
+<h3 class="sect2">13.2.4. Rows</h3>
+
+
+
+
+
+<p>An individual row from a result set is represented in our object
+model by the <tt class="literal">Row</tt> class. The
+<tt class="literal">Row</tt>
+<a name="INDEX-828" /> class enables an application to get at
+individual fields in a row. <a href="ch13_02.htm#ch13-80561">Example 13-1</a> shows the
+declaration of a <tt class="literal">Row</tt> class.</p>
+
+
+
+
+
+<a name="ch13-80561" /><div class="example">
+<h4 class="objtitle">Example 13-1. The Row Class from row.h </h4>
+
+
+
+
+<blockquote><pre class="code">#ifndef l_row_h
+#define l_row_h
+
+#include &lt;sys/types.h&gt;
+
+#if defined(HAS_MSQL)
+#include &lt;msql.h&gt;
+#define T_RESULT m_result
+#define T_ROW    m_row
+#elif defined(HAS_MYSQL)
+#include &lt;mysql.h&gt;
+#define T_RESULT MYSQL_RES
+#define T_ROW    MYSQL_ROW
+#endif
+
+class Row {
+private:
+    T_RESULT *result;
+    T_ROW fields;
+
+public:
+    Row(T_RESULT *, T_ROW);
+    ~Row();
+
+    char *GetField(int);
+    int GetFieldCount();
+    int IsClosed();
+    void Close();
+};
+
+#endif // l_row_h</pre></blockquote>
+</div>
+
+
+
+
+
+<p>Both APIs have macros for
+<a name="INDEX-829" />datatypes representing a result set and a
+row within that result set. In both APIs, a row is really nothing
+more than an array of strings containing the data from that row.
+Access to that data is controlled by indexing on that array based on
+the query order. For example, if your query was <tt class="literal">SELECT
+user_id, password FROM users</tt>, then index
+would contain the user ID and index 1 the password. Our C++ API makes
+this indexing a little more user friendly.
+<tt class="literal">GetField(1)</tt> will actually return the first field,
+or <tt class="literal">fields[0]</tt>. <a href="ch13_02.htm#ch13-20174">Example 13-2</a>
+contains the full source listing for the <tt class="literal">Row</tt>
+class.</p>
+
+
+
+
+
+<a name="ch13-20174" /><div class="example">
+<h4 class="objtitle">Example 13-2. The Implementation of the Row Class </h4>
+
+
+
+
+<blockquote><pre class="code">#include &lt;malloc.h&gt;
+
+#include "row.h"
+
+Row::Row(T_RESULT *res, T_ROW row) {
+    fields = row;
+    result = res;
+}
+
+Row::~Row() {
+    if( !IsClosed() ) {
+        Close();
+    }
+}
+
+void Row::Close() {
+    if( IsClosed() ) {
+        throw "Row closed.";
+    }
+    fields = (T_ROW)NULL;
+    result = (T_RESULT *)NULL;
+}
+
+int Row::GetFieldCount() {
+    if( IsClosed() ) {
+        throw "Row closed.";
+    }
+#if defined(HAS_MSQL)    
+    return msqlNumFields(result);
+#elif defined(HAS_MYSQL)    
+    return mysql_num_fields(result);
+#else
+    #error No database linked.
+#endif    
+}
+
+// Caller should be prepared for a possible NULL
+// return value from this method.
+char *Row::GetField(int field) {
+    if( IsClosed() ) {
+        throw "Row closed.";
+    }
+    if( field &lt; 1 || field &gt; GetFieldCount() ) {
+        throw "Field index out of bounds.";
+    }
+    return fields[field-1];
+}
+
+int Row::IsClosed() {
+    return (fields == (T_ROW)NULL);
+}</pre></blockquote>
+</div>
+
+
+
+
+
+<p>
+<a name="INDEX-830" />An
+example application using these C++ classes is packaged with the
+examples from this book.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch14_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">13. C and C++</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">14. Java and JDBC</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

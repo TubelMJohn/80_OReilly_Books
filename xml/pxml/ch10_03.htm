@@ -1,0 +1,501 @@
+<html><head><title>Converting XML to HTML with XSLT  (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch10_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch10_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">10.3. Converting XML to HTML with XSLT </h2>
+
+<p>If<a name="INDEX-777" />
+you<a name="INDEX-778" />'ve done any web hacking
+with Perl before, then you've kinda-sorta used XML,
+since HTML isn't too far off from the
+well-formedness goals of XML, at least in theory. In practice, HTML
+is used more frequently as a combination of markup, punctuation,
+embedded scripts, and a dozen other things that make web pages act
+nutty (with most popular web browsers being rather forgiving about
+syntax).
+</p>
+
+<p>Currently, and probably for a long time to come, the language of the
+Web remains HTML. While you can use bona fide XML in your web pages
+by clinging to the W3C's XHTML,<a href="#FOOTNOTE-40">[40]</a> it's far more likely that
+you'll need to turn it into HTML when you want to
+apply your XML to the Web.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-40" /><p>[40]XHTML comes in two flavors. We prefer the less pendantic
+"transitional" flavor, which
+chooses to look the other way when one commits egregious sins (such
+as using the <tt class="literal">&lt;font&gt;</tt> tag instead of the
+preferred method of applying cascading stylesheets).</p>
+</blockquote>
+
+<p>You can go about this in many ways. The most sledgehammery of these
+involves parsing your document and tossing out the results in a CGI
+script. This example reads a local MonkeyML file of my pet
+monkeys' names, and prints a web page to standard
+output (using Lincoln Stein's ubiquitous CGI module
+to add a bit of syntactic sugar):
+</p>
+
+<blockquote><pre class="code">#!/usr/bin/perl
+
+use warnings;
+use strict;
+use CGI qw(:standard);
+use XML::LibXML;
+
+my $parser = XML::XPath;
+my $doc = $parser-&gt;parse_file('monkeys.xml');
+
+print header;
+print start_html("My Pet Monkeys");
+print h1("My Pet Monkeys");
+print p("I have the following monkeys in my house:");
+print "&lt;ul&gt;\n";
+foreach my $name_node ($doc-&gt;documentElement-&gt;findnodes("//mm:name")) {
+    print "&lt;li&gt;" . $name_node-&gt;firstChild-&gt;getData ."&lt;/li&gt;\n";
+}
+
+print end_html;</pre></blockquote>
+
+<p>Another approach involves XSLT.</p>
+
+<p>XSLT is used to translate one type of XML into another. XSLT factors
+in strongly here because using XML and the Web often requires that
+you extract all the presentable pieces of information from an XML
+document and wrap them up in HTML. One very high-level XML-using
+application, Matt Sergeant's AxKit (<a href="http://www.axkit.org">http://www.axkit.org</a>), bases an entire
+application server framework around this notion, letting you set up a
+web site that uses XML as its source files, but whose final output to
+web browsers is HTML (and whose final output to other devices is
+whatever format best applies to them).
+</p>
+
+<a name="perlxml-CHP-10-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">10.3.1. Example: Apache::DocBook</h3>
+
+<p>Let's make a little module that converts DocBook
+files into HTML on the fly. Though our goals are not as ambitious as
+AxKit's, we'll still take a cue
+from that program by basing our code around the Apache
+<tt class="literal">mod_perl</tt> module. <tt class="literal">mod_perl</tt> drops
+a Perl interpreter inside the Apache web server, and thus allows one
+to write Perl code that makes all sorts of interesting things happen
+with requests to the server.
+</p>
+
+<p>We'll use a couple of
+<tt class="literal">mod_perl</tt>'s basic features here by
+writing a Perl module with a <tt class="literal">handler</tt> subroutine,
+the standard name for <tt class="literal">mod_perl</tt> callbacks; it will
+be passed an object representing the Apache request, and from this
+object, we'll determine what (if anything) the user
+sees.
+</p>
+
+<a name="ch10-8-fm2xml" /><blockquote><b>WARNING:</b> 
+A frequent source of frustration for people running Perl and XML
+programs in an Apache environment comes from Apache itself, or at
+least the way it behaves if it's not given a few
+extra configuration directives when compiled. The standard Apache
+distribution comes with a version of the Expat C libraries, which it
+will bake into its binary if not explicitly told otherwise.
+Unfortunately, these libraries often conflict with
+<tt class="literal">XML::Parser</tt>'s calls to Expat
+libraries elsewhere on the system, resulting in nasty errors (such as
+segmentation faults on Unix) when they collide.
+</p>
+
+<p>The Apache development community has reportedly considered quietly
+removing this feature in future releases, but currently, it may be
+necessary for Perl hackers wishing to invoke Expat (usually by way of
+<tt class="literal">XML::Parser</tt>) to recompile Apache without it (by
+setting the <tt class="literal">EXPAT</tt> configuration option to
+<tt class="literal">no</tt>).
+</p>
+
+<p>The cheaper workaround involves using a low-level parsing module that
+doesn't use Expat, such as
+<tt class="literal">XML::LibXML</tt> or members of the newer
+<tt class="literal">XML::SAX</tt> family.
+</p>
+</blockquote>
+
+<p>We begin by doing the "starting to type in the
+module" dance, and then digging into that callback
+sub:
+</p>
+
+<blockquote><pre class="code">package Apache::DocBook;
+
+use warnings;
+use strict;
+
+use Apache::Constants qw(:common);
+
+use XML::LibXML;
+use XML::LibXSLT;
+
+our $xml_path;                        # Document source directory
+our $base_path;                        # HTML output directory
+our $xslt_file;                        # path to DocBook-to-HTML XSLT stylesheet
+our $icon_dir;                         # path to icons used in index pages
+
+sub handler {
+  my $r = shift;                # Apache request object
+  # Get config info from Apache config
+  $xml_path = $r-&gt;dir_config('doc_dir') or die "doc_dir variable not set.\n";
+  $base_path = $r-&gt;dir_config('html_dir') or die "html_dir variable not set.\n";
+  $icon_dir = $r-&gt;dir_config('icon_dir') or die "icon_dir variable not set.\n";
+  unless (-d $xml_path) {
+    $r-&gt;log_reason("Can't use an xml_path of $xml_path: $!", $r-&gt;filename);
+    die;
+  }
+  my $filename = $r-&gt;filename;
+
+    $filename =~ s/$base_path\/?//;
+    # Add in path info (the file might not actually exist... YET)
+  $filename .= $r-&gt;path_info;
+
+  $xslt_file = $r-&gt;dir_config('xslt_file') or die "xslt_file Apache variable not set.\n";
+  
+  # The subroutines we'll call after this will take care of printing
+  # stuff at the client.
+
+  # Is this an index request?
+    if ( (-d "$xml_path/$filename") or ($filename =~ /index.html?$/) ) {
+    # Why yes! We whip up an index page from the floating aethers.
+    my ($dir) = $filename =~ /^(.*)(\/index.html?)?$/;
+    # Semi-hack: stick trailing slash on URI, maybe.
+    if (not($2) and $r-&gt;uri !~ /\/$/) {
+      $r-&gt;uri($r-&gt;uri . '/');
+    }
+    make_index_page($r, $dir);
+    return $r-&gt;status;
+  } else {
+    # No, it's a request for some other page.
+    make_doc_page($r, $filename);
+    return $r-&gt;status;
+  }
+  return $r-&gt;status;
+
+}</pre></blockquote>
+
+<p>This subroutine performs the actual XSLT transformation, given a
+filename of the original XML source and another filename to which it
+should write the transformed HTML output:
+</p>
+
+<blockquote><pre class="code">sub transform {
+  my ($filename, $html_filename) = @_;
+
+  # make sure there's a home for this file.
+  maybe_mkdir($filename);
+
+  my $parser = XML::LibXML-&gt;new;
+  my $xslt = XML::LibXSLT-&gt;new;
+
+  # Because libxslt seems a little broken, we have to chdir to the
+  # XSLT file's directory, else its file includes won't work. ;b
+  use Cwd;                      # so we can get the current working dir
+  my $original_dir = cwd;
+  my $xslt_dir = $xslt_file;
+  $xslt_dir =~ s/^(.*)\/.*$/$1/;
+  chdir($xslt_dir) or die "Can't chdir to $xslt_dir: $!";
+
+  my $source = $parser-&gt;parse_file("$xml_path/$filename");
+  my $style_doc = $parser-&gt;parse_file($xslt_file);
+  
+  my $stylesheet = $xslt-&gt;parse_stylesheet($style_doc);
+  
+  my $results = $stylesheet-&gt;transform($source);
+
+  open (HTML_OUT, "&gt;$base_path/$html_filename");
+  print HTML_OUT $stylesheet-&gt;output_string($results);
+  close (HTML_OUT);
+
+  # Go back to original dir
+  chdir($original_dir) or die "Can't chdir to $original_dir: $!";
+
+}</pre></blockquote>
+
+<p>Now we have a pair of subroutines to generate index pages. Unlike the
+document pages, which are the product of an XSLT transformation, we
+make the index pages from scratch, the bulk of its content being a
+table filled with information we grab from the document via XPath
+(looking first in the appropriate metadata element if present, and
+falling back to other bits of information if not).
+</p>
+
+<blockquote><pre class="code">sub make_index_page {
+  my ($r, $dir) = @_;
+
+  # If there's no corresponding dir in the XML source, the request
+  # goes splat
+
+  my $xml_dir = "$xml_path/$dir";
+  unless (-r $xml_dir) {
+    unless (-d $xml_dir) {
+      # Whoops, this ain't a directory.
+      $r-&gt;status( NOT_FOUND );
+      return;
+    }
+    # It's a directory, but we can't read it. Whatever.
+    $r-&gt;status( FORBIDDEN );
+    return;
+  }
+    
+  # Fetch mtimes of this dir and the index.html in the corresponding
+  # html dir
+  my $index_file = "$base_path/$dir/index.html";
+
+  my $xml_mtime = (stat($xml_dir))[9];
+  my $html_mtime = (stat($index_file))[9];
+
+  # If the index page is older than the XML dir, or if it simply
+  # doesn't exist, we generate a new one.
+    if ((not($html_mtime)) or ($html_mtime &lt;= $xml_mtime)) {
+    generate_index($xml_dir, "$base_path/$dir", $r-&gt;uri);
+    $r-&gt;filename($index_file);
+    send_page($r, $index_file);
+    return;
+  } else {
+    # The cached index page is fine. Let Apache serve it.
+    $r-&gt;filename($index_file);
+    $r-&gt;path_info('');
+    send_page($r, $index_file);
+    return;
+  }
+  
+}
+
+sub generate_index {
+  my ($xml_dir, $html_dir, $base_dir) = @_;
+
+  # Snip possible trailing / from base_dir 
+  $base_dir =~ s|/$||;
+
+  my $index_file = "$html_dir/index.html";
+
+  my $local_dir;
+  if ($html_dir =~ /^$base_path\/*(.*)/) {
+    $local_dir = $1;
+  }
+
+
+  # make directories, if necessary
+  maybe_mkdir($local_dir);
+  open (INDEX, "&gt;$index_file") or die "Can't write to $index_file: $!";
+  
+  opendir(DIR, $xml_dir) or die "Couldn't open directory $xml_dir: $!";
+  chdir($xml_dir) or die "Couldn't chdir to $xml_dir: $!";
+
+  # Set icon files
+  my $doc_icon = "$icon_dir/generic.gif";
+  my $dir_icon = "$icon_dir/folder.gif";
+
+  # Make the displayable name of $local_dir (probably the same)
+  my $local_dir_label = $local_dir || 'document root';
+
+  # Print start of page
+  print INDEX &lt;&lt;END;
+&lt;html&gt;
+&lt;head&gt;&lt;title&gt;Index of $local_dir_label&lt;/title&gt;&lt;/head&gt;
+&lt;body&gt;
+&lt;h1&gt;Index of $local_dir_label&lt;/h1&gt;
+&lt;table width="100%"&gt;
+END
+  
+  # Now print one row per file in this dir
+
+  while (my $file = readdir(DIR)) {
+    # ignore dotfiles &amp; directories &amp; stuff
+    if (-f $file &amp;&amp; $file !~ /^\./) {
+      # Create parser objects 
+      my $parser = XML::LibXML-&gt;new;
+      
+      # Check for well-formedness, skip if yukky:
+      eval {$parser-&gt;parse_file($file);};
+      if ($@) {
+        warn "Blecch, not a well-formed XML file.";
+        warn "Error was: $@";
+        next;
+      }
+      
+      my $doc = $parser-&gt;parse_file($file);
+      
+      my %info;                   # Will hold presentable info
+
+      # Determine root type
+      my $root = $doc-&gt;documentElement;
+      my $root_type = $root-&gt;getName;
+
+      # Now try to get an appropriate info node, which is named $FOOinfo
+      my ($info) = $root-&gt;findnodes("${root_type}info");
+      if ($info) {
+
+        # Yay, an info element for us. Fill it %info with it.
+        if (my ($abstract) = $info-&gt;findnodes('abstract')) {
+          $info{abstract} = $abstract-&gt;string_value;
+        } elsif ($root_type eq 'reference') {
+
+          # We can usee first refpurpose as our abstract instead.
+          if ( ($abstract) = $root-&gt;findnodes('/reference/refentry/refnamediv/refpurpose')) {
+            $info{abstract} = $abstract-&gt;string_value;
+          }
+        }
+        if (my ($date) = $info-&gt;findnodes('date')) {
+          $info{date} = $date-&gt;string_value;
+        }
+      }
+      if (my ($title) = $root-&gt;findnodes('title')) {
+        $info{title} = $title-&gt;string_value;
+      }
+
+      # Fill in %info stuff we don't need the XML for...
+      unless ($info{date}) {
+        my $mtime = (stat($file))[9];
+        $info{date} = localtime($mtime);
+      }
+      $info{title} ||= $file;
+
+      # That's enough info. Let's build an HTML table row with it.
+      print INDEX "&lt;tr&gt;\n";
+
+      # Figure out a filename to link to -- foo.html
+      my $html_file = $file;
+      $html_file =~ s/^(.*)\..*$/$1.html/;
+      print INDEX "&lt;td&gt;";
+      print INDEX "&lt;img src=\"$doc_icon\"&gt;" if $doc_icon;
+      print INDEX "&lt;a href=\"$base_dir/$html_file\"&gt;$info{title}&lt;/a&gt;&lt;/td&gt; ";
+      foreach (qw(abstract date)) {
+        print INDEX "&lt;td&gt;$info{$_}&lt;/td&gt; " if $info{$_};
+      }
+      print INDEX "\n&lt;/tr&gt;\n";
+    } elsif (-d $file) {
+
+      # Just make a directory link.
+      # ...unless it's an ignorable directory.
+      next if grep (/^$file$/, qw(RCS CVS .)) or ($file eq '..' and not $local_dir);
+      print INDEX "&lt;tr&gt;\n&lt;td&gt;";
+      print INDEX "&lt;a href=\"$base_dir/$file\"&gt;&lt;img src=\"$dir_icon\"&gt;" if $dir_icon;
+      print INDEX "$file&lt;/a&gt;&lt;/td&gt;\n&lt;/tr&gt;\n";
+    }
+  }
+
+
+  # Close the table and end the page
+  print INDEX &lt;&lt;END;
+&lt;/table&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+END
+  
+  close(INDEX) or die "Can't close $index_file: $!";
+  closedir(DIR) or die "Can't close $xml_dir: $!";
+}</pre></blockquote>
+
+<p>These subroutines build on the transformation subroutine by
+generating the pages. Note the use of caching by comparing the
+timestamps of the source DocBook file and the destination HTML file
+and rewriting the latter only if it's older than the
+former. (Of course, if there's no HTML at all, then
+it always creates a new web page.)
+</p>
+
+<blockquote><pre class="code">sub make_doc_page {
+  my ($r, $html_filename) = @_;
+
+  # Generate a source filename by replacing existing extension with .xml
+  my $xml_filename = $html_filename;
+  $xml_filename =~ s/^(.*)(?:\..*)$/$1.xml/;
+
+  # If there's a problem reading the source XML file, so it goes with
+  # the result HTML.
+  unless (-r "$xml_path/$xml_filename") {
+    unless (-e "$xml_path/$xml_filename") {
+      $r-&gt;status( NOT_FOUND );
+      return;
+    } else {
+      # Exists, but no read permissions, shrug.
+      $r-&gt;status( FORBIDDEN );
+      return;
+    }
+  }
+
+  # Fetch mtimes of this file and corresponding html file
+  my $xml_mtime = (stat("$xml_path/$xml_filename"))[9];
+  my $html_mtime = (stat("$base_path/$html_filename"))[9];
+  # If the html file is older than the xml XML file, or if it simply
+  # doesn't exist, generate a new one
+  
+  if ((not($html_mtime)) or ($html_mtime &lt;= $xml_mtime)) {
+    transform($xml_filename, $html_filename);
+    $r-&gt;filename("$base_path/$html_filename");
+    $r-&gt;status( DECLINED );
+    return;
+  } else {
+    # It's cached. Let Apache serve up the existing file.
+    $r-&gt;status( DECLINED );
+  }  
+}
+
+sub send_page {
+  my ($r, $html_filename) = @_;
+  # Problem here: if we're creating the file, we can't just write it
+  # and say 'DECLINED', cuz the default server handle hits us with a
+  # file-not-found. Until I find a better solution, I'll just spew
+  # the file, and DECLINE only known cache-hits.
+  $r-&gt;status( OK );
+  $r-&gt;send_http_header('text/html');
+  
+  open(HTML, "$html_filename") or die "Couldn't read $base_path/$html_filename: $!";
+  while (&lt;HTML&gt;) {
+    $r-&gt;print($_);
+  }
+  close(HTML) or die "Couldn't close $html_filename: $!";
+  return;
+}</pre></blockquote>
+
+<p>Finally, we have a utility subroutine to help us with a tedious task:
+copying the structure of subdirectories in the cache directory that
+mirrors that<a name="INDEX-779" /> of the source<a name="INDEX-780" /> XML directory:
+</p>
+
+<blockquote><pre class="code">sub maybe_mkdir {
+  # Given a path, make sure directories leading to it exist, mkdir-ing
+  # any that dont.
+  my ($filename) = @_;
+  my @path_parts = split(/\//, $filename);
+  # if the last one is a filename, toss it out.
+  pop(@path_parts) if -f $filename;
+  my $traversed_path = $base_path;
+  foreach (@path_parts) {
+    $traversed_path .= "/$_";
+    unless (-d $traversed_path) {
+      mkdir ($traversed_path) or die "Can't mkdir $traversed_path: $!";
+    }
+  }
+  return 1;
+}</pre></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch10_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch10_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">10.2. Subclassing</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">10.4. A Comics Index</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

@@ -1,0 +1,130 @@
+<html><head><title>Gotcha! (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch06_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">6.5. Gotcha!</h2>
+
+<p><a name="INDEX-638" />DOM
+has a set of troublesome spots just like SAX, and just like the APIs
+we'll cover in the next few chapters. I will point some of
+those out to you, and hopefully save you a few hours of debugging
+time along the way. Enjoy; these happen to be problems that
+I've run into and struggled against for quite a while before
+getting things figured out.
+</p>
+
+<a name="javaxml2-CHP-6-SECT-5.1" /><div class="sect2">
+<h3 class="sect2">6.5.1. The Dreaded WRONG DOCUMENT Exception</h3>
+
+<p><a name="INDEX-639" />
+<a name="INDEX-640" />The number one problem that I see
+among DOM developers is what I refer to as "the dreaded
+<tt class="literal">WRONG</tt> <tt class="literal">DOCUMENT</tt>
+exception." This exception occurs when you try to mix nodes
+from different documents. It most often shows up when you try to move
+a node from one document to another, which turns out to be a common
+task.
+</p>
+
+<p>The problem arises because of the factory approach I mentioned
+earlier. Because each element, attribute, processing instruction, and
+so on is created from a <tt class="literal">Document</tt> instance, it is
+not safe to assume that those nodes are compatible with other
+<tt class="literal">Document</tt> instances; two instances of
+<tt class="literal">Document</tt> may be from different vendors with
+different supported features, and trying to mix and match nodes from
+one with nodes from the other can result in implementation-dependent
+problems. As a result, to use a node from a different document
+requires passing that node into the target document's
+<tt class="literal">insertNode( )</tt> method. The result of this method is
+a new <tt class="literal">Node</tt>, which is compatible with the target
+document. In other words, this code is going to cause problems:
+</p>
+
+<blockquote><pre class="code">Element otherDocElement = otherDoc.getDocumentElement( );
+Element thisDocElement = thisDoc.getDocumentElement( );
+
+// Here's the problem - mixing nodes from different documents
+thisDocElement.appendChild(otherDocElement);</pre></blockquote>
+
+<p>This exception will result:</p>
+
+<blockquote><pre class="code">org.apache.xerces.dom.DOMExceptionImpl: DOM005 Wrong document
+ at org.apache.xerces.dom.ChildAndParentNode.internalInsertBefore(
+     ChildAndParentNode.java:314)
+ at org.apache.xerces.dom.ChildAndParentNode.insertBefore(
+     ChildAndParentNode.java:296)
+ at org.apache.xerces.dom.NodeImpl.appendChild(NodeImpl.java:213)
+ at MoveNode.main(MoveNode.java:30)</pre></blockquote>
+
+<p>To avoid this, you must first import the desired node into the new
+document:
+</p>
+
+<blockquote><pre class="code">Element otherDocElement = otherDoc.getDocumentElement( );
+Element thisDocElement = thisDoc.getDocumentElement( );
+
+<tt class="userinput"><b>// Import the node into the right document
+Element readyToUseElement =
+(Element)thisDoc.importNode(otherDocElement);</b></tt>
+
+// Now this works
+thisDocElement.appendChild(readyToUseElement);</pre></blockquote>
+
+<p>Note that the result of <tt class="literal">importNode( )</tt> is a
+<tt class="literal">Node</tt>, so it must be cast to the correct interface
+(<tt class="literal">Element</tt> in this case). Save yourself some time
+and effort and commit this to memory; write it on a notecard and tuck
+it under your pillow. Trust me, this is about the most annoying
+exception known to man!
+</p>
+
+</div>
+<a name="javaxml2-CHP-6-SECT-5.2" /><div class="sect2">
+<h3 class="sect2">6.5.2. Creating, Appending, and Inserting</h3>
+
+<p><a name="INDEX-641" />Fixing the problem I just described
+often leads to another problem. A common error I've seen is
+when developers remember to import a node, and then forget to append
+it! In other words, code crops up looking like this:
+</p>
+
+<blockquote><pre class="code">Element otherDocElement = otherDoc.getDocumentElement( );
+Element thisDocElement = thisDoc.getDocumentElement( );
+
+// Import the node into the right document
+Element readyToUseElement = (Element)thisDoc.importNode(otherDocElement);
+
+// The node never gets appended!!</pre></blockquote>
+
+<p>In this case, you have an element that belongs to the target
+document, but that never gets appended, or prepended, to anything
+within the document. The result is another tough-to-find bug, in that
+the document owns the element but the element is not in the actual
+DOM tree. Output ends up being completely devoid of the imported
+node, which can be quite frustrating. Watch out!
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch06_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">6.4. DOM Level 3</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">6.6. What's Next?</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

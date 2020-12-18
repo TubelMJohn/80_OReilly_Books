@@ -1,0 +1,606 @@
+<?label 2.5. Putting Complex Data into Flat Files ?><html><head><title>Putting Complex Data into Flat Files  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch02_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch02_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">2.5. Putting Complex Data into Flat Files </h2>
+
+
+
+<p>
+<a name="INDEX-72" />In our discussions of so-called "flat
+files" we've so far been storing, retrieving, and
+manipulating only that most basic of datatypes: the humble string.
+What can you do if you want to store more complex data, such as
+lists, hashes, or deeply nested data structures using references?</p>
+
+
+
+<p>The answer is to convert whatever it is you want to store
+<em class="emphasis">into</em> a string. Technically that's known as
+<em class="emphasis">marshalling</em> or
+<em class="emphasis">serializing</em>
+<a name="INDEX-73" />
+the data. The Perl Module List<a href="#FOOTNOTE-11">[11]</a> has a
+section that lists several Perl modules that implement data
+marshalling.</p><blockquote>
+
+
+<a name="FOOTNOTE-11" /><p>[11]The Perl Module List can be found at
+<a href="http://www.perl.com/CPAN/">http://www.perl.com/CPAN/</a>.</p>
+
+
+</blockquote>
+
+
+
+<p>We're going to take a look at two of the most popular modules,
+<tt class="literal">Data::Dumper</tt> and <tt class="literal">Storable</tt>, and
+see how we can use them to put some fizz into our flat files. These
+techniques are also applicable to storing complex Perl data
+structures in relational databases using the DBI, so pay attention.</p>
+
+
+
+<a name="ch02-1-fm2xml" /><div class="sect2">
+<h3 class="sect2">2.5.1. The Perl Data::Dumper Module </h3>
+
+
+
+<p>
+<a name="INDEX-74" /> <a name="INDEX-75" />The
+<tt class="literal">Data::Dumper</tt> module takes a list of Perl variables
+and writes their values out <em class="emphasis">in the form of Perl
+code,</em> which will recreate the original values, no matter
+how complex, when executed.</p>
+
+
+
+<p>This module allows you to dump the state of a Perl program in a
+readable form quickly and easily. It also allows you to restore the
+program state by simply executing the dumped code using
+<tt class="literal">eval()</tt>
+<a name="INDEX-76" />
+<a name="INDEX-77" />
+or <tt class="literal">do()</tt>.</p>
+
+
+
+<p>The easiest way to describe what happens is to show you a quick
+example:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch02/marshal/datadumpertest: Creates some Perl variables and dumps them out.
+#                              Then, we reset the values of the variables and
+#                              eval the dumped ones ...
+
+use Data::Dumper;
+
+### Customise Data::Dumper's output style
+### Refer to Data::Dumper documentation for full details
+if ($ARGV[0] eq 'flat') {
+    $Data::Dumper::Indent = 0;
+    $Data::Dumper::Useqq  = 1;
+}
+$Data::Dumper::Purity = 1;
+
+### Create some Perl variables
+my $megalith  = 'Stonehenge';
+my $districts = [ 'Wiltshire', 'Orkney', 'Dorset' ];
+### Print them out
+print "Initial Values: \$megalith  = " . $megalith . "\n" .
+      "                \$districts = [ ". join(", ", @$districts) . " ]\n\n";
+
+### Create a new Data::Dumper object from the database
+my $dumper = Data::Dumper-&gt;new( [    $megalith, $districts  ],
+                                [ qw( megalith  districts ) ] );
+
+### Dump the Perl values out into a variable
+my $dumpedValues = $dumper-&gt;Dump();
+
+### Show what Data::Dumper has made of the variables!
+print "Perl code produced by Data::Dumper:\n";
+print $dumpedValues . "\n";
+
+### Reset the variables to rubbish values
+$megalith = 'Blah! Blah!';
+$districts = [ 'Alderaan', 'Mordor', 'The Moon' ];
+
+### Print out the rubbish values
+print "Rubbish Values: \$megalith  = " . $megalith . "\n" .
+      "                \$districts = [ ". join(", ", @$districts) . " ]\n\n";
+
+### Eval the file to load up the Perl variables
+eval $dumpedValues;
+die if $@;
+
+### Display the re-loaded values
+print "Re-loaded Values: \$megalith  = " . $megalith . "\n" .
+      "                  \$districts = [ ". join(", ", @$districts) . " ]\n\n";
+
+exit;</pre></blockquote>
+
+
+
+<p>This example simply initializes two Perl variables and prints their
+values. It then creates a <tt class="literal">Data::Dumper</tt> object with
+those values, changes the original values, and prints the new ones
+just to prove we aren't cheating. Finally, it
+<tt class="literal">eval</tt>s the results of
+<tt class="literal">$dumper-</tt>&gt;<tt class="literal">Dump()</tt>, which
+stuffs the original stored values back into the variables. Again, we
+print it all out just to doubly convince you there's no
+sleight-of-hand going on:</p>
+
+
+
+<blockquote><pre class="code">Initial Values: $megalith  = Stonehenge
+                $districts = [ Wiltshire, Orkney, Dorset ]
+
+Perl code produced by Data::Dumper:
+$megalith = 'Stonehenge';
+$districts = [
+           'Wiltshire',
+           'Orkney',
+           'Dorset'
+         ];
+
+Rubbish Values: $megalith  = Blah! Blah!
+                $districts = [ Alderaan, Mordor, The Moon ]
+Re-loaded Values: $megalith  = Stonehenge
+                  $districts = [ Wiltshire, Orkney, Dorset ]</pre></blockquote>
+
+
+
+<p>So how do we use <tt class="literal">Data::Dumper</tt> to add fizz to our
+flat files? Well, first of all we have to ask
+<tt class="literal">Data::Dumper</tt> to produce flat output, that is,
+output with no newlines. We do that by setting two package global
+variables:</p>
+
+
+
+<blockquote><pre class="code">$Data::Dumper::Indent = 0;  # don't use newlines to layout the output
+$Data::Dumper::Useqq  = 1;  # use double quoted strings with "\n" escapes</pre></blockquote>
+
+
+
+<p>In our test program, we can do that by running the program with
+<tt class="literal">flat</tt> as an argument. Here's the relevant
+part of the output when we do that:</p>
+
+
+
+<blockquote><pre class="code">$megalith = "Stonehenge";$districts = ["Wiltshire","Orkney","Dorset"];</pre></blockquote>
+
+
+
+<p>Now we can modify our previous scan (select), insert, update, and
+delete scripts to use <tt class="literal">Data::Dumper</tt> to format the
+records instead of the
+<tt class="literal">join()</tt>
+<a name="INDEX-78" />
+<a name="INDEX-79" />
+or
+<tt class="literal">pack()</tt>
+<a name="INDEX-80" />
+<a name="INDEX-81" />
+functions we used before. Instead of
+<tt class="literal">split()</tt>
+<a name="INDEX-82" />
+<a name="INDEX-83" />
+or
+<tt class="literal">unpack()</tt>
+<a name="INDEX-84" />
+<a name="INDEX-85" />,
+we now use <tt class="literal">eval</tt> to unpack the records.</p>
+
+
+
+<p>Here's just the main loop of the update script we used earlier
+(the rest of the script is unchanged except for the addition of a
+<tt class="literal">use Data::Dumper;</tt> line at the top and setting the
+<tt class="literal">Data::Dumper</tt> variables as described above):</p>
+
+
+
+<blockquote><pre class="code">### Scan through all the entries for the desired site
+while ( &lt;MEGADATA&gt; ) {
+
+    ### Quick pre-check for maximum performance:
+    ### Skip the record if the site name doesn't appear
+    next unless m/\Q$siteName/;
+    
+    ### Evaluate perl record string to set $fields array reference
+    my $fields;
+    eval $_;
+    die if $@;
+    
+    ### Break up the record data into separate fields
+    my ( $name, $location, $mapref, $type, $description ) = @$fields;
+    
+    ### Skip the record if the extracted site name field doesn't match
+    next unless $siteName eq $name;
+    
+    ### We've found the record to update
+    ### Create a new fields array with new map ref value
+    $fields = [ $name, $location, $siteMapRef, $type, $description ];
+    
+    ### Convert it into a line of perl code encoding our record string
+    $_ = Data::Dumper-&gt;new( [ $fields ], [ 'fields' ] )-&gt;Dump();
+    $_ .= "\n";
+    
+}</pre></blockquote>
+
+
+
+<p>So, what have we gained by doing this? We avoid the tedious need to
+explicitly escape field delimiter characters.
+<tt class="literal">Data::Dumper</tt> does that for us, and there are no
+fixed-width field length restrictions either.</p>
+
+
+
+<p>The big win, though, is the ability to store practically any complex
+data structure, even object references. There are also some smaller
+benefits that may be of use to you: undefined (<em class="emphasis">null
+</em>) field values can be saved and restored, and
+there's no need for every record to have every field defined
+(variant records).</p>
+
+
+
+<p>The downside? There's always a downside. In this case,
+it's mainly the extra processing time required both to dump the
+record data into the strings and for Perl to <tt class="literal">eval</tt>
+them back again. There is a version of the
+<tt class="literal">Data::Dumper</tt> module written in C that's much
+faster, but sadly it doesn't support the
+<tt class="literal">$Useqq</tt> variable yet. To save time processing each
+record, the example code has a quick precheck that skips any rows
+that don't at least have the desired site name
+<em class="emphasis">somewhere</em> in them.</p>
+
+
+
+<p>There's also the question of security. Because we're
+using <tt class="literal">eval</tt> to evaluate the Perl code embedded in
+our data file, it's possible that someone could edit the data
+file and add code that does something else, possibly harmful.
+Fortunately, there's a simple fix for this. The Perl
+<tt class="literal">ops</tt>
+<a name="INDEX-86" /> pragma can be used to restrict the
+<tt class="literal">eval</tt> <a name="INDEX-87" /> <a name="INDEX-88" />to compiling code that contains
+only simple declarations. For more information on this, see the
+<tt class="literal">ops</tt> documentation installed with
+
+<a name="INDEX-89" /> <a name="INDEX-90" />Perl:</p>
+
+
+
+<blockquote><pre class="code">perldoc ops</pre></blockquote>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch02-2-fm2xml" /><div class="sect2">
+<h3 class="sect2">2.5.2. The Storable Module </h3>
+
+
+
+<p>
+<a name="INDEX-91" /> <a name="INDEX-92" />In
+addition to <tt class="literal">Data::Dumper</tt>, there are other data
+marshalling modules available that you might wish to investigate,
+including the fast and efficient <tt class="literal">Storable</tt>.</p>
+
+
+
+<p>The following code takes the same approach as the example we listed
+for <tt class="literal">Data::Dumper</tt> to show the basic store and
+retrieve cycle:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch02/marshal/storabletest: Create a Perl hash and store it externally. Then, 
+#                            we reset the hash and reload the saved one.
+
+use Storable qw( freeze thaw );
+
+### Create some values in a hash
+my $megalith = {
+    'name' =&gt; 'Stonehenge',
+    'mapref' =&gt; 'SU 123 400',
+    'location' =&gt; 'Wiltshire',
+};
+
+### Print them out
+print "Initial Values:   megalith = $megalith-&gt;{name}\n" .
+      "                  mapref   = $megalith-&gt;{mapref}\n" .
+      "                  location = $megalith-&gt;{location}\n\n";
+
+### Store the values to a string
+my $storedValues = freeze( $megalith );
+
+### Reset the variables to rubbish values
+$megalith = {
+    'name' =&gt; 'Flibble Flabble',
+    'mapref' =&gt; 'XX 000 000',
+    'location' =&gt; 'Saturn',
+};
+
+### Print out the rubbish values
+print "Rubbish Values:   megalith = $megalith-&gt;{name}\n" .
+      "                  mapref   = $megalith-&gt;{mapref}\n" .
+      "                  location = $megalith-&gt;{location}\n\n";
+
+### Retrieve the values from the string
+$megalith = thaw( $storedValues );
+
+### Display the re-loaded values
+print "Re-loaded Values: megalith = $megalith-&gt;{name}\n" .
+      "                  mapref   = $megalith-&gt;{mapref}\n" .
+      "                  location = $megalith-&gt;{location}\n\n";
+
+exit;</pre></blockquote>
+
+
+
+<p>This program generates the following output, which illustrates that
+we are storing data persistently then retrieving it:</p>
+
+
+
+<blockquote><pre class="code">Initial Values:   megalith = Stonehenge
+                  mapref   = SU 123 400
+                  location = Wiltshire
+
+Rubbish Values:   megalith = Flibble Flabble
+                  mapref   = XX 000 000
+                  location = Saturn
+
+Re-loaded Values: megalith = Stonehenge
+                  mapref   = SU 123 400
+                  location = Wiltshire</pre></blockquote>
+
+
+
+<p><tt class="literal">Storable</tt> also has functions to write and read your
+data structures directly to and from disk files. It can also be used
+to write to a file cumulatively instead of writing all records in one
+atomic operation.</p>
+
+
+
+<p>So far, all this sounds very similar to
+<tt class="literal">Data::Dumper</tt>, so what's the difference? In a
+word, <em class="emphasis">speed</em>. <tt class="literal">Storable</tt> is
+fast, very fast -- both for saving data and for getting it back
+again. It achieves its speed partly by being implemented in C and
+hooked directly into the Perl internals, and partly by writing the
+data in its own very compact binary format.</p>
+
+
+
+<p>Here's our update program reimplemented yet again, this time to
+use <tt class="literal">Storable</tt>:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch02/marshal/update_storable: Updates the given megalith data file
+#                               for a given site. Uses Storable data
+#                               and updates the map reference field.
+
+use Storable qw( nfreeze thaw );
+
+### Check the user has supplied an argument to scan for
+###     1) The name of the file containing the data
+###     2) The name of the site to search for
+###     3) The new map reference
+die "Usage: updatemegadata &lt;data file&gt; &lt;site name&gt; &lt;new map reference&gt;\n"
+    unless @ARGV == 3;
+
+my $megalithFile = $ARGV[0];
+my $siteName     = $ARGV[1];
+my $siteMapRef   = $ARGV[2];
+my $tempFile     = "tmp.$$";
+
+### Open the data file for reading, and die upon failure
+open MEGADATA, "&lt;$megalithFile"
+    or die "Can't open $megalithFile: $!\n";
+
+### Open the temporary megalith data file for writing
+open TMPMEGADATA, "&gt;$tempFile"
+    or die "Can't open temporary file $tempFile: $!\n";
+
+### Scan through all the entries for the desired site
+while ( &lt;MEGADATA&gt; ) {
+
+    ### Convert the ASCII encoded string back to binary
+    ### (pack ignores the trailing newline record delimiter)
+    my $frozen = pack "H*", $_;
+    
+    ### Thaw the frozen data structure
+    my $fields = thaw( $frozen );
+    
+    ### Break up the record data into separate fields
+    my ( $name, $location, $mapref, $type, $description ) = @$fields;
+    
+    ### Skip the record if the extracted site name field doesn't match
+    next unless $siteName eq $name;
+    
+    ### We've found the record to update
+    ### Create a new fields array with new map ref value
+    $fields = [ $name, $location, $siteMapRef, $type, $description ];
+    
+    ### Freeze the data structure into a binary string
+    $frozen = nfreeze( $fields );
+    
+    ### Encode the binary string as readable ASCII and append a newline
+    $_ = unpack( "H*", $frozen ) . "\n";
+    
+}
+continue {
+
+    ### Write the record out to the temporary file
+    print TMPMEGADATA $_
+        or die "Error writing $tempFile: $!\n";
+}
+
+### Close the megalith input data file
+close MEGADATA;
+
+### Close the temporary megalith output data file
+close TMPMEGADATA
+    or die "Error closing $tempFile: $!\n";
+
+### We now "commit" the changes by deleting the old file...
+unlink $megalithFile
+    or die "Can't delete old $megalithFile: $!\n";
+
+### and renaming the new file to replace the old one.
+rename $tempFile, $megalithFile
+    or die "Can't rename '$tempFile' to '$megalithFile': $!\n";
+
+exit 0;</pre></blockquote>
+
+
+
+<p>Since the <tt class="literal">Storable</tt> format is binary, we
+couldn't simply write it directly to our flat file. It would be
+possible for our record-delimiter character (<tt class="literal">"\n"</tt>)
+to appear within the binary data, thus corrupting the file. We get
+around this by encoding the binary data as a string of pairs of
+hexadecimal digits.</p>
+
+
+
+<p>You may have noticed that we've used
+<tt class="literal">nfreeze()</tt>
+<a name="INDEX-93" />
+<a name="INDEX-94" />
+instead of
+<tt class="literal">freeze()</tt>
+<a name="INDEX-95" />
+<a name="INDEX-96" />.
+By default, <tt class="literal">Storable</tt> writes numeric data in the
+fastest, simplest native format. The problem is that some computer
+systems store numbers in a different way from others. Using
+<tt class="literal">nfreeze()</tt> instead of <tt class="literal">freeze()</tt>
+ensures that numbers are written in a form that's portable to
+all systems.</p>
+
+
+
+<p>You may also be wondering what one of these records looks like.
+We'll here's the record for the Castlerigg megalithic
+site:</p>
+
+
+
+<blockquote><pre class="code">0302000000050a0a436173746c6572696767580a0743756d62726961580a0a4e59203239312032
+3336580a0c53746f6e6520436972636c65580aa34f6e65206f6620746865206c6f76656c696573
+742073746f6e6520636972636c65732072656d61696e696e6720746f6461792e20546869732073
+69746520697320636f6d707269736564206f66206c6172676520726f756e64656420626f756c64
+657273207365742077697468696e2061206e61747572616c20616d706869746865617472652066
+6f726d656420627920737572726f756e64696e672068696c6c732e5858</pre></blockquote>
+
+
+
+<p>That's all on one line in the data file; we've just split
+it up here to fit on the page. It doesn't make for thrilling
+reading. It also doesn't let us do the kind of quick precheck
+shortcut that we used with <tt class="literal">Data::Dumper</tt> and the
+previous flat-file update examples. We could apply the pre-check
+after converting the hex string back to binary, but there's no
+guarantee that strings appear literally in the
+<tt class="literal">Storable</tt> output. They happen to now, but
+there's always a risk that this will change.</p>
+
+
+
+<p>Although we've been talking about <tt class="literal">Storable</tt>
+in the context of flat files, this technique is also very useful for
+storing arbitrary chunks of Perl data into a relational database, or
+any other kind of database for that matter.
+<tt class="literal">Storable</tt> and <tt class="literal">Data::Dumper</tt> are
+great tools to carry in your mental <a name="INDEX-97" /> <a name="INDEX-98" />toolkit.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch02-ch02_summary_0" /><div class="sect2">
+<h3 class="sect2">2.5.3. Summary of Flat-File Databases </h3>
+
+
+
+<p>The main benefit of using flat-file databases for data storage is
+that they can be fast to implement and fast to use on small and
+straightforward datasets, such as our megalithic database or a Unix
+password file.</p>
+
+
+
+<p>The code to query, insert, delete, and update information in the
+database is also extremely simple, with the parsing code potentially
+shared among the operations. You have total control over the data
+file formats, so that there are no situations outside your control in
+which the file format or access API changes. The files are also easy
+to read in standard text editors (although in the case of the
+<tt class="literal">Storable</tt> example, they won't make very
+interesting reading).</p>
+
+
+
+<p>The downsides of these databases are quite apparent. As we've
+mentioned already, the lack of concurrent access limits the power of
+such systems in a multi-user environment. They also suffer from
+scalability problems due to the sequential nature of the search
+mechanism. These limitations can be coded around (the concurrent
+access problem especially so), but there comes a point where you
+should seriously consider the use of a higher-level storage manager
+such as DBM files. DBM files also give you access to
+<em class="emphasis">indexed</em> data and allow nonsequential querying.</p>
+
+
+
+<p>Before we discuss DBM files in detail, the following sections give
+you examples of more sophisticated management tools and techniques,
+as well as a method of handling <a name="INDEX-99" />concurrent users.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch02_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch02_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">2.4. Flat-File Databases </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">2.6. Concurrent Database Access and Locking </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

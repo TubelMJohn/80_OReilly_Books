@@ -1,0 +1,826 @@
+<?label 7. Upgrading Software and the Kernel?><html><head><title>Upgrading Software and the Kernel (Running Linux)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Running Linux" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm" /></td><td width="172" valign="top" align="right"><a href="ch07_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h1 class="chapter">Chapter 7. Upgrading Software and the Kernel</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch07_01.htm">Archive and Compression Utilities</a><br />
+<a href="ch07_02.htm">Upgrading Software</a><br />
+<a href="ch07_03.htm">Using RPM</a><br />
+<a href="ch07_04.htm">Building a New Kernel</a><br />
+<a href="ch07_05.htm">Loadable Device Drivers</a><br />
+<a href="ch07_06.htm">Loading Modules Automatically</a><br /></p></div>
+
+<p>In this chapter, we'll show you how to upgrade software on your system,
+including rebuilding and installing a new operating system kernel. 
+Although most Linux distributions provide some automated means to install, 
+remove, and upgrade specific software packages on your system, it is 
+often necessary to install software by hand. The kernel is the operating 
+system itself.  It is a set of routines and data that is loaded by the 
+system at boot time and controls everything on the system: software access 
+to hardware devices, scheduling of user processes, memory management, and
+more. Building your own kernel is often beneficial, as you can select which
+features you want included in the operating system.</p>
+
+<p>Installing and upgrading free software is usually more complicated than 
+installing commercial products.  Even when you have precompiled binaries
+available, you may have to uncompress them and unpack them from an archive 
+file. You may also have to create symbolic
+links or set environment variables so that the binaries know where to
+look for the resources they use. In other cases, you'll need to compile
+the software yourself from sources.</p>
+
+<p>Another common Linux activity is building the kernel. This is an
+important task for several reasons. First of all, you may find yourself
+in a position where you need to upgrade your current kernel to a newer
+version, to pick up new features or hardware support. Secondly building
+the kernel yourself allows you to select which features you do (and do not)
+want included in the compiled kernel.</p>
+
+<p>Why is the ability to select features a win for you?  All kernel code
+and data is  "locked down" in memory; that is, it cannot
+be swapped out to disk. 
+For example, if you use a kernel image with drivers for hardware you do not
+have or use, the memory consumed by those hardware drivers cannot be
+reclaimed for use by user applications. Customizing the kernel allows you
+to trim it down for your needs.</p>
+
+<div class="sect1"><a name="x-100-3-sec-sysadm-arch" />
+<h2 class="sect1">7.1. Archive and Compression Utilities</h2>
+
+<p><a name="INDEX-1535" />
+<a name="INDEX-1536" />
+<a name="INDEX-1537" />
+<a name="INDEX-1538" />
+When installing or upgrading software on Unix systems, the first things
+you need to be familiar with are the tools used for compressing and
+archiving files. There are dozens of such utilities available.
+Some of these (such as <tt class="command">tar</tt> and <tt class="command">compress</tt>) 
+date back
+to the earliest days of Unix; others (such as <tt class="command">gzip</tt>) are
+relative newcomers. The main goal of these utilities is to
+archive files (that is, to pack many files
+together into a single file for easy transportation or backup) and
+to compress files (to reduce the amount of disk space required
+to store a particular file or set of files).</p>
+
+<p>In this section, we're
+going to discuss the most common file formats and utilities
+you're likely to run into. For instance, a near-universal convention
+in the Unix world is to transport files or software as a 
+<tt class="command">tar</tt> archive, compressed using <tt class="command">compress</tt> or <tt class="command">gzip</tt>. 
+In order to create or unpack these files yourself, you'll need
+to know the tools of the trade. The tools are most often used when
+installing new software or creating backups--the subject of
+the following two sections in this chapter.</p>
+
+<?troff .sp -.1?><div class="sect2">
+<h3 class="sect2">7.1.1. Using gzip and bzip2</h3>
+
+<p><a name="INDEX-1539" />
+<a name="INDEX-1540" />
+<tt class="command">gzip</tt> is a fast and efficient compression program distributed by the
+<span class="acronym">GNU</span> project. The basic function of <tt class="command">gzip</tt> is to take a file,
+compress it, save the compressed version as <em class="filename">filename.gz</em>,
+and remove the original, uncompressed file. The original file is
+removed only if <tt class="command">gzip</tt> is successful; it is very difficult to accidentally
+delete a file in this manner. Of course, being <span class="acronym">GNU</span> software, <tt class="command">gzip</tt> has 
+more options than you want to think about, and many aspects of its 
+behavior can be modified using command-line options.</p>
+
+<p>First, let's say that we have a large file named <em class="filename">garbage.txt</em>:
+<?troff-ps_indent0?>
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>ls -l garbage.txt</b></tt> 
+-rw-r--r--   1 mdw      hack       312996 Nov 17 21:44 garbage.txt</pre></blockquote>
+
+To compress this file using <tt class="command">gzip</tt>, we simply use the command:
+ 
+<blockquote><pre class="code">gzip garbage.txt</pre></blockquote>
+
+This replaces <em class="filename">garbage.txt</em> with the compressed file 
+<em class="filename">garbage.txt.gz</em>. What we end up with is the following:
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>gzip garbage.txt</b></tt> 
+rutabaga% <tt class="userinput"><b>ls -l garbage.txt.gz</b></tt> 
+-rw-r--r--   1 mdw      hack       103441 Nov 17 21:44 garbage.txt.gz</pre></blockquote>
+
+Note that <em class="filename">garbage.txt</em> is removed when <tt class="command">gzip</tt> completes.</p>
+
+<p>You can give <tt class="command">gzip</tt> a list of filenames; it compresses each file
+in the list, storing each with a <em class="filename">.gz</em> extension. (Unlike the
+<tt class="command">zip</tt> program for Unix and <span class="acronym">MS-DOS</span> systems, <tt class="command">gzip</tt> will not,
+by default, compress several files into a single <em class="filename">.gz</em> archive. That's
+what <tt class="command">tar</tt> is for; see the next section.)</p>
+
+<p>How efficiently a file is compressed depends upon its format and contents. 
+For example, many graphics file formats (such as <span class="acronym">GIF</span> and <span class="acronym">JPEG</span>) are already 
+well compressed, and <tt class="command">gzip</tt> will have little or no effect upon such
+files. Files that compress well usually include plain-text files, and
+binary files such as executables and libraries. You can get information on a gzipped file using <tt class="command">gzip -l</tt>. 
+For example:
+ 
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>gzip -l garbage.txt.gz</b></tt> 
+compressed  uncompr. ratio uncompressed_name 
+   103115    312996  67.0% garbage.txt</pre></blockquote></p>
+
+<p><a name="INDEX-1541" />
+To get our original file back from the compressed version, we use
+<tt class="command">gunzip</tt>, as in:
+ 
+<blockquote><pre class="code">gunzip garbage.txt.gz</pre></blockquote>
+
+
+After doing this, we get:
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>gunzip garbage.txt.gz</b></tt> 
+rutabaga% <tt class="userinput"><b>ls -l garbage.txt</b></tt> 
+-rw-r--r--   1 mdw      hack       312996 Nov 17 21:44 garbage.txt</pre></blockquote>
+
+which is identical to the original file. Note that when you
+<tt class="command">gunzip</tt> a file, the compressed version is removed once the 
+uncompression is complete.</p>
+
+<p><tt class="command">gzip</tt> stores the name of the original, uncompressed file
+in the compressed version. This way, if the compressed filename
+(including the <em class="filename">.gz</em> extension) is too long for the filesystem type
+(say, you're compressing a file on an <span class="acronym">MS-DOS</span> filesystem with 8.3 filenames),
+the original filename can be restored using <tt class="command">gunzip</tt> even if the
+compressed file had a truncated name. 
+<a name="INDEX-1542" />
+To uncompress a file to its original filename, use the <span class="option">-N</span> option
+with <tt class="command">gunzip</tt>. To see the value of this option, consider
+the following sequence of commands:
+ 
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>gzip garbage.txt</b></tt> 
+rutabaga% <tt class="userinput"><b>mv garbage.txt.gz rubbish.txt.gz</b></tt></pre></blockquote>
+
+If we were to <tt class="command">gunzip rubbish.txt.gz</tt> at this point, the uncompressed
+file would be named <em class="filename">rubbish.txt</em>, after the new (compressed) filename.
+However, with the <span class="option">-N</span> option, we get:
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>gunzip -N rubbish.txt.gz</b></tt> 
+rutabaga% <tt class="userinput"><b>ls -l garbage.txt</b></tt> 
+-rw-r--r--   1 mdw      hack       312996 Nov 17 21:44 garbage.txt</pre></blockquote></p>
+
+<p><tt class="command">gzip</tt> and <tt class="command">gunzip</tt> can also compress or uncompress data
+from standard input and output. If <tt class="command">gzip</tt> is given no filenames to
+compress, it attempts to compress data read from standard input. Likewise,
+if you use the <span class="option">-c</span> option with <tt class="command">gunzip</tt>, it writes uncompressed
+data to standard output. For example, you could pipe the output of a 
+command to <tt class="command">gzip</tt> to compress the output stream and save it to a file
+in one step, as in:
+
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>ls -laR $HOME | gzip &gt; filelist.gz</b></tt></pre></blockquote>
+
+<?troff .ne 10?>
+This will produce a recursive directory listing of your home directory
+and save it in the compressed file <em class="filename">filelist.gz</em>. You can display
+the contents of this file with the command:
+
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>gunzip -c filelist.gz | more</b></tt></pre></blockquote>
+
+
+This will uncompress <em class="filename">filelist.gz</em> and pipe the output to the
+<tt class="command">more</tt> command. When you use <tt class="command">gunzip -c</tt>, the file on disk
+remains compressed.</p>
+
+<p> 
+<a name="INDEX-1543" />
+The <tt class="command">zcat</tt> command is identical to <tt class="command">gunzip -c</tt>. 
+You can think of this as a version of <tt class="command">cat</tt> for
+compressed files. Linux even has a version of 
+the pager <tt class="command">less</tt> for compressed files,
+called <tt class="command">zless</tt>.</p>
+
+<p> 
+When compressing files, you can use one of the options <span class="option">-1</span>, 
+<span class="option">-2</span>, through <span class="option">-9</span> to specify the speed and quality
+of the compression used. <span class="option">-1</span> (also <span class="option">--fast</span>) specifies the fastest
+method, which compresses the files less compactly, while <span class="option">-9</span> 
+(also <span class="option">--best</span>) uses the slowest, but best compression method. 
+If you don't specify one of these options the default is 
+<span class="option">-6</span>. None of these options has any bearing on how you use 
+<tt class="command">gunzip</tt>; <tt class="command">gunzip</tt> will be able to uncompress the file no matter
+what speed option you use.</p>
+
+<p><a name="INDEX-1544" />
+<a name="INDEX-1545" />
+<tt class="command">gzip</tt> is relatively new in the Unix world. The compression programs
+used on most Unix systems are <tt class="command">compress</tt> 
+and <tt class="command">uncompress</tt>, which were 
+included in the original Berkeley versions of Unix. <tt class="command">compress</tt> and
+<tt class="command">uncompress</tt> are very much like <tt class="command">gzip</tt> and <tt class="command">gunzip</tt>, 
+respectively; <tt class="command">compress</tt> saves compressed files as 
+<em class="filename">filename.Z</em> as opposed to <em class="filename">filename.gz</em>, 
+and uses a slightly less efficient compression algorithm.</p>
+
+<p>However,
+the free software community has been moving to <tt class="command">gzip</tt> for several
+reasons. First of all, <tt class="command">gzip</tt> works better. Second there has
+been a patent dispute over the compression algorithm used by 
+<tt class="command">compress</tt>--the results of which could prevent third parties
+from implementing the <tt class="command">compress</tt> algorithm on their own. Because
+of this, the Free Software Foundation urged a move to <tt class="command">gzip</tt>, which
+at least the Linux community has embraced. <tt class="command">gzip</tt> has been ported to
+many architectures, and many others are following suit. Happily, <tt class="command">gunzip</tt>
+is able to uncompress the <em class="filename">.Z</em> format files
+produced by <tt class="command">compress</tt>.</p>
+
+<p>Another compression/decompression
+		program has also emerged to take the lead from
+<a name="INDEX-1546" />
+<a name="INDEX-1547" />
+		<tt class="command">gzip</tt>. <tt class="command">bzip2</tt> is the new
+		kid on the block and sports even better compression (on the
+		average about 10-20 percent better than
+		<tt class="command">gzip</tt>), at the expense of longer compression 
+		times. You cannot use <tt class="command">bunzip2</tt> to uncompress 
+		files compressed with <tt class="command">gzip</tt> and vice versa,
+		and since you cannot expect everybody to have
+<a name="INDEX-1548" />
+		<tt class="command">bunzip2</tt> installed on their machine, you
+		might want to confine yourself to <tt class="command">gzip</tt> for
+		the time being if you want to send the compressed file to
+		somebody else. However, it pays to have
+		<tt class="command">bzip2</tt> installed, because more and more
+		<span class="acronym">FTP</span> servers now provide
+		<tt class="command">bzip2</tt>-compressed packages in order to
+		conserve disk space and bandwidth. You can recognize
+		<tt class="command">bzip2</tt>-compressed files from their typical
+		<em class="filename">.bz2</em> file name extension.</p>
+
+<p>While the command-line options of
+		<tt class="command">bzip2</tt> are not exactly the same as those of
+		<tt class="command">gzip</tt>, those that have been described in
+		this section are. For more information, see the
+		<tt class="command">bzip2</tt> manual page.</p>
+
+<p>The bottom line is that you should use
+<tt class="command">gzip</tt>/<tt class="command">gunzip</tt> or <tt class="command">bzip2</tt>/<tt class="command">bunzip2</tt> for your
+compression needs. If you encounter a file with the extension
+<em class="filename">.Z</em>, 
+it was probably produced by <tt class="command">compress</tt>, and
+<tt class="command">gunzip</tt> can 
+uncompress it for you.</p>
+
+<p>Earlier versions of <tt class="command">gzip</tt> used
+<em class="filename">.z</em> (lowercase) instead of <tt class="command">.gz</tt> as the compressed-filename
+extension. Because of the potential confusion with <tt class="command">.Z</tt>, this was
+changed. At any rate, <tt class="command">gunzip</tt> retains backwards-compatibility with
+a number of filename extensions and file types.</p>
+
+<a name="INDEX-1549" /><a name="INDEX-1550" />
+</div>
+
+
+
+
+<a name="x-100-3-sec-sysadm-tar" /><div class="sect2">
+<h3 class="sect2">7.1.2. Using tar</h3>
+
+<p><a name="INDEX-1551" />
+<a name="INDEX-1552" />
+<tt class="command">tar</tt> is a general-purpose archiving utility capable of packing many 
+files into a single archive file, retaining information, such as file permissions 
+and ownership. The name <tt class="command">tar</tt> stands for <em class="emphasis">tape archive</em>, because
+the tool was originally used to archive files as backups on tape. However,
+use of <tt class="command">tar</tt> is not at all restricted to making tape backups, as we'll see.</p>
+
+<p>The format of the <tt class="command">tar</tt> command is:
+
+<blockquote><pre class="code">tar <em class="replaceable">function</em><em class="replaceable">options</em> <em class="replaceable">files&#133;</em></pre></blockquote>
+
+
+where <em class="replaceable">function</em> is a single letter indicating the operation 
+to perform, <em class="replaceable">options</em> is a list of (single-letter) options
+to that function, and <em class="replaceable">files</em> is the list of files to pack
+or unpack in an archive. (Note that <em class="replaceable">function</em> is not
+separated from <em class="replaceable">options</em> by any space.)</p>
+
+<p><em class="replaceable">function</em> can be one of:</p>
+
+<dl>
+<dt><b><tt class="literal">c</tt></b></dt><dd><p>To create a new archive</p></dd>
+
+
+<dt><b><tt class="literal">x</tt></b></dt><dd><p>To extract files from an archive</p></dd>
+
+
+<dt><b><tt class="literal">t</tt></b></dt><dd><p>To list the contents of an archive</p></dd>
+
+
+<dt><b><tt class="literal">r</tt></b></dt><dd><p>To append files to the end of an archive</p></dd>
+
+
+<dt><b><tt class="literal">u</tt></b></dt><dd><p>To update files that are newer than those in the archive</p></dd>
+
+
+<dt><b><tt class="literal">d</tt></b></dt><dd><p>To compare files in the archive to those in the filesystem</p></dd>
+
+</dl>
+
+<p>You'll rarely use most of these functions; the more commonly used are
+<tt class="literal">c</tt>, <tt class="literal">x</tt>, and <tt class="literal">t</tt>.</p>
+
+<p>The most common <em class="replaceable">options</em> are:</p>
+
+<dl>
+<dt><b><em class="emphasis">v</em></b></dt><dd><p>To print verbose information when packing or unpacking archives</p></dd>
+
+
+<dt><b><em class="emphasis">k</em></b></dt><dd><p>To keep any existing files when extracting--that
+is, to not overwrite any existing files which are contained within the
+tar file</p></dd>
+
+
+<dt><b><em class="emphasis">f</em> <em class="replaceable">filename</em></b></dt><dd><p>To specify that the tar file to
+be read or written is <em class="replaceable">filename</em></p></dd>
+
+
+<dt><b><em class="emphasis">z</em></b></dt><dd><p>To specify that the data to be written to the
+tar file should be compressed or that the data in the tar file is
+compressed with <tt class="command">gzip</tt></p></dd>
+
+
+<dt><b><em class="emphasis">v</em></b></dt><dd><p>To make <tt class="command">tar</tt> show the files
+ it is archiving or restoring--it is good practice to use this so that 
+ you can see what actually happens (unless, of course, you are writing 
+ shell scripts)</p></dd>
+
+</dl>
+
+<p>There are others, which we will cover later in this section.</p>
+
+<p>Although the <em class="filename">tar</em> syntax might appear complex at first, in practice
+it's quite simple. For example, say we have a directory named
+<em class="filename">mt</em>, containing these files:
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>ls -l mt</b></tt> 
+total 37 
+-rw-r--r--   1 root     root           24 Sep 21  1993 Makefile 
+-rw-r--r--   1 root     root          847 Sep 21  1993 README 
+-rwxr-xr-x   1 root     root         9220 Nov 16 19:03 mt 
+-rw-r--r--   1 root     root         2775 Aug  7  1993 mt.1 
+-rw-r--r--   1 root     root         6421 Aug  7  1993 mt.c 
+-rw-r--r--   1 root     root         3948 Nov 16 19:02 mt.o 
+-rw-r--r--   1 root     root        11204 Sep  5  1993 st_info.txt</pre></blockquote>
+
+ 
+<a name="INDEX-1553" />
+We wish to pack the contents of this directory into a single <em class="filename">tar</em>
+archive. To do this, we use the command:
+<blockquote><pre class="code">tar cf mt.tar mt</pre></blockquote>
+
+ 
+The first argument to <em class="filename">tar</em> is the <em class="replaceable">function</em> (here, <tt class="literal">c</tt>,
+for create) followed by any <em class="replaceable">options</em>. Here, we use the one
+option <span class="option">f mt.tar</span>, to specify that the resulting tar archive
+ 
+be named <em class="filename">mt.tar</em>. The last argument is the name of the 
+file or files to
+archive; in this case, we give the name of a directory, so
+<tt class="command">tar</tt> packs all files in that directory into the archive.</p>
+
+<p>Note that the first argument to <tt class="command">tar</tt> must be a function letter 
+followed by a list of options. Because of this, there's no reason
+to use a hyphen (<tt class="literal">-</tt>) to precede the options as many Unix commands
+require. <tt class="command">tar</tt> allows you to use a hyphen, as in:
+<blockquote><pre class="code">tar -cf mt.tar mt</pre></blockquote>
+
+but it's really not necessary. In some versions of <tt class="command">tar</tt>, the
+first letter must be the <em class="replaceable">function</em>,
+as in <tt class="literal">c</tt>, <tt class="literal">t</tt>, or
+<tt class="literal">x</tt>. In other versions, the order of letters does not matter.</p>
+
+<p>The function letters as described here follow the so-called "old 
+option style." There is also a newer "short option
+style" where you precede the function options with a hyphen, and 
+a "long option style," where you use long option names
+with two hyphens. See the Info page for <tt class="command">tar</tt> for
+more details if you are interested.</p>
+
+<p>It is often a good idea to use the <tt class="literal">v</tt> option with <tt class="command">tar</tt>;
+this lists each file as it is archived. For example:
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>tar cvf mt.tar mt</b></tt> 
+mt/ 
+mt/st_info.txt 
+mt/README 
+mt/mt.1 
+mt/Makefile 
+mt/mt.c 
+mt/mt.o 
+mt/mt</pre></blockquote>
+
+If you use <tt class="literal">v</tt> multiple times, additional information will
+be printed, as in:
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>tar cvvf mt.tar mt</b></tt> 
+drwxr-xr-x root/root         0 Nov 16 19:03 1994 mt/ 
+-rw-r--r-- root/root     11204 Sep  5 13:10 1993 mt/st_info.txt 
+-rw-r--r-- root/root       847 Sep 21 16:37 1993 mt/README 
+-rw-r--r-- root/root      2775 Aug  7 09:50 1993 mt/mt.1 
+-rw-r--r-- root/root        24 Sep 21 16:03 1993 mt/Makefile 
+-rw-r--r-- root/root      6421 Aug  7 09:50 1993 mt/mt.c 
+-rw-r--r-- root/root      3948 Nov 16 19:02 1994 mt/mt.o 
+-rwxr-xr-x root/root      9220 Nov 16 19:03 1994 mt/mt</pre></blockquote>
+
+This is especially useful as it lets you verify that <tt class="command">tar</tt> is doing the
+right thing.</p>
+
+<p>In some versions of <tt class="command">tar</tt>, <tt class="literal">f</tt> must be the last letter in the list of options. This is because <tt class="command">tar</tt> expects the <tt class="literal">f</tt> option to 
+be followed by a filename--the name of the tar file to read from
+or write to. If you don't specify <tt class="literal">f</tt> <em class="replaceable">filename</em> at all,
+<tt class="command">tar</tt> assumes for historical reasons that it should use the
+device <em class="filename">/dev/rmt0</em> (that is, the first tape drive). In the 
+
+section "<a href="ch08_01.htm#x-100-3-sec-sysadm-backups">Section 8.1, "Making Backups"</a>,"
+in <a href="ch08_01.htm">Chapter 8, "Other
+ Administrative
+ Tasks"</a>, we'll talk about using
+<tt class="command">tar</tt> in conjunction with a tape drive to make backups.</p>
+
+<p>Now, we can give the file <em class="filename">mt.tar</em> to other people,
+and they can extract it on their own system. To do this, they would
+use the command:
+
+<blockquote><pre class="code">tar xvf mt.tar</pre></blockquote>
+
+
+This creates the subdirectory <em class="filename">mt</em> and places all the
+original files into it, with the same permissions
+as found on the original system.  
+The new files will be owned by the user running the
+<tt class="command">tar xvf</tt> (you) unless you are running as root, in
+which case the original owner is preserved.
+The <tt class="literal">x</tt> option stands for
+"extract."
+The <em class="emphasis">v</em> option is used again here
+to list each file as it is extracted. This produces:
+ 
+<blockquote><pre class="code">courgette% <tt class="userinput"><b>tar xvf mt.tar</b></tt> 
+mt/ 
+mt/st_info.txt 
+mt/README 
+mt/mt.1 
+mt/Makefile 
+mt/mt.c 
+mt/mt.o 
+mt/mt</pre></blockquote></p>
+
+<p> 
+We can see that <tt class="command">tar</tt> saves the pathname of each file relative to
+the location where the tar file was originally created. That is,
+when we created the archive using <tt class="command">tar cf mt.tar mt</tt>, the only
+input filename we specified was <em class="filename">mt</em>, the name of the 
+directory containing the files. Therefore, <tt class="command">tar</tt> stores the directory
+itself and all of the files below that directory in the tar file.
+When we extract the tar file, the directory <em class="filename">mt</em> is created and
+the files placed into it, which is the exact inverse of what was done to create
+the archive.</p>
+
+<p> 
+By default, <tt class="command">tar</tt> extracts all tar files relative to
+the current directory where you execute <tt class="command">tar</tt>. For example,
+if you were to pack up the contents of your <em class="filename">/bin</em> directory
+with the command:
+ 
+<blockquote><pre class="code">tar cvf bin.tar /bin</pre></blockquote>
+
+<tt class="command">tar</tt> would give the warning:
+<blockquote><pre class="code">tar: Removing leading / from absolute path names in the archive.</pre></blockquote>
+
+
+What this means is that the files are stored in the archive within the
+subdirectory <em class="filename">bin</em>. When this tar file is extracted, the directory
+<em class="filename">bin</em> is created in the working
+directory of <tt class="command">tar</tt>--not as
+<em class="filename">/bin</em> on the system where the extraction is being done.
+This is very important and is meant to prevent terrible mistakes
+when extracting tar files. Otherwise, extracting a tar file packed as, 
+say, <em class="filename">/bin</em>, would trash the contents of your <em class="filename">/bin</em> directory when 
+you extracted it. If you really wanted to extract such a tar file into
+<em class="filename">/bin</em>, you would extract it from the root directory, <em class="filename">/</em>.
+You can override this behavior using the <em class="emphasis">P</em> option when packing
+tar files, but it's not recommended you do so.</p>
+
+<p>Another way to create the tar file <em class="filename">mt.tar</em> would have been to <tt class="command">cd</tt> 
+into the <em class="filename">mt</em> directory itself, and use a command such as:
+<blockquote><pre class="code">tar cvf mt.tar *</pre></blockquote>
+
+ 
+This way the <em class="filename">mt</em> subdirectory would not be stored in the
+tar file; when extracted, the files would be placed directly in your
+current working directory. One fine point of <tt class="command">tar</tt> etiquette is
+to always pack tar files so that they contain a subdirectory, as we
+did in the first example with <tt class="command">tar cvf mt.tar mt</tt>. Therefore,
+when the archive is extracted, the subdirectory is also created and
+any files placed there. This way you can ensure that the files 
+won't be placed directly in your current working directory; they 
+will be tucked out of the way and prevent confusion. This also
+saves the person doing the extraction the trouble of having to
+create a separate directory (should they wish to do so) to unpack
+the tar file. Of course, there are plenty of situations where
+you wouldn't want to do this. So much for etiquette.</p>
+
+<?troff .Nd 10?><p>When creating archives, you can, of course, give <tt class="command">tar</tt> a list of 
+files or directories to pack into the archive. In the first
+example, we have given <tt class="command">tar</tt> the single directory <em class="filename">mt</em>, 
+but in the previous paragraph we used the wildcard <tt class="literal">*</tt>, which
+the shell expands into the list of filenames in the current
+directory.</p>
+
+<p>Before extracting a tar file, it's usually a good idea to take a look
+at its table of contents to determine how it was packed. This
+way you can determine whether you do need to create a subdirectory yourself
+where you can unpack the archive. A command such as:
+ 
+<blockquote><pre class="code">tar tvf <em class="replaceable">tarfile</em></pre></blockquote>
+
+
+lists the table of contents for the named <em class="replaceable">tarfile</em>.
+Note that when using the <tt class="literal">t</tt> function, only one <tt class="literal">v</tt> is
+required to get the long file listing, as in this example:
+<blockquote><pre class="code">courgette% <tt class="userinput"><b>tar tvf mt.tar</b></tt>
+drwxr-xr-x root/root         0 Nov 16 19:03 1994 mt/ 
+-rw-r--r-- root/root     11204 Sep  5 13:10 1993 mt/st_info.txt 
+-rw-r--r-- root/root       847 Sep 21 16:37 1993 mt/README 
+-rw-r--r-- root/root      2775 Aug  7 09:50 1993 mt/mt.1 
+-rw-r--r-- root/root        24 Sep 21 16:03 1993 mt/Makefile 
+-rw-r--r-- root/root      6421 Aug  7 09:50 1993 mt/mt.c 
+-rw-r--r-- root/root      3948 Nov 16 19:02 1994 mt/mt.o 
+-rwxr-xr-x root/root      9220 Nov 16 19:03 1994 mt/mt</pre></blockquote>
+
+
+No extraction is being done here; we're just displaying the archive's
+table of contents. We can see from the filenames that this file
+was packed with all files in the subdirectory <em class="filename">mt</em>, so that when
+we extract the tar file, the directory <em class="filename">mt</em> will be created,
+and the files placed there.</p>
+
+<p>You can also extract individual files from a tar archive. 
+To do this, use the command:
+<blockquote><pre class="code">tar xvf <em class="replaceable">tarfile</em> <em class="replaceable">files</em></pre></blockquote>
+
+where <em class="replaceable">files</em> is the list of files to extract. As we've
+seen, if you don't specify any <em class="replaceable">files</em>, <tt class="command">tar</tt>
+extracts the entire archive.</p>
+
+<p>When specifying individual files to extract, you must give the 
+full pathname as it is stored in the tar file. For example, if
+we wanted to grab just the file <em class="filename">mt.c</em> from the previous 
+archive <em class="filename">mt.tar</em>, we'd use the command:
+ 
+<blockquote><pre class="code">tar xvf mt.tar mt/mt.c</pre></blockquote>
+
+This would create the subdirectory <em class="filename">mt</em> and place the file 
+<em class="filename">mt.c</em> within it.</p>
+
+<p><tt class="command">tar</tt> has many more options than those mentioned here.
+These are the features that you're likely to use most of the
+time, but <span class="acronym">GNU</span> <tt class="command">tar</tt>, in particular,
+has extensions that make
+it ideal for creating backups and the like. See the <tt class="command">tar</tt>
+manual page and the following section
+for more information.</p>
+
+<a name="INDEX-1554" /><a name="INDEX-1555" />
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">7.1.3. Using tar with gzip</h3>
+
+<p><a name="INDEX-1556" />
+<a name="INDEX-1557" />
+<a name="INDEX-1558" />
+<a name="INDEX-1559" />
+<tt class="command">tar</tt> does not compress the data stored in its archives in 
+any way. If you are creating a tar file from three 200K files,
+you'll end up with an archive of about 600K. It is common practice
+to compress tar archives with <tt class="command">gzip</tt> (or the older <tt class="command">compress</tt>
+program). You could create a gzipped tar file using the
+commands:
+<blockquote><pre class="code">tar cvf <em class="replaceable">tarfile</em> <em class="replaceable">files&#133;</em>
+gzip -9 <em class="replaceable">tarfile</em></pre></blockquote>
+
+But that's so cumbersome, and requires you to have enough space to
+store the uncompressed <tt class="command">tar</tt> file before you <tt class="command">gzip</tt> it.</p>
+
+<p> 
+A much trickier way to accomplish the same task is to use an interesting
+feature of <tt class="command">tar</tt> that allows you to write an archive to standard
+output. If you specify <tt class="literal">-</tt> as the tar file to read or write, the 
+data will be read from or written to standard input or output. For 
+example, we can create a gzipped tar file using the command:
+ 
+<blockquote><pre class="code">tar cvf - <em class="replaceable">files&#133;</em> | gzip -9 &gt; <em class="replaceable">tarfile</em>.tar.gz</pre></blockquote>
+
+
+Here, <tt class="command">tar</tt> creates an archive from the named <em class="replaceable">files</em> and
+writes it to standard output; next, <tt class="command">gzip</tt> reads the data from 
+standard input, compresses it, and writes the result to its own standard 
+output; finally, we redirect the gzipped tar file to 
+<em class="replaceable">tarfile</em><em class="filename">.tar.gz</em>.</p>
+
+<p> 
+We could extract such a tar file using the command:
+
+<blockquote><pre class="code">gunzip -9c <em class="replaceable">tarfile</em>.tar.gz | tar xvf -</pre></blockquote>
+
+
+<a name="INDEX-1560" />
+<a name="INDEX-1561" />
+<tt class="command">gunzip</tt> uncompresses the named archive file, writes the result to
+standard output, which is read by <tt class="command">tar</tt> on standard input and
+extracted. Isn't Unix fun?</p>
+
+<p> 
+Of course, both of these commands are rather cumbersome to type.
+Luckily, the <span class="acronym">GNU</span> version of <tt class="command">tar</tt> provides the <em class="emphasis">z</em> option which
+automatically creates or extracts gzipped archives. (We saved
+the discussion of this option until now, so you'd truly appreciate its
+convenience.) For example, we could use the commands:
+ 
+<blockquote><pre class="code">tar cvzf <em class="replaceable">tarfile</em>.tar.gz <em class="replaceable">files&#133;</em></pre></blockquote>
+
+and:
+<blockquote><pre class="code">tar xvzf <em class="replaceable">tarfile</em>.tar.gz</pre></blockquote>
+
+to create and extract gzipped tar files. Note that you should
+name the files created in this way with the
+<em class="filename">.tar.gz</em> filename 
+extensions (or the equally often used <em class="filename">.tgz</em>, which
+also works on systems with limited filename capabilities), to
+make their format obvious. The <em class="emphasis">z</em> option works 
+just as well with other tar functions such as <tt class="literal">t</tt>.</p>
+
+<p>Only the <span class="acronym">GNU</span> version of <tt class="command">tar</tt> supports the <em class="emphasis">z</em> option; if you
+are using <tt class="command">tar</tt> on another Unix system, you may have to use one
+of the longer commands to accomplish the same tasks.
+Nearly all Linux systems use <span class="acronym">GNU</span> <tt class="command">tar</tt>.</p>
+
+<p>When you want to use <tt class="command">tar</tt> in
+		conjunction with <tt class="command">bzip2</tt>, you need to tell
+<tt class="command">tar</tt> about your compression program preferences like 
+		this:</p>
+
+<blockquote><pre class="code">tar cvf <em class="replaceable">tarfile</em>.tar.bz2 --use-compress-program=bzip2 <em class="replaceable">files...</em></pre></blockquote>
+
+<p>or, shorter:</p>
+
+<blockquote><pre class="code">tar cvf <em class="replaceable">tarfile</em>.tar.bz2 --use=bzip2 <em class="replaceable">files...</em></pre></blockquote>
+
+<p>or, shorter still:</p>
+
+<blockquote><pre class="code">tar cvIf <em class="replaceable">tarfile.tar.bz2</em> <em class="replaceable">files</em></pre></blockquote>
+
+<p>The latter version only works with newer versions of GNU
+<tt class="command">tar</tt> that supports the <em class="emphasis">I</em>
+option.</p>
+
+<p>Keeping this in mind, you could write short shell scripts or
+aliases to handle cookbook tar file creation and extraction for you. 
+Under <tt class="command">bash</tt>, you could include the following functions in 
+your <em class="filename">.bashrc</em>:
+<blockquote><pre class="code">tarc () { tar czvf $1.tar.gz $1 }
+tarx () { tar xzvf $1 }
+tart () { tar tzvf $1 }</pre></blockquote>
+
+With these functions, to create a gzipped tar file from a 
+single directory, you could use the command:
+<blockquote><pre class="code">tarc <em class="replaceable">directory</em></pre></blockquote>
+
+
+The resulting archive file would be named <em class="replaceable">directory</em><em class="filename">.tar.gz</em>. 
+(Be sure that there's no trailing slash on the directory name; otherwise
+the archive will be created as <em class="filename">.tar.gz</em> within the given 
+directory.)
+To list the table of contents of a gzipped tar file, just use:
+ 
+<blockquote><pre class="code">tart <em class="replaceable">file</em>.tar.gz</pre></blockquote>
+
+Or, to extract such an archive, use:
+<blockquote><pre class="code">tarx <em class="replaceable">file</em>.tar.gz</pre></blockquote></p>
+
+<a name="INDEX-1562" /><a name="INDEX-1563" /><a name="INDEX-1564" /><a name="INDEX-1565" />
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">7.1.4. tar Tricks</h3>
+
+<p><a name="INDEX-1566" />
+<a name="INDEX-1567" />
+Because <tt class="command">tar</tt> saves the ownership and permissions of files 
+in the archive and retains the full directory structure, as well
+as symbolic and hard links, using <tt class="command">tar</tt> is an excellent way to
+copy or move an entire directory tree from one place to another
+on the same system (or even between different systems, as we'll see).  
+Using the <tt class="literal">-</tt> syntax described earlier, you can write a tar file
+to standard output, which is read and extracted on standard input
+elsewhere.</p>
+
+<p><a name="INDEX-1568" />
+<a name="INDEX-1569" />
+For example, say that we have a directory containing two subdirectories:
+<em class="filename">from-stuff</em> and <em class="filename">to-stuff</em>. <em class="filename">from-stuff</em> contains an entire
+tree of files, symbolic links, and so forth--something that is
+difficult to mirror precisely using a recursive
+<tt class="command">cp</tt>. In order
+to mirror the entire tree beneath <em class="filename">from-stuff</em> to <em class="filename">to-stuff</em>,
+we could use the commands:
+ 
+<blockquote><pre class="code">cd from-stuff 
+tar cf - . | (cd ../to-stuff; tar xvf -)</pre></blockquote>
+
+Simple and elegant, right? We start in the directory <em class="filename">from-stuff</em>
+and create a tar file of the current directory, which is written to 
+standard output. This archive is read by a subshell (the commands
+contained within parentheses); the subshell does a
+<tt class="command">cd</tt> to the target directory, <em class="filename">../to-stuff</em> (relative to
+<em class="filename">from-stuff</em>, that is), and then runs <tt class="command">tar xvf</tt>, reading
+from standard input. No tar file is ever written to disk; the
+data is sent entirely via pipe from one <tt class="command">tar</tt> process to another. 
+The second <tt class="command">tar</tt> process has the <em class="emphasis">v</em>
+option that prints
+each file as it's extracted; in this way, we can verify that the command
+is working as expected.</p>
+
+<p>In fact, you could transfer directory trees from one machine to
+another (via the network) using this trick; just include an appropriate 
+<tt class="command">rsh</tt> command within the subshell on the right side of the pipe.
+ 
+ 
+The remote shell would execute <tt class="command">tar</tt> to read the archive on its
+
+standard input. (Actually, <span class="acronym">GNU</span> <tt class="command">tar</tt> has facilities to read or write tar files automatically 
+from other machines over the network; see the 
+<tt class="command">tar</tt> manual page for details.)</p>
+
+<a name="INDEX-1570" /><a name="INDEX-1571" />
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<?troff .sp -.1?>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch07_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">6.3. Device Files</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">7.2. Upgrading Software</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

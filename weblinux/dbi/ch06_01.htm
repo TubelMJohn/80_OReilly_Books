@@ -1,0 +1,1404 @@
+<?label 6. Advanced DBI ?><html><head><title>Advanced DBI  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch06_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 6. Advanced DBI </h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch06_01.htm">Handle Attributes and Metadata </a><br />
+<a href="ch06_02.htm">Handling LONG/LOB Data </a><br />
+<a href="ch06_03.htm">Transactions, Locking, and Isolation </a><br /></p></div>
+
+
+
+
+
+<p>This chapter covers some of the more advanced topics of using DBI,
+including the ability to alter the way in which the database and
+statement handles function on-the-fly, as well as how to use explicit
+transaction handling within your database. These topics are not
+strictly necessary for basic DBI usage, but they contain useful
+information that will allows you to maximize the potential of your
+DBI programs.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch06-64771" />
+<h2 class="sect1">6.1. Handle Attributes and Metadata </h2>
+
+
+
+<p>In <a name="INDEX-674" />addition
+to methods associated with database and statement handles, the DBI
+also defines <em class="emphasis">attributes</em> for these handles that
+allow the developer to examine or fine-tune the environment in which
+the handles operate. Some attributes are unique to either database or
+statement handles, and some are common to both.</p>
+
+
+
+<p>The <a name="INDEX-675" />attribute values of a handle can be
+thought of as a hash of <a name="INDEX-676" />key/value pairs, and can be manipulated
+in the same way as you would manipulate an ordinary hash via a
+reference. Here are a few examples using the
+<tt class="literal">AutoCommit</tt> attribute:</p>
+
+
+
+<blockquote><pre class="code">### Set the database handle attribute "AutoCommit" to 1 (e.g., on)
+$dbh-&gt;{AutoCommit} = 1;
+
+### Fetch the current value of "AutoCommit" from the handle
+$foo = $dbh-&gt;{AutoCommit};</pre></blockquote>
+
+
+
+<p>Fetching attributes as hash values, rather than as method calls, has
+the added bonus that the hash lookup can be
+<em class="emphasis">interpolated</em>
+<a name="INDEX-677" /> inside double-quoted strings:</p>
+
+
+
+<blockquote><pre class="code">### Print the current value of "AutoCommit" from the handle
+print "AutoCommit: $dbh-&gt;{AutoCommit}\n";</pre></blockquote>
+
+
+
+<p>With AutoCommit enabled, that would print:</p>
+
+
+
+<blockquote><pre class="code">AutoCommit: 1</pre></blockquote>
+
+
+
+<p>as you might expect. Actually, since <tt class="literal">AutoCommit</tt> is
+a <em class="emphasis">boolean</em> attribute, it would print
+<tt class="literal">1</tt> after any value that Perl considers
+<em class="emphasis">true</em> had been assigned to it.</p>
+
+
+
+<p>After a <em class="emphasis">false</em> value was assigned, you may
+reasonably expect a <tt class="literal">0</tt> to be printed, but you might
+be surprised to see:</p>
+
+
+
+<blockquote><pre class="code">AutoCommit:</pre></blockquote>
+
+
+
+<p>That's because Perl uses an internal representation of
+<tt class="literal">false</tt> that is both a numeric zero and an empty
+string at the same time. When used in a string context, the empty
+string is printed. In a numeric context, the zero is used.</p>
+
+
+
+<p>When <a name="INDEX-678" />
+<a name="INDEX-679" />getting or setting an
+attribute value, the DBI automatically checks that the attribute name
+you are using and generates an error if it's not
+known.<a href="#FOOTNOTE-55">[55]</a> Similarly, any
+attempts to set a read-only attribute will result in an error. Be
+aware, however, that these errors are reported using
+<tt class="literal">die()</tt> regardless of the setting of the
+<tt class="literal">RaiseError</tt> attribute, and are thus potentially
+fatal. That's another good reason to use
+<tt class="literal">eval</tt> <tt class="literal">{...}</tt> blocks, as we
+discussed in <a href="ch04_01.htm">Chapter 4, "Programming with the DBI "</a>.</p><blockquote>
+
+
+<a name="FOOTNOTE-55" /><p>[55]Driver-specific
+<a name="INDEX-680" />
+<a name="INDEX-681" />
+<a name="INDEX-682" />attributes,
+e.g., those that start with a lowercase letter, are a special case.
+Any get or set of a driver-specific attribute that hasn't been
+handled by the driver is handled by the DBI without error. That makes
+life easier for driver developers. On the other hand, you need to
+take extra care with the spelling.</p>
+
+
+</blockquote>
+
+
+
+<p>A statement <a name="INDEX-683" />handle is known as a child, or kid, of
+its parent database handle. Similarly, database handles are
+themselves children of their parent driver handle. Child handles
+inherit some attribute values from parent handles. The rules for this
+behavior are defined in a common-sense manner and are as follows:</p>
+
+
+
+<ul><li><p>A statement handle will inherit (copy) the current values of certain
+attributes from its parent database handle.</p></li><li><p>If that new statement handle then has its attribute values altered,
+this affects neither the parent database handle nor any other
+statement handles. The changes are contained entirely within the
+altered statement handle.</p></li><li><p>Changes to attributes within a <a name="INDEX-684" />database handle do not affect any of its
+existing child statement handles. The database handle attribute
+changes only affect future statement handles created from that
+database handle.</p></li></ul>
+<p>The DBI specification in <a href="appa_01.htm">Appendix A, "DBI Specification "</a> should be
+consulted for complete information on which attributes are inherited.</p>
+
+
+
+<a name="ch06-1-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.1.1. Passing Attributes to DBI Methods </h3>
+
+
+
+<p>Handles <a name="INDEX-685" />carry with them their set of current
+attribute values that methods often use to control how they behave.
+Many methods are defined to also accept an optional reference to a
+hash of attribute values.</p>
+
+
+
+<p>This is primarily an escape mechanism for driver developers and their
+users, and so does not always work in the way you might think. For
+example, you might expect this code:</p>
+
+
+
+<blockquote><pre class="code">$dbh-&gt;{RaiseError} = 1;
+...
+$dbh-&gt;do( $sql_statement, undef, { RaiseError =&gt; 0 } ); # WRONG</pre></blockquote>
+
+
+
+<p>to turn off <tt class="literal">RaiseError</tt> for the
+<tt class="literal">do()</tt> method call. But it doesn't! Attribute
+parameters are <em class="emphasis">ignored</em> by the DBI on
+<em class="emphasis">all</em> database handle and statement handle method
+calls. You don't even get a warning that the attribute has been
+ignored.</p>
+
+
+
+<p>If <a name="INDEX-686" /> <a name="INDEX-687" />they're ignored, then
+what's the point in having them? Well, the DBI itself ignores
+them, but the <tt class="literal">DBD</tt> driver that processed the method
+call may not. Or then again, it may! Attribute hash parameters to
+methods are <em class="emphasis">hints</em> to the driver and typically
+only usefully hold driver-specific attributes.<a href="#FOOTNOTE-56">[56]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-56" /><p>[56]It's possible that a future version of the DBI may look
+for certain non-driver-specific attributes, such as
+<tt class="literal">RaiseError</tt>.</p>
+
+
+</blockquote>
+
+
+
+<p>That doesn't apply to the
+<tt class="literal">DBI-</tt>&gt;<tt class="literal">connect()</tt> method call
+because it's not a driver method, it's a DBI method. Its
+attribute hash parameter,
+<tt class="literal">\%attr</tt>
+<a name="INDEX-688" />, <em class="emphasis">is</em> used to set
+the attributes of the newly created database handle. We gave some
+examples using <tt class="literal">RaiseError</tt> in <a href="ch04_01.htm">Chapter 4, "Programming with the DBI "</a>, and we give more in the following section.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch06-2-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.1.2. Connecting with Attributes </h3>
+
+
+
+<p>One of Perl's many catch phrases is
+"<em class="emphasis">there's more than one way to do
+it</em>," and the DBI is no exception. In addition to
+being able to set attributes on a handle by simple assignment and by
+the attribute parameter of the
+<tt class="literal">connect()</tt>
+<a name="INDEX-689" />
+<a name="INDEX-690" />
+<a name="INDEX-691" />
+method (as shown earlier), the DBI provides another way.</p>
+
+
+
+<p>You <a name="INDEX-692" /> <a name="INDEX-693" />can include attribute assignments in the
+data source name parameter of the <tt class="literal">connect()</tt>
+method. For example:</p>
+
+
+
+<blockquote><pre class="code">$dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" , {
+    RaiseError =&gt; 1
+});</pre></blockquote>
+
+
+
+<p>can also be expressed as:</p>
+
+
+
+<blockquote><pre class="code">$dbh = DBI-&gt;connect( "dbi:Oracle(RaiseError=&gt;1):archaeo", '', '');</pre></blockquote>
+
+
+
+<p>You can't have any space before the opening parenthesis or
+after the closing one before the colon, but you can have spaces
+within the parentheses. You can also use just <tt class="literal">=</tt>
+instead of <tt class="literal">=</tt>&gt; if you prefer. If you want to set
+more than one attribute then use a comma to separate each one.</p>
+
+
+
+<p>The attribute settings in the data source name parameter take
+precedence over those in the attribute parameter. This can be very
+handy when you want to override a hardcoded attribute setting, such
+as <tt class="literal">PrintError</tt>. For example, this code will leave
+<tt class="literal">PrintError</tt> on:</p>
+
+
+
+<blockquote><pre class="code">$dbh = DBI-&gt;connect( "dbi:Oracle(PrintError=&gt;1):archaeo", '', '', {
+    PrintError =&gt; 0
+});</pre></blockquote>
+
+
+
+<p>But what's the point of just hardcoding the attribute setting
+in two different places? This example is not very useful as it
+stands, but we could let the application accept the data source name
+parameter from the command line as an option, or leave it empty and
+use the <tt class="literal">DBI_DSN</tt>
+<a name="INDEX-694" /> environment variable. That
+makes the application much more flexible.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch06-3-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.1.3. The Significance of Case </h3>
+
+
+
+<p>You <a name="INDEX-695" />may have
+<a name="INDEX-696" />
+<a name="INDEX-697" />noticed that some attribute names use all
+uppercase letters, like <tt class="literal">NUM_OF_FIELDS</tt>, while
+others use mixed case letters, like <tt class="literal">RaiseError</tt>. If
+you've seen any descriptions of individual database drivers you
+may have also noticed some attribute names that use all lowercase
+letters, like <tt class="literal">ado_conn</tt> and
+<tt class="literal">ora_type</tt>.</p>
+
+
+
+<p>There is a serious method behind the apparently inconsistent madness.
+The letter case used for attribute names is significant and plays an
+important part in the portability of DBI scripts and the
+extensibility of the DBI itself. The letter case of the attribute
+name is used to signify <em class="emphasis">who</em> defined the meaning
+of that name and its values, as follows:</p>
+
+
+
+<dl>
+<dt><b>UPPER_CASE </b></dt>
+<dd><p>Attribute names that use only uppercase letters and underscores are
+defined by external standards, such as ISO SQL or ODBC.</p>
+
+
+
+<p>The statement handle <tt class="literal">TYPE</tt> attribute is a good
+example here. It's an uppercase attribute because the values it
+returns are the standard portable datatype numbers defined by ISO SQL
+and ODBC, and not the nonportable native database datatype numbers.</p></dd>
+
+
+
+<dt><b>MixedCase </b></dt>
+<dd><p>Attribute names that start with an uppercase letter but include
+lowercase letters are defined by the DBI specification.</p></dd>
+
+
+
+<dt><b>lower_case </b></dt>
+<dd><p>Attribute names that start with a lowercase letters are defined by
+individual database drivers. These are known as
+<a name="INDEX-698" />
+<a name="INDEX-699" />driver-specific
+attributes.</p>
+
+
+
+<p>Because the meanings are assigned by driver authors without any
+central control, it's important that two driver authors
+don't pick the same name for attributes with different
+behaviors. To ensure this, driver-specific attributes all begin with
+a <a name="INDEX-700" />prefix
+that identifies the particular driver. For example,
+<tt class="literal">DBD::ADO</tt> attributes all begin with <tt class="literal">ado_
+</tt>, <tt class="literal">DBD::Informix</tt> attributes begin with
+<tt class="literal">ix_</tt>, etc.</p>
+
+
+
+<p>For example, most drivers provide a driver-specific version of the
+statement handle <tt class="literal">TYPE</tt> attribute that returns the
+native database datatype numbers instead of the standard ones.
+<tt class="literal">DBD::Oracle</tt> calls it <tt class="literal">ora_type</tt>,
+<tt class="literal">DBD::Ingres</tt> calls it
+<tt class="literal">ing_ingtype</tt>, and <tt class="literal">DBD::mysql</tt>
+calls it <tt class="literal">mysql_type</tt>. The prefix also makes it
+easier to find driver-specific code in applications when maintaining
+them.</p>
+
+
+
+<p>Driver-specific attributes play an important role in the DBI. They
+are an escape valve. They let drivers expose more of the special
+functionality and information that they have available without having
+to fit it inside the fairly narrow DBI straitjacket.</p></dd>
+
+</dl>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch06-4-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.1.4. Common Attributes </h3>
+
+
+
+<p>Common attributes are those that can be queried and set within both
+database and statement handles. This section discusses some of the
+most commonly used attributes, including:</p>
+
+
+
+<dl>
+<dt><b>PrintError </b></dt>
+<dd><p>The <tt class="literal">PrintError</tt>
+<a name="INDEX-701" /> attribute, when enabled, will cause
+the DBI to issue a warning when a DBI method returns with an error
+status. This functionality is extremely useful for rapid debugging of
+your programs, as you may not have written explicit return value
+checking code after every DBI statement.</p>
+
+
+
+<p>The <a name="INDEX-702" /> <a name="INDEX-703" />printed error string lists the class
+of the database driver through which the DBI method was dispatched,
+the method that caused the error to occur, and the value of
+<tt class="literal">$DBI::errstr</tt>. The following message was generated
+when the <tt class="literal">prepare()</tt> method did not successfully
+execute against an Oracle7 database using the
+<tt class="literal">DBD::Oracle</tt> driver:</p>
+
+
+
+<blockquote><pre class="code">DBD::Oracle::db prepare failed: ORA-00904: 
+   invalid column name (DBD: error possibly near &lt;*&gt; indicator at char 8 in '
+           SELECT &lt;*&gt;nname, location, mapref
+           FROM megaliths
+     ') at /opt/WWW/apache/cgi-bin/megalith/megadump line 79.</pre></blockquote>
+
+
+
+<p><tt class="literal">PrintError</tt> uses the standard Perl function called
+<tt class="literal">warn()</tt>
+<a name="INDEX-704" />
+<a name="INDEX-705" />
+to render the error message. Therefore, you could use a
+<tt class="literal">$SIG{_ _WARN_ _}</tt>
+<a name="INDEX-706" /> error handler or an error
+handling module such as <tt class="literal">CGI::ErrorWrap</tt> to re-route
+the error messages from <tt class="literal">PrintError</tt>.</p>
+
+
+
+<p>This attribute is enabled by default.</p></dd>
+
+
+
+<dt><b>RaiseError </b></dt>
+<dd><p>The <tt class="literal">RaiseError</tt>
+<a name="INDEX-707" /> attribute is similar in style to its
+<tt class="literal">PrintError</tt> cousin, but differs slightly in
+operation. Whereas <tt class="literal">PrintError</tt> simply displayed a
+message when the DBI detected an error had occurred,
+<tt class="literal">RaiseError</tt> usually kills the program stone-dead.</p>
+
+
+
+<p><tt class="literal">RaiseError</tt> uses the standard Perl function
+<tt class="literal">die()</tt>
+<a name="INDEX-708" />
+<a name="INDEX-709" />
+to throw the exception and exit. This means you can use
+<tt class="literal">eval</tt> to catch the exception and deal with it
+yourself.<a href="#FOOTNOTE-57">[57]</a> This is an important and valuable error
+handling strategy for larger applications and is highly recommended
+when using transactions.</p><blockquote>
+
+
+<a name="FOOTNOTE-57" /><p>[57]It also allows you to define a
+<tt class="literal">$SIG{_ _DIE_ _}</tt> handler, which handles the
+<tt class="literal">die()</tt> call instead of the Perl default
+behavior.</p>
+
+
+</blockquote>
+
+
+
+<p>The format of the error message printed by
+<tt class="literal">RaiseError</tt> is identical to that of
+<tt class="literal">PrintError</tt>. If both <tt class="literal">PrintError</tt>
+and <tt class="literal">RaiseError</tt> are defined,
+<tt class="literal">PrintError</tt> will be skipped if no <tt class="literal">$SIG{_
+_DIE_ _}</tt>
+<a name="INDEX-710" /> handler is installed.<a href="#FOOTNOTE-58">[58]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-58" /><p>[58]A
+future release may also skip <tt class="literal">PrintError</tt> if
+<tt class="literal">RaiseError</tt> is set and the current code is
+executing within an <tt class="literal">eval</tt>.</p>
+
+
+</blockquote>
+
+
+
+<p><tt class="literal">RaiseError</tt> is disabled by default.</p></dd>
+
+
+
+<dt><b>ChopBlanks </b></dt>
+<dd><p>This attribute regulates the behavior of the underlying database
+driver regarding the <tt class="literal">CHAR</tt>
+<a name="INDEX-711" /> datatype in fixed-width and
+<a name="INDEX-712" /> <a name="INDEX-713" />blank-padded
+<a name="INDEX-714" />
+<a name="INDEX-715" />character columns. By setting this
+attribute to a true value, any <tt class="literal">CHAR</tt> columns
+returned by a <tt class="literal">SELECT</tt> statement will have any
+trailing blanks chopped off. No other datatypes are affected even
+when trailing blanks are present.</p>
+
+
+
+<p>Setting <tt class="literal">ChopBlanks</tt>
+<a name="INDEX-716" /> usually occurs when you simply want
+to remove trailing spaces from data without having to write some
+explicit truncation code either in the original SQL statement or in
+Perl.</p>
+
+
+
+<p>This can be a very handy mechanism when dealing with old databases
+that tend to use fixed-width, blank-padded <tt class="literal">CHAR</tt>
+types more often than <tt class="literal">VARCHAR</tt> types. The blank
+padding added by the database tends to get in the way.</p>
+
+
+
+<p>This attribute is currently disabled by default.</p></dd>
+
+
+
+<dt><b>LongReadLen and LongTruncOk </b></dt>
+<dd><p>Many <a name="INDEX-717" />databases
+<a name="INDEX-718" />support <a name="INDEX-719" />
+<a name="INDEX-720" />
+<a name="INDEX-721" />BLOB (binary large object),
+<a name="INDEX-722" />
+<a name="INDEX-723" />LONG,
+or similar datatypes for holding very long strings or large amounts
+of binary data in a single field. Some databases support
+variable-length <a name="INDEX-724" /> <a name="INDEX-725" />
+<a name="INDEX-726" />long values over 2,000,000,000 bytes in
+length.</p>
+
+
+
+<p>Since values of that size can't usually be held in memory, and
+because databases can't usually know in advance the length of
+the longest LONG that will be returned from a
+<tt class="literal">SELECT</tt> statement (unlike other datatypes), some
+special handling is required. In this situation, the value of the
+<tt class="literal">LongReadLen</tt> attribute is used to determine how
+much <a name="INDEX-727" />buffer space to allocate when
+fetching such fields.</p>
+
+
+
+<p><tt class="literal">LongReadLen</tt> typically defaults to
+or a small value like 80, which means that little or no LONG data
+will be fetched at all. If you plan to fetch any LONG datatypes, you
+should set <tt class="literal">LongReadLen</tt> within your application to
+slightly more than the length of the longest long column you expect
+to fetch. Setting it too high just wastes memory.<a href="#FOOTNOTE-59">[59]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-59" /><p>[59]Using a value which is a power of two, such as 64 KB, 512 KB, 8
+MB etc., can actually cause twice that amount to be taken on systems
+that have poor memory allocators. That's because a few extra
+bytes are needed for housekeeping information and, because the dumb
+allocator only works with powers of two, it has to double the
+allocation to make room for it.</p>
+
+
+</blockquote>
+
+
+
+<p>The <tt class="literal">LongTruncOk</tt>
+<a name="INDEX-728" />attribute is used to determine how
+to behave if a fetched value turns out to be larger than the buffer
+size defined by <tt class="literal">LongReadLen</tt>. For example, if
+<tt class="literal">LongTruncOk</tt> is set to a true value, (e.g.,
+"truncation is okay") the over-long value will be
+silently truncated to the length specified by
+<tt class="literal">LongReadLen</tt>, without an error.</p>
+
+
+
+<p>On the other hand, if
+<tt class="literal">LongTruncOk</tt>
+<a name="INDEX-729" />
+is false then fetching a LONG data value larger than
+<tt class="literal">LongReadLen</tt> is treated as an error. If
+<tt class="literal">RaiseError</tt> is not enabled then the fetch call
+retrieving the data will appear to <em class="emphasis">fail</em> in the
+usual way, which looks like the end of data has been reached.</p>
+
+
+
+<p><tt class="literal">LongTruncOk</tt> is set to false by default, which
+causes overly long data fetches to fail. Be sure to enable
+<tt class="literal">RaiseError</tt> or check for errors after your fetch
+loops.</p>
+
+
+
+<p>We'll discuss handling LONG data in more detail in later in
+this chapter.</p></dd>
+
+</dl>
+
+
+
+<p>The DBI specification in <a href="appa_01.htm">Appendix A, "DBI Specification "</a> provides a
+complete list of all the common attributes defined within the
+DBI.<a name="INDEX-730" /></p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch06-5-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.1.5. Database Handle Attributes </h3>
+
+
+
+<p>Database <a name="INDEX-731" />handle
+attributes are specific to database handles and are not valid for
+other types of handles. They include:</p>
+
+
+
+<dl>
+<dt><b>AutoCommit </b></dt>
+<dd><p>
+<a name="INDEX-732" />The <tt class="literal">AutoCommit</tt>
+database handle attribute can be used to allow your programs to use
+fine-grained transaction behavior (as opposed to the default
+"commit everything" behavior).</p>
+
+
+
+<p>The functionality of this attribute is closely tied into the way in
+which DBI defines transaction control. Therefore, a complete
+description of this parameter can be found later in this chapter.</p></dd>
+
+
+
+<dt><b>Name </b></dt>
+<dd><p>The <tt class="literal">Name</tt>
+<a name="INDEX-733" /> database handle attribute holds the
+"name" of the database. Usually the same as the
+"<tt class="literal">dbi:DriverName:...</tt>" string used to
+connect to the database, but with the leading
+"<tt class="literal">dbi:DriverName:</tt>" removed.</p></dd>
+
+</dl>
+
+
+
+<p>The DBI Specification in <a href="appa_01.htm">Appendix A, "DBI Specification "</a> provides a
+complete list of all the database handle attributes defined within
+the DBI. We'll discuss statement handle attributes in a moment,
+but first we'll explore database metadata.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch06-6-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.1.6. Database Metadata </h3>
+
+
+
+<p>Database <a name="INDEX-734" />metadata <a name="INDEX-735" />is
+<a name="INDEX-736" />high-level <a name="INDEX-737" />information, or "data
+about data," stored within a database describing that database.
+This information is extremely useful for dynamically building SQL
+statements or even generating dynamic views of the database contents.</p>
+
+
+
+<p>The metadata stored by a database, and the way in which it's
+stored, varies widely between different database systems. Most major
+systems provide a <em class="emphasis">system
+catalog</em>
+<a name="INDEX-738" />
+<a name="INDEX-739" />, consisting of a set of tables and
+views that can be queried to get information about all the entities
+in the database, including tables and views. There are two common
+problems with trying to query the system catalog directly: they can
+be complex and difficult to query, and the queries are not portable
+to other types of database.</p>
+
+
+
+<p>The DBI should provide a range of handy methods to access this
+information in a portable way, and one day it will. However,
+currently it only provides two methods that can be executed against a
+valid <a name="INDEX-740" />
+<a name="INDEX-741" />database handle to extract entity
+metadata from the database.</p>
+
+
+
+<p>The first of these methods is called
+<tt class="literal">tables()</tt>
+<a name="INDEX-742" />
+<a name="INDEX-743" />,
+and simply returns an array containing the names of tables and views
+within the database defined by the relevant database handle. The
+following code illustrates the use of this method:</p>
+
+
+
+<blockquote><pre class="code">### Connect to the database
+my $dbh = DBI-&gt;connect( 'dbi:Oracle:archaeo', 'stones', 'stones' );
+
+### Get a list of tables and views
+my @tables = $dbh-&gt;tables();
+
+### Print 'em out
+foreach my $table ( @tables ) {
+    print "Table: $table\n";
+}</pre></blockquote>
+
+
+
+<p>Connecting to a MySQL database would generate:</p>
+
+
+
+<blockquote><pre class="code">Table: megaliths
+Table: media
+Table: site_types</pre></blockquote>
+
+
+
+<p>However, connecting to an Oracle database would generate:</p>
+
+
+
+<blockquote><pre class="code">Table: STONES.MEGALITHS
+Table: STONES.MEDIA
+Table: STONES.SITE_TYPES</pre></blockquote>
+
+
+
+<p>In both cases, if the database contains other tables, they'd be
+included in the output.</p>
+
+
+
+<p>Oracle stores all names in uppercase by default, so that explains one
+of the differences, but what about the
+"<tt class="literal">STONES.</tt>" that's been prefixed
+to each table name?</p>
+
+
+
+<p>Oracle, like most other big database systems, supports the concept of
+<em class="emphasis">schemas</em>
+<a name="INDEX-744" />
+<a name="INDEX-745" />.
+A schema is a way of grouping together related tables and other
+database objects into a named collection. In Oracle each user gets
+their own schema with the same name as the user. (Not all databases
+that support schemas take this approach.)</p>
+
+
+
+<p>If an Oracle user other than <em class="emphasis">stones</em> wanted to
+refer to the <tt class="literal">media</tt> table then, by default, they
+would need to <em class="emphasis">fully qualify</em> the table name by
+adding the <em class="emphasis">stones</em> schema name, e.g.,
+<tt class="literal">stones.media</tt>. If they didn't then the
+database would think they were refering to a <tt class="literal">media</tt>
+table in their own schema.</p>
+
+
+
+<p>So, the leading <tt class="literal">STONES</tt> in the output is the name
+of the schema that the tables are defined in. Returning the fully
+qualified table names is important because the
+<tt class="literal">tables()</tt> method will return the names of all the
+tables owned by all the users that it can discover.</p>
+
+
+
+<p>The other method used to retrieve database metadata is called
+<tt class="literal">table_info()</tt>
+<a name="INDEX-746" />
+<a name="INDEX-747" />,
+and returns more detailed information about the tables and views
+stored within the database.</p>
+
+
+
+<p>When invoked, <tt class="literal">table_info()</tt> returns a prepared and
+executed statement handle that can be used to fetch information on
+the tables and views in the database. Each row fetched from this
+statement handle contains <em class="emphasis">at least</em> the following
+fields in the order listed:<a href="#FOOTNOTE-60">[60]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-60" /><p>[60]Database drivers are free
+to include additional columns of information in the result
+data.</p>
+
+
+</blockquote>
+
+
+
+<dl>
+<dt><b><em class="replaceable">TABLE_QUALIFIER</em>
+<a name="INDEX-748" /> </b></dt>
+<dd><p>This field contains the table qualifier identifier. In most cases
+this will be <tt class="literal">undef</tt> (NULL).</p></dd>
+
+
+
+<dt><b><em class="replaceable">TABLE_OWNER</em>
+<a name="INDEX-749" /> </b></dt>
+<dd><p>This field contains the name of the owner of the table. If your
+database does not support multiple schema or table owners, this field
+will contain <tt class="literal">undef</tt> (NULL).</p></dd>
+
+
+
+<dt><b><em class="replaceable">TABLE_NAME</em>
+<a name="INDEX-750" /> </b></dt>
+<dd><p>This field contains the name of the table and should
+<em class="emphasis">never</em> be <tt class="literal">undef</tt>.</p></dd>
+
+
+
+<dt><b><em class="replaceable">TABLE_TYPE</em>
+<a name="INDEX-751" /> </b></dt>
+<dd><p>This field contains the ``type'' of entity
+signified by this row. The possible values include
+<tt class="literal">TABLE</tt>, <tt class="literal">VIEW</tt>,
+<tt class="literal">SYSTEM</tt><em class="emphasis">
+</em><tt class="literal">TABLE</tt>,
+<tt class="literal">GLOBAL</tt><em class="emphasis">
+</em><tt class="literal">TEMPORARY</tt>,
+<tt class="literal">LOCAL</tt><em class="emphasis">
+</em><tt class="literal">TEMPORARY</tt>, <tt class="literal">ALIAS</tt>,
+<tt class="literal">SYNONYM</tt>, or some database driver-specific
+identifier.</p></dd>
+
+
+
+<dt><b><em class="replaceable">REMARKS</em>
+<a name="INDEX-752" /> </b></dt>
+<dd><p>This field contains a description or comment about the table. This
+field may be <tt class="literal">undef</tt> (NULL).</p></dd>
+
+</dl>
+
+
+
+<p>Therefore, if we wished to list some basic information on the tables
+contained within the current schema or database, we can write the
+following program that uses <tt class="literal">table_info()</tt> to
+retrieve all the table information, then formats the output:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch06/dbhdump: Dumps information about a SQL statement.
+
+use DBI;
+
+### Connect to the database
+my $dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" , {
+    RaiseError =&gt; 1
+} );
+
+### Create a new statement handle to fetch table information
+my $tabsth = $dbh-&gt;table_info();
+
+### Print the header
+print "Qualifier  Owner     Table Name                       Type   Remarks\n";
+print "=========  ========  ===============================  =====  =======\n\n";
+
+### Iterate through all the tables...
+while ( my ( $qual, $owner, $name, $type, $remarks ) = 
+        $tabsth-&gt;fetchrow_array() ) {
+
+    ### Tidy up NULL fields
+    foreach ($qual, $owner, $name, $type, $remarks) {
+        $_ = "N/A" unless defined $_;
+    }
+    
+    ### Print out the table metadata...
+    printf "%-9s  %-9s %-32s %-6s %s\n", $qual, $owner, $name, $type, $remarks;
+}
+
+exit;</pre></blockquote>
+
+
+
+<p>Running this program against our megalithic database on an Oracle
+database produces the following output:</p>
+
+
+
+<blockquote><pre class="code">Qualifier  Owner     Table Name                       Type   Remarks
+=========  ========  ===============================  =====  =======
+
+N/A        STONES    MEDIA                            TABLE  N/A
+N/A        STONES    MEGALITHS                        TABLE  N/A
+N/A        STONES    SITE_TYPES                       TABLE  N/A</pre></blockquote>
+
+
+
+<p>This form of metadata is not tremendously useful, as it lists only
+metadata about the objects within the database, and not the structure
+of the objects themselves (such as table column names). Extracting
+the structure of each table or view within the database requires us
+to look to a different type of metadata, which is available
+<a name="INDEX-753" />via
+<a name="INDEX-754" />statement <a name="INDEX-755" />handles<a name="INDEX-756" />.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch06-7-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.1.7. Statement Handle Attributes or Statement Metadata </h3>
+
+
+
+<p>Statement <a name="INDEX-757" />handle
+<a name="INDEX-758" />
+<a name="INDEX-759" />attributes are specific to statement
+handles, and inherit any inheritable attributes from their parent
+database handle. Many statement handle attributes are defined as
+being read-only because they simply describe the prepared statement
+or its results.</p>
+
+
+
+<p>In theoretical terms, these attributes should be defined when the
+statement handle is prepared, but in practical terms, you should only
+rely on the attribute values after the statement handle has been both
+prepared <em class="emphasis">and executed</em>. Similarly, with a few
+drivers, fetching all the data from a <tt class="literal">SELECT</tt>
+statement or explicitly invoking the <tt class="literal">finish()</tt>
+method against a statement handle may cause the values of the
+statement handle attributes to be no longer available.</p>
+
+
+
+<p>The DBI specification in <a href="appa_01.htm">Appendix A, "DBI Specification "</a> provides a
+complete list of all the statement handle attributes defined within
+the DBI.</p>
+
+
+
+<dl>
+<dt><b><em class="replaceable">Statement</em> </b></dt>
+<dd><p>
+<a name="INDEX-760" />This <a name="INDEX-761" />attribute contains the
+statement string passed to the <tt class="literal">prepare()</tt> method.</p></dd>
+
+
+
+<dt><b><em class="replaceable">NUM_OF_FIELDS</em> </b></dt>
+<dd><p>
+<a name="INDEX-762" />This attribute is set
+to contain the number of columns that will be returned by a
+<tt class="literal">SELECT</tt> statement. For example:</p>
+
+
+
+<blockquote><pre class="code">$sth = $dbh-&gt;prepare( "
+            SELECT name, location, mapref
+            FROM megaliths
+          " );
+$sth-&gt;execute();
+print "SQL statement contains $sth-&gt;{NUM_OF_FIELDS} columns\n";</pre></blockquote>
+
+
+
+<p>Non-<tt class="literal">SELECT</tt> statements will contain the attribute
+value of zero. This allows you to quickly determine whether or not
+the statement is a <tt class="literal">SELECT</tt> statement.</p></dd>
+
+
+
+<dt><b><em class="replaceable">NAME</em> </b></dt>
+<dt><b><em class="replaceable">NAME_uc</em> </b></dt>
+<dt><b><em class="replaceable">NAME_lc</em> </b></dt>
+<dd><p>The <tt class="literal">NAME</tt>
+<a name="INDEX-763" /> <a name="INDEX-764" />attribute
+<a name="INDEX-765" />contains the names of the selected
+columns within the statement. The attribute value is actually a
+reference to an array, with length equal to the number of fields in
+the original statement.</p>
+
+
+
+<p>For example, you can list all the column names of a table like this:</p>
+
+
+
+<blockquote><pre class="code">$sth = $dbh-&gt;prepare( "SELECT * FROM megaliths" );
+$sth-&gt;execute();
+for ( $i = 1 ; $i &lt;= $sth-&gt;{NUM_OF_FIELDS} ; $i++ ) {
+    print "Column $i is called $sth-&gt;{NAME}-&gt;[$i-1]\n";
+}</pre></blockquote>
+
+
+
+<p>The names contained within the attribute array are the column names
+returned by the underlying database.</p>
+
+
+
+<p>There are two additional attributes relating to the column names.
+<tt class="literal">NAME_uc</tt> contains the same column names as the
+<tt class="literal">NAME</tt> attribute, but with any lowercase characters
+converted to uppercase. Similarly the <tt class="literal">NAME_lc</tt>
+attribute has any uppercase characters converted to lowercase.
+Generally these attributes should be used in preference to
+<tt class="literal">NAME</tt>.</p></dd>
+
+
+
+<dt><b><em class="replaceable">TYPE</em> </b></dt>
+<dd><p>The <tt class="literal">TYPE</tt>
+<a name="INDEX-766" /> attribute contains a reference to an
+array of integer values representing the international standard
+values for the respective datatypes. The array of integers has a
+length equal to the number of columns selected within the original
+statement, and can be referenced in a similar way to the
+<tt class="literal">NAME</tt> attribute example shown earlier.</p>
+
+
+
+<p>The standard values for common types are:</p>
+
+
+
+<blockquote><pre class="code">SQL_CHAR             1
+SQL_NUMERIC          2
+SQL_DECIMAL          3
+SQL_INTEGER          4
+SQL_SMALLINT         5
+SQL_FLOAT            6
+SQL_REAL             7
+SQL_DOUBLE           8
+SQL_DATE             9
+SQL_TIME            10
+SQL_TIMESTAMP       11
+SQL_VARCHAR         12
+SQL_LONGVARCHAR     -1
+SQL_BINARY          -2
+SQL_VARBINARY       -3
+SQL_LONGVARBINARY   -4
+SQL_BIGINT          -5
+SQL_TINYINT         -6
+SQL_BIT             -7
+SQL_WCHAR           -8
+SQL_WVARCHAR        -9
+SQL_WLONGVARCHAR   -10</pre></blockquote>
+
+
+
+<p>While these numbers are fairly standard,<a href="#FOOTNOTE-61">[61]</a> the way drivers map their
+native types to these standard types varies greatly. Native types
+that don't correspond well to one of these types may be mapped
+into the range officially reserved for use by the Perl DBI: -9999 to
+-9000.</p><blockquote>
+
+
+<a name="FOOTNOTE-61" /><p>[61]Some are ISO
+standard, others are Microsoft ODBC de facto standard. See
+<a href="ftp://jerry.ece.umassd.edu/isowg3/dbl/SQL_Registry">ftp://jerry.ece.umassd.edu/isowg3/dbl/SQL_Registry</a>
+and search for "SQL Data Types," or the types names of
+interest, on <a href="http://search.microsoft.com/us/dev/">http://search.microsoft.com/us/dev/</a> and
+browse the results.</p>
+
+
+</blockquote></dd>
+
+
+
+<dt><b><em class="replaceable">PRECISION</em> </b></dt>
+<dd><p>The <tt class="literal">PRECISION</tt>
+<a name="INDEX-767" /> attribute contains a
+reference to an array of integer values that represent the defined
+length or size of the columns in the SQL statement.</p>
+
+
+
+<p>There are two general ways in which the precision of a column is
+calculated. String datatypes, such as
+<tt class="literal">CHAR</tt>
+<a name="INDEX-768" /> <a name="INDEX-769" /> and <tt class="literal">VARCHAR</tt>, return
+the maximum length of the column. For example, a column defined
+within a table as:</p>
+
+
+
+<blockquote><pre class="code">location        VARCHAR2(1000)</pre></blockquote>
+
+
+
+<p>would return a precision value of 1000.</p>
+
+
+
+<p>Numeric datatypes are treated slightly differently in that the number
+of <em class="emphasis">significant
+digits</em>
+<a name="INDEX-770" /> is returned. This may have no direct
+relationship with the space used to store the number. Oracle, for
+example, stores numbers with 38 digits of precision but uses a
+variable length internal format of between 1 and 21 bytes.</p>
+
+
+
+<p>For floating-point types such as <tt class="literal">REAL</tt>,
+<tt class="literal">FLOAT</tt>, and <tt class="literal">DOUBLE</tt>, the maximum
+``display size'' can be up to seven
+characters greater than the precision due to concatenated sign,
+decimal point, the letter ``E,'' a sign, and
+two or three exponent digits.</p></dd>
+
+
+
+<dt><b><em class="replaceable">SCALE</em> </b></dt>
+<dd><p>The <tt class="literal">SCALE</tt>
+<a name="INDEX-771" /> attribute contains a reference
+to an array of integer values that represents the number of decimal
+places in the column. This is obviously only of any real use with
+floating-point numbers. Integers and non-numeric datatypes will
+return zero.</p></dd>
+
+
+
+<dt><b><em class="replaceable">NULLABLE</em> </b></dt>
+<dd><p>The <tt class="literal">NULLABLE</tt>
+<a name="INDEX-772" /> attribute contains a reference
+to an array of integer values that tells us whether or not a column
+may contain a NULL value. The elements of the attribute array each
+contain one of three values:</p></dd>
+
+</dl>
+
+
+<dl>
+<dt><b>0</b></dt>
+<dd><p>The column cannot contain a NULL value.</p></dd>
+
+
+
+<dt><b>1</b></dt>
+<dd><p>The column can contain a NULL value.</p></dd>
+
+
+
+<dt><b>2</b></dt>
+<dd><p>It is unknown if the column can contain a null value.</p></dd>
+
+</dl>
+
+
+
+<dl>
+<dt><b><em class="replaceable">NUM_OF_PARAMS</em> </b></dt>
+<dd><p>The <tt class="literal">NUM_OF_PARAMS</tt>
+<a name="INDEX-773" /> attribute contains
+the number of parameters (placeholders) specified within the
+statement.</p></dd>
+
+</dl>
+
+
+
+<p>Common uses for these statement handle attributes are to format and
+display data fetched from queries dynamically and to
+<a name="INDEX-774" />
+<a name="INDEX-775" />find out information about the tables
+stored within the database.<a name="INDEX-776" /></p>
+
+
+
+<p>The following script performs the latter operation by first
+creating a statement handle that fetches information on all tables, as
+discussed earlier in <a href="ch06_01.htm#ch06-6-fm2xml">Section 6.1.6, "Database Metadata "</a>, and then
+iterating through each table listing the table structure via the
+statement metadata:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch06/tabledump: Dumps information about all the tables.
+
+use DBI;
+
+### Connect to the database
+my $dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" , {
+    RaiseError =&gt; 1
+});
+
+### Create a new statement handle to fetch table information
+my $tabsth = $dbh-&gt;table_info();
+
+### Iterate through all the tables...
+while ( my ( $qual, $owner, $name, $type ) = $tabsth-&gt;fetchrow_array() ) {
+
+    ### The table to fetch data for
+    my $table = $name;
+    
+    ### Build the full table name with quoting if required
+    $table = qq{"$owner"."$table"} if defined $owner;
+    
+    ### The SQL statement to fetch the table metadata
+    my $statement = "SELECT * FROM $table";
+    
+    print "\n";
+    print "Table Information\n";
+    print "=================\n\n";
+    print "Statement:     $statement\n";
+    
+    ### Prepare and execute the SQL statement
+    my $sth = $dbh-&gt;prepare( $statement );
+    $sth-&gt;execute();
+    
+    my $fields = $sth-&gt;{NUM_OF_FIELDS};
+    print "NUM_OF_FIELDS: $fields\n\n";
+    
+    print "Column Name                     Type  Precision  Scale  Nullable?\n";
+    print "------------------------------  ----  ---------  -----  ---------\n\n";
+    
+    ### Iterate through all the fields and dump the field information
+    for ( my $i = 0 ; $i &lt; $fields ; $i++ ) {
+    
+        my $name = $sth-&gt;{NAME}-&gt;[$i];
+    
+        ### Describe the NULLABLE value
+        my $nullable = ("No", "Yes", "Unknown")[ $sth-&gt;{NULLABLE}-&gt;[$i] ];
+        ### Tidy the other values, which some drivers don't provide
+        my $scale = $sth-&gt;{SCALE}-&gt;[$i];
+        my $prec  = $sth-&gt;{PRECISION}-&gt;[$i];
+        my $type  = $sth-&gt;{TYPE}-&gt;[$i];
+    
+        ### Display the field information
+        printf "%-30s %5d      %4d   %4d   %s\n",
+                $name, $type, $prec, $scale, $nullable;
+    }
+    
+    ### Explicitly deallocate the statement resources
+    ### because we didn't fetch all the data
+    $sth-&gt;finish();
+}
+
+exit;</pre></blockquote>
+
+
+
+<p>When executed against our megalithic database, the following output
+is displayed:</p>
+
+
+
+<blockquote><pre class="code">Table Information
+=================
+
+Statement: SELECT * FROM STONES.MEDIA
+NUM_OF_FIELDS: 5
+
+Column Name                     Type  Precision  Scale  Nullable?
+------------------------------  ----  ---------  -----  ---------
+
+ID                                 3         38      0  No
+MEGALITH_ID                        3         38      0  Yes
+URL                               12       1024      0  Yes
+CONTENT_TYPE                      12         64      0  Yes
+DESCRIPTION                       12       1024      0  Yes
+
+Table Information
+=================
+
+Statement: SELECT * FROM STONES.MEGALITHS
+NUM_OF_FIELDS: 6
+
+Column Name                     Type  Precision  Scale  Nullable?
+------------------------------  ----  ---------  -----  ---------
+
+ID                                 3         38      0  No
+NAME                              12        512      0  Yes
+DESCRIPTION                       12       2048      0  Yes
+LOCATION                          12       2048      0  Yes
+MAPREF                            12         16      0  Yes
+SITE_TYPE_ID                       3         38      0  Yes
+
+Table Information
+=================
+
+Statement: SELECT * FROM STONES.SITE_TYPES
+NUM_OF_FIELDS: 3
+Column Name                     Type  Precision  Scale  Nullable?
+------------------------------  ----  ---------  -----  ---------
+
+ID                                 3         38      0  No
+SITE_TYPE                         12        512      0  Yes
+DESCRIPTION                       12       2048      0  Yes</pre></blockquote>
+
+
+
+<p>This output shows the structural information of entities within our
+database. We could have achieved the same effect by querying our
+database's underlying system tables. This would give us more
+information, but would not be <a name="INDEX-777" /> <a name="INDEX-778" />portable.<a name="INDEX-779" /></p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch06_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">5.6. Atomic and Batch Fetching </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">6.2. Handling LONG/LOB Data </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

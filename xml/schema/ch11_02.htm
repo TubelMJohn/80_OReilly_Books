@@ -1,0 +1,376 @@
+<html><head><title>Defining Element Types (XML Schema)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric van der Vlist" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002521L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XML Schema" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XML Schema" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch11_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">11.2. Defining Element Types</h2>
+
+<p>The <a name="INDEX-871" />next hint
+we can give to a schema processor helps it to determine the simple or
+complex type of an element. A <a name="INDEX-872" />schema validator usually guesses the
+type of an element from its name and the description of the content
+model of its parent. This guess can be overridden by the author of an
+instance document through the <tt class="literal">xsi:type</tt><a name="INDEX-873" /> <a name="INDEX-874" /> attribute, as long as this new type is a
+derivation by restriction or extension of the type defined in the
+schema document. Since this type is defined using an attribute in the
+instance document, the definition is possible only for elements.
+(Attributes can't have attributes!)
+</p>
+
+<p>At this point, the question is "why would we want to
+define a type in the instance document?". The answer
+is somewhat different for simple and complex types, as well as
+whether we are interested in a schema for validation purposes only or
+for data binding.
+</p>
+
+<a name="xmlschema-CHP-11-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">11.2.1. Defining Simple Types</h3>
+
+<p>An <a name="INDEX-875" />element
+<a name="INDEX-876" />(or attribute) can belong to several
+different simple types and a derivation by union is generally a good
+way to let a schema validator pick the right type without having to
+use <tt class="literal">xsi:type</tt>. We can go quite far in this
+direction. To illustrate this, now that we've seen
+both the principles of the <a name="INDEX-877" />
+<a name="INDEX-878" />derivation by union and the patterns,
+let's define a union type that can accept ISO 8601
+dates, common English ("April 2nd,
+1998"), and French ("2 avril
+1998") formats. We can start by defining a ISO date
+without a time zone as discussed in <a href="ch04_01.htm">Chapter 4, "Using Predefined Simple Datatypes"</a>:
+</p>
+
+<blockquote><pre class="code">&lt;xs:simpleType name="dateISO"&gt;
+  &lt;xs:restriction base="xs:date"&gt;
+    &lt;xs:pattern value="[^:Z]*"/&gt;
+  &lt;/xs:restriction&gt;
+&lt;/xs:simpleType&gt;</pre></blockquote>
+
+<p>The English format can be described using different patterns for the
+months that have 31, 30, and 28 days (we do not cover leap years in
+this example). The following definition should give a fairly good
+approximation for years after AD with a maximum of four digits (the
+lines are split for readability but the patterns are on a single
+line):
+</p>
+
+<blockquote><pre class="code">&lt;xs:simpleType name="EnglishDate"&gt;
+  &lt;xs:restriction base="xs:token"&gt; 
+    &lt;xs:pattern
+      value="(January|March|May|July|August|October|December)
+      ([1-3]?1st|[12]?2nd|[12]?3rd|(30|[12]?[4-9])th),[0-9]{0,4}"/&gt; 
+    &lt;xs:pattern value="February
+      ([1-2]?1st|[12]?2nd|[12]?3rd|[12]?[4-9]th),[0-9]{0,4}"/&gt; 
+    &lt;xs:pattern value="(April|June|September|November)
+      ([1-2]?1st|[12]?2nd|[12]?3rd|(30|[12]?[4-9])th),[0-9]{0,4}"/&gt;
+  &lt;/xs:restriction&gt;
+&lt;/xs:simpleType&gt;</pre></blockquote>
+
+<p>After the English format, the French one looks simple! The same
+principle can be applied (line breaks have been added to the patterns
+for readability):
+</p>
+
+<blockquote><pre class="code">&lt;xs:simpleType name="dateFran&#xE7;aise"&gt;
+  &lt;xs:restrictionbase="xs:token"&gt;
+    &lt;xs:pattern value="(ler|[1-3][01]|[12]?[2-9])
+        (janvier|mars|mai|juillet|aout|octobre|d&#xE9;cembre)\d{0,4}"/&gt;
+    &lt;xs:pattern value="(ler|[12][01]|[12]?[2-9]) f&#xE9;vrier \d{0,4}"/&gt;
+    &lt;xs:pattern value="(ler|[12][01]|[12]?[2-9]|30)
+        (avril|juin|septembre|novembre)\d{0,4}"/&gt;
+  &lt;xs:restriction&gt;
+&lt;/xs:simpleType&gt;</pre></blockquote>
+
+<p>The last step is to derive our type by union as follows:</p>
+
+<blockquote><pre class="code">&lt;xs:simpleType name="anydate"&gt;
+  &lt;xs:union memberTypes="dateISO EnglishDate dateFran&#xE7;aise"/&gt;
+&lt;/xs:simpleType&gt;</pre></blockquote>
+
+<p>We now have a simple type that will accept three different date
+formats. A schema processor should not only validate these three
+formats, but it should also mention which type it has recognized in
+the <a name="INDEX-879" />PSVI. We've achieved
+this without adding anything in the instance document. Why do we want
+to give the information in the instance document, then? There are a
+couple of reasons for this. The first is that we want to convey the
+information to an application that is not able to get it from the
+PSVI. This is often the case with current tools, since there is no
+specification of the interface that will allow an application to read
+the PSVI. This reason does not apply if we are interested only in
+validation, but may be important if we want to avoid making
+applications that manipulate our instance documents check which
+format they get.
+</p>
+
+<p>The second reason isn't shown in the previous
+example. Because the lexical spaces of the different member types
+have no overlap, there is no confusion possible. This is not always
+the case. We may want to override the choice made by the schema
+validator, or even to use a generic
+"universal" type in the schema and
+rely on the instance documents to define which type is used. One type
+of application that is a good prospect for this scenario is protocol
+or binding applications for which XML is only a transient
+serialization format. These applications often need to define generic
+elements that can be used to hold parameters of any type.
+</p>
+
+<p>For instance, a schema-based <a name="INDEX-880" />XML-RPC can be defined by the
+first example of the XML-RPC specification:
+</p>
+
+<blockquote><pre class="code">&lt;methodCall&gt;
+  &lt;methodName&gt;
+    examples.getStateName
+  &lt;/methodName&gt;
+  &lt;params&gt;
+    &lt;param&gt;
+      &lt;value&gt;
+        &lt;i4&gt;
+          41
+        &lt;/i4&gt;
+      &lt;/value&gt;
+    &lt;/param&gt;
+  &lt;/params&gt;
+&lt;/methodCall&gt;</pre></blockquote>
+
+<p>In an imaginary W3C XML Schema-aware version of XML-RPC, this could
+be replaced by:
+</p>
+
+<blockquote><pre class="code">&lt;methodCall xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;
+  &lt;methodName&gt;
+    examples.getStateName
+  &lt;/methodName&gt;
+  &lt;params&gt;
+    &lt;param&gt;
+      &lt;value xsi:type="xs:int"&gt;
+        41
+      &lt;/value&gt;
+    &lt;/param&gt;
+  &lt;/params&gt;
+&lt;/methodCall&gt;</pre></blockquote>
+
+
+
+<a name="ch11-5-fm2xml" /><blockquote><b>TIP:</b> 
+Without imposing such usage, SOAP allows this practice in the case of
+"<a name="INDEX-881" /> <a name="INDEX-882" />Polymorphic
+Accessor." The W3C Working Draft of 2 October 2001
+mentions this:
+</p>
+
+<p>Many languages allow accessors that can polymorphically access values
+of several types, each type being available at run time. A
+polymorphic accessor instance MUST contain an
+<tt class="literal">xsi:type</tt> attribute that describes the type of the
+actual value. For example, a polymorphic accessor named
+"cost" with a value of type
+<tt class="literal"><a href="ch16_01.htm#ch16-77061">xs:float</a></tt> would be encoded as
+follows:
+</p>
+
+<a name="INDEX-883" /><a name="INDEX-884" /><blockquote><pre class="code">&lt;cost xsi:type="xs:float"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"&gt;
+  29.95
+&lt;/cost&gt;</pre></blockquote>
+</blockquote>
+
+</div>
+<a name="xmlschema-CHP-11-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">11.2.2. Defining Complex Types</h3>
+
+<p>Although <a name="INDEX-885" />the
+<a name="INDEX-886" />mechanism to forcibly identify a complex
+type in an instance document is similar to the one we saw for simple
+types, the motivations for using it can be completely different. If
+it is still possible to use this feature in case of a polymorphic
+accessor, to use the terminology taken by the W3C Protocols WG, this
+is probably a relatively marginal use case for complex types that do
+not have extension by union. The equivalent to the simple type
+derivation by union for complex types would be the ability to define
+several content models for a same element and to let the schema
+processor try all these content models and keep the first one that
+matches the fragment of the instance document. This would indeed be a
+nice feature, but this is exactly what the
+<a name="INDEX-887" />Consistent Declaration and
+<a name="INDEX-888" />Unique Particle Attribution rules
+explicitly forbid. Therefore, <tt class="literal">xsi:type</tt> for complex
+types has no competition in the schema itself and is often used as a
+workaround against these rules.
+</p>
+
+<p>Another way to understand this is to consider this feature a hint
+given to the schema processor that will allow it to disambiguate the
+choice it could have and avoid violating one of these rules. A
+typical use is to work around the Unique Particle Attribution rule to
+allow two different <a name="INDEX-889" />content models for the same element.
+We have seen in <a href="ch09_01.htm">Chapter 9, "Defining Uniqueness, Keys, and Key References"</a> that
+<tt class="literal">xs:key</tt> might be used to allow our title to be
+expressed either as an attribute or as an element, but this
+workaround doesn't help if we want to allow more
+complex combinations, such as either a title expressed as an
+attribute or one or more titles expressed as elements:
+</p>
+
+<blockquote><pre class="code">&lt;book id="b0836217462" available="true" title="Being a Dog Is a
+  Full-TimeJob"&gt;
+  .../...
+&lt;/book&gt;</pre></blockquote>
+
+<p>or:</p>
+
+<blockquote><pre class="code">&lt;book id="b0836217462" available="true" type="bookTitleElements"&gt;
+  &lt;isbn&gt;
+    0836217462
+  &lt;/isbn&gt;
+  &lt;title lang="en"&gt;
+    Being a Dog Is a Full-Time Job
+  &lt;/title&gt;
+  &lt;title lang="fr"&gt;
+    Etre un chien est un travail &#xE0; plein temps.
+  &lt;/title&gt;
+  .../...
+&lt;/book&gt;</pre></blockquote>
+
+<p>To do so, we will define a base type that is a superset of both
+content models:
+</p>
+
+<blockquote><pre class="code">&lt;xs:complexType name="bookBase"&gt;
+  &lt;xs:sequence&gt;
+    &lt;xs:element ref="isbn"/&gt;
+    &lt;xs:element ref="title" minOccurs="0" maxOccurs="unbounded"/&gt;
+    &lt;xs:element ref="author" minOccurs="0" maxOccurs="unbounded"/&gt;
+    &lt;xs:element ref="character" minOccurs="0" maxOccurs="unbounded"/&gt;
+  &lt;/xs:sequence&gt;
+  &lt;xs:attribute ref="id"/&gt;
+  &lt;xs:attribute ref="title"/&gt;
+  &lt;xs:attribute ref="available"/&gt;
+&lt;/xs:complexType&gt;</pre></blockquote>
+
+<p>This base type accepts book elements with optional titles defined as
+attributes or elements. We can <a name="INDEX-890" /> <a name="INDEX-891" />derive
+by restriction a first type which will accept only title attributes:
+</p>
+
+<blockquote><pre class="code">&lt;xs:complexType name="bookTitleAttribute"&gt;
+  &lt;xs:complexContent&gt;
+    &lt;xs:restriction base="bookBase"&gt;
+      &lt;xs:sequence&gt;
+        &lt;xs:element ref="isbn"/&gt; 
+        &lt;xs:element ref="author" minOccurs="0"
+          maxOccurs="unbounded"/&gt; 
+        &lt;xs:element ref="character" minOccurs="0"
+          maxOccurs="unbounded"/&gt;
+      &lt;/xs:sequence&gt;
+    &lt;/xs:restriction&gt;
+  &lt;/xs:complexContent&gt;
+&lt;/xs:complexType&gt;</pre></blockquote>
+
+<p>We can derive a second type that accepts only titles defined as one
+or more title elements:
+</p>
+
+<blockquote><pre class="code">&lt;xs:complexType name="bookTitleElements"&gt;
+  &lt;xs:complexContent&gt;
+    &lt;xs:restriction base="bookBase"&gt;
+      &lt;xs:sequence&gt;
+        &lt;xs:element ref="isbn"/&gt;
+        &lt;xs:element ref="title" minOccurs="1" maxOccurs="unbounded"/&gt; 
+        &lt;xs:element ref="author" minOccurs="0"
+          maxOccurs="unbounded"/&gt; 
+        &lt;xs:element ref="character" minOccurs="0"
+          maxOccurs="unbounded"/&gt;
+      &lt;/xs:sequence&gt;
+      &lt;xs:attribute ref="title" use="prohibited"/&gt;
+    &lt;/xs:restriction&gt;
+  &lt;/xs:complexContent&gt;
+&lt;/xs:complexType&gt;</pre></blockquote>
+
+<p>Now that we have all our building blocks, we can use them in the
+schema to define the book element as having a type
+<tt class="literal">bookBase</tt>:
+</p>
+
+<blockquote><pre class="code">&lt;xs:element name="book" type="bookBase"/&gt;</pre></blockquote>
+
+<p>Then we can use them in the instance documents to declare which
+derived type we are using:
+</p>
+
+<blockquote><pre class="code">&lt;book id="b0836217462" available="true" xsi:type="bookTitleElements"&gt;
+  &lt;isbn&gt;
+    0836217462
+  &lt;/isbn&gt;
+  &lt;title lang="en"&gt;
+    Being a Dog Is a Full-Time Job
+  &lt;/title&gt;
+  &lt;title lang="fr"&gt;
+    Etre un chien est un travail &#xE0; plein temps.
+  &lt;/title&gt;
+  .../...
+&lt;/book&gt;</pre></blockquote>
+
+<p>or:</p>
+
+<blockquote><pre class="code">&lt;book id="b0836217462" available="true" title="Being a Dog Is a
+  Full-TimeJob" xsi:type="bookTitleAttribute"&gt;
+  .../...
+&lt;/book&gt;</pre></blockquote>
+
+<p>However, this allows instance documents to use the base type, which
+may not be something we want, since we can have either no title at
+all or an attribute and one or more elements (something we want to
+avoid). We can forbid the use of the base type by defining it as
+"abstract." Setting this attribute
+of the complex type definition blocks instance documents from using
+it. They will have to specify one of its derived types through a
+<tt class="literal">xsi:type</tt> attribute.
+</p>
+
+<p>The feature of the
+<tt class="literal">abstract</tt><a name="INDEX-892" /> attribute is symmetrical to the
+<tt class="literal">block</tt><a name="INDEX-893" /> attribute we have already seen. While
+the <tt class="literal">block</tt> attribute was prevented from further
+derivation, <tt class="literal">abstract</tt> requires a derivation. The
+final definition of our base complex type is then:
+</p>
+
+<a name="INDEX-894" /><a name="INDEX-895" /><a name="INDEX-896" /><a name="INDEX-897" /><a name="INDEX-898" /><blockquote><pre class="code">&lt;xs:complexType name="bookBase" abstract="true"&gt;
+  &lt;xs:sequence&gt;
+    &lt;xs:element ref="isbn"/&gt;
+    &lt;xs:element ref="title" minOccurs="0" maxOccurs="unbounded"/&gt;
+    &lt;xs:element ref="author" minOccurs="0" maxOccurs="unbounded"/&gt;
+    &lt;xs:element ref="character" minOccurs="0" maxOccurs="unbounded"/&gt;
+  &lt;/xs:sequence&gt;
+  &lt;xs:attribute ref="id"/&gt;
+  &lt;xs:attribute ref="title"/&gt;
+  &lt;xs:attribute ref="available"/&gt;
+&lt;/xs:complexType&gt;</pre></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch11_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">11. Referencing Schemas and Schema Datatypes in XML Documents</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">11.3. Defining Nil (Null) Values</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

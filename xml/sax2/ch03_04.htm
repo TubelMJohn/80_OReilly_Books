@@ -1,0 +1,253 @@
+<html><head><title>The EntityResolver Interface (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch03_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+	<h2 class="sect1">3.4. The EntityResolver Interface</h2>
+
+	<p>
+<a name="INDEX-441" />
+        As mentioned earlier, this interface is used when a parser
+	needs to access and parse external entities in the DTD or
+	document content.
+	It is not used to access the document entity itself.
+	Cases where an <em class="emphasis">EntityResolver</em> should be used include:
+	</p>
+
+	<ul>
+
+	    <li><p>When "more local" copies of entity
+	    data should be used. Such copies might be from a local filesystem
+	    or from a smart caching proxy. A normal web server may be
+	    unavailable or may only be accessible through a slow
+	    or congested network link; such remote access can cause
+	    application slowdowns and failures.
+	    This is generically called catalog or cache processing.
+	    </p></li>
+
+	    <li><p>
+<a name="INDEX-442" />
+<a name="INDEX-443" />
+            When the entity's
+	    <em class="replaceable">systemId</em> uses a URI scheme that is not
+	    understood by the underlying JVM. Built-in schemes usually
+	    include <em class="emphasis">http://</em>, <em class="emphasis">file://</em>,
+	    <em class="emphasis">ftp://</em>,
+	    and increasingly <em class="emphasis">https://</em>.
+	    Schemes not supported by the JVM include
+	    <em class="emphasis">urn:</em> and application-specific schemes. (You may need to put such URI schemes into publicID values, in order to prevent problems resolving relative URIs.)
+	    </p></li>
+
+	    <li><p>When entities need to be constructed
+	    dynamically, or not through the standard URI resolution
+	    scheme. For example, entity text might be the result of
+	    a query through some user interface or another computation.
+	    </p></li>
+
+	    <li><p>When the XML source text doesn't provide
+	    usable URIs. SGML-style systems sometimes use system 
+	    identifiers that aren't really URIs; they might be relative
+	    to some base URI <?troff .ne 10?>other than the base URI of the appropriate
+	    entity (document or DTD).
+	    Avoid this practice for XML-based systems; it's not very
+	    interoperable because most XML processors
+	    strongly expect system IDs in XML documents to be valid URIs,
+	    relative to the actual base URI of their declaration.
+	    </p></li>
+
+	</ul>
+
+	<p>
+<a name="INDEX-444" />
+        Applications that handle documents with DTDs should
+	plan to use an <em class="emphasis">EntityResolver</em> so they
+	work robustly in the face of partial network failures,
+	and so they avoid placing excessive loads on remote servers.
+	That is, they should try to access local copies of DTD data
+	even when the document specifies a remote one.
+	There are many examples of sloppily written applications
+	that broke when a remote system administrator moved a DTD
+	file. Examples range from purely informative services like most
+	RSS feeds to fee-based services like some news syndication
+	protocols.
+	</p>
+
+	<p>You can implement a useful resolver with a data structure as
+	simple as a hash table that maps identifiers to URIs.
+	There is normally no reason to have different parsers
+	use different entity resolvers; documents shouldn't use the
+	same public or (absolute) system identifiers to denote different
+	entities. You'll normally just have one resolver, and
+	it could adaptively cache entities if you like.
+	</p>
+
+	<p>
+<a name="INDEX-445" />
+<a name="INDEX-446" />
+<a name="INDEX-447" />
+        More complex catalog facilities may be used by applications
+	that follow the SGML convention that public identifiers are
+	Formal Public Identifiers (FPIs). FPIs serve the role
+	that Universal Resource Names (URNs) serve
+	for Internet-oriented systems.
+	Such mappings can also be used with URIs, if the entity text
+	associated with URIs is as stable as an FPI.
+	(Such stability is one of the goals of URNs.)
+	</p>
+
+	<p>
+<a name="INDEX-448" />
+<a name="INDEX-449" />
+<a name="INDEX-450" />
+        Applications pass objects that implement the
+	<em class="emphasis">EntityResolver</em> interface to the
+	<tt class="literal">XMLReader.setEntityResolver()</tt> method.
+	The parser will then use the resolver with all external
+	parsed entities.
+	The
+	<em class="emphasis">EntityResolver</em> interface has only one method, which can throw a <em class="emphasis">java.io.IOException</em> as well as the <em class="emphasis">org.xml.sax.SAXException</em> most other callbacks throw.
+	</p>
+
+	<dl>
+
+	    <dt><b>
+		<tt class="literal">InputSource resolveEntity(String publicId,
+			String systemId)</tt>
+		</b></dt>
+
+	    <dd><p>
+<a name="INDEX-451" />
+            Parsers invoke this method to map
+	    entity identifiers either to other identifiers or to data
+	    that they will parse.
+	    See the discussion in <a href="ch03_01.htm#sax2-CHP-3-SECT-1.2">Section 3.1.2, "The InputSource Class"</a>, earlier in this chapter, for information about how the
+	    <em class="emphasis">InputSource</em> interface is used.
+	    If null is returned, then the
+	    parser will resolve the <em class="replaceable">systemId</em>
+	    without additional assistance.
+	    To avoid parsing an entity, return a value that
+	    encapsulates a zero-length text entity.
+	    </p>
+	    
+	    <p>The <em class="replaceable">systemId</em> will always
+	    be present and will be a fully resolved URI.
+	    The <em class="replaceable">publicId</em> may be
+	    null. If it's not null, it will have been normalized by
+	    mapping sequences of consecutive whitespace characters
+	    to a single space character.
+	    </p></dd>
+
+	</dl>
+
+	<p><a href="ch03_04.htm#sax2-CHP-3-EX-3">Example 3-3</a>
+	is an example of a simple resolver that substitutes
+	for a web-based time service running on the local machine by
+	interpreting a private URI scheme and
+	mapping public identifiers to alternative URIs using a dictionary
+	that's externally maintained somehow. (For example, you might prime a hashtable with the public IDs for the XHTML 1.0, XHMTL 1.1, and DocBook 4.0 XML DTDs to point to local files.) It delegates to another resolver for other cases.</p>
+
+	<a name="sax2-CHP-3-EX-3" /><div class="example">
+	    <h4 class="objtitle">Example 3-3. Entity resolver, with chaining</h4>
+
+	    <blockquote><pre class="code">public class MyResolver implements EntityResolver
+{
+    private EntityResolver next;
+    private Dictionary     map;
+
+    // n -- optional resolver to consult on failure 
+    // m -- mapping public ids to preferred URLs
+    public MyResolver (EntityResolver n, Dictionary m)
+	{ next = n; map = m; }
+
+    InputSource resolveEntity (String publicId, String systemId)
+    throws SAXException, IOException
+    {
+	// magic URL?
+	if ("http://localhost/xml/date".equals (systemId)) {
+	    InputSource	  retval = new InputSource (systemId);
+	    Reader 	  date;
+
+	    date = new InputStringReader (new Date().toString ());
+	    retval.setCharacterStream (date);
+	    return retval;
+	}
+
+	// nonstandard URI scheme?
+	if (systemId.startsWith ("blob:") {
+	    InputSource   retval = new InputSource (systemId);
+	    String        key = systemId.substring (5);
+	    byte          data [] = Storage.keyToBlob (key);
+
+	    retval.setInputSource (new ByteArrayInputStream (data));
+	    return retval;
+	}
+
+	// use table to map public id to local URL?
+	if (map != null &amp;&amp; publicId != null) {
+	    String url = (String) map.get (publicId);
+	    if (url != null)
+		return new InputSource (url);
+	}
+
+	// chain to next resolver?
+	if (next != null)
+	    return next.resolveEntity (publicId, systemId);
+	return null;
+    }
+}</pre></blockquote>
+
+	    </div>
+
+	<p>Traditionally, public identifiers are mainly used as
+	keys to find local copies of entities.
+	In SGML, system identifiers were optional and system-specific,
+	so public identifiers were sometimes the only ones available.
+	(XML changed this: system identifiers are mandatory and
+	are URIs.)
+	In essence, public identifiers were used in SGML to serve the
+	role that URNs serve in web-oriented architectures.
+	An ISO standard for FPIs exists,
+	and now RFC 3151 (available at <a href="http://www.ietf.org/rfc/rfc3151.txt">http://www.ietf.org/rfc/rfc3151.txt</a>) defines a mapping from FPIs to URNs.
+	(The FPI is normalized and transformed, then gets
+	a <tt class="literal">urn:publicid:</tt> prefix.)
+	When public identifiers are used with XML systems, it's largely
+	by adopting FPI policies to interoperate with such SGML systems;
+	however, XML public identifiers don't need to be FPIs.
+	You may prefer to use URN schemes in newer systems.
+	If so, be aware that some XML processing engines support only
+	URLs as system identifiers.
+	By letting applications interpret public IDs as URNs, SAX offers
+	more power than some other XML APIs do.
+	</p>
+
+	<p>
+<a name="INDEX-452" />
+<a name="INDEX-453" />
+        If you want richer catalog-style functionality than the
+	table mapping shown earlier, look for open source implementations
+	of the XML version of the OASIS SGML/Open Catalog (SOCAT).
+	At this time, a specification for such a catalog is a stable draft, still in development; see <a href="http://www.oasis.org/committees/entity/">http://www.oasis.org/committees/entity/</a> for more information. This specification defines an XML text representation of mappings; the mappings can be significantly more complex than the tabular one shown earlier.
+<a name="INDEX-454" />
+  </p>
+
+    
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch03_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">3.3. Configuring XMLReader Behavior</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">3.5. Other Kinds of SAX2 Event Producers</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

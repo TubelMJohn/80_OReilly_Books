@@ -1,0 +1,292 @@
+<html><head><title>Process Management (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch13_09.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch14_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+
+<h1 class="chapter">Chapter 14. Process Management</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#lperl3-CHP-14-SECT-1">The system Function</a><br />
+<a href="ch14_02.htm">The exec Function</a><br />
+<a href="ch14_03.htm">The Environment Variables</a><br />
+<a href="ch14_04.htm">Using Backquotes to Capture Output</a><br />
+<a href="ch14_05.htm">Processes as Filehandles</a><br />
+<a href="ch14_06.htm">Getting Down and Dirty with Fork</a><br />
+<a href="ch14_07.htm">Sending and Receiving Signals</a><br />
+<a href="ch14_08.htm">Exercises</a><br /></p></div>
+
+<p><a name="INDEX-952" /></a> <a name="INDEX-953" /></a> <a name="INDEX-954" /></a>One
+of the best parts of being a programmer is launching someone
+else's code so that you don't have to write it yourself.
+It's time to learn how to manage your children<a href="#FOOTNOTE-304">[304]</a> by launching other
+programs directly from Perl.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-304" /></a><p>[304]Child processes, that is.</p> </blockquote>
+
+<p>And like everything else in Perl, There's More Than One Way To
+Do It, with lots of overlap, variations, and special features. So if
+you don't like the first way, just read on for another page or
+two for a solution more to your liking.
+</p>
+
+<p>Perl is very portable; most of the rest of this book doesn't
+need many notes saying that it works this way on Unix systems and
+that way on Windows and the other way on VMS. But when you're
+starting other programs on your machine, different programs are
+available on a Macintosh than you'll likely find on a Cray. The
+examples in this chapter are primarily Unix-based; if you have a
+non-Unix system, you can expect to see some differences.
+</p>
+
+<div class="sect1"><a name="lperl3-CHP-14-SECT-1" /></a>
+<h2 class="sect1">14.1. The system Function</h2>
+
+<p><a name="INDEX-955" /></a>The simplest way to launch a child
+process in Perl to run a program is the <tt class="literal">system</tt>
+function. For example, to invoke the Unix
+<i class="command">date</i><a name="INDEX-956" /></a> command from within Perl, it looks like:
+</p>
+
+<blockquote><pre class="code">system "date";</pre></blockquote>
+
+<p>The child process runs the <i class="command">date</i> command, which
+inherits Perl's standard input, standard output, and standard
+error. This mean that the normal short date-and-time string generated
+by <i class="command">date</i> ends up wherever Perl's
+<tt class="literal">STDOUT</tt> was already going.
+</p>
+
+<p>The parameter to the system function is generally whatever
+you'd normally type at the shell. So if it were a more
+complicated command, like "<em class="emphasis">ls -l $HOME</em>
+", we'd just have put all that into the
+parameter:
+</p>
+
+<blockquote><pre class="code">system 'ls -l $HOME';</pre></blockquote>
+
+<p>Note that we had to switch here from double quotes to single quotes,
+since <tt class="literal">$HOME</tt> is the shell's variable.
+Otherwise, the shell would never have seen the dollar sign, since
+that's also an indicator for Perl to interpolate.
+Alternatively, we could write:
+</p>
+
+<blockquote><pre class="code">system "ls -l \$HOME";</pre></blockquote>
+
+<p>But that can get quickly unwieldly.</p>
+
+<p>Now, the <i class="command">date</i> command is output-only, but
+let's say it had been a chatty command, asking first "for
+which time zone do you want the time?"<a href="#FOOTNOTE-305">[305]</a> That'll end up on standard
+output, and then the program will listen on standard input (inherited
+from Perl's <tt class="literal">STDIN</tt>) for the response.
+You'll see the question, and type in the answer (like
+"Zimbabwe time"), and then <i class="command">date</i> will
+finish its duty.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-305" /></a><p>[305]As far
+as we know, no one has made a <i class="command">date</i> command that
+works like this.</p> </blockquote>
+
+<p>While the child process is running, Perl is patiently waiting for it
+to finish. So if the <i class="command">date</i> command took 37 seconds,
+then Perl is paused for those 37 seconds. You can use the
+shell's facility to launch a background process,<a href="#FOOTNOTE-306">[306]</a> however:
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-306" /></a><p>[306]See what we mean about this depending upon your system? The
+Unix shell (<i class="command">/bin/sh</i>) lets you use the ampersand on
+this kind of command to make a background process. If your non-Unix
+system doesn't support this way to launch a background process,
+then you can't do it this way, that's all.</p>
+</blockquote>
+
+<blockquote><pre class="code">system "long_running_command with parameters &amp;";</pre></blockquote>
+
+<p>Here, the shell gets launched, which then notices the ampersand at
+the end of the command line, causing the
+<i class="command">long_running_command</i> to be made into a background
+process. And then the shell exits rather quickly, which Perl notices
+and moves on. In this case, the
+<i class="command">long_running_command</i> is really a grandchild of the
+Perl process, to which Perl really has no direct access or knowledge.
+</p>
+
+<p>When the command is "simple enough," no shell gets
+involved, so for the <i class="command">date</i> and
+<i class="command">ls</i> commands earlier, the requested command is
+launched directly by Perl, which searches the inherited
+<tt class="literal">PATH<a href="#FOOTNOTE-307">[307]</a></tt> to find the command, if necessary. But if
+there's anything weird in the string (such as shell
+metacharacters like the dollar sign, semicolon, or vertical bar),
+then the standard Bourne Shell (<em class="emphasis">/bin/sh<a href="#FOOTNOTE-308">[308]</a></em>) gets invoked to work through the complicated
+stuff. In that case, the shell is the child process, and the
+requested commands are grandchildren (or further offspring). For
+example, you can write an entire little shell script in the argument:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-307" /></a><p>[307]The <tt class="literal">PATH</tt> can be
+changed by adjusting <tt class="literal">$ENV{'PATH'}</tt> at any time.
+Initially, this is the environment variable inherited from the parent
+process (usually the shell). Changing this value affects new child
+processes, but cannot affect any preceding parent processes. The
+<tt class="literal">PATH</tt> is the list of directories where executable
+programs (commands) are found, even on some non-Unix systems.</p>
+</blockquote><blockquote class="footnote"> <a name="FOOTNOTE-308" /></a><p>[308]Or
+whatever was determined when Perl was built. Practically always, this
+is just <em class="emphasis">/bin/sh</em> on Unix-like systems.</p>
+</blockquote>
+
+<blockquote><pre class="code">system 'for in *; do echo == $i ==; cat $i; done';</pre></blockquote>
+
+<p>Here again, we're using single quotes, because the dollar signs
+here are meant for the shell and not for Perl. Double quotes would
+have permitted Perl to expand <tt class="literal">$i</tt> to its current
+Perl value, and not let the shell expand it to its own
+value.<a href="#FOOTNOTE-309">[309]</a> By the way, that little shell script
+goes through all of the normal files in the current directory,
+printing out each one's name and contents; you can try it out
+yourself if you don't believe us.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-309" /></a><p>[309]Of course, if you set <tt class="literal">$i =
+'$i'</tt>, then it would work anyway, until a maintenance
+programmer came along and "fixed" that line out of
+existence. </p> </blockquote>
+
+<a name="lperl3-CHP-14-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">14.1.1. Avoiding the Shell</h3>
+
+<p>The system operator may also be invoked with more than one
+argument,<a href="#FOOTNOTE-310">[310]</a> in which
+case a shell doesn't get involved, no matter how complicated
+the text:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-310" /></a><p>[310]Or with a parameter in the indirect-object
+slot, like <tt class="literal">system { 'fred' }
+'barney';</tt>, which runs the program
+<tt class="literal">barney</tt>, but lies to it so it thinks that
+it's called <tt class="literal">'fred'</tt>. See the
+<em class="emphasis">perlfunc</em> manpage.</p> </blockquote>
+
+<blockquote><pre class="code">my $tarfile = "something*wicked.tar";
+my @dirs = qw(fred|flintstone &lt;barney&amp;rubble&gt; betty );
+system "tar", "cvf", $tarfile, @dirs;</pre></blockquote>
+
+<p>In this case, the first parameter (<tt class="literal">"tar"</tt> here)
+gives the name of a command found in the normal
+<tt class="literal">PATH</tt>-searching way, while the remaining arguments
+are passed, one by one, directly to that command. Even if the
+arguments have <a name="INDEX-957" /></a>shell-significant characters, such as
+the name in <tt class="literal">$tarfile</tt> or the directory names in
+<tt class="literal">@dirs</tt>, the shell never gets a chance to mangle the
+string. So that <tt class="literal">tar</tt> command will get precisely
+five parameters. Compare this with:
+</p>
+
+<blockquote><pre class="code">system "tar cvf $tarfile @dirs";  # Oops!</pre></blockquote>
+
+<p>Here, we've now piped a bunch of stuff into a
+<i class="command">flintstone</i> command and put it into the background,
+and opened <em class="filename">betty</em> for output.
+</p>
+
+<p>And that's a bit scary,<a href="#FOOTNOTE-311">[311]</a> especially if those variables are from
+user input -- such as from a web form or something. So, if you
+<em class="emphasis">can</em> arrange things so that you can use the
+multiple-argument version of <tt class="literal">system</tt>, you
+probably should use that way to launch your subprocess. (You'll
+have to give up the ability to have the shell do the work for you to
+set up I/O redirection, background processes, and the like, though.
+There's no such thing as a free launch.)
+</p><blockquote class="footnote"> <a name="FOOTNOTE-311" /></a><p>[311]Unless you're
+using taint checking and have done all the right things to prescan
+your data to ensure that the user isn't trying to pull a fast
+one on you.</p> </blockquote>
+
+<p>Note that redundantly, a single argument invocation of
+<tt class="literal">system</tt> is nearly equivalent to the proper
+multiple-argument version of <tt class="literal">system</tt>:
+</p>
+
+<blockquote><pre class="code">system $command_line;
+system "/bin/sh", "-c", $command_line;</pre></blockquote>
+
+<p>But nobody writes the latter, unless you want things to be processed
+by a different shell, like the C-shell:
+</p>
+
+<blockquote><pre class="code">system "/bin/csh", "-fc", $command_line;</pre></blockquote>
+
+<p>Even this is pretty rare, since the One True Shell<a href="#FOOTNOTE-312">[312]</a> seems to have a lot more flexibility,
+especially for scripted items.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-312" /></a><p>[312]That's <em class="emphasis">/bin/sh</em>, or whatever your
+Unix system has installed as the most Bourne-like shell. If you
+don't have a One True Shell, Perl figures out how to invoke
+some other command-line interpreter, with notable
+consequences -- noted, that is, in the documentation for that Perl
+port.</p> </blockquote>
+
+<p>The return value of the system operator is based upon the exit status
+of the child command<a href="#FOOTNOTE-313">[313]</a>. In Unix, an exit value of <tt class="literal">0</tt> means
+that everything is OK, and a non-zero exit value usually indicates
+that something went wrong:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-313" /></a><p>[313]It's actually the
+"wait" status, which is the child exit code times 256,
+plus 128 if core was dumped, plus the signal number triggering
+termination, if any. But we rarely check the specifics of that, and a
+simple true/false value suffices for nearly all applications.</p>
+</blockquote>
+
+<blockquote><pre class="code">unless (system "date") {
+  # Return was zero - meaning success
+  print "We gave you a date, OK!\n";
+}</pre></blockquote>
+
+<p>Note that this is backward from the normal "true is
+good -- false is bad" strategy for most of the operators, so
+to write a typical "do this or die" style, we'll
+need to flip false and true. The easiest way is to simply prefix the
+<tt class="literal">system</tt> operator with a bang (the logical-not
+operator):
+</p>
+
+<blockquote><pre class="code">!system "rm -rf files_to_delete" or die "something went wrong";</pre></blockquote>
+
+<p>In this case, including <tt class="literal">$!</tt> in the error message
+would not be appropriate, because the failure is most likely
+somewhere within the experience of the <i class="command">rm</i> command,
+and it's not a system-call related error within Perl that
+<tt class="literal">$!</tt> can reveal.<a name="INDEX-958" /></a>
+</p>
+
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch13_09.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch14_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">13.9. Exercises</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">14.2. The exec Function</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

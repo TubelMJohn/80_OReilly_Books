@@ -1,0 +1,690 @@
+<?label 10. Data Persistence?><html><head><title>Data Persistence (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch09_07.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch10_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 10. Data Persistence</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch10_01.htm">Text Files</a><br>
+<a href="ch10_02.htm">DBM Files</a><br>
+<a href="ch10_03.htm">Introduction to SQL</a><br>
+<a href="ch10_04.htm">DBI</a><br></p></div>
+
+
+
+<p>Many basic web applications can be created that output only email and
+web documents. However, if you begin building larger web
+applications, you will eventually need to store data and retrieve it
+later. This chapter will discuss various ways to do this with
+different levels of complexity. Text files are the simplest way to
+maintain data, but they quickly become inefficient when the data
+becomes complex or grows too large. A <a name="INDEX-1950" />DBM file provides much faster access, even
+for large amounts of data, and DBM files are very easy to use with
+Perl. However, this solution is also limited when the data grows too
+complex. Finally, we will investigate relational databases. A
+<a name="INDEX-1951" />relational database management system
+(RDBMS) provides high performance even with complex queries. However,
+an RDBMS is more complicated to set up and use than the other
+solutions.</p>
+
+
+<p>Applications evolve and grow larger. What may start out as a short,
+simple CGI script may gain feature upon feature until it has grown to
+a large, complex application. Thus, when you design web applications,
+it is a good idea to develop them so that they are easily expandable.</p>
+
+
+<p>One solution is to make your solutions modular. You should try to
+abstract the code that reads and writes data so the rest of the code
+does not know how the data is stored. By reducing the dependency on
+the data format to a small chunk of code, it becomes easier to change
+your data format as you need to grow.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch10-62299" />
+<h2 class="sect1">10.1. Text Files</h2>
+
+
+<p>One of Perl's greatest strengths is its ability to parse text,
+and this makes it especially easy to get a web application online
+quickly using <a name="INDEX-1952" />text
+files as the means of storing data. Although it does not scale to
+complex queries, this works well for small amounts of data and is
+very common for Perl <a name="INDEX-1953" /> <a name="INDEX-1,954" />CGI applications. We're not going to
+discuss how to use text files with Perl, since most Perl programmers
+are already proficient at that task. We're also not going to
+look at strategies like creating random access files to improve
+performance, since that warrants a lengthy discussion, and a DBM file
+is generally a better substitute. We'll simply look at the
+issues that are particular to using text files with CGI scripts.</p>
+
+
+<a name="ch10-77048" /><div class="sect2">
+<h3 class="sect2">10.1.1. Locking</h3>
+
+
+<p>If you write to <a name="INDEX-1955" />
+<a name="INDEX-1956" />
+<a name="INDEX-1957" />any files
+from a CGI script, then you must use some form of file locking. Web
+servers support numerous concurrent connections, and if two users try
+to write to the same file at the same time, the result is generally
+corrupted or truncated data.</p>
+
+
+<a name="ch10-1-fm2xml" /><div class="sect3">
+<h3 class="sect3">10.1.1.1. flock</h3>
+
+
+<p>If your system supports it, using the
+<em class="emphasis">flock</em>
+<a name="INDEX-1958" />
+<a name="INDEX-1959" /> <a name="INDEX-1,960" /> <a name="INDEX-1,961" /> command is the easiest way to do this.
+How do you know if your system supports <tt class="function">flock</tt>?
+Try it: <tt class="function">flock</tt> will die with a fatal error if
+your system does not support it. However, <tt class="function">flock</tt>
+works reliably only on local files; <tt class="function">flock</tt> does
+not work across most <a name="INDEX-1962" />NFS systems, even if your system
+otherwise supports it.<a href="#FOOTNOTE-19">[19]</a> <tt class="function">flock</tt> offers two different modes of
+locking: <a name="INDEX-1963" />
+<a name="INDEX-1964" />exclusive and shared. Many processes can
+read from a file simultaneously without problems, but only one
+process should write to the file at a time (and no other process
+should read from the file while it is being written). Thus, you
+should obtain an exclusive lock on a file when writing to it and a
+shared lock when reading from it. The shared lock verifies that no
+one else has an exclusive lock on the file and delays any exclusive
+locks until the shared locks have been released.</p><blockquote>
+
+<a name="FOOTNOTE-19" /><p>[19]If you need to lock a file
+across NFS, refer to the File::LockDir module in <em class="citetitle">Perl
+Cookbook </em>(O'Reilly &amp; Associates, Inc.).</p>
+
+</blockquote>
+
+
+<p>To use <tt class="function">flock</tt>, call it with a
+<a name="INDEX-1965" />filehandle to an open file and a
+number indicating the type of lock you want. These numbers are
+system-dependent, so the easiest way to get them is to use the
+<a name="INDEX-1966" />
+<a name="INDEX-1967" />
+<a name="INDEX-1968" />
+<a name="INDEX-1969" />Fcntl
+module. If you supply the <tt class="literal">:flock</tt> argument to
+Fcntl, it will export LOCK_EX, LOCK_SH, LOCK_UN, and LOCK_NB for you.
+You can use them as follows:</p>
+
+
+<blockquote><pre class="code">use Fcntl ":flock";
+
+open FILE, "some_file.txt" or die $!;
+flock FILE, LOCK_EX;    # Exclusive lock
+flock FILE, LOCK_SH;    # Shared lock
+flock FILE, LOCK_UN;    # Unlock</pre></blockquote>
+
+
+<p>Closing a filehandle releases any locks, so there is generally no
+need to specifically unlock a file. In fact, it can be dangerous to
+do so if you are locking a filehandle that uses
+<a name="INDEX-1970" /> <a name="INDEX-1,971" />Perl's <tt class="function">tie</tt>
+mechanism. See file locking in the DBM section of this chapter for
+more information.</p>
+
+
+<p>Some systems do not support shared file locks and use exclusive locks
+for them instead. You can use the script in <a href="ch10_01.htm#ch10-64147">Example 10-1</a> to test what <tt class="function">flock</tt>
+supports on your system.</p>
+
+
+
+<a name="ch10-64147" /><div class="example">
+<h4 class="objtitle">Example 10-1. flock_test.pl </h4>
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use IO::File;
+use Fcntl ":flock";
+
+*FH1 = new_tmpfile IO::File or die "Cannot open temporary file: $!\n";
+
+eval { flock FH1, LOCK_SH };
+$@ and die "It does not look like your system supports flock: $@\n";
+
+open FH2, "&gt;&gt; &amp;FH1" or die "Cannot dup filehandle: $!\n";
+
+if ( flock FH2, LOCK_SH | LOCK_NB ) {
+    print "Your system supports shared file locks\n";
+}
+else {
+    print "Your system only supports exclusive file locks\n";
+}</pre></blockquote>
+</div>
+
+
+<p>If you need to both read and write to a file, then you have two
+options: you can open the file exclusively for read/write access, or
+if you only have to do limited writing and what you're writing
+does not depend on the contents of the file, you can open and close
+the file twice: once shared for reading and once exclusive for
+writing. This is generally less efficient than opening the file once,
+but if you have lots of processes needing to access the file that are
+doing lots of reading and little writing, it may be more efficient to
+reduce the time that one process is tying up the file while holding
+an exclusive lock on it.</p>
+
+
+<p>Typically when you use <tt class="function">flock</tt> to lock a file, it
+halts the <a name="INDEX-1972" />execution of your script until it can
+obtain a lock on your file. The LOCK_NB option tells
+<tt class="function">flock</tt> that you do not want it to block
+execution, but allow your script to continue if it cannot obtain a
+lock. Here is one way to time out if you cannot obtain a lock on a
+file:</p>
+
+
+<blockquote><pre class="code">my $count = 0;
+my $delay = 1;
+my $max   = 15;
+
+open FILE, "&gt;&gt; $filename" or
+    error( $q, "Cannot open file: your data was not saved" );
+
+until ( flock FILE, LOCK_SH | LOCK_NB ) {
+    error( $q, "Timed out waiting to write to file: " .
+                     "your data was not saved" ) if $count &gt;= $max;
+    sleep $delay;
+    $count += $delay;
+}</pre></blockquote>
+
+
+<p>In this example, the code tries to get a lock. If it fails, it waits
+a second and tries again. After fifteen seconds, it gives up and
+reports an 
+<a name="INDEX-1973" /> <a name="INDEX-1,974" /> <a name="INDEX-1,975" /> <a name="INDEX-1,976" />error.</p>
+</div>
+
+
+
+<a name="ch10-2-fm2xml" /><div class="sect3">
+<h3 class="sect3">10.1.1.2. Manual lock files</h3>
+
+
+<p>If your system does not support flock, you will need to
+<a name="INDEX-1977" />
+<a name="INDEX-1978" /> <a name="INDEX-1,979" />
+<a name="INDEX-1980" />manually create your own lock files. As
+the Perl FAQ points out (see <em class="citetitle">perlfaq5 </em>), this
+is not as simple as you might think. The problem is that you must
+check for the existence of a file and create the file as one
+operation. If you first check whether a lock file exists, and then
+try to create one if it does not, another process may have created
+its own lock file after you checked, and you just overwrote it.</p>
+
+
+<p>To create your own lock file, use the following command:</p>
+
+
+<blockquote><pre class="code">use Fcntl;
+.
+.
+.
+sysopen LOCK_FILE, "$filename.lock", O_WRONLY | O_EXCL | O_CREAT, 0644
+    or error( $q, "Unable to lock file: your data was not saved" ):</pre></blockquote>
+
+
+<p>The O_EXCL function provided by Fcntl tells the system to open the
+file only if it does not already exist. Note that this will not
+reliably work on an NFS filesystem.</p>
+</div>
+</div>
+
+
+
+
+<a name="ch10-3-fm2xml" /><div class="sect2">
+<h3 class="sect2">10.1.2. Write Permissions</h3>
+
+
+<p>In order to create or update a <a name="INDEX-1981" />
+<a name="INDEX-1982" /> <a name="INDEX-1,983" />
+<a name="INDEX-1984" />text file, you must have the
+appropriate permissions. This may sound basic, but it is a common
+source of errors in CGI scripts, especially on Unix filesystems.
+Let's review how <a name="INDEX-1985" />Unix file permissions work.</p>
+
+
+<p>Files have both an owner and a group. By default, these match the
+user and group of the user or process who creates the file. There are
+three different levels of permissions for a file: the owner's
+permissions, the group's permissions, and everyone else's
+permissions. Each of these may have read access, write access, and/or
+execute access for a file.</p>
+
+
+<p>Your CGI scripts can only modify a file if
+<em class="emphasis">nobody</em>
+<a name="INDEX-1986" /> (or the user your web
+<a name="INDEX-1987" />
+<a name="INDEX-1988" />server runs as) has write
+access to the file. This occurs if the file is writable by everyone,
+if it is writable by members of the file's group and
+<em class="emphasis">nobody</em> is a member of that group, or if
+<em class="emphasis">nobody</em> owns the file and the file is writable by
+its owner.</p>
+
+
+<p>In order to create or remove a file, <em class="emphasis">nobody</em> must
+have write permission to the directory containing the file. The same
+rules about owner, group, and other users apply to
+<a name="INDEX-1989" />directories as they do for files.
+In addition, the <a name="INDEX-1990" />execute bit must be set for the directory.
+For directories, the execute bit determines scan access, which is the
+ability to change to the directory.</p>
+
+
+<p>Even though your CGI script may <a name="INDEX-1991" />not modify
+a file, it may be able to replace it. If <em class="emphasis">nobody</em>
+has permission to write to a directory, then it can remove files in
+the directory in addition to creating new files, even with the same
+name. Write permissions on the file do not typically <a name="INDEX-1992" /> <a name="INDEX-1,993" /> <a name="INDEX-1,994" />affect the ability
+to remove or replace the file as a whole.</p>
+</div>
+
+
+
+
+<a name="ch10-92014" /><div class="sect2">
+<h3 class="sect2">10.1.3. Temporary Files</h3>
+
+
+<p>Your CGI <a name="INDEX-1995" />
+<a name="INDEX-1996" />scripts may
+need to create temporary files for a number of reasons. You can
+reduce memory consumption by creating files to hold data as you
+process it; you gain efficiency by sacrificing performance. You may
+also use external commands that perform their actions on text files.</p>
+
+
+<a name="ch10-4-fm2xml" /><div class="sect3">
+<h3 class="sect3">10.1.3.1. Anonymous temporary files</h3>
+
+
+<p>Typically, <a name="INDEX-1997" />
+<a name="INDEX-1998" />
+<a name="INDEX-1999" />
+<a name="INDEX-2000" />temporary files are anonymous; they
+are created by opening a <a name="INDEX-2001" />handle to a new file and then
+immediately deleting the file. Your CGI script will continue to have
+a filehandle to access the file, but the data cannot be accessed by
+other processes, and the data will be reclaimed by the filesystem
+once your CGI script closes the filehandle. (Not all systems support
+this feature.)</p>
+
+
+<p>As for most common tasks, there is a Perl module that makes managing
+temporary files much simpler. <a name="INDEX-2002" />
+<a name="INDEX-2003" />IO::File will create anonymous
+temporary files for you with the <tt class="function">new_tmpfile</tt>
+class method; it takes no arguments. You can use it like
+this:<a href="#FOOTNOTE-20">[20]</a></p><blockquote>
+
+<a name="FOOTNOTE-20" /><p>[20]Actually, if the filesystem does not support
+anonymous temporary files, then IO::File will not create it
+anonymously, but it's still anonymous to you since you cannot
+get at the name of the file. IO::File will take care of managing and
+deleting the file for you when its filehandle goes out of scope or
+your script completes.</p>
+
+</blockquote>
+
+
+<blockquote><pre class="code">use IO::File;
+.
+.
+.
+my $tmp_fh = new_tmpfile IO::File;</pre></blockquote>
+
+
+<p>You can then read and write to
+<tt class="literal">$tmp_fh</tt>
+<a name="INDEX-2004" /> just as you would any other filehandle:</p>
+
+
+<blockquote><pre class="code">print $tmp_fh "&lt;/html&gt;\n";
+
+seek $tmp_fh, 0, 0;
+while (&lt;$tmp_fh&gt;) {
+    print;
+}</pre></blockquote>
+</div>
+
+
+
+<a name="ch10-5-fm2xml" /><div class="sect3">
+<h3 class="sect3">10.1.3.2. Named temporary files</h3>
+
+
+<p>Another option is to create a <a name="INDEX-2005" /> <a name="INDEX-2,006" />file and
+delete it when you are finished with it. One advantage is that you
+have a filename that can be passed to other processes and functions.
+Also, using the <a name="INDEX-2007" />IO::File module is
+considerably slower than managing the file yourself. However, using
+named temporary files has two drawbacks. First, greater care must be
+taken choosing a unique filename so that two scripts will not attempt
+to use the same temporary file at the same time. Second, the CGI
+script must delete the file when it is finished, even if it
+encounters an error and exits prematurely.</p>
+
+
+<p>The Perl FAQ suggests using the <a name="INDEX-2008" />
+<a name="INDEX-2009" /> <a name="INDEX-2,010" />POSIX module to generate a temporary
+filename and an <tt class="literal">END</tt> block to ensure it will be
+cleaned up:</p>
+
+
+<blockquote><pre class="code">use Fcntl;
+use POSIX qw(tmpnam);
+.
+.
+.
+my $tmp_filename;
+
+# try new temporary filenames until we get one that doesn't already
+# exist; the check should be unnecessary, but you can't be too careful
+do { $tmp_filename = tmpnam(  ) }
+    until sysopen( FH, $name, O_RDWR|O_CREAT|O_EXCL );
+
+# install atexit-style handler so that when we exit or die,
+# we automatically delete this temporary file
+END { unlink( $tmp_filename ) or die "Couldn't unlink $name: $!" }</pre></blockquote>
+
+
+<p>If your system doesn't support POSIX, then you will have to
+create the file in a system-dependent fashion instead.</p>
+</div>
+</div>
+
+
+
+
+<a name="ch10-6-fm2xml" /><div class="sect2">
+<h3 class="sect2">10.1.4. Delimiters</h3>
+
+
+<p>If you need to include multiple fields of data in each line of your
+<a name="INDEX-2011" />
+<a name="INDEX-2012" />text file, you will likely use
+delimiters to separate them. Another option is to create fixed-length
+records, but we won't get into these files here. Common
+characters to use for delimiting files are
+<a name="INDEX-2013" />
+<a name="INDEX-2014" />commas, tabs, and
+<a name="INDEX-2015" />pipes (|).</p>
+
+
+<p>Commas are primarily used in CSV files, which we will discuss
+presently. CSV files can be difficult to parse accurately because
+they can include non-delimiting commas as part of a value. When
+working with CSV files, you may want to consider the DBD::CSV module;
+this gives you a number of additional benefits, which we will discuss
+shortly.</p>
+
+
+<p>
+<a name="INDEX-2016" />Tabs are not generally included
+within data, so they make convenient delimiters. Even so, you should
+always check your data and encode or remove any tabs or
+<a name="INDEX-2017" />
+<a name="INDEX-2018" />end-of-line characters before writing to
+your file. This ensures that your data does not become corrupted if
+someone happens to pass a newline character in the middle of a field.
+Remember, even if you are reading data from an HTML form element that
+would not normally accept a newline character as part of it, you
+should never trust the user or that user's browser.</p>
+
+
+<p>Here is an example of functions you can use to
+<a name="INDEX-2019" />
+<a name="INDEX-2020" />
+<a name="INDEX-2021" />
+<a name="INDEX-2022" /> <a name="INDEX-2,023" />encode and decode data:</p>
+
+
+<blockquote><pre class="code">sub encode_data {
+    my @fields = map {
+        s/\\/\\\\/g;
+        s/\t/\\t/g;
+        s/\n/\\n/g;
+        s/\r/\\r/g;
+        $_;
+    } @_;
+    
+    my $line = join "\t", @fields;
+    return "$line\n";
+}
+
+sub decode_data {
+    my $line = shift;
+    
+    chomp $line;
+    my @fields = split /\t/, $line;
+    
+    return map {
+        s/\\(.)/$1 eq 't' and "\t" or
+                $1 eq 'n' and "\n" or
+                $1 eq 'r' and "\r" or
+                "$1"/eg;
+        $_;
+    } @fields;
+}</pre></blockquote>
+
+
+<p>These functions encode tabs and end-of-line characters with the
+common <a name="INDEX-2024" />escape characters that Perl and
+other languages use (<tt class="literal">\t</tt>, <tt class="literal">\r</tt>,
+and <tt class="literal">\n</tt>). Because it is introducing additional
+backslashes as an escape character, it must also escape the
+<a name="INDEX-2025" />
+<a name="INDEX-2026" /> <a name="INDEX-2,027" />backslash character.</p>
+
+
+<p>The <tt class="function">encode_data</tt> sub takes a list of fields and
+returns a single encoded scalar that can be written to the file;
+<tt class="function">decode_data</tt> takes a line read from the file and
+returns a list of decoded fields. You can use them as shown in <a href="ch10_01.htm#ch10-98542">Example 10-2</a>.</p>
+
+
+
+<a name="ch10-98542" /><div class="example">
+<h4 class="objtitle">Example 10-2. sign_petition.cgi </h4>
+
+<a name="INDEX-2028" /><a name="INDEX-2,029" />
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use Fcntl ":flock";
+use CGI;
+use CGIBook::Error;
+
+my $DATA_FILE = "/usr/local/apache/data/tab_delimited_records.txt";
+
+my $q       = new CGI;
+my $name    = $q-&gt;param( "name" );
+my $comment = substr( $q-&gt;param( "comment" ), 0, 80 );
+
+unless ( $name ) {
+    error( $q, "Please enter your name." );
+}
+
+open DATA_FILE, "&gt;&gt; $DATA_FILE" or die "Cannot append to $DATA_FILE: $!";
+flock DATA_FILE, LOCK_EX;
+seek DATA_FILE, 0, 2;
+
+print DATA_FILE encode_data( $name, $comment );
+close DATA_FILE;
+
+print $q-&gt;header( "text/html" ),
+      $q-&gt;start_html( "Our Petition" ),
+      $q-&gt;h2( "Thank You!" ),
+      $q-&gt;p( "Thank you for signing our petition. ",
+             "Your name has been been added below:" ),
+      $q-&gt;hr,
+      $q-&gt;start_table,
+      $q-&gt;tr( $q-&gt;th( "Name", "Comment" ) );
+      
+open DATA_FILE, $DATA_FILE or die "Cannot read $DATA_FILE: $!";
+flock DATA_FILE, LOCK_SH;
+
+while (&lt;DATA_FILE&gt;) {
+    my @data = decode_data( $_ );
+    print $q-&gt;tr( $q-&gt;td( @data ) );
+}
+close DATA_FILE;
+
+print $q-&gt;end_table,
+      $q-&gt;end_html;
+
+
+sub encode_data {
+    my @fields = map {
+        s/\\/\\\\/g;
+        s/\t/\\t/g;
+        s/\n/\\n/g;
+        s/\r/\\r/g;
+        $_;
+    } @_;
+    
+    my $line = join "\t", @fields;
+    return $line . "\n";
+}
+
+sub decode_data {
+    my $line = shift;
+    
+    chomp $line;
+    my @fields = split /\t/, $line;
+    
+    return map {
+        s/\\(.)/$1 eq 't' and "\t" or
+                $1 eq 'n' and "\n" or
+                $1 eq 'r' and "\r" or
+                "$1"/eg;
+        $_;
+    } @fields;
+}</pre></blockquote>
+</div>
+
+
+<p>Note that organizing <a name="INDEX-2030" /> <a name="INDEX-2,031" />your code this way gives you another
+benefit. If you later decide you want to change the format of your
+data, you do not need to change your entire <a name="INDEX-2032" /> <a name="INDEX-2,033" />CGI script, just the
+<tt class="function">encode_data</tt> and <tt class="function">decode_data</tt>
+functions.</p>
+</div>
+
+
+
+
+<a name="ch10-7-fm2xml" /><div class="sect2">
+<h3 class="sect2">10.1.5. DBD::CSV</h3>
+
+
+<p>As we mentioned at the beginning of this chapter, it's great to
+modularize your code so that changing the data format affects only a
+small chunk of your application. However, it's even better if
+you don't have to change that chunk either. If you are creating
+a simple application that you expect to grow, you may want to
+consider developing your application using CSV files.
+<em class="firstterm">CSV</em>
+<a name="INDEX-2034" /> <a name="INDEX-2,035" />
+(<em class="firstterm">comma separated values</em>) files are text files
+formatted such that each line is a record, and fields are delimited
+by commas. The advantage to using CSV files is that you can use
+Perl's <a name="INDEX-2036" />
+<a name="INDEX-2037" />
+<a name="INDEX-2038" />DBI and
+<a name="INDEX-2039" />
+<a name="INDEX-2040" />
+<a name="INDEX-2041" />DBD::CSV modules, which allow you to
+access the data via basic SQL queries just as you would for an
+<a name="INDEX-2042" />RDBMS. Another benefit of CSV format is
+that it is quite common, so you can easily import and export it from
+other applications, including <a name="INDEX-2043" />
+<a name="INDEX-2044" />spreadsheets like Microsoft Excel.</p>
+
+
+<p>There are drawbacks to developing with CSV files. DBI adds a layer of
+complexity to your application that you would not otherwise need if
+you accessed the data directly. DBI and DBD::CSV also allow you to
+create only simple SQL queries, and it is certainly not as fast as a
+true relational database system, especially for large amounts of
+data.</p>
+
+
+<p>However, if you need to get a project going, knowing that you will
+move to an RDBMS, and if DBD::CSV meets your immediate requirements,
+then this strategy is certainly a good choice. We will look at an
+example that uses DBD::CSV later in this <a name="INDEX-2045" />chapter.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch09_07.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch10_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">9.7. procmail</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">10.2. DBM Files</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

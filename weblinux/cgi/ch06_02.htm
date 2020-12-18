@@ -1,0 +1,1127 @@
+<?label 6.2. Server Side Includes?><html><head><title>Server Side Includes (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch06_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">6.2. Server Side Includes</h2>
+
+
+<p>Many times we want to create a web page that contains very little
+dynamic information. It seems like a lot of work to go through the
+trouble of writing a full-fledged application in order to display a
+single piece of <a name="INDEX-1241" />dynamic information such as the current
+date and time, file modification time, or the user's IP
+address, in an otherwise static document. Fortunately, there is a
+tool included with most web servers called <em class="firstterm">Server Side
+Includes</em>
+<a name="INDEX-1242" />, or <em class="firstterm">SSI</em>.</p>
+
+
+<p>SSI allows us to embed special directives in our HTML documents to
+execute other programs or insert various pieces of data such as
+environment variables and file statistics. While SSI has technically
+nothing to do with CGI, it is an important tool for incorporating
+dynamic information, as well as output from CGI programs, into
+otherwise static documents, and you should definitely be aware of its
+abilities and limitations because in some cases it can provide a
+simpler and more efficient solution than a CGI script.</p>
+
+
+<p>For example, say you want to have a web page display the
+<a name="INDEX-1243" /> <a name="INDEX-1,244" />last date it was modified. You could
+create a CGI script to display the file and use Perl's
+<tt class="literal">-M</tt>
+<a name="INDEX-1245" />
+<a name="INDEX-1246" /> operator to determine the age of the
+file. However, it's much simpler to enable SSI and include the
+following line:</p>
+
+
+<blockquote><pre class="code">Last modified: &lt;!--#echo var="LAST_MODIFIED" --&gt;</pre></blockquote>
+
+
+<p>The terms within the HTML comment are an SSI command. When the
+browser requests this document from a web server, the server parses
+it and returns the result (see <a href="ch06_02.htm#ch06-69027">Figure 6-1</a>). In this
+case, it replaces the SSI command with a timestamp reflecting the
+last time this document was modified. The server does not
+automatically parse all files looking for SSI directives, but only
+documents that are associated with SSI. We will look at how to
+configure this in the next section.</p>
+
+
+<a name="ch06-2-fm2xml" /><blockquote><h4 class="objtitle">NOTE</h4>
+
+<p>Note that <a name="INDEX-1247" /> <a name="INDEX-1,248" />
+<a name="INDEX-1249" />
+<a name="INDEX-1250" />SSI cannot parse CGI output; it only
+parses otherwise static HTML files. The new architecture in Apache
+2.0 should eventually support SSI parsing of CGI output if the CGI
+outputs a particular <em class="emphasis">Content-type</em> header. Other
+web servers do not support this.</p>
+</blockquote>
+
+
+<p>Because the SSI engine is compiled into the web server, it is many
+times more efficient than a CGI script. However,
+<a name="INDEX-1251" />
+<a name="INDEX-1252" />SSI
+commands are limited and can only handle basic tasks; in one sense
+this simplicity is good because SSI is very easy to learn. HTML
+designers with no programming experience can easily add SSI commands
+to their documents. Later in this chapter we'll see how other
+template solutions provide more powerful alternatives aimed at
+developers.</p>
+
+
+<a name="ch06-69027" /><div class="figure"><img width="460" src="figs/cgi2.0601.gif" height="267" alt="Figure 6-1" /></div><h4 class="objtitle">Figure 6-1. Server side includes</h4>
+
+<a name="ch06-14723" /><div class="sect2">
+<h3 class="sect2">6.2.1. Configuration</h3>
+
+
+<p>The <a name="INDEX-1253" /> <a name="INDEX-1,254" />server must know which files to
+parse for SSI commands. We'll see how to configure the Apache
+web server in this section. If you are using another web server, it
+should be equally easy to configure; refer to its documentation.</p>
+
+
+<p>You have the following options with SSI:</p>
+
+
+<ul><li><p>You may configure the web server to only recognize SSI documents in a
+particular directory or directories or throughout the entire site.</p></li><li><p>You can configure the web server to parse all HTML documents for SSI
+commands or just documents with a particular extension (typically
+<em class="filename">.shtml </em>
+<a name="INDEX-1255" />).</p></li><li><p>You can set whether SSI commands have the ability to execute external
+programs in order to generate their output. This can be useful, but
+it can also be a security risk.</p></li></ul>
+<p>To enable SSI for a particular directory or
+<a name="INDEX-1256" />directories, add
+<tt class="literal">Includes</tt> as an option in each directory. If you
+wish to enable SSI throughout your <a name="INDEX-1257" />web site for all files ending in
+<em class="filename">.shtml</em>, then add the following to
+<em class="filename">httpd.conf</em> (or <em class="filename">access.conf</em>
+if used):</p>
+
+
+<blockquote><pre class="code">&lt;Location /&gt;
+...
+Options     Includes
+AddHandler  server-parsed .shtml
+...	
+&lt;/Location&gt;</pre></blockquote>
+
+
+<p>Note that your configuration files probably have other lines between
+the &lt;Location /&gt; and &lt;/Location&gt; tags as well as other
+entries for <tt class="literal">Options</tt>; you can leave these as they
+are.</p>
+
+
+<p>You are not restricted to using the <em class="firstterm">.shtml</em>
+extension; you can have the
+<a name="INDEX-1258" />server
+parse all HTML documents with this directive:</p>
+
+
+<blockquote><pre class="code">AddHandler server-parsed .html</pre></blockquote>
+
+
+<p>However, you should do this only if all of your pages are dynamic
+because parsing each HTML document increases the amount of work the
+web server must do and reduces performance.</p>
+
+
+<p>You should also add the following lines to
+<em class="filename">httpd.conf</em>
+<a name="INDEX-1259" />
+<a name="INDEX-1260" /> <a name="INDEX-1,261" /> outside any
+<tt class="literal">Location</tt> or <tt class="literal">Directory</tt> tags (or
+<em class="filename">srm.conf,</em> if used):</p>
+
+
+<blockquote><pre class="code">DirectoryIndex   index.html index.shtml
+AddType          text/html     .shtml</pre></blockquote>
+
+
+<p>The <tt class="literal">DirectoryIndex</tt> directive tells the server that
+if the URL refers to a directory and that directory contains
+<em class="filename">index.shtml</em>, then it should display it if
+<em class="filename">index.html</em> is not found. The
+<tt class="literal">AddType</tt> server directive tells the server that the
+media type of parsed files is HTML instead of the default, which is
+typically plain text.</p>
+
+
+<p>We'll look at the syntax of SSI commands in a moment, but one
+particular <a name="INDEX-1262" /> <a name="INDEX-1,263" />SSI command,
+<tt class="command">exec</tt>, allows you to execute
+<a name="INDEX-1264" />
+<a name="INDEX-1265" />
+<a name="INDEX-1266" />
+<a name="INDEX-1267" />external
+applications and include the output in your document. You may not
+wish to enable this
+for<a name="INDEX-1268" /> security reasons;
+you may not wish to give HTML authors the same level of trust in this
+regard that you give to CGI developers. Also, if you do enable
+<tt class="command">exec</tt> and you have a CGI script on your site that
+creates static HTML files from users' input (as some popular
+guestbook and message board CGI scripts do), make sure that SSI is
+not enabled for files created by this CGI script. If someone using
+this CGI script enters the following and SSI tags are not removed by
+the CGI application, then their malicious command will be executed
+the first time their comment is read:</p>
+
+
+<blockquote><pre class="code">&lt;!--#exec cmd="/bin/rm -rf *" --&gt;</pre></blockquote>
+
+
+<p>This would remove all the files from all the directories the server
+can write to. The following could be just as disastrous on a Windows
+server:</p>
+
+
+<blockquote><pre class="code">&lt;!--#exec cmd="del /f /s /q c:\" --&gt;</pre></blockquote>
+
+
+<p>Most CGI scripts that generate files such as this create them with a
+<em class="filename">.html</em> extension, so you would not want to enable
+<tt class="command">exec</tt> and configure the web server to parse all
+<em class="filename">.html</em> files. Note that this is not as much of a
+concern if CGI scripts are not allowed to generate
+<em class="filename">.html</em> files.</p>
+
+
+<p>To enable <a name="INDEX-1269" />SSI without enabling the
+<tt class="literal">exec</tt> tag, use the following option instead of
+<tt class="literal">Includes</tt>:</p>
+
+
+<blockquote><pre class="code">Options     IncludesNoExec</pre></blockquote>
+
+
+<p>Older versions of Apache and other web <a name="INDEX-1270" />servers actually
+required that the CGI script execution also be enabled in order to
+use the <tt class="command">exec</tt> command:</p>
+
+
+<blockquote><pre class="code">Options     Includes ExecCGI</pre></blockquote>
+
+
+<p>As you'll recall from <a href="ch01_01.htm">Chapter 1, "Getting Started "</a>, there are
+good reasons to restrict CGI scripts to particular directories.
+Previously you had to choose between enabling CGI script execution
+and disallowing the <tt class="command">exec</tt> command. Fortunately,
+this restriction has been lifted: you can now
+<a name="INDEX-1271" /> <a name="INDEX-1,272" />enable the
+<tt class="command">exec</tt> command while disallowing <a name="INDEX-1273" /> <a name="INDEX-1,274" />CGI execution.</p>
+</div>
+
+
+
+
+<a name="ch06-3-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.2.2. Format</h3>
+
+
+<p>Now let's see what <a name="INDEX-1275" />
+<a name="INDEX-1276" />
+<a name="INDEX-1277" />SSI can do for us. All SSI directives
+have the following syntax:</p>
+
+
+<blockquote><pre class="code">&lt;!--#element attribute="value" attribute="value" ... --&gt;</pre></blockquote>
+
+
+<p><a href="ch06_02.htm#ch06-63191">Table 6-1</a> lists the available SSI commands. In
+this chapter, we will discuss each of these directives in detail.</p>
+
+
+
+<a name="ch06-63191" /><h4 class="objtitle">Table 6-1. Server Side Include Commands </h4><table border="1">
+
+
+
+
+<tr>
+<th>
+<p>Element</p></th>
+<th>
+<p>
+<a name="INDEX-1278" />Attribute</p></th>
+<th>
+<p>Description</p></th>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p><tt class="command">echo</tt>
+<a name="INDEX-1279" /></p></td>
+<td>
+<p><tt class="command">var</tt></p></td>
+<td>
+<p>Displays the value of environment variables, special SSI variables
+and any user-defined variables.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="command">include</tt>
+<a name="INDEX-1280" /></p></td>
+<td />
+<td>
+<p>Inserts the contents of a particular file into the current document</p></td>
+</tr>
+
+<tr>
+<td />
+<td>
+<p><tt class="command">file</tt></p></td>
+<td>
+<p>Path of the file relative to the current directory, you cannot use an
+absolute path or reference files outside the document root; the file
+contents are included directly into the page with no additional
+processing.</p></td>
+</tr>
+
+<tr>
+<td />
+<td>
+<p><tt class="command">virtual</tt></p></td>
+<td>
+<p>Virtual path (URL) relative to the document root; the server
+interprets the path just as if it were another HTTP request, so you
+can use this attribute to insert the results of a CGI program or
+another SSI document.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="command">fsize</tt>
+<a name="INDEX-1281" /></p></td>
+<td />
+<td>
+<p>Inserts the size of a file.</p></td>
+</tr>
+
+<tr>
+<td />
+<td>
+<p><tt class="command">file</tt></p></td>
+<td>
+<p>Path of the file relative to the current directory.</p></td>
+</tr>
+
+<tr>
+<td />
+<td>
+<p><tt class="command">virtual</tt></p></td>
+<td>
+<p>Virtual path (URL) relative to the document root.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="command">flastmod</tt>
+<a name="INDEX-1282" /></p></td>
+<td>
+<p><tt class="command">file</tt></p></td>
+<td>
+<p>Inserts the last modification date and time for a specified file.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="command">exec</tt>
+<a name="INDEX-1283" /></p></td>
+<td />
+<td>
+<p>Executes external programs and inserts the output in current document
+(unless SSI has been configured with
+<tt class="literal">IncludesNoExec</tt>).</p></td>
+</tr>
+
+<tr>
+<td />
+<td>
+<p><tt class="command">cmd</tt></p></td>
+<td>
+<p>Path to any executable application relative to the current directory.</p></td>
+</tr>
+
+<tr>
+<td />
+<td>
+<p><tt class="command">cgi</tt></p></td>
+<td>
+<p>Virtual path to a CGI program; however, you
+<em class="emphasis">cannot</em> pass a query string -- if you want to
+pass a query string, use <tt class="literal">#include</tt>
+<tt class="literal">virtual="..."</tt> instead.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="command">printenv</tt>
+<a name="INDEX-1284" /></p></td>
+<td />
+<td>
+<p>Displays a list of environment variables and their values.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="command">set</tt>
+<a name="INDEX-1285" /></p></td>
+<td>
+<p><tt class="command">var</tt></p></td>
+<td>
+<p>Sets the value for a new or existing environment variable; the
+variable only lasts throughout the current request (but it is
+available to CGI scripts or other SSI documents included in this
+document).</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="command">if, elif</tt>
+<a name="INDEX-1286" /></p></td>
+<td>
+<p><tt class="command">expr</tt></p></td>
+<td>
+<p>Starts conditional.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="command">else</tt>
+<a name="INDEX-1287" /></p></td>
+<td />
+<td>
+<p>Starts the "else" part of the conditional.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="command">endif</tt>
+<a name="INDEX-1288" /></p></td>
+<td />
+<td>
+<p>Ends conditional.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="command">config</tt>
+<a name="INDEX-1289" /></p></td>
+<td />
+<td>
+<p>Modifies various aspects of SSI.</p></td>
+</tr>
+
+<tr>
+<td />
+<td>
+<p><tt class="command">errmsg</tt></p></td>
+<td>
+<p>Default error message.</p></td>
+</tr>
+
+<tr>
+<td />
+<td>
+<p><tt class="command">sizefmt</tt></p></td>
+<td>
+<p>Format for size of the file.</p></td>
+</tr>
+
+<tr>
+<td />
+<td>
+<p><tt class="command">timefmt</tt></p></td>
+<td>
+<p>Format for date and time.</p></td>
+</tr>
+
+
+</table>
+</div>
+
+
+
+
+<a name="ch06-4-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.2.3. Environment Variables</h3>
+
+
+<p>You can insert the values of <a name="INDEX-1290" />
+<a name="INDEX-1291" />environment
+<a name="INDEX-1292" /> <a name="INDEX-1,293" />variables in an otherwise static HTML
+document. Here is an example of a document that will contain the
+server name, the user's remote host, and the current local date
+and time:</p>
+
+
+<blockquote><pre class="code">&lt;HTML&gt;
+&lt;HEAD&gt;
+    &lt;TITLE&gt;Welcome!&lt;/TITLE&gt;
+&lt;/HEAD&gt;
+&lt;BODY&gt;
+&lt;H1&gt;Welcome to my server at &lt;!--#echo var="SERVER_NAME"--&gt;...&lt;/H1&gt;
+&lt;HR&gt;
+Dear user from &lt;!--#echo var="REMOTE_HOST"--&gt;,
+&lt;P&gt;
+There are many links to various CGI documents throughout the Web,
+so feel free to explore.
+&lt;P&gt;
+&lt;HR&gt;
+&lt;ADDRESS&gt;Webmaster (&lt;!--#echo var="DATE_LOCAL"--&gt;)&lt;/ADDRESS&gt;
+&lt;/BODY&gt;
+&lt;/HTML&gt;</pre></blockquote>
+
+
+<p>
+<a name="INDEX-1294" />
+<a name="INDEX-1295" />In this example, we use
+the<a name="INDEX-1296" />
+<a name="INDEX-1297" /> <em class="emphasis">echo</em> SSI
+command with the <em class="emphasis">var</em> attribute to display the
+<a name="INDEX-1298" /> <a name="INDEX-1,299" />
+<a name="INDEX-1300" />IP name or address of the serving
+machine, the remote host name, and the local time. All
+<a name="INDEX-1301" />environment variables that
+are available to CGI programs are also available to SSI directives.
+There are also a few variables that are exclusively available for use
+in SSI directives, such as
+
+<a name="INDEX-1302" />DATE_LOCAL, which contains the current
+local time. Another is <a name="INDEX-1303" /> <a name="INDEX-1,304" />DATE_GMT, which
+contains the time in Greenwich Mean Time:</p>
+
+
+<blockquote><pre class="code">The current GMT time is: &lt;!--#echo var="DATE_GMT" --&gt;</pre></blockquote>
+
+
+<p>Here is another example that uses some of these exclusive SSI
+environment variables to output information about the current
+document:</p>
+
+
+<blockquote><pre class="code">&lt;H2&gt;File Summary&lt;/H2&gt;
+&lt;HR&gt;
+The document you are viewing is:  &lt;!--#echo var="DOCUMENT_NAME"--&gt;,
+which you can access it a later time by opening the URL to:
+&lt;!--#echo var="DOCUMENT_URI"--&gt;.
+&lt;HR&gt;
+Document last modified on &lt;!--#echo var="LAST_MODIFIED"--&gt;.</pre></blockquote>
+
+
+<p>This will display the <a name="INDEX-1305" /> <a name="INDEX-1,306" />name, URL, and modification time for the
+current HTML document.</p>
+
+
+<p>For a listing of CGI environment variables, refer to <a href="ch03_01.htm">Chapter 3, "The Common Gateway Interface"</a>. <a href="ch06_02.htm#ch06-59530">Table 6-2</a> shows the
+additional variables available to SSI pages.</p>
+
+
+
+<a name="ch06-59530" /><h4 class="objtitle">Table 6-2. Additional Variables Available to SSI Pages </h4><table border="1">
+
+
+
+<tr>
+<th>
+<p>Environment Variable</p></th>
+<th>
+<p>Description</p></th>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p>
+<a name="INDEX-1307" />DOCUMENT_NAME</p></td>
+<td>
+<p>The current filename</p></td>
+</tr>
+
+<tr>
+<td>
+<p>
+<a name="INDEX-1308" />DOCUMENT_URI</p></td>
+<td>
+<p>Virtual path to the file</p></td>
+</tr>
+
+<tr>
+<td>
+<p>
+<a name="INDEX-1309" />QUERY_STRING_UNESCAPED</p></td>
+<td>
+<p>Unencoded query string with all shell metacharacters escaped with
+"\"</p></td>
+</tr>
+
+<tr>
+<td>
+<p>
+<a name="INDEX-1310" />DATE_LOCAL</p></td>
+<td>
+<p>Current date and time in the local time zone</p></td>
+</tr>
+
+<tr>
+<td>
+<p>
+<a name="INDEX-1311" />DATE_GMT</p></td>
+<td>
+<p>Current date and time in GMT</p></td>
+</tr>
+
+<tr>
+<td>
+<p>
+<a name="INDEX-1312" />LAST_MODIFIED</p></td>
+<td>
+<p>Last modification date and time for the file requested by the browser</p></td>
+</tr>
+
+
+</table>
+</div>
+
+
+
+
+<a name="ch06-20335" /><div class="sect2">
+<h3 class="sect2">6.2.4. Tailoring SSI Output</h3>
+
+
+<p>
+<a name="INDEX-1313" />
+<a name="INDEX-1314" />
+<a name="INDEX-1315" />
+<a name="INDEX-1316" />
+<a name="INDEX-1317" />The
+<em class="emphasis">config</em> command allows you to select the manner
+in which error messages, file size information, and
+<a name="INDEX-1318" />date and time
+are displayed. For example, if you use the
+<em class="emphasis">include</em> command to insert a nonexisting file,
+the server will output a default error message like the following:</p>
+
+
+<blockquote><pre class="code">[an error occurred while processing this directive]</pre></blockquote>
+
+
+<p>By using the <em class="emphasis">config</em> command, you can modify the
+default error message. If you want to set the message to
+"[error-contact webmaster]" you can use the following:</p>
+
+
+<blockquote><pre class="code">&lt;!--#config errmsg="[error-contact webmaster]" --&gt;</pre></blockquote>
+
+
+<p>You can also set the file size format that the server uses when
+displaying information with the
+<em class="emphasis">fsize</em>
+<a name="INDEX-1319" /> command. For example, this command:</p>
+
+
+<blockquote><pre class="code">&lt;!--#config sizefmt="abbrev" --&gt;</pre></blockquote>
+
+
+<p>will force the server to display the file size rounded to the nearest
+kilobyte (KB) or megabyte (MB). You can use the argument
+"bytes" to set the display as a byte count:</p>
+
+
+<blockquote><pre class="code">&lt;!--#config sizefmt="bytes" --&gt;</pre></blockquote>
+
+
+<p>Here is how you can change the time format:</p>
+
+
+<blockquote><pre class="code">&lt;!--#config timefmt="%D (day %j) at %r" --&gt;
+My signature was last modified on: 
+&lt;!--#flastmod virtual="/address.html"--&gt;.</pre></blockquote>
+
+
+<p>The output will look like this:</p>
+
+
+<blockquote><pre class="code">My signature was last modified on: 09/22/97 (day 265) at 07:17:39 PM</pre></blockquote>
+
+
+<p>
+<a name="INDEX-1320" /> <a name="INDEX-1,321" /> <a name="INDEX-1,322" />The <tt class="literal">%D</tt>
+format inserts the current date in <tt class="literal">mm/dd/yy</tt>
+format, <tt class="literal">%j</tt> inserts the day of the year, and
+<tt class="literal">%r</tt> the current time in <tt class="literal">hh/mm/ss</tt>
+<tt class="literal">AM|PM</tt> format. <a href="ch06_02.htm#ch06-35093">Table 6-3</a> lists
+all the data and time formats you can use.</p>
+
+
+
+<a name="ch06-35093" /><h4 class="objtitle">Table 6-3. Time and Date Formats</h4><table border="1">
+
+
+
+
+<tr>
+<th>
+<p>Format</p></th>
+<th>
+<p>Value</p></th>
+<th>
+<p>Example</p></th>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p><tt class="literal">%a</tt></p></td>
+<td>
+<p>Day of the week abbreviation</p></td>
+<td>
+<p>Sun</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%A</tt></p></td>
+<td>
+<p>Day of the week</p></td>
+<td>
+<p>Sunday</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%b</tt></p></td>
+<td>
+<p>Month name abbreviation</p></td>
+<td>
+<p>Jan</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%B</tt></p></td>
+<td>
+<p>Month name</p></td>
+<td>
+<p>January</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%d</tt></p></td>
+<td>
+<p>Date</p></td>
+<td>
+<p>01 (<em class="emphasis">not</em> 1)</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%D</tt></p></td>
+<td>
+<p>Date as <tt class="literal">%m/%d/%y</tt></p></td>
+<td>
+<p>06/23/95</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%e</tt></p></td>
+<td>
+<p>Date</p></td>
+<td>
+<p>1</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%H</tt></p></td>
+<td>
+<p>24-hour clock hour</p></td>
+<td>
+<p>13</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%I</tt></p></td>
+<td>
+<p>12-hour clock hour</p></td>
+<td>
+<p>01</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%j</tt></p></td>
+<td>
+<p>Decimal day of the year</p></td>
+<td>
+<p>360</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%m</tt></p></td>
+<td>
+<p>Month number</p></td>
+<td>
+<p>11</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%M</tt></p></td>
+<td>
+<p>Minutes</p></td>
+<td>
+<p>08</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%p</tt></p></td>
+<td>
+<p>AM | PM</p></td>
+<td>
+<p>AM</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%r</tt></p></td>
+<td>
+<p>Time as <tt class="literal">%I:%M:%S %p</tt></p></td>
+<td>
+<p>07:17:39 PM</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%S</tt></p></td>
+<td>
+<p>Seconds</p></td>
+<td>
+<p>09</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%T</tt></p></td>
+<td>
+<p>24-hour time as <tt class="literal">%H:%M:%S</tt></p></td>
+<td>
+<p>16:55:15</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%U</tt></p></td>
+<td>
+<p>Week of the year (also <tt class="literal">%W</tt>)</p></td>
+<td>
+<p>49</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%w</tt></p></td>
+<td>
+<p>Day of the week number</p></td>
+<td>
+<p>5</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%y</tt></p></td>
+<td>
+<p>Year of the century</p></td>
+<td>
+<p>95</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%Y</tt></p></td>
+<td>
+<p>Year</p></td>
+<td>
+<p>1995</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">%Z</tt></p></td>
+<td>
+<p>Time zone</p></td>
+<td>
+<p>EST</p></td>
+</tr>
+
+
+</table>
+</div>
+
+
+
+
+<a name="ch06-24838" /><div class="sect2">
+<h3 class="sect2">6.2.5. Including Boilerplates</h3>
+
+
+<p>
+<a name="INDEX-1323" />
+<a name="INDEX-1324" />
+<a name="INDEX-1325" /> <a name="INDEX-1,326" />
+<a name="INDEX-1327" />There
+are times when you will have certain information that you repeat in
+numerous documents on the server such as a copyright notice, the
+webmaster's email address, etc. Instead of maintaining this
+information separately in each file, you can include one file that
+has all of this information. It is much easier to update a single
+file if this information changes (for example, you may need to update
+the copyright notice the beginning of next year). <a href="ch06_02.htm#ch06-54923">Example 6-1</a> shows an example of such a file that itself
+contains SSI commands (note the <em class="emphasis">.shtml</em>
+extension).</p>
+
+
+
+<a name="ch06-54923" /><div class="example">
+<h4 class="objtitle">Example 6-1. footer.shtml </h4>
+
+<blockquote><pre class="code">&lt;HR&gt;
+&lt;P&gt;&lt;FONT SIZE="-1"&gt;
+Copyright 1999-2000 by My Company, Inc.&lt;BR&gt;
+Please report any problems to
+  &lt;A HREF="mailto:&lt;!--#echo var="SERVER_ADMIN"--&gt;"&gt;
+  &lt;!--#echo var="SERVER_ADMIN"--&gt;&lt;/A&gt;.&lt;BR&gt;
+This document was last modified on &lt;!--#echo var="LAST_MODIFIED"--&gt;.&lt;BR&gt;
+&lt;/FONT&gt;&lt;/P&gt;</pre></blockquote>
+</div>
+
+
+<p>It may look messy to include an SSI command within another HTML tag,
+but don't worry about this being invalid HTML because the web
+server will parse it before it sends it to the client. Also, you may
+wonder if we were to include this file in another file which file the
+server uses to determine the <a name="INDEX-1328" />LAST_MODIFIED
+variable. LAST_MODIFIED is set once by the server for the file that
+the client requested. If that file includes other files, such as
+<em class="filename">footer.shtml</em>, LAST_MODIFIED will still refer to
+the original file; so this footer will do what we want.</p>
+
+
+<p>Because included
+<a name="INDEX-1329" />files are not complete HTML
+documents (they have no &lt;HTML&gt;, &lt;HEAD&gt;, or &lt;BODY&gt;
+tags), it can be easier to maintain these files if you differentiate
+them by creating a standard extension for them or keeping them in a
+particular directory. In our example we'll create a folder
+called <em class="emphasis">/includes</em> in the document
+root and place <em class="emphasis">footer.shtml</em> here. We can then
+include the file by adding the following line to other
+<em class="filename">.shtml</em> files:</p>
+
+
+<blockquote><pre class="code">&lt;!--#include virtual="/includes/footer.shtml" --&gt;</pre></blockquote>
+
+
+<p>This SSI command will be replaced with a footer containing a
+copyright notice, the email address of the server administrator, and
+the modification date of the file requested.</p>
+
+
+<p>You can also use the
+<tt class="command">file</tt>
+<a name="INDEX-1330" /> attribute instead
+of <tt class="command">virtual</tt> to reference the file, but
+<tt class="command">file</tt> has limitations. You cannot use absolute
+paths, the web server does no processing on the requested file (e.g.,
+for CGI scripts or other SSI commands), and you may not reference
+files outside the document root. This last restriction prevents
+someone from including a file like <em class="filename">/etc/passwd</em>
+in an HTML document (since it's possible that someone is able
+to upload files to a server without otherwise having access to this
+file). Given these restrictions, it's typically easier to
+simply use <tt class="command">virtual</tt>.</p>
+</div>
+
+
+
+
+<a name="ch06-13635" /><div class="sect2">
+<h3 class="sect2">6.2.6. Executing CGI Programs</h3>
+
+
+<p>
+<a name="INDEX-1331" /> <a name="INDEX-1,332" />
+<a name="INDEX-1333" />You can use Server Side Includes to
+embed the results of an entire CGI program into a static HTML
+document by using either <em class="emphasis">exec cgi</em> or
+<em class="emphasis">include virtual</em>
+<a name="INDEX-1334" />. This is convenient for those times
+when you want to display just one piece of dynamic data, such as:</p>
+
+
+<blockquote><pre class="code">This page has been accessed 9387 times.</pre></blockquote>
+
+
+<p>Let's look at an example of inserting output from CGI programs.
+<a name="INDEX-1335" /> <a name="INDEX-1,336" /> <a name="INDEX-1,337" />
+<a name="INDEX-1338" />
+<a name="INDEX-1339" />Suppose you
+have a simple CGI program that keeps track of the number of visitors,
+called using the <em class="emphasis">include</em> SSI command in an HTML
+document:</p>
+
+
+<blockquote><pre class="code">This page has been accessed
+&lt;!--#include virtual="/cgi/counter.cgi"--&gt; times.</pre></blockquote>
+
+
+<p>We can include this tag in any SSI-enabled HTML page on our web
+server; each page will have its own count. We don't need to
+pass any variables to tell the CGI which URL we need the count for;
+the DOCUMENT_URI environment variable will contain the URL of the
+original document requested. Even though this is not a standard CGI
+environment variable, the additional SSI variables are provided to
+CGI scripts invoked via SSI.</p>
+
+
+<p>The code behind an access counter is quite short. A
+<a name="INDEX-1340" />Berkeley DB hash file on the server
+contains a count of the number of visitors that have accessed each
+document we're tracking. Whenever a user visits the document,
+the SSI directive in that document calls a CGI program that reads the
+numerical value stored in the data file, increments it, and outputs
+it. The counter is shown in <a href="ch06_02.htm#ch06-66032">Example 6-2</a>.</p>
+
+
+
+<a name="ch06-66032" /><div class="example">
+<h4 class="objtitle">Example 6-2. counter.cgi </h4>
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use Fcntl;
+use DB_File;
+
+use constant COUNT_FILE =&gt; "/usr/local/apache/data/counter/count.dbm";
+my %count;
+my $url = $ENV{DOCUMENT_URI};
+local *DBM;
+
+print "Content-type: text/plain\n\n";
+
+if ( my $db = tie %count, "DB_File", COUNT_FILE, O_RDWR | O_CREAT ) {
+    my $fd = $db-&gt;fd;
+    open DBM, "+&lt;&amp;=$fd" or die "Could not dup DBM for lock: $!";
+    flock DBM, LOCK_EX;
+    undef $db;
+    $count{$url} = 0 unless exists $count{$url};
+    my $num_hits = ++$count{$url};
+    untie %count;
+    close DBM;
+    print "$num_hits\n";
+} else {
+    print "[Error processing counter data]\n";
+}</pre></blockquote>
+</div>
+
+
+<p>Don't worry about how we access the hash file; we'll
+discuss this in <a href="ch10_01.htm">Chapter 10, "Data Persistence"</a>. Note that we output the
+media type. You must do this for included files even though the
+header is not returned to the client. An important thing to note is
+that a CGI program called by an SSI directive cannot output anything
+other than text because this data is embedded within the document
+that invoked the directive. As a result, it doesn't matter
+whether you output a content type of <tt class="command">text/plain</tt> or
+<tt class="command">text/html</tt>, as the browser will interpret the data
+with the media type of the calling document. Needless to say, your
+CGI program cannot output graphic images or other binary data.</p>
+</div>
+
+
+
+
+<a name="ch06-20332" /><div class="sect2">
+<h3 class="sect2">6.2.7. Common Errors</h3>
+
+
+<p>
+<a name="INDEX-1341" />
+<a name="INDEX-1342" /> <a name="INDEX-1,343" />
+<a name="INDEX-1344" />There are a few common errors that
+you can make when using server side includes. First, you should not
+forget the <tt class="literal">#</tt>:</p>
+
+
+<blockquote><pre class="code">&lt;!--echo var="REMOTE_USER" --&gt;</pre></blockquote>
+
+
+<p>Second, do not add extra spaces between the preceding
+<tt class="literal">&lt;!--</tt> and <tt class="literal">#</tt>:</p>
+
+
+<blockquote><pre class="code">&lt;!-- #echo var="REMOTE_USER" --&gt;</pre></blockquote>
+
+
+<p>Finally, if you do not enclose the value of the final attribute in
+<a name="INDEX-1345" />
+<a name="INDEX-1346" />quotes, you may need to insert an additional
+space before the trailing <tt class="literal">--&gt;</tt>. Otherwise, the
+SSI parser may interpret those characters as part of the
+attribute's value:</p>
+
+
+<blockquote><pre class="code">&lt;!--#echo var=REMOTE_USER--&gt;</pre></blockquote>
+
+
+<p>Generally it is simpler and clearer to use quotes.</p>
+
+
+<p>If you make either of the first two mistakes, the server will not
+recognize the SSI command and will pass it on as an HTML comment. In
+the last case, the command will probably be replaced with <a name="INDEX-1347" /> <a name="INDEX-1,348" /> <a name="INDEX-1,349" />an
+
+<a name="INDEX-1350" />error message.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch06_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">6. HTML Templates</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">6.3. HTML::Template</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

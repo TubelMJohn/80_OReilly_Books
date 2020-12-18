@@ -1,0 +1,510 @@
+<html><head><title>Exception Handling (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch02_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+	<h2 class="sect1">2.5. Exception Handling</h2>
+
+	<p>
+        
+<a name="INDEX-251" />
+<a name="INDEX-252" />
+        
+        Exceptions are the primary way that SAX event consumers
+	communicate to event producers;
+	this is the reverse of the typical communication pattern
+	(from producer to consumer).
+	We'll look at SAX exceptions before we delve more deeply into either
+	producers or consumers.
+	We'll look at the several types
+	of exceptions that might be thrown, the error handler interface that lets your code decide how to handle errors, and then how these normally fit together.</p>
+
+	<p>Keep this rule of thumb in mind: when a SAX handler
+	throws any exception -- including a
+	<em class="emphasis">java.lang.RuntimeException</em> or a
+	<em class="emphasis">java.lang.Error</em> -- parsing stops immediately.
+	The exception passes through the parser and is thrown
+	by <tt class="literal">XMLReader.parse()</tt>.
+	Beyond some possible additional error reports,
+	the only additional event
+	callback should be <tt class="literal">ContentHandler.endDocument()</tt>.
+	This method is always called before 
+	parsing finishes, even after errors,
+	<?troff .ne 10?>to ensure it can be used for cleaning up.
+	(That callback is presented in <a href="ch04_01.htm">Chapter 4, "Consuming SAX2 Events"</a>, in <a href="ch04_01.htm#sax2-CHP-4-SECT-1.1">Section 4.1.1, "Other ContentHandler Methods "</a>.)
+	</p>
+
+	<a name="sax2-CHP-2-SECT-5.1" /><div class="sect2">
+	    <h3 class="sect2">2.5.1. SAX2 Exception Classes</h3>
+
+	    <p>
+<a name="INDEX-253" />
+<a name="INDEX-254" />
+<a name="INDEX-255" />
+            
+            There are four standard exception classes, with a common
+	    base class used in the signature for all handler methods.
+	    The <tt class="literal">parse()</tt> methods, as well as the <em class="emphasis">EntityResolver</em> class presented in <a href="ch03_04.htm#sax2-CHP-3-SECT-4">Section 3.4, "The EntityResolver Interface"</a> in <a href="ch03_01.htm">Chapter 3, "Producing  SAX2 Events"</a>, can also throw <em class="emphasis">java.io.IOException</em> to indicate problems unrelated to XML text content. You will find that many XML APIs are declared the same way; for example, JAXP parser methods may throw such exceptions even if they don't expose SAX events directly. See <a href="appa_01.htm">Appendix A, "SAX2 API Summary"</a> for method summaries for these exception classes.</p>
+
+	    <dl>
+
+		<dt><b>
+		    <em class="emphasis">org.xml.sax.SAXException
+		    </em></b></dt>
+		<dd><p><a name="INDEX-256" />
+                This is the base exception class.
+		Typically you will see its subclasses.
+		These exceptions have messages and
+		may wrap other exceptions for diagnostic purposes.
+		When an application's event callback catches an exception
+		it's not permitted to throw, it can
+		wrap it in one of these exceptions and then
+		throw that exception.
+		<em class="emphasis">Every SAX2 event callback can throw a
+		SAXException,</em> although most callback examples
+		in this book won't demonstrate this.
+		</p></dd>
+
+		<dt><b>
+		    <em class="emphasis">org.xml.sax.SAXNotRecognizedException
+		    </em></b></dt>
+		<dd><p><a name="INDEX-257" />
+                This exception is thrown when the parser
+		does not understand the URI identifying a
+		feature or property you tried to access.
+		Most processors recognize the
+		standard IDs, so if you're trying to use those and you get
+		this exception, make sure you're using the correct URI.
+		</p></dd>
+
+		<dt><b>
+		    <em class="emphasis">org.xml.sax.SAXNotSupportedException
+		    </em></b></dt>
+		<dd><p><a name="INDEX-258" />
+                These exceptions are typically used to 
+		indicate that an
+		<em class="emphasis">XMLReader</em> property or feature value you tried to
+		change was recognized, but the value you requested isn't
+		supported.
+		Reasons this might be reported include
+		setting a property to an illegal value (such as the wrong
+		type of handler) and
+		trying to set a feature or property that is read-only in a
+		given implementation (or when the request is made).
+		For instance, it's not possible to ask a parser to stop
+		validating in mid-parse, but for some parsers it's reasonable
+		to do so before starting to parse a document.
+		</p></dd>
+
+		<dt><b>
+		    <em class="emphasis">org.xml.sax.SAXParseException
+		    </em></b></dt>
+		<dd><p><a name="INDEX-259" />
+                This is the most commonly seen
+		exception class; instances
+		provide detailed diagnostic information, such as the base
+		URI of a file with bad XML content, and the line and column
+		number of such content. XML parsers provide such
+		exceptions when the report sends errors to
+		<em class="emphasis">ErrorHandler</em> implementations.
+		</p>
+		
+		<p>Applications can also construct this information when 
+		reporting 
+		application-level errors through SAX callbacks.
+		In fact, they probably <em class="emphasis">should</em> do
+		so, providing a <em class="emphasis">Locator</em> object to
+		the constructor (and perhaps wrapping an exception to
+		identify a root cause) in order to provide good diagnostics.
+		(See <a href="ch04_01.htm#sax2-CHP-4-SECT-1.2">Section 4.1.2, "The Locator Interface "</a> in <a href="ch04_01.htm">Chapter 4, "Consuming SAX2 Events"</a> for information
+		about <em class="emphasis">Locator</em> objects.)
+		</p></dd>
+
+	    </dl>
+
+	    <p>
+            <a name="INDEX-260" />
+            <a name="INDEX-261" />
+            <a name="INDEX-262" />
+<a name="INDEX-263" />
+
+            The "wrapped" exception is a powerful tool.
+	    You might be familiar with this mechanism from the new
+	    JDK 1.4 "Chained Exception" facility or the older
+	    <em class="emphasis">java.lang.reflect.InvocationTargetException</em>
+	    exception mechanism.
+	    (The JDK 1.4 <tt class="literal">getCause()</tt> method exposes
+	    essentially the same functionality as the SAX
+	    <tt class="literal">getException()</tt>, though it builds
+	    on new JVM features to add intelligence to exception printing.)
+	    While parsers may use it internally, you'll likely want to
+	    use it to ensure higher-level software will see the root cause
+	    of some <em class="emphasis">SAXException</em> your handler reported:
+	    </p>
+
+	    <blockquote><pre class="code">
+// in some SAX event handler:
+try {
+    ... application specific stuff ...
+} catch (MyApplicationException cause) {
+    throw new SAXException ("it broke!", cause);
+    // or better yet: throw new SAXParseException 
+    //	 ("broke", locator, cause)
+}</pre></blockquote>
+
+	    <p>If you print the stack backtrace of such a <em class="emphasis">SAXException</em>,
+	    you'll see two stacks, starting with the root cause.
+	    Being able to see that root cause information
+	    can be a real lifesaver when debugging.
+	    And some application error recovery strategies will use the 
+	    <tt class="literal">SAXException.getException()</tt> method
+	    to find the root cause and then determine how to recover from it.
+	    For example, if the application exception identified some
+	    resource that was unavailable, higher levels in the
+	    application might be able to use that information to
+	    choose an alternative resource and restart processing.
+	    </p>
+
+	    </div>
+
+	<a name="sax2-CHP-2-SECT-5.2" /><div class="sect2">
+	    <h3 class="sect2">2.5.2. ErrorHandler Interface</h3>
+
+	    <p><a name="INDEX-264" /><a name="INDEX-265" />
+
+            Normally, you will configure SAX event-processing
+	    code to use a specialized implementation of
+	    <em class="emphasis">ErrorHandler</em> to process faults
+	    that are uncovered during parsing.
+	    This is done with the
+	    <tt class="literal">XMLReader.setErrorHandler()</tt> call.
+	    This interface has three methods; you saw one of them
+	    in an earlier example.
+	    The interface is used to encapsulate an error-handling
+	    strategy.
+	    The primary choices you have to make are whether to
+	    ignore an error or to abort parsing, and whether
+	    to emit diagnostics.
+	    Those strategies are driven by the severity of the problem,
+	    as exposed by which method is used to report it,
+	    though sometimes exception-typing may give programs
+	    information about exactly what error was detected.
+	    </p>
+
+	    <dl>
+
+		<dt><b>
+		<tt class="literal">void error (SAXParseException e)</tt></b></dt>
+		<dd><p><a name="INDEX-266" />
+                This method is used to report errors
+		that aren't expected to be fatal.
+		The best-known example is violation of XML validity
+		constraints, but some other XML errors are nonfatal too.
+		Many kinds of application-level errors (as reported by
+		event-consumer logic, not XML parsers) will fall into this
+		category, and most parsers use this callback to report
+		violations of namespace constraints (such as referring
+		to an undeclared namespace prefix).
+		</p>
+		
+		<p>When validating, applications often adopt a
+		policy of treating these errors as if they were fatal, 
+	 	or generating a diagnostic for every such error.
+		By default, all nonfatal errors are ignored.
+		That default will be a big surprise, if you expect
+		a validating parser to stop parsing when it sees
+		validation errors.
+		You have to override the default error-handling
+		policy if you want such behavior.
+
+		</p></dd>
+
+		<dt><b>
+	<tt class="literal">void fatalError (SAXParseException e)</tt></b></dt>
+		<dd><p><a name="INDEX-267" />
+                This method is used to report errors,
+		typically violations of well
+		formedness, that are fatal. Some XML parsers
+		may be able to continue processing after reporting such
+		errors, but only to report additional errors.
+		The XML specification itself requires that no more data
+		will be reported after a fatal error.
+		</p>
+		
+		<p>By default, fatal errors cause parsing to stop;
+		the <tt class="literal">parse()</tt> method will return.
+		This method is often used to provide a diagnostic
+		or to log the exception. After it does that, it has
+		two main choices: throw the parameter to terminate
+		processing or return. 
+		Most parsers will treat a return as equivalent to
+		throwing the parameter to terminate parsing.
+		Some XML parsers continue checking for errors; in such cases, they aren't allowed to call any handlers other than the <em class="emphasis">ErrorHandler</em>.
+
+		</p></dd>
+
+		<dt><b>
+		<tt class="literal">void warning (SAXParseException e)</tt></b></dt>
+		<dd><p><a name="INDEX-268" />
+                This method is used to report problems
+		that aren't errors.
+		Such situations are specific to the software that reports
+		the warning; unlike fatal and nonfatal errors, the XML
+		specification doesn't place requirements on reporting such
+		situations.
+		XML infrastructure software may generate warnings
+		for any reason at all (much like many pet dogs I have known)
+		and yet be fully compliant with the XML specification.
+		</p>
+		
+		<p>By default, warnings are ignored.
+		Applications typically ignore them, or print low-priority
+		diagnostics. Because there is such variability in what
+		generates a warning, it is probably not useful to put
+		a "no warnings allowed" policy into software
+		(by treating this like a fatal error);
+		users have to decide on a warning-by-warning basis whether
+		to ignore it or treat it as significant.
+		</p></dd>
+
+	    </dl>
+
+	    <p>Event consumers can also use this API to provide a standard
+	    way to report faults uncovered in layers above pure XML,
+	    for instance, when data in element content or an attribute
+	    value is invalid or corrupt.
+	    When both the application and the SAX-related components use the
+	    same <em class="emphasis">ErrorHandler</em> instance to handle
+	    error-reporting policy issues, maintaining that policy is easier.
+	    For example, developers like being able to collect lots of
+	    error reports with one test run rather than getting only one
+	    error per run; it can be more effective to resolve problems
+	    in groups, with shorter test cycles.
+	    You can do that with SAX by saving the exceptions (or their
+	    associated diagnostics) as they're reported.
+	    The same flexibility can be important in production systems.
+	    </p>
+            <p><a name="INDEX-269" />
+            An <em class="emphasis">ErrorHandler</em> can throw any
+	    <em class="emphasis">SAXException</em> it wants;
+	    it doesn't have to be the
+	    <em class="emphasis">SAXParseException</em> passed as its argument.
+	    Don't throw a different exception unless you find a certifiably
+	    excellent reason to do so; to
+	    discard that original exception just makes problems
+	    become harder to troubleshoot. One such reason might be to
+	    report a "double fault," in which you triggered another exception
+	    while handling the first one.
+	    (Operating systems sometimes panic in such cases, so there's no
+	    reason applications shouldn't do so too!)
+	    </p>
+
+	    <p>JAXP also uses this handler to report errors when
+	    building DOM documents; <em class="emphasis">SAXException</em> objects may be thrown
+	    to terminate parsing after a DOM parser finds a problem, if
+	    the application chooses to handle those errors.
+	    Most DOM implementations in Java use SAX parsers
+	    to populate their DOM tree, so this is natural behavior.
+	    (JAXP only specifies a SAX-compatible way to present and report
+	    such errors. They might be reported from a non-SAX parser.)
+	    
+<a name="INDEX-270" /><a name="INDEX-271" />
+
+</p>
+
+	    </div>
+
+	<a name="sax2-CHP-2-SECT-5.3" /><div class="sect2">
+	    <h3 class="sect2">2.5.3. Errors and Diagnostics</h3>
+
+	    <p><a name="INDEX-272" />
+<a name="INDEX-273" />
+<a name="INDEX-274" />
+<a name="INDEX-275" />
+           
+
+
+
+            When you see a <em class="emphasis">SAXException</em>,
+	    it'll normally have a message you'll use for diagnostics,
+	    like any exception. It'll also have stack backtrace, which
+	    will help when you're debugging, like any exception; in some
+	    cases you might even see a nested "root cause" exception.
+	    At this time, standard methods only tell an
+	    error's severity; there's no way to distinguish different validity
+	    errors from each other, for example.
+	    </p>
+<?troff .Nd 10?>
+	    <p><a name="INDEX-276" />
+            You can get better diagnostics
+	    when the exception is really a
+	    <em class="emphasis">SAXParseException</em>, and give accurate
+	    information about exactly where the error appeared.
+	    SAX parsers normally provide such data when reporting
+	    parsing errors, and applications can do the same thing
+	    by avoiding the more generic <em class="emphasis">SAXException</em>.
+	    With non-GUI applications, I often use code like that shown in
+	    <a href="ch02_05.htm#sax2-CHP-2-EX-6">Example 2-6</a>
+	    to present the most important diagnostic data.
+	    </p>
+
+	    <a name="sax2-CHP-2-EX-6" /><div class="example">
+		<h4 class="objtitle">Example 2-6. Getting diagnostics from a SAXParseException</h4>
+
+		<blockquote><pre class="code">
+static private String printParseException (
+    String              label,
+    SAXParseException   e
+) {
+    StringBuffer        buf = new StringBuffer ();
+    int                 temp;
+
+    buf.append ("** ");
+    buf.append (label);
+    buf.append (": ");
+    buf.append (e.getMessage ());
+    buf.append ('\n');
+    // most such exceptions include the (absolute) URI for the text
+    if (e.getSystemId () != null) {
+        buf.append ("   URI:  ");
+        buf.append (e.getSystemId ());
+        buf.append ('\n');
+    }
+    // many include approximate line and column numbers
+    if ((temp = e.getLineNumber ()) != -1) {
+        buf.append ("   line: ");
+        buf.append (temp);
+        buf.append ('\n');
+    }
+    if ((temp = e.getColumnNumber ()) != -1) {
+        buf.append ("   char: ");
+        buf.append (temp);
+        buf.append ('\n');
+    }
+    // public ID might be available, but is seldom useful
+
+    return buf.toString ();
+}</pre></blockquote>
+
+		</div>
+
+	    <p>
+            <a name="INDEX-277" />
+            It's natural to call such code in two places.
+	    One place is after you've caught an exception of this type,
+	    in a "try" block. That's a bit awkward and error prone; you'll need to have
+	    two different "catch" clauses,
+	    first for SAXParseException and then for
+	    <em class="emphasis">SAXException</em>, or else use a cast.
+	    The more natural place is centralized in an
+	    <em class="emphasis">ErrorHandler</em> that can treat
+	    generating diagnostics as one of several options for
+	    processing errors, as shown in <a href="ch02_05.htm#sax2-CHP-2-EX-7">Example 2-7</a>.
+	    In fact, it's the only way to generate 
+	    diagnostics for nonfatal errors, or for warnings,
+	    without treating them as fatal errors;
+	    or to centralize your error-handling policy to make
+	    it easily configurable.
+	    </p>
+
+	    <a name="sax2-CHP-2-EX-7" /><div class="example">
+		<h4 class="objtitle">Example 2-7. Customizable diagnostic error handler</h4>
+
+		<blockquote><pre class="code">
+public class MyErrorHandler implements ErrorHandler
+{
+    int         flags;
+
+    // bit mask values for flags
+    public static final int ERR_PRINT = 1;
+    public static final int ERR_IGNORE = 2;
+    public static final int WARN_PRINT = 4;
+    public static final int FATAL_PRINT = 8;
+    public static final int FATAL_IGNORE = 16;
+
+    MyErrorHandler () { flags = ~0; }
+    MyErrorHandler (int flags) { this.flags = flags; }
+
+    public void error (SAXParseException e)
+    throws SAXParseException
+    {
+	if ((flags &amp; ERR_PRINT) != 0)
+	    System.err.print (printParseException ("Error", e));
+	if ((flags &amp; ERR_IGNORE) == 0)
+	    throw e;
+    }
+
+    public void fatalError (SAXParseException e)
+    throws SAXParseException
+    {
+	if ((flags &amp; FATAL_PRINT) != 0)
+	    System.err.print (printParseException ("FATAL", e));
+	if ((flags &amp; FATAL_IGNORE) == 0)
+	    throw e;
+    }
+
+    public void warning (SAXParseException e)
+    throws SAXParseException
+    {
+	if ((flags &amp; WARN_PRINT) != 0)
+	    System.err.print (printParseException ("Warning", e));
+	// always ignored
+    }
+
+    // printParseException() method (above) is part of this class
+}</pre></blockquote>
+
+		</div>
+
+	    <p>Such an error handler gives you flexibility about
+	    which errors to report and how to handle the various
+	    types that show up. A silent mode of operation might
+	    never print diagnostics, a verbose one might print all of
+	    them, and a different default could be somewhere in between.
+	    A defensive operational mode might terminate XML
+	    processing when it sees any error; a permissive one
+	    might try to continue after every error.
+	    The default shown is verbose and permissive.
+	    </p>
+	    
+	    <p>To use such an error handler for handling
+	    application-specific <em class="emphasis">SAXExceptions</em>, you'll need to adopt
+	    the same classifications that SAX derives from XML:
+	    fatal errors, nonfatal errors, and
+	    warnings. That's usually pretty natural, particularly
+	    if application configuration flags control which potential
+	    error cases are tested.
+	    
+<a name="INDEX-278" />
+<a name="INDEX-279" />
+<a name="INDEX-280" />
+<a name="INDEX-281" />
+<a name="INDEX-282" />
+
+
+
+</p>
+
+	</div>
+
+    
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch02_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">2.4. Producer-Side Validation</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">2.6. Namespaces and SAX2</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

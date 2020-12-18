@@ -1,0 +1,483 @@
+<html><head><title>Zeus (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch15_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">15.3. Zeus</h2>
+
+<p><a name="INDEX-1435" />
+<a name="INDEX-1436" /> <a name="INDEX-1437" />Next up is
+the Zeus data binding framework. This is a project over at Enhydra
+(<a href="http://www.enhydra.org">http://www.enhydra.org</a>), and is
+based on a series of articles I originally wrote for the folks at
+IBM's Developer Works (<a href="http://www.ibm.com/developerWorks">http://www.ibm.com/developerWorks</a>). It was
+the direct result of my need for a simple solution for data binding
+(at the time, Castor seemed overly complex for a fairly
+straightforward data binding problem). Since then, it's
+developed into a complete project at Enhydra, and several other folks
+are working on it. You can get the complete story by checking out
+<a href="http://zeus.enhydra.org">http://zeus.enhydra.org</a>.
+I'll touch on the same things I dealt with in Castor, so you
+can use either competently in your applications.
+</p>
+
+<a name="javaxml2-CHP-15-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">15.3.1. Installation</h3>
+
+<p><a name="INDEX-1438" />
+<a name="INDEX-1439" />Zeus
+is still in the fairly early stages of functional development
+(it's been around a bit, but some serious architecture is still
+going on). As a result, I'd recommend you get the latest
+version from CVS instead of downloading a binary. That way,
+you'll be sure to get the latest and greatest in features. You
+can find complete instructions on getting Zeus from CVS at the web
+site, but in short, you'll need to get CVS (from <a href="http://www.cvshome.org">http://www.cvshome.org</a>, for example). Simply
+use the following command:
+</p>
+
+<blockquote><pre class="code">cvs -d :pserver:anoncvs@enhydra.org:/u/cvs login</pre></blockquote>
+
+<p>Enter "anoncvs" as the password. Then:</p>
+
+<blockquote><pre class="code">cvs -d :pserver:anoncvs@enhydra.org:/u/cvs co toolsTech/Zeus</pre></blockquote>
+
+<p>You'll get everything you need. Change into the <em class="emphasis">Zeus</em> directory (which is created by the CVS
+download), and build the binaries:
+</p>
+
+<blockquote><pre class="code">bmclaugh@GANDALF ~/dev/Zeus
+$ ./build.sh</pre></blockquote>
+
+<p>Or, on Windows:</p>
+
+<blockquote><pre class="code">c:\dev\Zeus&gt; build.bat</pre></blockquote>
+
+<p>You should also build the samples, which you can do by appending
+"samples" as an argument to the build command:
+</p>
+
+<blockquote><pre class="code">bmclaugh@GANDALF ~/dev/Zeus
+$ ./build.sh samples</pre></blockquote>
+
+<p>At that point, you'll end up with <em class="emphasis">zeus.jar</em> in the <em class="emphasis">build/</em> directory. Add this to your classpath,
+as well as <em class="emphasis">jdom.jar</em> and
+<em class="emphasis">xerces.jar</em>, both of which are in
+the <em class="emphasis">lib</em> directory. Finally, if
+you're going to use DTD generation, you should also add
+<em class="emphasis">dtdparser113.jar</em> to the
+classpath. And, to use the samples, add the <em class="emphasis">build/classes</em> directory itself, just to make
+things really easy. So, my classpath looks like this:
+</p>
+
+<blockquote><pre class="code">bmclaugh@GANDALF ~/dev/Zeus
+$ echo $CLASSPATH
+ /dev/Zeus/lib/jdom.jar:/dev/Zeus/lib/xerces.jar:/dev/Zeus/lib/dtdparser113.jar:
+ /dev/Zeus/build/zeus.jar:/dev/Zeus/build/classes</pre></blockquote>
+
+<p>Or, on Windows:</p>
+
+<blockquote><pre class="code">c:\dev\Zeus&gt; echo %CLASSPATH%
+ c:\dev\Zeus\lib\jdom.jar;c:\dev\Zeus\lib\xerces.jar;
+ c:\dev\Zeus\lib\dtdparser113.jar;c:\dev\Zeus\build\zeus.jar;
+ c:\dev\Zeus\build\classes</pre></blockquote>
+
+<p>That's it. With your classpath set, and the XML from the
+earlier portions of the chapter, you're ready to go.
+</p>
+
+</div>
+<a name="javaxml2-CHP-15-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">15.3.2. Class Generation</h3>
+
+<p><a name="INDEX-1440" /> <a name="INDEX-1441" />The primary difference between Zeus
+and frameworks like Castor and even JAXB, Sun's offering, is
+the way that class generation is handled. Remember from <a href="ch15_01.htm#javaxml2-CHP-15-FIG-1">Figure 15-1</a> that the standard means of handling class
+generation is taking a set of constraints, reading through them, and
+streaming out Java source code. While this is handy, it makes it
+difficult to add support for other types of constraints, like DTDs or
+newer schema-alternatives such as Relaxx and TREX. To accommodate
+this, Zeus adds an intermediary step. What occurs is that a set of
+constraints (in schema form, DTD form, etc.) is converted into a set
+of <em class="filename">Zeus bindings</em>. These bindings are not tied to
+any specific means of constraint representation. In other words, if
+you modeled a set of constraints within a DTD, and then modeled the
+exact set of constraints again within an XML Schema, Zeus would
+convert both into an identical set of bindings. These bindings are
+used to generate Java source code. The result is a process like that
+modeled in <a href="ch15_03.htm#javaxml2-CHP-15-FIG-3">Figure 15-3</a>.
+</p>
+
+<a name="javaxml2-CHP-15-FIG-3" /><div class="figure"><img height="327" alt="Figure 15-3" src="figs/javax_1503.gif" width="480" /></div><h4 class="objtitle">Figure 15-3. The Zeus methodology of class generation</h4>
+
+<p>What's nice about this, and the reasoning behind it, is that
+adding support for a new method of constraints like TREX becomes a
+very simple process. You could write a class, implementing the
+<tt class="literal">org.enhydra.zeus.Binder</tt> interface, that takes in a
+set of constraints and creates Zeus bindings from them. Class
+generation is already handled, so you don't have to deal with
+hundreds of annoying <tt class="literal">out.write( )</tt> type statements.
+Zeus comes prepackaged with two binders, <tt class="literal">DTDBinder</tt>
+and <tt class="literal">SchemaBinder</tt>, both in the
+<tt class="literal">org.enhydra.zeus.binder</tt>
+<a name="INDEX-1442" />package.
+</p>
+
+<p>Other than that architectural change (which doesn't affect you
+when using existing binders), Castor and Zeus operate similarly in
+generating classes. <a href="ch15_03.htm#javaxml2-CHP-15-EX-5">Example 15-5</a> shows a DTD that
+constrains the original XML document from <a href="ch15_01.htm#javaxml2-CHP-15-EX-1">Example 15-1</a>. I'll demonstrate using class generation
+from DTDs with this example.
+</p>
+
+<a name="javaxml2-CHP-15-EX-5" /><div class="example">
+<h4 class="objtitle">Example 15-5. DTD for <a href="ch15_01.htm#javaxml2-CHP-15-EX-1">Example 15-1</a> </h4>
+<blockquote><pre class="code">&lt;!ELEMENT catalog (item+)&gt;
+&lt;!ATTLIST catalog
+          xmlns   CDATA    #FIXED    "http://www.homespuntapes.com"
+&gt;
+
+&lt;!ELEMENT item (title, teacher, guest*, description)&gt;
+&lt;!ATTLIST item
+          id      CDATA    #REQUIRED
+          level   CDATA    #REQUIRED
+&gt;
+
+&lt;!ELEMENT title (#PCDATA)&gt;
+&lt;!ELEMENT teacher (#PCDATA)&gt;
+&lt;!ELEMENT guest (#PCDATA)&gt;
+&lt;!ELEMENT description (#PCDATA)&gt;</pre></blockquote>
+</div>
+
+<p>Zeus is set up to allow applications to call the source generator,
+and therefore does not provide a static entry point for source
+generation within the API. Because that's a common task,
+though, a class within the samples (remember running the build
+program with the "samples" argument?) does allow easy
+class generation. If your classpath is set up like I showed you
+previously, all you need to do is create a new directory called
+"output". The samples program puts generated classes in
+there by default (programmatically, you can change that option). So,
+with an <em class="emphasis">output</em> directory in
+place, run the following command:
+</p>
+
+<blockquote><pre class="code">C:\javaxml2\build&gt;java samples.TestDTDBinder 
+    -file=c:\javaxml2\ch14\xml\zeus\catalog.dtd 
+    -package=javaxml2.zeus 
+    -quiet=true</pre></blockquote>
+
+<p>I have spaced things out for clarity. I've specified the file
+to generate source from, the package to put the source within, and
+that generation should occur <em class="emphasis">quietly</em> (without
+spitting out any debugging information). Generation from a schema is
+very similar. Since Zeus uses the final version of the XML Schema
+recommendation, you need to use a newer version of the XML Schema
+shown back in the Castor section; <a href="ch15_03.htm#javaxml2-CHP-15-EX-6">Example 15-6</a>
+updates that schema to a current version.
+</p>
+
+<a name="javaxml2-CHP-15-EX-6" /><div class="example">
+<h4 class="objtitle">Example 15-6. Updating the Castor XML Schema </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+
+&lt;schema xmlns="http://www.w3.org/2001/XMLSchema"
+        targetNamespace="http://www.homespuntapes.com"&gt;
+  &lt;element name="catalog"&gt;
+    &lt;complexType&gt;
+      &lt;sequence&gt;
+        &lt;element ref="item" minOccurs="1" maxOccurs="unbounded" /&gt;
+      &lt;/sequence&gt;
+    &lt;/complexType&gt;
+  &lt;/element&gt;
+
+  &lt;element name="item"&gt;
+    &lt;complexType&gt;
+      &lt;sequence&gt;
+        &lt;element name="title" type="string" /&gt;
+        &lt;element name="teacher" type="string" /&gt;
+        &lt;element name="guest" type="string" minOccurs="0" maxOccurs="unbounded" /&gt;
+        &lt;element name="description" type="string" /&gt;
+      &lt;/sequence&gt;
+      &lt;attribute name="id" type="string" /&gt;
+      &lt;attribute name="level"&gt;
+        &lt;simpleType&gt;
+          &lt;restriction base="integer"&gt; 
+            &lt;enumeration value="1" /&gt;
+            &lt;enumeration value="2" /&gt;
+            &lt;enumeration value="3" /&gt;
+            &lt;enumeration value="4" /&gt;
+            &lt;enumeration value="5" /&gt;
+          &lt;/restriction&gt;
+        &lt;/simpleType&gt;
+      &lt;/attribute&gt;
+    &lt;/complexType&gt;
+  &lt;/element&gt;
+&lt;/schema&gt;</pre></blockquote>
+</div>
+
+<p>Once you've got that, use the following command for class
+generation:
+</p>
+
+<blockquote><pre class="code">C:\javaxml2\build&gt;java samples.TestSchemaBinder 
+    -file=c:\javaxml2\ch14\xml\zeus\catalog.xsd 
+    -package=javaxml2.zeus 
+    -quiet=true</pre></blockquote>
+
+<p>You'll get identical output using either a DTD or a schema. </p>
+<blockquote><b>WARNING:</b> 
+
+This is a slight overstatement. Actually, you will get identical output if you can represent the constraints in the DTD and XML Schema identically. In this example, the schema defines "level" as an <tt class="literal">integer</tt>, while the DTD must define it as <tt class="literal">PCDATA</tt>. The result is that using a schema, you get a typed level (a Java <tt class="literal">int</tt>), and using a DTD, you get a <tt class="literal">String</tt>. I've used the DTD version throughout this section, to show you that option.
+</p>
+</blockquote>
+<p>Within the <em class="emphasis">output</em> directory, you'll find a
+<em class="emphasis">javaxml2</em> directory, and then a
+<em class="emphasis">zeus</em> directory (matching up to
+the package hierarchy). You can take a look at the source files
+generated within.
+</p>
+
+<p>Right off, you should notice that Zeus produces an interface (for
+example, <em class="emphasis">Catalog.java</em>) and a
+default implementation of that interface (for example, <em class="emphasis">CatalogImpl.java</em>). The reasoning behind this,
+as opposed to the concrete classes that Castor generates, is that you
+may want to have your own custom classes, perhaps already in
+existence, that implement the <tt class="literal">Catalog</tt> interface.
+You can therefore use your own implementation, but get the benefits
+of class generation. I commonly see developers using Zeus to generate
+classes and then creating their own implementation of the generated
+interfaces as Enterprise JavaBeans (EJBs). These EJBs are then
+persisted using Zeus, which is a piece of cake (as I'll show
+you in the next section). Without providing for user-defined
+implementations, this behavior would require modifying the generated
+source code, which could break marshalling and unmarshalling.
+</p>
+
+<p>Another notable difference you should be aware of is the method
+names. For example, here's the <tt class="literal">Item</tt>
+interface (trimmed down to its simplest form):
+</p>
+
+<blockquote><pre class="code">package javaxml2.zeus;
+
+public interface Item {
+
+    public Title getTitle( );
+    public void setTitle(Title title);
+
+    public Teacher getTeacher( );
+    public void setTeacher(Teacher teacher);
+
+    public java.util.List getGuestList( );
+    public void setGuestList(java.util.List guestList);
+    public void addGuest(Guest guest);
+    public void removeGuest(Guest guest);
+
+    public Description getDescription( );
+    public void setDescription(Description description);
+
+    public String getLevel( );
+    public void setLevel(String level);
+
+    public String getId( );
+    public void setId(String id);
+}</pre></blockquote>
+
+<p>Notice that the JavaBeans naming is used, and elements that can
+appear multiple times are returned as Java 2 Collections classes. In
+any case, take a look at this source, and then compile it:
+</p>
+
+<blockquote><pre class="code">javac -d . output/javaxml2/zeus/*.java</pre></blockquote>
+
+<p>Now you're ready to look at marshalling and unmarshalling using
+Zeus.
+</p>
+
+</div>
+<a name="javaxml2-CHP-15-SECT-3.3" /><div class="sect2">
+<h3 class="sect2">15.3.3. Marshalling and Unmarshalling</h3>
+
+<p><a name="INDEX-1443" /> <a name="INDEX-1444" />The process of marshalling and
+unmarshalling in Zeus is very similar to that in Castor. At the heart
+of the operations are two classes,
+<tt class="literal">org.enhydra.zeus.Marshaller</tt> and
+<tt class="literal">org.enhydra.zeus.Unmarshaller</tt>. Like Castor, the
+methods you will be interested in are <tt class="literal">marshal( )</tt>
+and <tt class="literal">unmarshal( )</tt>, on their respective classes.
+However, there are some differences. First, the
+<tt class="literal">Marshaller</tt> and <tt class="literal">Unmarshaller</tt>
+classes in Zeus don't provide static entry points. This is
+intentional, reminding the user to set options like the package to
+unmarshal XML to, and whether or not there are methods that should be
+ignored in marshalling. Additionally, Zeus uses the JAXP style of
+input and output, providing data binding flavors of the
+<tt class="literal">Source</tt> and <tt class="literal">Result</tt> classes I
+talked about in <a href="ch09_01.htm">Chapter 9, "JAXP"</a>. Like JAXP, Zeus
+provides some default flavors of these in the
+<tt class="literal">org.enhydra.zeus.source</tt> and
+<tt class="literal">org.enhydra.zeus.result</tt>
+<a name="INDEX-1445" />
+<a name="INDEX-1446" />packages.
+Even with these changes, the process turns out to be very similar in
+both frameworks:
+</p>
+
+<blockquote><pre class="code">File catalogFile = new File("catalog.xml");
+FileReader reader = new FileReader(catalogFile);
+FileWriter writer = new FileWriter(catalogFile);
+
+// Castor: Unmarshalling
+Catalog catalog =
+    (Catalog)org.exolab.castor.xml.Unmarshaller.unmarshal(Catalog.class, reader);
+
+// Zeus: Unmarshalling
+StreamSource source = new StreamSource(reader);
+org.enhydra.zeus.Unmarshaller unmarshaller = new org.enhydra.zeus.Unmarshaller( );
+Catalog catalog = (Catalog)unmarshaller.unmarshal(source);
+
+// Castor: Marshalling
+org.exolab.castorMarshaller.marshal(catalog, writer);
+
+// Zeus: Marshalling
+StreamResult result = new StreamResult(writer);
+org.enhydra.zeus.Marshaller marshaller = new org.enhydra.zeus.Marshaller( );
+marshaller.marshal(catalog, result);</pre></blockquote>
+
+<p>While there's a bit more typing involved with using Zeus, the
+methodology should seem a lot more familiar to JAXP users, which was
+the goal. It also allows input and output of SAX streams and DOM
+trees using the appropriate <tt class="literal">Source</tt> and
+<tt class="literal">Result</tt> implementations. As an example of Zeus in
+action, check out <a href="ch15_03.htm#javaxml2-CHP-15-EX-7">Example 15-7</a>. This program reads in
+the catalog supplied as the first argument on the command line,
+prints out the item names and IDs, modifies an existing item, and
+then marshals the catalog back to XML. There's very little user
+interaction here, but you should be able to see how Zeus works.
+</p>
+
+<a name="javaxml2-CHP-15-EX-7" /><div class="example">
+<h4 class="objtitle">Example 15-7. Using Zeus for catalog manipulation </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.List;
+
+// Zeus classes
+import org.enhydra.zeus.Marshaller;
+import org.enhydra.zeus.Unmarshaller;
+import org.enhydra.zeus.source.StreamSource;
+import org.enhydra.zeus.result.StreamResult;
+
+// Zeus generated classes
+import javaxml2.zeus.Catalog;
+import javaxml2.zeus.Guest;
+import javaxml2.zeus.GuestImpl;
+import javaxml2.zeus.Item;
+import javaxml2.zeus.ItemImpl;
+
+public class CatalogViewer {
+
+    public void view(File catalogFile) throws IOException {
+        FileReader reader = new FileReader(catalogFile);
+        StreamSource source = new StreamSource(reader);
+
+        // Convert from XML to Java
+        Unmarshaller unmarshaller = new Unmarshaller( );
+        unmarshaller.setJavaPackage("javaxml2.zeus");
+        Catalog catalog = (Catalog)unmarshaller.unmarshal(source);
+
+        List items = catalog.getItemList( );
+        for (Iterator i = items.iterator(); i.hasNext( ); ) {
+            Item item = (Item)i.next( );
+            String id = item.getId( );
+            System.out.println("Item ID: " + id);
+            String title = item.getTitle().getValue( );
+            System.out.println("Item Title: " + title);
+
+            // Modify an item
+            if (id.equals("CDZ-SM01")) {
+                item.getTitle( ).setValue("Sam Bush Teaches Mandolin " +
+                    "Repertoire and Technique, 2nd edition");
+                Guest guest = new GuestImpl( );
+                guest.setValue("Bela Fleck");
+                item.addGuest(guest);
+            }
+        }
+ 
+        // Write back out
+        FileWriter writer = new FileWriter(new File("newCatalog.xml"));
+        StreamResult result = new StreamResult(writer);
+        Marshaller marshaller = new Marshaller( );
+        marshaller.marshal(catalog, result);
+    }
+
+    public static void main(String[] args) {
+        try {
+            if (args.length != 1) {
+                System.out.println("Usage: java javaxml2.CatalogViewer " +
+                    "[XML Catalog Filename]");
+                return;
+            }
+
+            // Get access to XML catalog
+            File catalogFile = new File(args[0]);
+            CatalogViewer viewer = new CatalogViewer( );
+            viewer.view(catalogFile);
+            
+        } catch (Exception e) {
+            e.printStackTrace( );
+        }
+    }
+}</pre></blockquote>
+</div>
+
+<p>This reads in the file specified, and then spits out the ID and title
+of each item in the catalog. It also checks for a certain ID
+("CDZ-SM01"), and modifies that item to reflect a second
+edition (and all of us around here love second editions!). Finally,
+it writes the catalog back out to a new file, with the modified
+information. Try it out; just be sure that you already have the
+compiled Zeus-generated classes in your classpath.
+</p>
+
+<p>Once you've learned how basic data binding works, you
+aren't in for too many surprises. You'll just need to
+find the framework that is most suitable for your specific
+application's functional needs. One thing that Zeus has going
+for it is the generation of interfaces and implementation classes,
+which allows you to use your existing classes with little
+modification. Additionally, Zeus provides for using DTDs, which many
+of you with hundreds of DTDs in older XML-based applications will
+love. On the other hand, Zeus is newer than Castor, and has less
+momentum and a smaller developer community at this point. So, check
+it out online, and use it if it helps you out. <a name="INDEX-1447" /> <a name="INDEX-1448" /> <a name="INDEX-1449" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch15_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">15.2. Castor</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">15.4. JAXB</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

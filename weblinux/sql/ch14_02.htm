@@ -1,0 +1,264 @@
+<?label 14.2. Simple Database Access
+?><html><head><title>Simple Database Access
+ (MySQL &amp; mSQL)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Randy Jay Yarger, George Reese and Tim King" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924347L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="MySQL &amp; mSQL" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="MySQL and mSQL" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch14_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">MySQL &amp; mSQL</a></td><td width="172" valign="top" align="right"><a href="ch14_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<a name="INDEX-857" /><a name="INDEX-858" /><h2 class="sect1">14.2. Simple Database Access
+</h2>
+
+
+
+
+
+<p>The <tt class="literal">Connect</tt> example did not do much. It simply
+showed you how to connect to a database. A database connection is
+useless unless you actually talk to the database. The simplest forms
+of database access are <tt class="literal">SELECT</tt>,
+<tt class="literal">INSERT</tt>, <tt class="literal">UPDATE</tt>, and
+<tt class="literal">DELETE</tt> statements. Under the JDBC API, you use
+your database <tt class="literal">Connection</tt> instance to create
+<tt class="literal">Statement</tt>
+<a name="INDEX-859" /> instances. A <tt class="literal">Statement</tt>
+naturally represents any kind of SQL statement. <a href="ch14_02.htm#ch14-40462">Example 14-1</a> shows how to insert a row into a database
+using a <tt class="literal">Statement</tt>.</p>
+
+
+
+
+
+<a name="ch14-40462" /><div class="example">
+<h4 class="objtitle">Example 14-1. Inserting a Row into mSQL Using a JDBC Statement Object </h4>
+
+
+
+
+<blockquote><pre class="code">import java.sql.*;
+import java.util.*;
+
+public class Insert {
+    // We are inserting into a table that has two columns: test_id (int)
+    // and test_val (char(55))
+    // args[0] is the test_id and args[1] the test_val
+    public static void main(String argv[]) {
+        Connection con = null;
+        ResourceBundle bundle = ResourceBundle.getBundle("SelectResource");
+
+        try {
+            String url = bundle.getString("URL");
+            Statement stmt;
+
+            Class.forName(bundle.getString("Driver"));
+            // here is where the connection is made   
+            con = DriverManager.getConnection(url, "borg", ""); 
+            stmt = con.createStatement();
+            stmt.executeUpdate("INSERT INTO test (test_id, test_val) " +
+                               "VALUES(" + args[0] + ", '" + args[1] + "')");
+        }
+        catch( SQLException e ) {
+            e.printStackTrace();
+        }
+        finally {
+            if( con != null ) {
+                try { con.close(); }
+                catch( Exception e ) { }
+            }
+        }
+    }
+}</pre></blockquote>
+</div>
+
+
+
+
+
+<p>If this were a real application, we would of course verified that the
+user entered an <tt class="literal">INT</tt> for the
+<tt class="literal">test_id</tt>, that it was not a duplicate key, and that
+the <tt class="literal">test_val</tt> entry did not exceed 55 characters.
+This example nevertheless shows how simple performing an insert is.
+The
+<tt class="literal">createStatement()</tt>
+<a name="INDEX-860" /> method does just what it says: it
+creates an empty SQL statement associated with the
+<tt class="literal">Connection</tt> in question. The
+<tt class="literal">executeUpdate()</tt>
+<a name="INDEX-861" /> method then passes the specified SQL
+on to the database for execution. As its name implies,
+<tt class="literal">executeUpdate()</tt> expects SQL that will be modifying
+the database in some way. You can use it to insert new rows as shown
+earlier, or instead to delete rows, update rows, create new tables,
+or do any other sort of database modification.</p>
+
+
+
+
+
+<p>
+<a name="INDEX-862" />Queries are a bit more complicated
+than updates because queries return information from the database in
+the form of a <tt class="literal">ResultSet</tt>. A
+<tt class="literal">ResultSet</tt>
+<a name="INDEX-863" />
+is an interface that represents zero or more rows matching a database
+query. A JDBC <tt class="literal">Statement</tt> has an
+<tt class="literal">executeQuery()</tt>
+<a name="INDEX-864" /> method that works like the
+<tt class="literal">executeUpdate()</tt> method -- except it returns a
+<tt class="literal">ResultSet</tt> from the database. Exactly one
+<tt class="literal">ResultSet</tt> is returned by
+<tt class="literal">executeQuery()</tt>, however, you should be aware that
+JDBC supports the retrieval of multiple result sets for databases
+that support multiple result sets. Neither MySQL or mSQL support
+multiple result sets. It is nevertheless important for you to be
+aware of this issue in case you are ever looking at someone
+else's code written against another database engine. <a href="ch14_02.htm#ch14-25471">Example 14-2</a> shows a simple query. <a href="ch14_02.htm#ch14-14057">Figure 14-1</a> shows the data model behind the test table.</p>
+
+
+
+
+
+<a name="ch14-25471" /><div class="example">
+<h4 class="objtitle">Example 14-2. A Simple Query </h4>
+
+
+
+
+<blockquote><pre class="code">import java.sql.*;
+import java.util.*;
+
+public class Select {
+    public static void main(String argv[]) {
+        Connection con = null;
+        ResourceBundle bundle =
+              ResourceBundle.getBundle("SelectResource");
+
+        try {
+            String url = bundle.getString("URL");
+            Statement stmt;
+            ResultSet rs; 
+
+             Class.forName(bundle.getString("Driver"));
+            // here is where the connection is made   
+            con = DriverManager.getConnection(url, "borg", ""); 
+            stmt = con.createStatement();
+            rs = stmt.executeQuery("SELECT * from test ORDER BY test_id"); 
+            System.out.println("Got results:");
+            while(rs.next()) {
+                int a= rs.getInt("test_id");
+                String str = rs.getString("test_val");
+
+                System.out.print(" key= " + a);
+                System.out.print(" str= " + str);
+                System.out.print("\n");
+            }
+            stmt.close();
+        }
+        catch( SQLException e ) {
+            e.printStackTrace();
+        }
+        finally {
+            if( con != null ) {
+                try { con.close(); }
+                catch( Exception e ) { }
+            }
+        }
+    }
+}</pre></blockquote>
+</div>
+
+
+
+
+
+<a name="ch14-14057" /><div class="figure"><img width="502" src="figs/MSQL.1402.gif" height="136" alt="Figure 14-1" /></div><h4 class="objtitle">Figure 14-1. The test table from the sample database</h4>
+
+<p>The <tt class="literal">Select</tt> application executes the query and then
+loops through each row in the <tt class="literal">ResultSet</tt> using the
+<tt class="literal">next()</tt>
+<a name="INDEX-865" /> method. Until the first call to
+<tt class="literal">next()</tt>, the <tt class="literal">ResultSet</tt> does not
+point to any row. Each call to <tt class="literal">next()</tt> points the
+<tt class="literal">ResultSet</tt> to the subsequent row.
+<a name="INDEX-866" />JDBC
+2.0 introduces the concept of a scrollable result set. If your
+<tt class="literal">ResultSet</tt> instance is set to be scrollable, you
+can also make calls to
+<tt class="literal">previous()</tt>
+<a name="INDEX-867" /> to navigate backwards through the
+results. You are done processing rows when <tt class="literal">next()</tt>
+returns <tt class="literal">false</tt>.</p>
+
+
+
+
+
+<p>Dealing with a row means getting the values for each of its columns.
+Whatever the value in the database, you can use the getter methods in
+the <tt class="literal">ResultSet</tt> to retrieve the column value as
+whatever Java datatype you like. In the <tt class="literal">Select</tt>
+application, the call to
+<tt class="literal">getInt()</tt>
+<a name="INDEX-868" /> returned the <tt class="literal">test_id</tt>
+column as an <tt class="literal">int</tt> and the call to
+<tt class="literal">getString()</tt>
+<a name="INDEX-869" /> returned the <tt class="literal">test_val</tt>
+column as a <tt class="literal">String</tt>. These getter methods accept
+either the column number -- starting with column 1 -- or the
+column name. You should, however, avoid retrieving values using a
+column name at all costs since retrieving results by column name is
+many, many times slower than retrieving them by column
+number.<a name="INDEX-870" />
+<a name="INDEX-871" /></p>
+
+
+
+
+
+<a name="ch14-5-fm2xml" /><div class="sect2">
+<a name="INDEX-872" /><a name="INDEX-873" /><a name="INDEX-874" /><h3 class="sect2">14.2.1. Error Handling and Clean Up
+
+</h3>
+
+
+
+
+
+<p>All JDBC method calls can throw <tt class="literal">SQLException</tt> or
+one of its subclasses if something happens during a database call.
+Your code should be set up to catch this exception, deal with it, and
+clean up any database resources that have been allocated. Each of the
+JDBC classes mentioned so far has a <tt class="literal">close()</tt> method
+associated with it. Practically speaking, however, you only really
+need to make sure you close things whose calling process might remain
+open for a while. In the examples we have seen so far, you only
+really need to close your database connections. Closing the database
+connection closes any statements and result sets associated with it
+automatically. If you intend to leave a connection open for any
+period of time, however, it is a good idea to go ahead and close the
+statements you create using that connection when you finish with
+them. In the JDBC examples you have seen, this clean up happens in a
+finally clause. You do this since you want to make sure to close the
+database connection no matter what happens.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch14_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch14_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">14. Java and JDBC</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">14.3. Dynamic Database Access
+</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

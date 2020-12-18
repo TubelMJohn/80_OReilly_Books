@@ -1,0 +1,385 @@
+<?label 4.2. Writing and Executing Scripts?><html><head><title>Writing and Executing Scripts (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch04_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">4.2. Writing and Executing Scripts</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-432" /> <a name="INDEX-433" />Bear in mind that the CGI
+script must be executable in the opinion of your operating system. In
+order to test it, you can run it from the console with the same login
+that Apache uses. If you cannot, you have a problem that's
+signaled by disagreeable messages at the client end, plus equivalent
+stories in the log files on the server, such as:</p>
+
+
+
+
+
+<blockquote><pre class="code">You don't have permission to access /cgi-bin/mycgi on this server</pre></blockquote>
+
+
+
+
+
+<p>You need to do either of the following:</p>
+
+
+
+
+
+<ul><li><p>Use <tt class="literal">ScriptAlias</tt>
+<a name="INDEX-434" /> in your host's Config file,
+pointing to a safe location outside your webspace. This makes for
+better security because the Bad Guys then cannot read your scripts
+and analyze them for holes. "Security by obscurity" is
+not a sound policy on its own, but it does no harm when added to more
+vigorous precautions.</p></li><li><p>Use <tt class="literal">Addhandler</tt> or <tt class="literal">Sethandler</tt> to
+set a handler type of <tt class="literal">cgi-script</tt>.
+In this case, you put the CGI scripts in your document
+root.</p></li></ul>
+<p>If you have not used <tt class="literal">ScriptAlias</tt>, then
+<tt class="literal">Options</tt>
+<tt class="literal">ExecCGI</tt>
+<a name="INDEX-435" />
+<a name="INDEX-436" />
+<a name="INDEX-437" /> must be <tt class="literal">on</tt>. It will
+normally be on by default. See the section <a href="ch04_05.htm#ch04-30699">Section 4.5, "Debugging Scripts"</a>, later in this chapter, for more
+information on fixing scripts.</p>
+
+
+
+
+
+<p>To experiment, we have a simple test script,
+<em class="filename">mycgi.cgi</em>, in two locations:
+<em class="emphasis">.../cgi-bin</em> to test the first method above, and
+.<em class="emphasis">../site.cgi/htdocs</em> to test the second. When it
+works, we would write the script properly in C or Perl or whatever.</p>
+
+
+
+
+
+<p><img src="figs/unix_icon.gif" alt="Figure 4.2" />   The script <em class="filename">mycgi.cgi</em> looks like this:</p>
+
+
+
+
+
+<blockquote><pre class="code">#!/bin/sh
+echo "content-type: text/plain"
+echo
+echo "Have a nice day"</pre></blockquote>
+
+
+
+
+
+<p><img src="figs/win32_icon.gif" alt="Figure 4.2" />   Under Win32, providing you want to run your script under
+<em class="emphasis">COMMAND.COM</em> and call it
+<em class="emphasis">mycgi.bat</em>, the script can be a little simpler
+than the Unix version -- it doesn't need the line that
+specifies the shell:</p>
+
+
+
+
+
+<blockquote><pre class="code">@echo off
+echo "content-type: text/plain"
+echo.
+echo "Have a nice day"</pre></blockquote>
+
+
+
+
+
+<p><img src="figs/win32_icon.gif" alt="Figure 4.2" />   The <tt class="literal">@echo</tt>
+<a name="INDEX-438" />
+<tt class="literal">off</tt> command turns off command-line echoing, which
+would otherwise completely destroy the output of the batch file. The
+slightly weird-looking "<tt class="literal">echo.</tt>" gives a
+blank line (a plain <tt class="literal">echo</tt> without a dot prints
+"<tt class="literal">ECHO is off</tt>").</p>
+
+
+
+
+
+<p><img src="figs/win32_icon.gif" alt="Figure 4.2" />   If you are running a more exotic shell, like
+<em class="emphasis">bash</em> or <em class="emphasis">perl,</em> you need the
+`shebang' line at the top of the script to invoke it:</p>
+
+
+
+
+
+<blockquote><pre class="code">#!<em class="replaceable">shell path</em>
+...</pre></blockquote>
+
+
+
+
+
+<p>A CGI script consists of headers and a body. Everything up to the
+first blank line (strictly speaking, CRLF CRLF, but Apache will
+tolerate LF LF) is header, and everything else is body. The lines of
+the header are separated by LF or CRLF. A list of possible headers is
+to be found in the draft CGI 1.1 specification, from which this is a
+quotation:</p>
+
+
+
+
+
+<blockquote><pre class="code">The CGI <a name="INDEX-439" />
+<a name="INDEX-440" />header fields have the generic syntax:
+   
+    generic-header = field-name ":" [ field-value ] NL
+    field-name     = 1*&lt;any CHAR, excluding CTLs, SP and ":"&gt;
+    field-value    = *( field-content | LWSP )
+    field-content  = *( token | tspecial | quoted-string )
+   The field-name is not case sensitive; a NULL field value is equivalent to
+   the header field not being sent.
+   
+   <a name="INDEX-441" />Content-Type
+          The Internet Media Type [9] of the entity body, which is to
+          be sent unmodified to the client.
+          
+    Content-Type = "Content-Type" ":" media-type NL
+          This is actually an HTTP-Header rather than a CGI-header
+          field, but it is listed here because of its importance in the
+          CGI dialogue as a member of the "one of these is required"
+          set of header fields.
+          
+   <a name="INDEX-442" />Location
+          This is used to specify to the server that the script is
+          returning a reference to a document rather than an actual
+          document.
+          
+    Location         = "Location" ":"
+                       ( fragment-URI | rel-URL-abs-path ) NL
+    fragment-URI     = URI [ # fragmentid ]
+    URI              = scheme ":" *qchar
+    fragmentid       = *qchar
+    rel-URL-abs-path = "/" [ hpath ] [ "?" query-string ]
+    hpath            = fpsegment *( "/" psegment )
+    fpsegment        = 1*hchar
+    psegment         = *hchar
+    hchar            = alpha | digit | safe | extra
+                     | ":" | "@" | "&amp; | "="</pre></blockquote>
+
+
+
+
+
+<p>Our little script first tells Apache to use the
+<em class="emphasis">sh</em> shell and then specifies what type of data
+the content is, using the
+<tt class="literal">Content-Type</tt>
+<a name="INDEX-443" /> header. This must be specified because:</p>
+
+
+
+
+
+<ul><li><p>Apache can't tell from the filename (remember that for ordinary
+files, there's a host of ways of determining the content type,
+for example, the <em class="filename">mime.types</em> file or the
+<tt class="literal">AddType</tt> directive).</p></li><li><p>The CGI script may want to decide on content type dynamically.</p></li></ul>
+<p>So, the script must send at least one header line:
+<tt class="literal">Content-Type</tt>. We set it to
+<tt class="literal">text/plain</tt> to get a nicely formatted output
+screen. Failure to include it results in an error message on the
+client, plus equivalent entries in the server log files:</p>
+
+
+
+
+
+<blockquote><pre class="code">The server encountered an internal error or misconfiguration and was unable to complete your request</pre></blockquote>
+
+
+
+
+
+<p>Headers must be terminated by a blank line, hence the second
+<tt class="literal">echo</tt>.</p>
+
+
+
+
+
+<p>We are going to call our script from one of the Butterthlies forms:
+<em class="emphasis">form_summer.html.</em> Depending on which location
+and calling method we use for the script<em class="emphasis">,</em> we
+need slightly different invocations in the form.</p>
+
+
+
+
+
+<a name="ch04-3-fm2xml" /><div class="sect2">
+<h3 class="sect2">4.2.1. Script in cgi-bin</h3>
+
+
+
+
+
+<p>
+<a name="INDEX-444" /> <a name="INDEX-445" />To steer incoming demands for the
+script to the right place
+<em class="emphasis">(.../cgi-bin</em>
+<a name="INDEX-446" />), we need to edit
+our <em class="filename">... /site.cgi/conf/httpd.conf</em> file so it
+looks like this:</p>
+
+
+
+
+
+<blockquote><pre class="code">User webuser
+Group webgroup
+ServerName www.butterthlies.com
+DocumentRoot /usr/www/site.cgi/htdocs
+ScriptAlias /cgi-bin /usr/www/cgi-bin</pre></blockquote>
+
+
+
+
+
+<p>We need to edit the form
+<em class="emphasis">.../site.cgi/htdocs/form_summmer.html</em> so that
+the relevant line reads:</p>
+
+
+
+
+
+<blockquote><pre class="code">&lt;!-- UNIX --&gt;
+&lt;FORM METHOD=POST ACTION="cgi-bin/mycgi.cgi"&gt;
+&lt;!-- Win32 --&gt;
+&lt;FORM METHOD=POST ACTION="cgi-bin/mycgi.bat"&gt;</pre></blockquote>
+
+
+
+
+
+<p>Since CGI processing is on by default, this should work. When you
+submit the Butterthlies order form, and thereby invoke the CGI script
+named by <tt class="literal">ACTION</tt>, you are sent the message
+"Have a nice day."</p>
+
+
+
+
+
+<p>You would probably want to proceed in this way, that is, putting the
+script in the <em class="emphasis">cgi-bin</em> directory, if you were
+offering a web site to the outside world and wanted to maximize your
+security.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch04-4-fm2xml" /><div class="sect2">
+<h3 class="sect2">4.2.2. Script in DocumentRoot</h3>
+
+
+
+
+
+<p>The other method is to put scripts in amongst the HTML files. You
+should only do this if you trust the authors of the site to write
+safe scripts (or not write them at all) since security is much
+reduced. Generally speaking, it is safer to use a separate directory
+for scripts, as explained previously. First, it means that people
+writing HTML can't accidentally or deliberately cause security
+breaches by including executable code in the web tree. Second, it
+makes life harder for the Bad Guys: often it is necessary to allow
+fairly wide access to the nonexecutable part of the tree, but more
+careful control can be exercised on the CGI directories.</p>
+
+
+
+
+
+<p>But regardless of these good intentions, we put
+<em class="emphasis">mycgi.cgi</em> in
+<em class="emphasis">.../site.cgi/htdocs</em>. The Config file is now:</p>
+
+
+
+
+
+<blockquote><pre class="code">User webuser
+Group webgroup
+ServerName www.butterthlies.com
+<a name="INDEX-447" />DocumentRoot /usr/www/site.cgi/htdocs
+AddHandler cgi-script cgi</pre></blockquote>
+
+
+
+
+
+<p>The <tt class="literal">AddHandler</tt>
+<a name="INDEX-448" /> directive means that any document
+Apache comes across with the extension<em class="emphasis"> .cgi</em> will
+be taken to be an executable script. We need the corresponding line
+in the form:</p>
+
+
+
+
+
+<blockquote><pre class="code">&lt;!-- UNIX --&gt;
+&lt;FORM METHOD=POST ACTION="mycgi.cgi"&gt;
+&lt;!-- WIN32 --&gt;
+&lt;FORM METHOD=POST ACTION="mycgi.bat"&gt;</pre></blockquote>
+
+
+
+
+
+<p>Again, if we access
+<em class="emphasis">http://www.butterthlies.com/form_summer.html</em>, we
+get the result described.<a name="INDEX-449" /> <a name="INDEX-450" /></p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch04_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">4. Common Gateway Interface (CGI) </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">4.3. Script Directives</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

@@ -1,0 +1,344 @@
+<html><head><title>Schema Evolution (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch03_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">3.5. Schema Evolution</h2>
+
+<p><a name="INDEX-377" /> <a name="INDEX-378" />Looking beyond HTML generation, a key
+use for XSLT is transforming one form of XML into another form. In
+many cases, these are not radical
+<a name="INDEX-379" />transformations, but minor enhancements
+such as adding new attributes, changing the order of elements, or
+removing unused data. If you have only a handful of XML files to
+transform, it is a lot easier to simply edit the XML directly rather
+than going through the trouble of writing a stylesheet. But in cases
+where a large collection of XML documents exist, a single XSLT
+stylesheet can perform
+<a name="INDEX-380" />transformations on an entire
+library of XML files in a single pass. For B2B applications, schema
+evolution is useful when different customers require the same data,
+but in different formats.
+</p>
+
+<a name="javaxslt-CHP-3-SECT-5.1" /><div class="sect2">
+<h3 class="sect2">3.5.1. An Example XML File</h3>
+
+<p><a name="INDEX-381" /> <a name="INDEX-382" />Let's suppose that you wrote a
+logging API for your Java programs. Log files are written in XML and
+are formatted as shown in <a href="ch03_05.htm#javaxslt-CHP-3-EX-10">Example 3-10</a>.
+</p>
+
+<a name="javaxslt-CHP-3-EX-10" /><div class="example">
+<h4 class="objtitle">Example 3-10. Log file before transformation </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;log&gt;
+  &lt;message text="input parameter was null"&gt;
+    &lt;type&gt;ERROR&lt;/type&gt;
+    &lt;when&gt;
+      &lt;year&gt;2000&lt;/year&gt;
+      &lt;month&gt;01&lt;/month&gt;
+      &lt;day&gt;15&lt;/day&gt;
+      &lt;hour&gt;03&lt;/hour&gt;
+      &lt;minute&gt;12&lt;/minute&gt;
+      &lt;second&gt;18&lt;/second&gt;
+    &lt;/when&gt;
+    &lt;where&gt;
+      &lt;class&gt;com.foobar.util.StringUtil&lt;/class&gt;
+      &lt;method&gt;reverse(String)&lt;/method&gt;
+    &lt;/where&gt;
+  &lt;/message&gt;
+  &lt;message text="cannot read config file"&gt;
+    &lt;type&gt;WARNING&lt;/type&gt;
+    &lt;when&gt;
+      &lt;year&gt;2000&lt;/year&gt;
+      &lt;month&gt;01&lt;/month&gt;
+      &lt;day&gt;15&lt;/day&gt;
+      &lt;hour&gt;06&lt;/hour&gt;
+      &lt;minute&gt;35&lt;/minute&gt;
+      &lt;second&gt;44&lt;/second&gt;
+    &lt;/when&gt;
+    &lt;where&gt;
+      &lt;class&gt;com.foobar.servlet.MainServlet&lt;/class&gt;
+      &lt;method&gt;init( )&lt;/method&gt;
+    &lt;/where&gt;
+  &lt;/message&gt;
+  &lt;!-- more messages ... --&gt;
+&lt;/log&gt;</pre></blockquote>
+</div>
+
+<p>As you can see from this example, the file format is quite verbose.
+Of particular concern is how the date and time are written. Since log
+files can be quite large, it would be a good idea to select a more
+concise format for this information. Additionally, the text is stored
+as an attribute on the <tt class="literal">&lt;message&gt;</tt> element,
+and the type is stored as a child element. It would make more sense
+to list the type as an attribute and the message as an element. For
+example:
+</p>
+
+<blockquote><pre class="code">&lt;message type="WARNING"&gt;
+  &lt;text&gt;This is the text of a message.
+        Multi-line messages are easier when an
+        element is used instead of an attribute.&lt;/text&gt;
+  ...remainder omitted</pre></blockquote>
+
+</div>
+<a name="javaxslt-CHP-3-SECT-5.2" /><div class="sect2">
+<h3 class="sect2">3.5.2. The Identity Transformation</h3>
+
+<p>Whenever writing a schema evolution stylesheet, it is a good idea to
+start with an <em class="emphasis">identity
+transformation</em><a name="INDEX-383" />
+<a name="INDEX-384" />. This is a very simple
+template that simply takes the original XML document and
+"transforms" it into a new document with the same
+elements and attributes as the original document. <a href="ch03_05.htm#javaxslt-CHP-3-EX-11">Example 3-11</a> shows a stylesheet that contains an identity
+transformation template.
+</p>
+
+<a name="javaxslt-CHP-3-EX-11" /><div class="example">
+<h4 class="objtitle">Example 3-11. identityTransformation.xslt </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+  <tt class="userinput"><b>&lt;xsl:output method="xml" version="1.0" encoding="UTF-8" indent="yes"/&gt;</b></tt>
+  
+  &lt;xsl:template match="@*|node( )"&gt;
+    &lt;xsl:copy&gt;
+      <tt class="userinput"><b>&lt;xsl:apply-templates select="@*|node( )"/&gt;</b></tt>
+    &lt;/xsl:copy&gt;
+  &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+</div>
+
+<p>Amazingly, it takes only a single template to perform the identity
+transformation, regardless of the complexity of the XML data. Our
+stylesheet encodes the result using UTF-8 and indents lines,
+regardless of the original XML format. In XPath, <tt class="literal">node(
+)</tt><a name="INDEX-385" /> is a
+node test that matches all child nodes of the current context. This
+is fine, but it omits the attributes of the current context. For this
+reason, <tt class="literal">@*</tt> must be unioned with <tt class="literal">node(
+)</tt> as follows:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:template match="@*|node( )"&gt;</pre></blockquote>
+
+<p>Translated into English, this means that the template will match any
+attribute or any child node of the current context. Since
+<tt class="literal">node( )</tt> includes elements, comments, processing
+instructions, and even text, this template will match anything that
+can occur in the XML document.
+</p>
+
+<p>Inside of our template, we use
+<tt class="literal">&lt;xsl:copy&gt;</tt><a name="INDEX-386" />
+<a name="INDEX-387" />. As you can
+probably guess, this instructs the XSLT processor to simply copy the
+current node to the result tree. To continue processing,
+<tt class="literal">&lt;xsl:apply-templates&gt;</tt><a name="INDEX-388" />
+<a name="INDEX-389" /> then selects all
+attributes or children of the current context using the following
+code:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:apply-templates select="@*|node( )"/&gt;</pre></blockquote>
+
+</div>
+<a name="javaxslt-CHP-3-SECT-5.3" /><div class="sect2">
+<h3 class="sect2">3.5.3. Transforming Elements and Attributes</h3>
+
+<p>Once you have typed in the identity transformation and tested it, it
+is time to begin adding additional templates that actually perform
+the schema evolution. In XSLT, it is possible for two or more
+templates to match a pattern in the XML data. In these cases, the
+more specific
+<a name="INDEX-390" />template is instantiated.
+Without going into a great deal of technical detail, an explicit
+match such as <tt class="literal">&lt;xsl:template match="when"&gt;</tt>
+takes precedence over the identity transformation template, which is
+essentially a wildcard pattern that matches any attribute or node. To
+modify specific elements and attributes, simply add more specific
+templates to the existing identity transformation stylesheet.
+</p>
+
+<p>In the log file example, a key problem is the quantity of XML data
+written for each <tt class="literal">&lt;when&gt;</tt> element. Instead of
+representing the date and time using a series of child elements, it
+would be much more concise to use the following syntax:
+</p>
+
+<blockquote><pre class="code">&lt;timestamp time="06:35:44" day="15" month="01" year="2000"/&gt;</pre></blockquote>
+
+<p>The following template will perform the necessary transformation:</p>
+
+<blockquote><pre class="code">&lt;xsl:template match="when"&gt;
+  &lt;!-- change 'when' into 'timestamp', and change its
+       child elements into attributes --&gt;
+  &lt;timestamp time="{hour}:{minute}:{second}"
+    year="{year}" month="{month}" day="{day}"/&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+
+<p>This template can be added to the identity transformation stylesheet
+and will take precedence whenever a <tt class="literal">&lt;when&gt;</tt>
+element is encountered. Instead of using
+<tt class="literal">&lt;xsl:copy&gt;</tt>, this template produces a new
+<tt class="literal">&lt;timestamp&gt;</tt> element AVTs are then used to
+specify attributes for this element, effectively converting element
+values into attribute values. The AVT syntax
+<tt class="literal">{hour}</tt> is equivalent to selecting the
+<tt class="literal">&lt;hour&gt;</tt> child of the
+<tt class="literal">&lt;when&gt;</tt> element. You may notice that XSLT
+processors do not necessarily preserve the order of attributes. This
+is not important because the relative ordering of attributes is
+meaningless in XML, and you cannot force the order of XML attributes.
+</p>
+
+<p>The next thing to tackle is the <tt class="literal">&lt;message&gt;</tt>
+element. As mentioned earlier, we would like to convert the
+<tt class="literal">text</tt> attribute to an element, and the
+<tt class="literal">&lt;type&gt;</tt> element to an attribute. Just like
+before, add a new template that matches the
+<tt class="literal">&lt;message&gt;</tt> element, which will take
+precedence over the identity transformation. Comments in the code
+explain what happens at each step.
+</p>
+
+<blockquote><pre class="code">&lt;!-- locate &lt;message&gt; elements --&gt;
+&lt;xsl:template match="message"&gt;
+  &lt;!-- copy the current node, but not its attributes --&gt;
+  &lt;xsl:copy&gt;
+    &lt;!-- change the &lt;type&gt; element to an attribute --&gt;
+    &lt;xsl:attribute name="type"&gt;
+      &lt;xsl:value-of select="type"/&gt;
+    &lt;/xsl:attribute&gt;
+    
+    &lt;!-- change the text attribute to a child node --&gt;
+    &lt;xsl:element name="text"&gt;
+      &lt;xsl:value-of select="@text"/&gt;
+    &lt;/xsl:element&gt;
+      
+    &lt;!-- since the select attribute is not present,
+        xsl:apply-templates processes all children 
+        of the current node. (not attributes or processing instructions!) --&gt;
+    &lt;xsl:apply-templates/&gt;
+      
+  &lt;/xsl:copy&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+
+<p>This almost completes the stylesheet.
+<tt class="literal">&lt;xsl:copy&gt;</tt><a name="INDEX-391" />
+<a name="INDEX-392" /> simply copies the
+<tt class="literal">&lt;message&gt;</tt> element to the result tree but
+does not copy any of its attributes or children. We can explicitly
+add new attributes using <tt class="literal">&lt;xsl:attribute&gt;</tt> and
+explicitly create new child elements using
+<tt class="literal">&lt;xsl:element&gt;</tt>.
+<tt class="literal">&lt;xsl:apply-templates&gt;</tt> then tells the
+processor to continue the transformation process for the children of
+<tt class="literal">&lt;message&gt;</tt>. One problem right now is that the
+<tt class="literal">&lt;type&gt;</tt> element has been converted into an
+attribute but has not been removed from the document. The identity
+transformation still copies the <tt class="literal">&lt;type&gt;</tt>
+element to the result tree without modification. To fix this, simply
+add an <em class="emphasis">empty template</em><a name="INDEX-393" />
+<a name="INDEX-394" /> as follows:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:template match="type"/&gt;</pre></blockquote>
+
+<p>The complete schema evolution stylesheet simply contains the previous
+templates. Without duplicating all of the code, here is its overall
+structure:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;xsl:stylesheet
+    version="1.0"
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+  &lt;xsl:output method="xml" version="1.0" encoding="UTF-8" indent="yes"/&gt;
+  
+  &lt;!-- the identity transformation --&gt;
+  &lt;xsl:template match="@*|node( )"&gt;
+    ...
+  &lt;/xsl:template&gt;
+  
+  &lt;!-- locate &lt;message&gt; elements --&gt;
+  &lt;xsl:template match="message"&gt;
+    ...
+  &lt;/xsl:template&gt;
+
+  &lt;!-- locate &lt;when&gt; elements --&gt;
+  &lt;xsl:template match="when"&gt;
+    ...
+  &lt;/xsl:template&gt;
+  
+  &lt;!-- suppress the &lt;type&gt; element
+  &lt;xsl:template match="type"/&gt;
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+
+</div>
+<a name="javaxslt-CHP-3-SECT-5.4" /><div class="sect2">
+<h3 class="sect2">3.5.4. The Result File</h3>
+
+<p><a name="INDEX-395" /> <a name="INDEX-396" />Now that the stylesheet is complete, it
+can be applied to all of the existing XML log files using a simple
+shell script or batch file. The resulting XML file is shown in <a href="ch03_05.htm#javaxslt-CHP-3-EX-12">Example 3-12</a>. 
+</p>
+
+<a name="javaxslt-CHP-3-EX-12" /><div class="example">
+<h4 class="objtitle">Example 3-12. Result of the transformation </h4>
+<a name="INDEX-397" /><a name="INDEX-398" /><blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;?xml-stylesheet type="text/xsl" href="schemaChange.xslt"?&gt;
+&lt;log&gt;
+  &lt;message type="ERROR"&gt;
+        &lt;text&gt;input parameter was null&lt;/text&gt;
+    
+    &lt;timestamp time="03:12:18" day="15" month="01" year="2000"/&gt;
+    &lt;where&gt;
+      &lt;class&gt;com.foobar.util.StringUtil&lt;/class&gt;
+      &lt;method&gt;reverse(String)&lt;/method&gt;
+    &lt;/where&gt;
+  &lt;/message&gt;
+  &lt;message type="WARNING"&gt;
+        &lt;text&gt;cannot read config file&lt;/text&gt;
+    
+    &lt;timestamp time="06:35:44" day="15" month="01" year="2000"/&gt;
+    &lt;where&gt;
+      &lt;class&gt;com.foobar.servlet.MainServlet&lt;/class&gt;
+      &lt;method&gt;init( )&lt;/method&gt;
+    &lt;/where&gt;
+  &lt;/message&gt;
+  &lt;message type="ERROR"&gt;
+        &lt;text&gt;negative duration is not allowed&lt;/text&gt;
+    
+    &lt;timestamp time="10:01:49" day="17" month="01" year="2000"/&gt;
+    &lt;where&gt;
+      &lt;class&gt;com.foobar.util.DateUtil&lt;/class&gt;
+      &lt;method&gt;getWeek(int)&lt;/method&gt;
+    &lt;/where&gt;
+  &lt;/message&gt;
+&lt;/log&gt;
+</pre></blockquote>
+</div>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch03_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">3.4. Formatting Text and Numbers</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">3.6. Ant Documentation Stylesheet</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

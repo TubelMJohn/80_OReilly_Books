@@ -1,0 +1,184 @@
+<html><head><title>Optimized Tree Processing (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch09_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">8.4. Optimized Tree Processing</h2>
+
+<p>The big<a name="INDEX-714" />
+drawback to using trees for XML crunching is that they tend to
+consume scandalous amounts of memory and processor time. This might
+not be apparent with small documents, but it becomes noticeable as
+documents grow to many thousands of nodes. A typical book of a few
+hundred pages' length could easily have tens of
+thousands of nodes. Each one requires the allocation of an object, a
+process that takes considerable time and memory.
+</p>
+
+<p>Perhaps you don't need to build the entire tree to
+get your work done, though. You might only want a small branch of the
+tree and can safely do all the processing inside of it. If
+that's the case, then you can take advantage of the
+optimized parsing modes in <tt class="literal">XML::Twig</tt> (recall that
+we dealt with this module earlier in <a href="ch08_02.htm#perlxml-CHP-8-SECT-2">Section 8.2, "XPath"</a>). These modes allow you to
+specify ahead of time what parts (or
+"twigs") of the tree
+you'll be working with so that only those parts are
+assembled. The result is a hybrid of tree and event processing with
+highly optimized performance in speed and memory.
+</p>
+
+<p><tt class="literal">XML::Twig</tt> has three modes of operation: the
+regular old tree mode, similar to what we've seen so
+far; "chunk" mode, which builds a
+whole tree, but has only a fraction of it in memory at a time (sort
+of like paged memory); and multiple roots mode, which builds only a
+few selected twigs from the tree.
+</p>
+
+<p><a href="ch08_04.htm#perlxml-CHP-8-EX-11">Example 8-11</a> demonstrates the power of
+<tt class="literal">XML::Twig</tt> in chunk mode. The data to this program
+is a
+<a name="INDEX-715" /><a name="INDEX-716" />DocBook book with some
+<tt class="literal">&lt;chapter&gt;</tt> elements. These documents can be
+enormous, sometimes a hundred megabytes or more. The program breaks
+up the processing per chapter so that only a fraction of the space is
+needed.
+</p>
+
+<a name="perlxml-CHP-8-EX-11" /><div class="example">
+<h4 class="objtitle">Example 8-11. A chunking program </h4>
+<blockquote><pre class="code">use XML::Twig;
+
+# initalize the twig, parse, and output the revised twig
+my $twig = new XML::Twig( TwigHandlers =&gt; { chapter =&gt; \&amp;process_chapter });
+$twig-&gt;parsefile( shift @ARGV );
+$twig-&gt;print;
+
+# handler for chapter elements: process and then flush up the chapter
+sub process_chapter {
+  my( $tree, $elem ) = @_;
+  &amp;process_element( $elem );
+  $tree-&gt;flush_up_to( $elem );  # comment out this line to waste memory
+}
+
+# append 'foo' to the name of an element
+sub process_element {
+  my $elem = shift;
+  $elem-&gt;set_gi( $elem-&gt;gi . 'foo' );
+  my @children = $elem-&gt;children;
+  foreach my $child ( @children ) {
+    next if( $child-&gt;gi eq '#PCDATA' );
+    &amp;process_element( $child );
+  }
+}</pre></blockquote>
+</div>
+
+<p>The program changes element names to append the string
+"foo" to them. Changing names is
+just busy work to keep the program running long enough to check the
+memory usage. Note the line in the function
+<tt class="literal">process_chapter( )</tt>:
+</p>
+
+<blockquote><pre class="code">$tree-&gt;flush_up_to( $elem );</pre></blockquote>
+
+<p>We get our memory savings from this command. Without it, the entire
+tree will be built and kept in memory until the document is finally
+printed out. But when it is called, the tree that has been built up
+to a given element is dismantled and its text is output (called
+<em class="emphasis">flushing</em><a name="INDEX-717" />). The memory usage never rises higher than
+what is needed for the largest chapter in the book.
+</p>
+
+<p>To test this theory, we ran the program on a 3 MB document, first
+without and then with the line shown above. Without flushing, the
+program's heap space grew to over 30 MB.
+It's staggering to see how much memory an
+object-oriented tree processor needs -- in this case ten times the
+size of the file. But with flushing enabled, the program hovered
+around only a few MB of memory usage, a savings of about 90 percent.
+In both cases, the entire tree is eventually built, so the total
+processing time is about the same. To save CPU cycles as well as
+memory, we need to use multiple roots mode.
+</p>
+
+<p>Multiple roots mode works by specifying before parsing the roots of
+the twigs that you want built. You will save significant time and
+memory if the twigs are much smaller than the document as a whole. In
+our chunk mode example, we probably can't do much to
+speed up the process, since the sum of
+<tt class="literal">&lt;chapter&gt;</tt> elements is about the same as the
+size of the document. So let's focus on an example
+that fits the profile.
+</p>
+
+<p>The program in <a href="ch08_04.htm#perlxml-CHP-8-EX-12">Example 8-12</a> reads in DocBook
+documents and outputs the titles of chapters -- a table of
+contents of sorts. To get this information, we don't
+need to build a tree for the whole chapter; only the
+<tt class="literal">&lt;title&gt;</tt> element is necessary. So for roots,
+we specify titles of chapters, expressed in the XPath notation
+<tt class="literal">chapter/title</tt>.
+</p>
+
+<a name="perlxml-CHP-8-EX-12" /><div class="example">
+<h4 class="objtitle">Example 8-12. A many-twigged program </h4>
+<blockquote><pre class="code">use XML::Twig;
+
+my $twig = new XML::Twig( TwigRoots =&gt; { 'chapter/title' =&gt; \&amp;output_title });
+$twig-&gt;parsefile( shift @ARGV );
+
+sub output_title {
+  my( $tree, $elem ) = @_;
+  print $elem-&gt;text, "\n";
+}</pre></blockquote>
+</div>
+
+<p>The key line here is the one with the keyword
+<tt class="literal">TwigRoots</tt>. It's set to a hash of
+handlers and works very similarly to <tt class="literal">TwigHandlers</tt>
+that we saw earlier. The difference is that instead of building the
+whole document tree, the program builds only trees whose roots are
+<tt class="literal">&lt;title&gt;</tt> elements. This is a small fraction
+of the whole document, so we can expect time and memory savings to be
+high.
+</p>
+
+<p>How high? Running the program on the same test data, we saw memory
+usage barely reach 2 MB, and the total processing time was 13
+seconds. Compare that to 30 MB memory usage (the size required to
+build the whole tree) and a full minute to grind out the titles. This
+conservation of resources is significant for both memory and CPU
+time.
+</p>
+
+<p><tt class="literal">XML::Twig</tt> can give you a big performance boost for
+your tree processing programs, but you have to know when chunking and
+multiple roots will help. You won't save much time
+if the sum of twigs is almost as big as the document itself. Chunking
+is not useful unless the chunks are significantly smaller
+than<a name="INDEX-718" />
+the<a name="INDEX-719" />
+document.
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch09_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">8.3. XSLT</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">9. RSS, SOAP, and Other XML Applications </td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

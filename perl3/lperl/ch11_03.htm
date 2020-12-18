@@ -1,0 +1,215 @@
+<html><head><title>Fatal Errors with die (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch11_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">11.3. Fatal Errors with die</h2>
+
+<p><a name="INDEX-761" /> <a name="INDEX-762" />Let's
+<a name="INDEX-763" />step aside for a moment. We need some stuff
+that isn't directly related to (or limited to) filehandles, but
+is more about getting out of a program earlier than normal.
+</p>
+
+<p>When a fatal error happens inside Perl (for example, if you divide by
+zero, use an invalid regular expression, or call a subroutine that
+hasn't been declared) your program stops with an error message
+telling why.<a href="#FOOTNOTE-253">[253]</a>
+But this functionality is available to us with the
+<tt class="literal">die</tt> function, so we can make our own fatal
+errors.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-253" /><p>[253]Well, it does this by default, but
+errors may be trapped with an <tt class="literal">eval</tt> block, as
+we'll see in <a href="ch17_01.htm">Chapter 17, "Some Advanced Perl Techniques"</a>.</p> </blockquote>
+
+<p>The <tt class="literal">die</tt> function prints out the
+<a name="INDEX-764" />message you give it (to the standard
+error stream, where such messages should go) and makes sure that your
+program exits with a nonzero exit status.
+</p>
+
+<p>You may not have known it, but every program that runs on Unix (and
+many other modern operating systems) has an <a name="INDEX-765" />exit status, telling whether it was
+successful or not. Programs that run other programs (like the
+<i class="command">make</i><a name="INDEX-766" /> utility program) look at that exit status
+to see that everything is running correctly. The exit status is just
+a single byte, so it can't say much; traditionally, it is zero
+for success and a nonzero value for failure. Perhaps one means a
+syntax error in the command arguments, while two means that something
+went wrong during processing and three means the configuration file
+couldn't be found; the details differ from one command to the
+next. But zero always means that everything worked. When the exit
+status shows failure, a
+<a name="INDEX-767" />program like <i class="command">make</i> knows
+not to go on to the next step.
+</p>
+
+<p>So we could rewrite the previous example, perhaps something like this:</p>
+
+<blockquote><pre class="code">unless (open LOG, "&gt;&gt;logfile") {
+  die "Cannot create logfile: $!";
+}</pre></blockquote>
+
+<p>If the <tt class="literal">open</tt> fails, <tt class="literal">die</tt> will
+terminate the program and tell us that it cannot create the logfile.
+But what's that <tt class="literal">$!</tt> in the message?
+That's the human-readable complaint from the system. In
+general, when the system refuses to do something we've
+requested (like opening a file), it will give us a reason (perhaps
+"permission denied" or "file not found," in
+this case). This is the string that you may have obtained with
+<tt class="literal">perror</tt> in C or a similar language. This
+human-readable complaint message will be available in Perl's
+special variable <tt class="literal">$!</tt>.<a href="#FOOTNOTE-254">[254]</a> It's a good idea to include
+<tt class="literal">$!</tt><a name="INDEX-768" /> in the message when it could help the
+user to figure out what he or she did wrong. But if you use
+<tt class="literal">die</tt> to indicate an error that is not the failure
+of a system request, don't include <tt class="literal">$!</tt>, since
+it will generally hold an unrelated message left over from something
+Perl did internally. It will hold a useful value only immediately
+after a <em class="emphasis">failed</em> system request. A successful
+request won't leave anything useful there.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-254" /><p>[254]On some
+non-Unix operating systems, <tt class="literal">$!</tt>may say something
+like <tt class="literal">error number 7</tt>, leaving it up to the user to
+look that one up in the documentation. On Windows and VMS, the
+variable <tt class="literal">$^E</tt> may have additional diagnostic
+information. </p> </blockquote>
+
+<p>There's one more thing that <tt class="literal">die</tt> will do
+for you: it will automatically append the Perl
+<a name="INDEX-769" />program name and <a name="INDEX-770" />line number<a href="#FOOTNOTE-255">[255]</a> to
+the end of the message, so you can easily identify which
+<tt class="literal">die</tt> in your program is responsible for the
+untimely exit. The error message from the previous code might look
+like this, if <tt class="literal">$!</tt> contained the message
+<tt class="literal">permission denied</tt>:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-255" /><p>[255]If the error
+happened while reading from a file, the error message will include
+the "<a name="INDEX-771" />chunk number" (usually the line
+number) from the file and the name of the filehandle as well, since
+those are often useful in tracking down a bug.</p> </blockquote>
+
+<blockquote><pre class="code">Cannot create logfile: permission denied at your_program line 1234.</pre></blockquote>
+
+<p>That's pretty helpful -- in fact, we always seem to want
+more information in our error messages than we put in the first time
+around. If you don't want the line number and file revealed,
+make sure that the dying words have a newline on the end. That is,
+another way you could use <tt class="literal">die</tt> is in a line like
+this, with a trailing
+<a name="INDEX-772" /> <a name="INDEX-773" />newline:
+</p>
+
+<blockquote><pre class="code">die "Not enough arguments\n" if @ARGV &lt; 2;</pre></blockquote>
+
+<p>If there aren't at least two command-line arguments, that
+program will say so and quit. It won't include the program name
+and line number, since the line number is of no use to the user; this
+is the user's error, after all. As a rule of thumb, put the
+newline on messages that indicate a usage error and leave it off when
+it the error might be something you want to track down during
+debugging.<a href="#FOOTNOTE-256">[256]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-256" /><p>[256]The program's name is in
+Perl's special variable
+<tt class="literal">$0</tt><a name="INDEX-774" />, so you may wish to include that in
+the string: <tt class="literal">"$0:Not enough arguments\n"</tt>. This is
+useful if the program may be used in a pipeline or shell script, for
+example, where it's not obvious which command is complaining.
+<tt class="literal">$0</tt> can be changed during the execution of the
+program, however. You might also want to look into the special
+<a name="INDEX-775" />_ _<tt class="literal">FILE</tt>_ _ and _
+_<tt class="literal">LINE</tt>_ _tokens (or the
+<tt class="literal">caller</tt><a name="INDEX-776" /> function) to get the information that
+is being left out by adding the newline, so you can print it in your
+own choice of format.</p> </blockquote>
+
+<p>When opening a file fails, though, there's an easier and more
+common way instead of the <tt class="literal">unless</tt> block:
+</p>
+
+<blockquote><pre class="code">open LOG, "&gt;&gt;logfile"
+  or die "Cannot create logfile: $!";</pre></blockquote>
+
+<p>This uses the low-precedence short-circuit <a name="INDEX-777" /><tt class="literal">or</tt> operator that we saw
+in <a href="ch10_01.htm">Chapter 10, "More Control Structures"</a>. If the <tt class="literal">open</tt>
+succeeds, it returns true, and the <tt class="literal">or</tt> is done. If
+the <tt class="literal">open</tt> fails, it returns false, and the
+short-circuit <tt class="literal">or</tt> goes on to the right side and
+dies with the message. You can read this as if it were English:
+"Open this file, or die!" It may not be the battle cry
+that will win a war, but it's a good way to write code.
+</p>
+
+<p>You should always check the return value of
+<tt class="literal">open</tt>, since the rest of the program is relying
+upon its success. That's why we say that this is really the
+only way to write <tt class="literal">open</tt> -- with <tt class="literal">or
+die</tt> after it.<a href="#FOOTNOTE-257">[257]</a> Until you're ready to be
+extra tricky, you should simply think of this as the syntax for
+<tt class="literal">open</tt>. Typing <tt class="literal">or die</tt> and a
+message takes only a moment when you're writing the program,
+but it can save hours, or possibly days of debugging time when
+something goes wrong.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-257" /><p>[257]Older code may use the
+higher-precedence <tt class="literal">||</tt> operator instead. The only
+difference is the precedence, but it's a big one! If the
+<tt class="literal">open</tt> is written without parentheses, the
+higher-precedence operator will bind to the filename argument, not to
+the return value -- so the return value of <tt class="literal">open</tt>
+isn't being checked after all. If you use the
+<tt class="literal">||</tt>, be sure to use the parentheses. Better yet,
+just use the low-precedence <tt class="literal">or</tt> as we've
+shown here whenever you're writing <tt class="literal">or
+die</tt>.</p> </blockquote>
+
+<a name="lperl3-CHP-11-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">11.3.1. Warning Messages with warn</h3>
+
+<p>Just as <tt class="literal">die</tt> can indicate a fatal error that acts
+like one of Perl's builtin errors (like dividing by zero), you
+can use the <tt class="literal">warn</tt><a name="INDEX-778" />
+<a name="INDEX-779" /> function to cause a warning that acts
+like one of Perl's builtin warnings (like using an
+<tt class="literal">undef</tt> value as if it were defined, when warnings
+are enabled).
+</p>
+
+<p>The <tt class="literal">warn</tt> function works just like
+<tt class="literal">die</tt> does, except for that last step -- it
+doesn't actually quit the program. But it adds the
+<a name="INDEX-780" />program name and <a name="INDEX-781" />line number if needed, and it prints the
+message to standard error, just as <tt class="literal">die</tt>
+would.<a href="#FOOTNOTE-258">[258]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-258" /><p>[258]Warnings can't be trapped with an
+<tt class="literal">eval</tt> block, like fatal errors can. But see the
+documentation for the _ _<tt class="literal">WARN</tt>_ _ pseudo-signal (in
+the <em class="emphasis">perlvar</em> manpage) if you need to trap a
+warning.</p> </blockquote>
+
+<p>And having talked about death and dire warnings, we now return you to
+your regularly scheduled filehandle instructional material. Read
+on.<a name="INDEX-782" />
+<a name="INDEX-783" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch11_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">11.2. Opening a Filehandle</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">11.4. Using Filehandles</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

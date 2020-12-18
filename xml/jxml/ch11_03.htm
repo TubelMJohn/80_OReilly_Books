@@ -1,0 +1,912 @@
+<html><head><title>Putting the Load on the Server (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch11_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">11.3. Putting the Load on the Server</h2>
+
+<p><a name="INDEX-1134" />As instructional as the
+"hello" example has been in demonstrating how to use
+XML-RPC with Java, it isn't very realistic. In addition to
+being a trivial example, the server is not very flexible and the
+handler itself doesn't give any indication of how a practical
+XML-RPC handler might operate. Here I'll try to give an example
+of using XML-RPC in a production environment by increasing the
+usefulness of the handler and the usability of the server. While
+it's not code you might add to your current project, this
+example begins to demonstrate how XML-RPC might be of use, and how to
+build applications that can use XML-RPC but are not limited by it.
+</p>
+
+<a name="javaxml2-CHP-11-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">11.3.1. A Shared Handler</h3>
+
+<p><a name="INDEX-1135" />
+<a name="INDEX-1136" />The
+<a name="INDEX-1137" /><tt class="literal">HelloHandler</tt> class
+was simple, but useless in a practical application. Most XML-RPC uses
+relate to letting events occur on a server that is more suited for
+complex tasks, while allowing a thin client to request procedures to
+be executed and then use the returned results. In addition, it is
+possible that part or even all of the computations needed to respond
+to a request can be done in advance; in other words, the handler
+class may be running tasks and ensuring that results are already
+available when a method call comes in. As a Java coder, threads and
+shared instance data should leap to your mind. Here I'll take a
+look at a very simple <tt class="literal">Scheduler</tt><a name="INDEX-1138" /> <a name="INDEX-1139" />
+class to illustrate these principles.
+</p>
+
+<p>The scheduler should allow clients to add and remove events. Clients
+can then query the scheduler for a list of all events in the queue.
+To make this more practical (and to have a task for the server to
+perform later), querying the current events returns them sorted by
+the time they occurred. An event for this example is simply a
+<tt class="literal">String</tt> event name and a time for the event (in a
+<tt class="literal">java.util.Date</tt> format). Though this is not a
+complete scheduler implementation, it can demonstrate how to let the
+server do behind-the-scenes work for clients.
+</p>
+
+<p>First, code the <tt class="literal">addEvent(
+)</tt><a name="INDEX-1140" />
+<a name="INDEX-1141" /> <a name="INDEX-1142" />
+<a name="INDEX-1143" /> and <tt class="literal">removeEvent( )</tt>
+methods. Because these are both client-triggered events, there is
+nothing particularly remarkable about them; what is worth thinking
+about is how to store these events in the
+<tt class="literal">Scheduler</tt> class. Although the XML-RPC server will
+instantiate this class, and that instance will be used for all
+XML-RPC calls coming into that server, it is possible and even
+probable that other classes or even XML-RPC servers may interact with
+the scheduler. If the scheduler stores a list of events as a member
+variable, multiple instances will not be able to share data. To solve
+this problem in this example, it's best to make the
+class's storage static, causing it to be shared across all
+<tt class="literal">Scheduler</tt> class instances. To store both an event
+name and an event time, a <tt class="literal">Hashtable</tt> would seem
+appropriate, allowing the use of key-value pairs. In addition to this
+<tt class="literal">Hashtable</tt>, the class stores the names of the
+events in a
+<tt class="literal">Vector</tt><a name="INDEX-1144" />.
+Although this uses some extra storage space (and memory in the Java
+Virtual Machine), the class can sort the <tt class="literal">Vector</tt>
+and not have to deal with sorting the <tt class="literal">Hashtable</tt>;
+the advantage is that it's simple to swap the event names in
+the <tt class="literal">Vector</tt> (a single swap) and not have to swap
+the event times in the <tt class="literal">Hashtable</tt>
+(<em class="emphasis">two</em> swaps for each exchange). With that
+information, you're ready to code the skeleton of this class,
+and add these first two methods to allow addition and removal of
+events. For now, add the storage as well, but I'll leave the
+implementation of the retrieval and sorting of events for later.
+<a href="ch11_03.htm#javaxml2-CHP-11-EX-6">Example 11-6</a> is a code listing for this new handler.
+</p>
+
+<a name="javaxml2-CHP-11-EX-6" /><div class="example">
+<h4 class="objtitle">Example 11-6. The Scheduler class </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.util.Date;
+import java.util.Hashtable;
+import java.util.Vector;
+
+public class Scheduler {
+    
+    /** List of event names (for sorting) */
+    private static Vector events = new Vector( );
+    
+    /** Event details (name, time) */
+    private static Hashtable eventDetails = new Hashtable( );    
+
+    public Scheduler( ) {
+    }
+
+    public boolean addEvent(String eventName, Date eventTime) {      
+        // Add this event to the list of events
+        if (!events.contains(eventName)) {
+            events.addElement(eventName);
+            eventDetails.put(eventName, eventTime);
+        }
+      
+        return true;
+    }
+    
+    public synchronized boolean removeEvent(String eventName) {
+        events.remove(eventName);
+        eventDetails.remove(eventName);
+      
+        return true;
+    }
+}</pre></blockquote>
+</div>
+
+<p>The <tt class="literal">addEvent( )</tt><a name="INDEX-1145" />
+<a name="INDEX-1146" /> method adds the name of the event to both
+storage objects, and the time to the <tt class="literal">Hashtable</tt>.
+The <tt class="literal">removeEvent( )</tt><a name="INDEX-1147" />
+<a name="INDEX-1148" /> method does the opposite. Both methods
+return a <tt class="literal">boolean</tt> value. Although in the example
+this value is always true, in a more complex implementation, this
+value could be used to indicate problems in the addition or removal
+of events.
+</p>
+
+<p>With the ability to add and remove events, you now need to add a
+method that returns a list of events. This method returns all events
+added to the event store, regardless of the client or application
+that added them; in other words, these could be events added by a
+different XML-RPC client, a different XML-RPC server, another
+application, or a standalone implementation of this same scheduler.
+Since the method has to return a single <tt class="literal">Object</tt>
+result, it can return a <tt class="literal">Vector</tt> of formatted
+<tt class="literal">String</tt> values that contain the name of each event
+and its time. In a more useful implementation this might return the
+<tt class="literal">Vector</tt> of events or some other form of the events
+in a typed format (with the date as a <tt class="literal">Date</tt> object,
+etc.). This method acts more as a view of the data, though, and does
+not allow the client to further manipulate it. To return this list of
+events, the method uses the event store and the
+<tt class="literal">java.text.SimpleDateFormat</tt><a name="INDEX-1149" />
+<a name="INDEX-1150" />
+class, which allows textual formatting of <tt class="literal">Date</tt>
+objects. Iterating through all events, a <tt class="literal">String</tt> is
+created with the event name and the time it is set for; each
+<tt class="literal">String</tt> is inserted into the
+<tt class="literal">Vector</tt> result list, and this list is returned to
+the client. Now add the required import statement and the code
+<a name="INDEX-1151" /> <a name="INDEX-1152" />to
+return the events in the store to the scheduler code:
+</p>
+
+<blockquote><pre class="code">package javaxml2;<tt class="userinput"><b>
+
+import java.text.SimpleDateFormat;</b></tt>
+import java.util.Date;
+import java.util.Hashtable;
+import java.util.Vector;
+
+public class Scheduler {
+
+    // Existing method implementations
+<tt class="userinput"><b>
+    public Vector getListOfEvents( ) {     
+        Vector list = new Vector( );
+        
+        // Create a Date Formatter
+        SimpleDateFormat fmt = 
+            new SimpleDateFormat("hh:mm a MM/dd/yyyy");        
+        
+        // Add each event to the list
+        for (int i=0; i&lt;events.size( ); i++) {
+            String eventName = (String)events.elementAt(i);
+            list.addElement("Event \"" + eventName + 
+                            "\" scheduled for " +                           
+                            fmt.format(
+                                (Date)eventDetails.get(eventName)));
+        }
+        
+        return list;
+    }</b></tt>
+}</pre></blockquote>
+
+<p>At this point, you could use this class as an XML-RPC handler without
+any problems. However, the point of this exercise is to look at how
+work can be done by the server while the client is performing other
+tasks. The <tt class="literal">getListOfEvents( )</tt> method assumes the
+event list (the <tt class="literal">Vector</tt> variable
+<tt class="literal">events</tt>) is correctly ordered when this method is
+called, and that sorting has already occurred. I haven't shown
+you any code to sort the events yet, but more importantly, there
+isn't any code to trigger this sorting. Furthermore, as the
+event store increases, sorting is time-consuming, and the client
+should not wait for it to complete. First it makes sense to add a
+method that the class can use to sort the events. For simplicity, a
+bubble sort is used. (Discussion of sorting algorithms is beyond the
+scope of this book, so this code is presented without any explanation
+of its workings.) At the end of the method, though, the
+<tt class="literal">Vector</tt> variable <tt class="literal">events</tt> is
+sorted in order of the time the events within it occur. For
+information on this and other sorting algorithms, refer to
+<em class="emphasis">AlgorithmsinJava</em> by Robert
+Sedgewick and Tim Lindholm (Addison Wesley). The
+<a name="INDEX-1153" />
+<a name="INDEX-1154" />algorithm and method to handle
+sorting of the events are presented here, and should be added to your
+code:
+</p>
+
+<blockquote><pre class="code">package javaxml2;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;<tt class="userinput"><b>
+import java.util.Enumeration;</b></tt>
+import java.util.Hashtable;
+import java.util.Vector;
+
+public class Scheduler {
+    
+    /** List of event names (for sorting) */
+    private static Vector events = new Vector( );
+    
+    /** Event details (name, time) */
+    private static Hashtable eventDetails = new Hashtable( ); 
+    <tt class="userinput"><b>
+    /** Flag to indicate if events are sorted */
+    private static boolean eventsSorted;
+</b></tt>
+    // Existing method implementations
+<tt class="userinput"><b>
+    private synchronized void sortEvents( ) {        
+        if (eventsSorted) {
+            return;
+        }
+      
+        // Create array of events as they are (unsorted)
+        String[] eventNames = new String[events.size( )];
+        events.copyInto(eventNames);
+                
+        // Bubble sort these
+        String tmpName;
+        Date date1, date2;
+        for (int i=0; i&lt;eventNames.length - 1; i++) {
+            for (int j=0; j&lt;eventNames.length - i - 1; j++) {
+                // Compare the dates for these events                
+                date1 = (Date)eventDetails.get(eventNames[j]);
+                date2 = (Date)eventDetails.get(eventNames[j+1]);
+                if (date1.compareTo(date2) &gt; 0) {
+                    
+                    // Swap if needed
+                    tmpName = eventNames[j];
+                    eventNames[j] = eventNames[j+1];
+                    eventNames[j+1] = tmpName;
+                      
+                }
+            }
+        }
+        
+        // Put into new Vector (ordered)
+        Vector sortedEvents = new Vector( );
+        for (int i=0; i&lt;eventNames.length; i++) {
+            sortedEvents.addElement(eventNames[i]);
+        }
+        
+        // Update the global events
+        events = sortedEvents;
+        eventsSorted = true;
+     
+    }</b></tt>
+}</pre></blockquote>
+
+<p>In addition to the core algorithm, the code imports the
+<tt class="literal">java.util.Enumeration</tt><a name="INDEX-1155" />
+<a name="INDEX-1156" />
+class and adds a <tt class="literal">boolean</tt> member variable,
+<tt class="literal">eventsSorted</tt><a name="INDEX-1157" />. This flag allows
+shortcircuiting of the execution of the sorting when the events are
+already ordered. Although you have not yet added code to update this
+flag, it's easy to do so. The sorting method already indicates
+that events are sorted at its completion. The class's
+constructor should initially set this value to true, indicating that
+all events are in order. It is only when events are added that the
+list may become unordered, so in the <tt class="literal">addEvents( )</tt>
+method you'll need to set this flag to false if an event is
+added. This lets the <tt class="literal">Scheduler</tt> class know that
+something should occur to trigger the sort. When the
+<tt class="literal">getListOfEvents(
+)</tt><a name="INDEX-1158" />
+<a name="INDEX-1159" /> method is invoked, the events will be
+ordered and ready for retrieval. You should add code to the
+constructor and the method for adding events that will update this
+flag:
+</p>
+
+<blockquote><pre class="code">package javaxml2;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.Hashtable;
+import java.util.Vector;
+
+public class Scheduler {
+
+    public Scheduler( ) {<tt class="userinput"><b>
+        eventsSorted = true;</b></tt>
+    }
+
+    public boolean addEvent(String eventName, Date eventTime) {      
+        // Add this event to the list of events
+        if (!events.contains(eventName)) {
+            events.addElement(eventName);
+            eventDetails.put(eventName, eventTime);<tt class="userinput"><b>
+            eventsSorted = false;            </b></tt>
+        }
+      
+        return true;
+    }
+
+    // Other method implementations
+}</pre></blockquote>
+
+<p>You do not need to make any changes to the <tt class="literal">removeEvent(
+)</tt> method, as removing an entry does not affect the order of
+the events. The ideal mechanism to handle server-side processing
+while freeing the client for further action is a thread that sorts
+events. With this thread started in the JVM, client processing can
+continue without waiting for the thread to complete. This is
+particularly important in a multithreaded environment where
+synchronization and threads waiting for object locks are in use. In
+this example, I've avoided threading issues, but you can add
+the relevant code to handle these issues fairly easily. You'll
+want to create an inner class that extends
+<tt class="literal">Thread</tt><a name="INDEX-1160" />
+<a name="INDEX-1161" />,
+and does nothing but invoke the <tt class="literal">sortEvents( )</tt>
+method. You can then add to the <tt class="literal">addEvents(
+)</tt><a name="INDEX-1162" /> method
+the code that creates and starts this thread when events are added.
+Then any additional events trigger a resorting of the events, but
+allow the client to continue with its actions (which might include
+adding additional events, in turn starting more threads to sort the
+data). When the client does request the list of events, the events
+should be sorted when returned, all without the client ever waiting
+on this action to occur or spending processing power to make it
+happen. The addition of the inner class to sort, as well as the code
+to run that class as a thread in our <tt class="literal">addEvents( )</tt>
+method, rounds out the <tt class="literal">Scheduler</tt> class and is
+shown here:
+</p>
+
+<blockquote><pre class="code">package javaxml2;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.Hashtable;
+import java.util.Vector;
+
+public class Scheduler {
+
+    // Existing variables and methods
+
+    public boolean addEvent(String eventName, Date eventTime) {      
+        // Add this event to the list of events
+        if (!events.contains(eventName)) {
+            events.addElement(eventName);
+            eventDetails.put(eventName, eventTime);
+            eventsSorted = false;
+            <tt class="userinput"><b>
+            // Start thread on server sorting
+            SortEventsThread sorter = new SortEventsThread( );
+            sorter.start( );                        </b></tt>
+        }
+      
+        return true;
+    }
+<tt class="userinput"><b>
+    class SortEventsThread extends Thread {
+        
+        public void run( ) {
+            sortEvents( );
+        }    
+    }</b></tt>
+}</pre></blockquote>
+
+<p>Now when you compile the modified source code, you'll have a
+threaded scheduler that performs the process-intensive task of
+sorting on the server, allowing any clients to work uninterrupted
+while the sorting occurs. This is still a simple example of using a
+handler class properly, but it does introduce the concepts of
+resource distribution and letting a server handle the workload when
+possible. To complement this more advanced handler class, I'll
+next demonstrate building a more robust XML-RPC server.<a name="INDEX-1163" /> <a name="INDEX-1164" />
+</p>
+
+</div>
+<a name="javaxml2-CHP-11-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">11.3.2. A Configurable Server</h3>
+
+<p><a name="INDEX-1165" />The
+XML-RPC server class still needs some work. The current version
+requires you to specifically add handler classes to the server in the
+code. This means the addition of a new handler class requires coding
+and recompilation. Not only is this undesirable from a change-control
+perspective, but it is annoying and time-consuming. Obtaining the
+newest code from a source control system, adding the change, and
+testing to add one or two handlers is not practical, and won't
+win you friends among management. What is preferred is to have a
+robust server that can read this sort of information from a
+configuration file and load the needed classes at runtime. We will
+build a lightweight server to do this now.
+</p>
+
+<p>To begin, you'll want to create a new server class. You can
+either start from scratch, or copy and paste from the
+<tt class="literal">HelloServer</tt> class given earlier in this chapter.
+Start by setting up our framework, adding the required import
+statements, and instantiating the server, similar to the earlier
+example; however, you should not add any code that registers
+handlers, as there will be a helper method to load the needed
+information from a file. The one change from the earlier version is
+that this class requires an additional command-line parameter that
+should be the name of a file. The server will read this file in using
+methods I'll cover later, and add handlers to the server. You
+can create the <tt class="literal">LightweightXmlRPcServer</tt> class,
+which continues to use the thin <tt class="literal">WebServer</tt> helper
+class, with the code shown in <a href="ch11_03.htm#javaxml2-CHP-11-EX-7">Example 11-7</a>.
+</p>
+
+<a name="javaxml2-CHP-11-EX-7" /><div class="example">
+<h4 class="objtitle">Example 11-7. A reusable XML-RPC server </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.io.IOException;
+
+import helma.xmlrpc.XmlRpc;
+import helma.xmlrpc.WebServer;
+
+public class LightweightXmlRpcServer {
+  
+    /** The XML-RPC server utility class */
+    private WebServer server;
+    
+    /** Port number to listen on */
+    private int port;
+    
+    /** Configuration file to use */
+    private String configFile;
+
+    public LightweightXmlRpcServer(int port, String configFile) {
+        this.port = port;
+        this.configFile = configFile;
+    }
+
+    public void start( ) throws IOException {
+        try {
+            // Use Apache Xerces SAX Parser
+            XmlRpc.setDriver("org.apache.xerces.parsers.SAXParser");
+
+            System.out.println("Starting up XML-RPC Server...");
+            server = new WebServer(port);                      
+            
+            // Register handlers
+            
+        } catch (ClassNotFoundException e) {
+            throw new IOException("Error loading SAX parser: " + 
+                e.getMessage( ));
+        }         
+    }   
+
+    public static void main(String[] args) {
+      
+        if (args.length &lt; 2) {
+            System.out.println(
+                "Usage: " +
+                "java com.oreilly.xml.LightweightXmlRpcServer " +
+                "[port] [configFile]");
+            System.exit(-1);
+        }
+        
+        LightweightXmlRpcServer server =
+            new LightweightXmlRpcServer(Integer.parseInt(args[0]),
+                                        args[1]);   
+
+        try {
+            // Start the server
+            server.start( );
+        } catch (IOException e) {
+            System.out.println(e.getMessage( ));
+        }                               
+    }
+}</pre></blockquote>
+</div>
+
+<p>Nothing remarkable here. The code ensures that the required
+parameters are passed in and then starts the server on the requested
+port. It's now time to add in methods to load the handlers from
+a file, and then add those handlers one by one to the server.
+</p>
+
+<p>Because each handler needs a name and an associated class, you can
+create a configuration file that has these two pieces of information.
+With Java, it is easy to load and instantiate a class with its
+complete package and name. This means you can completely represent a
+new handler with a pair of textual values. Within this file, you can
+add both the original <tt class="literal">HelloHandler</tt> class as well
+as the new <tt class="literal">Scheduler</tt> class. Since you are writing
+the file parser as well, it's safe to arbitrarily decide to use
+commas as delimiters and the pound sign (<tt class="literal">#</tt>) as a
+comment marker. In fact, you can use whatever format you wish as long
+as you write code that uses your conventions in parsing the file.
+</p>
+
+<a name="ch11-12-fm2xml" /><blockquote><b>NOTE:</b> 
+
+You may be surprised that I'm not using an XML file format here. There are several reasons for this. First, I'm going to talk about SOAP in the next chapter, which uses XML throughout. Using a non-XML format here provides a good contrast between the two methodologies. Second, you're certainly prepared at this point to write your own XML parsing code, so this task is a good exercise. And third, I'm a realist; you'll be amazed at how many times "XML frameworks" and "XML applications" use non-XML formats. So get used to it now, as you're sure to encounter it time and time again.
+</p>
+</blockquote>
+<p>Create the configuration file shown in <a href="ch11_03.htm#javaxml2-CHP-11-EX-8">Example 11-8</a>,
+which will add the <tt class="literal">HelloHandler</tt> class under the
+class identifier "hello" and the
+<tt class="literal">Scheduler</tt> class under the class identifier
+"scheduler", and save it as <em class="emphasis">xmlrpc.conf</em>.
+</p>
+
+<a name="javaxml2-CHP-11-EX-8" /><div class="example">
+<h4 class="objtitle">Example 11-8. XML-RPC configuration file </h4>
+<blockquote><pre class="code"># Hello Handler: sayHello( )
+hello,javaxml2.HelloHandler
+
+# Scheduler: addEvent(), removeEvent(), getEvents( )
+scheduler,javaxml2.Scheduler</pre></blockquote>
+</div>
+
+<p>For documentation purposes, I've specified the methods
+available to each handler in comments. This allows future maintainers
+of this configuration file to know what methods are available for
+each handler.
+</p>
+
+<p>Java's I/O classes make it easy to load this file and read its
+contents. It's simple to create a helper method that reads the
+specified file and stores the pairs of values in a Java
+<tt class="literal">Hashtable</tt>. The object can then be passed on to
+another helper that loads and registers each handler. This example
+method does not do extensive error checking as a production-ready
+server might, and it simply ignores any line without a pair of
+comma-separated values. It is easy to add error handling if you want
+to use this code in your applications. Once it finds a line with a
+pair of values, the line is broken up and the class identifier and
+class name are stored as an entry within the
+<tt class="literal">Hashtable</tt>. Add the import statements for the
+required utility classes and then the new <tt class="literal">getHandlers(
+)</tt> method to the <tt class="literal">LightweightServer</tt> class
+now:
+</p>
+
+<blockquote><pre class="code">package javaxml2;
+<tt class="userinput"><b>
+import java.io.BufferedReader;
+import java.io.FileReader;</b></tt>
+import java.io.IOException;<tt class="userinput"><b>
+import java.util.Hashtable;</b></tt>
+
+import helma.xmlrpc.XmlRpc;
+import helma.xmlrpc.WebServer;
+
+public class LightweightXmlRpcServer {
+
+    // Existing method implementations
+<tt class="userinput"><b>
+    private Hashtable getHandlers( ) throws IOException {
+
+        Hashtable handlers = new Hashtable( );
+        
+        BufferedReader reader = 
+            new BufferedReader(new FileReader(configFile));
+        String line = null;
+        
+        while ((line = reader.readLine( )) != null) {
+            // Syntax is "handlerName, handlerClass"
+            int comma;
+            
+            // Skip comments
+            if (line.startsWith("#")) {
+                continue;
+            }
+            
+            // Skip empty or useless lines            
+            if ((comma = line.indexOf(",")) &lt; 2) {
+                continue;
+            }
+            
+            // Add the handler name and the handler class
+            handlers.put(line.substring(0, comma), 
+                         line.substring(comma+1));
+        }
+        
+        return handlers;        
+    }</b></tt>
+}</pre></blockquote>
+
+<p>Instead of adding code to save the result of this method, you can use
+that result as input to a method that iterates through the
+<tt class="literal">Hashtable</tt> and adds each handler to the server. The
+code needed to accomplish this task is not complicated; the only
+notable thing is that the <tt class="literal">addHandler( )</tt> method of
+<tt class="literal">WebServer</tt> requires an instantiated class as a
+parameter. The code is required to take the name of the class to
+register from the <tt class="literal">Hashtable</tt>, load that class into
+the JVM with <tt class="literal">Class.forName( )</tt>, and then
+instantiate that class with <tt class="literal">newInstance( )</tt>. This
+is the methodology used in class loaders and other dynamic
+applications in Java, but may be unfamiliar to you if you are new to
+Java or have not had to dynamically instantiate classes from a
+textual name before. Once the class is loaded in this way, it and the
+class identifier are passed to the <tt class="literal">addHandler( )</tt>
+method, and the iteration continues. Once the contents of the
+<tt class="literal">Hashtable</tt> are loaded, the server is set up and
+ready to go. I've used the <tt class="literal">Enumeration</tt> class
+to cycle through the keys in the <tt class="literal">Hashtable</tt>, so
+you'll need to add this import statement to your source file:
+</p>
+
+<blockquote><pre class="code">package javaxml2;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;<tt class="userinput"><b>
+import java.util.Enumeration;</b></tt>
+import java.util.Hashtable;
+
+import helma.xmlrpc.XmlRpc;
+import helma.xmlrpc.WebServer;
+
+public class LightweightXmlRpcServer {
+
+    // Existing method implementations
+<tt class="userinput"><b>
+    private void registerHandlers(Hashtable handlers) {        
+        Enumeration handlerNames = handlers.keys( );
+        
+        // Loop through the requested handlers
+        while (handlerNames.hasMoreElements( )) {
+            String handlerName = (String)handlerNames.nextElement( );
+            String handlerClass = (String)handlers.get(handlerName);
+            
+            // Add this handler to the server
+            try {
+                server.addHandler(handlerName, 
+                    Class.forName(handlerClass).newInstance( ));
+                
+                System.out.println("Registered handler " + handlerName +
+                                   " to class " + handlerClass);
+            } catch (Exception e) {
+                System.out.println("Could not register handler " + 
+                                   handlerName + " with class " + 
+                                   handlerClass);
+            }
+        }
+    }</b></tt>
+}</pre></blockquote>
+
+<p>This is simply a complement to the <tt class="literal">getHandlers( )</tt>
+method; in fact, it takes the result of that method as input. It uses
+the <tt class="literal">String</tt> values within the
+<tt class="literal">Hashtable</tt> and registers each. Now the server is
+running and will have any handlers in the configuration file loaded
+and available for remote calls. You could just as easily have
+consolidated these methods into one larger method. However, the
+purposes of the two methods are significantly different; while one,
+<tt class="literal">getHandlers( )</tt>, deals with parsing a file, the
+other, <tt class="literal">registerHandlers( )</tt>, deals with registering
+handlers once information about the handlers is available. With this
+methodology, you can change the way you parse the configuration file
+(or even have it read from a database or other medium) without having
+to worry about the way the handlers are registered.
+</p>
+
+<p>Once you have added these two helper methods, add their invocation to
+the <tt class="literal">start( )</tt> method of your server class:
+</p>
+
+<blockquote><pre class="code">    public void start( ) throws IOException {
+        try {
+            // Use Apache Xerces SAX Parser
+            XmlRpc.setDriver("org.apache.xerces.parsers.SAXParser");
+
+            System.out.println("Starting up XML-RPC Server...");
+            server = new WebServer(port);                      
+            <tt class="userinput"><b>
+            // Register handlers
+            registerHandlers(getHandlers( ));</b></tt>
+            
+        } catch (ClassNotFoundException e) {
+            throw new IOException("Error loading SAX parser: " + 
+                e.getMessage( ));
+        }         
+    }</pre></blockquote>
+
+<p>Compile this code, ensure you have created the configuration file,
+and your server is ready for use.<a name="INDEX-1166" /> 
+</p>
+
+</div>
+<a name="javaxml2-CHP-11-SECT-3.3" /><div class="sect2">
+<h3 class="sect2">11.3.3. A Useful Client</h3>
+
+<p>The new client has no new concepts or techniques in it; just as the
+<tt class="literal">HelloClient</tt> class was simple, so is the
+<tt class="literal">SchedulerClient</tt> class. It needs to start up an
+XML-RPC client, invoke handler methods, and print out the result of
+those handlers. The complete code for the client is here. Comments
+indicate what is occurring, and since this is all ground already
+covered, you can simply enter the code in
+<a name="INDEX-1167" />
+<a name="INDEX-1168" /><a href="ch11_03.htm#javaxml2-CHP-11-EX-9">Example 11-9</a> into your editor and compile it.
+</p>
+
+<a name="javaxml2-CHP-11-EX-9" /><div class="example">
+<h4 class="objtitle">Example 11-9. The SchedulerClient class </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.Hashtable;
+import java.util.Vector;
+
+import helma.xmlrpc.XmlRpc;
+import helma.xmlrpc.XmlRpcClient;
+import helma.xmlrpc.XmlRpcException;
+
+public class SchedulerClient {
+
+    public static void addEvents(XmlRpcClient client) 
+        throws XmlRpcException, IOException {
+          
+        System.out.println("\nAdding events...\n");          
+          
+        // Parameters for events
+        Vector params = new Vector( );
+        
+        // Add an event for next month
+        params.addElement("Proofread final draft");
+            
+        Calendar cal = Calendar.getInstance( );
+        cal.add(Calendar.MONTH, 1);
+        params.addElement(cal.getTime( ));
+            
+        // Add the event
+        if (((Boolean)client.execute("scheduler.addEvent", params))
+                            .booleanValue( )) {
+            System.out.println("Event added.");
+        } else {
+            System.out.println("Could not add event.");
+        }        
+            
+        // Add an event for tomorrow
+        params.clear( );
+        params.addElement("Submit final draft");
+            
+        cal = Calendar.getInstance( );
+        cal.add(Calendar.DAY_OF_MONTH, 1);
+        params.addElement(cal.getTime( ));
+        
+        // Add the event
+        if (((Boolean)client.execute("scheduler.addEvent", params))
+                            .booleanValue( )) {
+            System.out.println("Event added.");
+        } else {
+            System.out.println("Could not add event.");
+        }        
+            
+    }
+
+    public static void listEvents(XmlRpcClient client) 
+        throws XmlRpcException, IOException {  
+          
+        System.out.println("\nListing events...\n");                
+
+        // Get the events in the scheduler
+        Vector params = new Vector( );
+        Vector events = 
+            (Vector)client.execute("scheduler.getListOfEvents", params);
+        for (int i=0; i&lt;events.size( ); i++) {
+            System.out.println((String)events.elementAt(i));
+        }
+    }
+
+    public static void main(String args[]) {
+        
+        try {
+            // Use the Apache Xerces SAX Parser Implementation
+            XmlRpc.setDriver("org.apache.xerces.parsers.SAXParser");
+          
+            // Connect to server
+            XmlRpcClient client = 
+                new XmlRpcClient("http://localhost:8585/");         
+  
+            // Add some events
+            addEvents(client);                        
+            
+            // List events
+            listEvents(client);            
+        
+        } catch (Exception e) {
+            System.out.println(e.getMessage( ));
+        }        
+    }   
+}</pre></blockquote>
+</div>
+
+<p>As you are entering this code, notice that the events are added in
+reverse order of the event time. The server rearranges these events
+with the <tt class="literal">sortEvents( )</tt> method to facilitate
+correctly ordered results when the <tt class="literal">getListOfEvents(
+)</tt> method is called. The server takes care of this sorting
+next.
+</p>
+
+</div>
+<a name="javaxml2-CHP-11-SECT-3.4" /><div class="sect2">
+<h3 class="sect2">11.3.4. Talk to Me (Again)</h3>
+
+<p>Once you have entered the code for the handler, server, and client,
+compile all of the source files. You also need to create the
+configuration file that lists handlers to register with the XML-RPC
+server discussed previously in this chapter, in <a href="ch11_03.htm#javaxml2-CHP-11-SECT-3.2">Section 11.3.2, "A Configurable Server"</a>. First, start up the XML-RPC server as
+a separate process:
+</p>
+
+<blockquote><pre class="code">c:\javaxml2\build&gt;start java javaxml2.LightweightXmlRpcServer 8585
+                        c:\javaxml2\ch11\conf\xmlrpc.conf</pre></blockquote>
+
+<p>On Unix, use:</p>
+
+<blockquote><pre class="code">$ java javaxml2.LightweightServer 8585 conf/xmlrpc.conf &amp;</pre></blockquote>
+
+<p>You should see the server indicate that the handlers in the supplied
+configuration file are registered to the names you provided:
+</p>
+
+<blockquote><pre class="code">Starting up XML-RPC Server...
+Registered handler scheduler to class javaxml2.Scheduler
+Registered handler hello to class javaxml2.HelloHandler</pre></blockquote>
+
+<a name="ch11-15-fm2xml" /><blockquote><b>NOTE:</b> 
+<a name="INDEX-1169" />If
+you never stopped the previous XML-RPC server,
+<tt class="literal">HelloServer</tt>, you will get an error trying to start
+another server on the same port. Be sure to stop the
+<tt class="literal">HelloServer</tt> before trying to start the
+<tt class="literal">LightweightXmlRpcServer</tt>.
+</p>
+</blockquote>
+
+<p>Finally, execute your client and see the results:</p>
+
+<blockquote><pre class="code">$ java javaxml2.SchedulerClient
+
+Adding events...
+
+Event added.
+Event added.
+
+Listing events...
+
+Event "Submit final draft" scheduled for 10:55 AM 05/09/2001
+Event "Proofread final draft" scheduled for 10:55 AM 06/08/2001</pre></blockquote>
+
+<p>You should not notice a significant pause as your client adds and
+lists events, yet the server still sorts the events in a separate
+thread within the server JVM (and bubble sorting is not a quick
+algorithm, by the way). You have written your first useful XML-RPC
+application!<a name="INDEX-1170" /><a name="INDEX-1171" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch11_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">11.2. Saying Hello</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">11.4. The Real World</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

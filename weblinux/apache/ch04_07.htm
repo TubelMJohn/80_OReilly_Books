@@ -1,0 +1,630 @@
+<?label 4.7. suEXEC on Unix?><html><head><title>suEXEC on Unix (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch04_08.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">4.7. suEXEC on Unix</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-517" />
+<a name="INDEX-518" />
+<a name="INDEX-519" />
+<a name="INDEX-520" />The vulnerability of servers running scripts is a continual source of
+concern to the Apache Group. Unix systems provide a special method of
+running CGIs that gives much better security via a
+<em class="emphasis">wrapper</em>. A wrapper is a program that wraps
+around another program in order to change the way it operates.
+Usually this is done by changing its environment in some way; in this
+case, by making sure it runs as if it had been invoked by an
+appropriate user. The basic security problem is that any program or
+script run by Apache has the same permissions as Apache itself. Of
+course, these permissions are not those of the superuser, but, even
+so, Apache tends to have permissions powerful enough to impair the
+moral development of a clever hacker if he could get his hands on
+them. Also, in environments where there are many users who can write
+scripts independently of each other, it is a good idea to insulate
+them from each other's bugs, as far as is possible.</p>
+
+
+
+
+
+<p><em class="emphasis">suEXEC</em> reduces the risk by changing the
+permissions given to a program or script launched by Apache. In order
+to use it you should understand the Unix concepts of user and group
+execute permissions on files and directories.
+<em class="emphasis">suEXEC</em> is executed whenever an HTTP request is
+made for a script or program that has ownership or group membership
+permissions different from those of Apache itself, which will
+normally be those appropriate to <em class="emphasis">webuser</em> of
+<em class="emphasis">webgroup.</em></p>
+
+
+
+
+
+<p>The documentation says that <em class="emphasis">suEXEC</em> is quite
+deliberately complicated so that "it will only be installed by
+users determined to use it." However, we found it no more
+difficult than Apache itself to install, so you should not be
+deterred from using what may prove to be a very valuable defence. If
+you are interested, please consult the documentation and be guided by
+it. What we have written in this section is intended only to help and
+encourage, not to replace the words of wisdom. See
+<a href="http://www2.idiscover.co.uk/apache/docs/suexec.html">http://www2.idiscover.co.uk/apache/docs/suexec.html</a>.</p>
+
+
+
+
+
+<p>To <a name="INDEX-521" />install <em class="emphasis">suEXEC </em>to
+run with the demonstration site <em class="emphasis">site.suexec</em>, go
+to the<em class="emphasis"> support </em>subdirectory below the location
+of your Apache source code. Edit <em class="emphasis">suexec.h </em>to
+make the following changes to suit your installation. What we did, to
+suit our environment, is shown marked by
+<tt class="literal">/**CHANGED**/</tt>:</p>
+
+
+
+
+
+<blockquote><pre class="code">/*
+ * HTTPD_USER -- Define as the username under which Apache normally
+ *               runs. This is the only user allowed to execute
+ *               this program.
+ */
+#ifndef HTTPD_USER
+#define HTTPD_USER "webuser"    /**CHANGED**/
+#endif
+/*
+ * UID_MIN -- Define this as the lowest UID allowed to be a target user
+ *            for suEXEC. For most systems, 500 or 100 is common.
+ */
+#ifndef UID_MIN
+#define UID_MIN 100
+#endif</pre></blockquote>
+
+
+
+
+
+<p>The point here is that many systems have "privileged"
+users below some number (e.g. <em class="emphasis">root</em>,
+<em class="emphasis">daemon</em>, <em class="emphasis">lp</em>, and so on), so
+we can use this setting to avoid any possibility of running a script
+as one of these users:</p>
+
+
+
+
+
+<blockquote><pre class="code">/*
+ * GID_MIN -- Define this as the lowest GID allowed to be a target group
+ *            for suEXEC. For most systems, 100 is common.
+ */
+#ifndef GID_MIN
+#define GID_MIN 100 // see UID above
+#endif</pre></blockquote>
+
+
+
+
+
+<p>Similarly, there may be privileged groups:</p>
+
+
+
+
+
+<blockquote><pre class="code">/*
+ * USERDIR_SUFFIX -- Define to be the subdirectory under users' 
+ *                   home directories where suEXEC access should
+ *                   be allowed. All executables under this directory
+ *                   will be executable by suEXEC as the user so 
+ *                   they should be "safe" programs. If you are 
+ *                   using a "simple" UserDir directive (ie. one 
+ *                   without a "*" in it) this should be set to 
+ *                   the same value. suEXEC will not work properly
+ *                   in cases where the UserDir directive points to 
+ *                   a location that is not the same as the user's
+ *                   home directory as referenced in the passwd file.
+ *
+ *                   If you have VirtualHosts with a different
+ *                   UserDir for each, you will need to define them to
+ *                   all reside in one parent directory; then name that
+ *                   parent directory here. IF THIS IS NOT DEFINED
+ *                   PROPERLY, ~USERDIR CGI REQUESTS WILL NOT WORK!
+ *                   See the suEXEC documentation for more detailed
+ *                   information.
+ */
+#ifndef USERDIR_SUFFIX
+#define USERDIR_SUFFIX "/usr/www/cgi-bin"        /**CHANGED**/
+#endif
+/*
+ * LOG_EXEC -- Define this as a filename if you want all suEXEC
+ *             transactions and errors logged for auditing and
+ *             debugging purposes.
+ */
+#ifndef LOG_EXEC
+#define LOG_EXEC "/usr/www/suexec.log"        /**CHANGED**/
+#endif
+/*
+ * DOC_ROOT -- Define as the DocumentRoot set for Apache. This
+ *             will be the only hierarchy (aside from UserDirs)
+ *             that can be used for suEXEC behavior.
+ */
+#ifndef DOC_ROOT
+#define DOC_ROOT "/usr/www/site.suexec/htdocs"        /**CHANGED**/
+#endif
+/*
+ * SAFE_PATH -- Define a safe PATH environment to pass to CGI executables.
+ *
+ */
+#ifndef SAFE_PATH
+#define SAFE_PATH "/usr/local/bin:/usr/bin:/bin"
+#endif</pre></blockquote>
+
+
+
+
+
+<p>Compile the file to make <em class="emphasis">suEXEC</em> executable by
+typing:</p>
+
+
+
+
+
+<blockquote><pre class="code">make suexec</pre></blockquote>
+
+
+
+
+
+<p>and copy it to a sensible location (this will very likely be
+different on your site -- replace
+<em class="emphasis">/usr/local/bin</em> with whatever is appropriate)
+alongside Apache itself with:</p>
+
+
+
+
+
+<blockquote><pre class="code"><b class="emphasis-bold">cp suexec</b> <em class="replaceable">/usr/local/bin</em></pre></blockquote>
+
+
+
+
+
+<p>You then have to set its <a name="INDEX-522" />
+<a name="INDEX-523" />permissions properly by making
+yourself the superuser (or persuading the actual, human superuser to
+do it for you if you are not allowed to) and typing:</p>
+
+
+
+
+
+<blockquote><pre class="code"><b class="emphasis-bold">chown root</b> /usr/local/bin/suexec
+<b class="emphasis-bold">chmod 4711</b>  /usr/local/bin/suexec</pre></blockquote>
+
+
+
+
+
+<p>The first line gives <em class="emphasis">suEXEC</em> the owner
+<em class="emphasis">root;</em> the second sets the setuserid execution
+bit for file modes.</p>
+
+
+
+
+
+<p>You then have to tell Apache where to find the
+<em class="emphasis">suEXEC</em> executable by editing
+<em class="emphasis">...src/include/httpd.h.</em> We
+looked for "suEXEC" and changed it thus:</p>
+
+
+
+
+
+<blockquote><pre class="code">/* The path to the suExec wrapper; can be overridden in Configuration */
+#ifndef SUEXEC_BIN
+#define SUEXEC_BIN  "/usr/local/bin/suexec"        /**CHANGED**/
+#endif</pre></blockquote>
+
+
+
+
+
+<p>This line was originally:</p>
+
+
+
+
+
+<blockquote><pre class="code">#define SUEXEC_BIN  HTTPD_ROOT  "/sbin/suexec"</pre></blockquote>
+
+
+
+
+
+<p>Notice that the macro <tt class="literal">HTTPD_ROOT</tt> has been removed.
+It is easy to leave it in by mistake -- we did the first time
+around -- but it prepends <em class="emphasis">/usr/local/apache</em>
+(or whatever you may have changed it to) to the path you type in,
+which may not be what you want to happen. Having done this, you
+remake Apache by getting into the <em class="emphasis">.../src
+</em> directory and typing:</p>
+
+
+
+
+
+<blockquote><pre class="code"><b class="emphasis-bold">make</b>
+<b class="emphasis-bold">cp httpd</b> /usr/local/bin</pre></blockquote>
+
+
+
+
+
+<p>or wherever you want to keep the executable. When you start Apache,
+nothing appears to be different, but a message appears<a href="#FOOTNOTE-43">[43]</a> in <em class="emphasis">.../logs/error_log</em> :</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-43" /><p>[43]In v1.3.1 this message didn't appear unless you included
+the line <tt class="literal">LogLevel</tt> <tt class="literal">debug</tt> in your
+Config file. In later versions it will appear automatically.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<blockquote><pre class="code">suEXEC mechanism enabled (wrapper: /usr/local/bin/suexec)</pre></blockquote>
+
+
+
+
+
+<p>We think that something as important as <em class="emphasis">suEXEC</em>
+should have a clearly visible indication on the command line, and
+that an entry in a log file is not immediate enough.</p>
+
+
+
+
+
+<p>To turn <em class="emphasis">suEXEC</em> off, you simply remove the
+executable, or, more cautiously, rename it to, say,
+<em class="emphasis">suexec.not</em>. Apache then can't find it and
+carries on without comment.</p>
+
+
+
+
+
+<p>Once <em class="emphasis">suEXEC</em> is running, it applies many tests to
+any CGI or server-side include (SSI) script invoked by Apache. If any
+of the tests fail, a note will appear in the
+<em class="emphasis">suexec.log</em> file that you specified (as the macro
+<tt class="literal">LOG_EXEC</tt> in <em class="emphasis">suexecx.h)</em> when
+you compiled <em class="emphasis">suEXEC</em>. A comprehensive list
+appears in the documentation and also in the source. Many of these
+tests can only fail if there is a bug in Apache,
+<em class="emphasis">suEXEC</em>, or the operating system, or if someone
+is attempting to misuse <em class="emphasis">suEXEC</em>. We list here the
+notes that you are likely to encounter in normal operation, since you
+should never come across the others. If you do, suspect the
+worst:<a name="INDEX-524" /></p>
+
+
+
+
+
+<ul><li><p>Does the target program name have a "/" or
+".." in its path? These are unsafe and not allowed.</p></li><li><p>Does the user who owns the target script exist on the system? Since
+user IDs can be deleted without deleting files owned by them, and
+some versions of <em class="emphasis">tar</em>, <em class="emphasis">cpio</em>,
+and the like can create files with silly user IDs (if run by
+<em class="emphasis">root</em>), this is a sensible check to make.</p></li><li><p>Does the group this user belongs to exist? As with user IDs, it is
+possible to create files with nonexistent groups.</p></li><li><p>Is the user <em class="emphasis">not</em> the superuser?
+<em class="emphasis">suEXEC</em> won't let <em class="emphasis">root</em>
+execute scripts online.</p></li><li><p>Is the user ID above the minimum ID number specified in
+<em class="emphasis">suexec.h</em> ? Many systems reserve user IDs below
+some number for certain powerful users -- not as powerful as
+<em class="emphasis">root</em>, but more powerful than mere
+mortals -- for example, the <em class="emphasis">lpd</em> daemon,
+backup operators, and so forth. This allows you to prevent their use
+for CGIs.</p></li><li><p>Is the user's group not the superuser's group?
+<em class="emphasis">suEXEC</em> won't let
+<em class="emphasis">root'</em>s group execute
+scripts online.</p></li><li><p>Is the group ID above the minimum number specified? Again, this is to
+prevent the misuse of system groups.</p></li><li><p>Is this directory below the server's document root or, if for a
+<tt class="literal">UserDir</tt>, is the directory below the user's
+document root?</p></li><li><p>Is this directory <em class="emphasis">not</em> writable by anyone else?
+We don't want to open the door to all comers.</p></li><li><p>Does the target script exist? If not, it can hardly be run.</p></li><li><p>Is it only writable by the owner?</p></li><li><p>Is the target program not <em class="emphasis">setuid</em> or
+<em class="emphasis">setgid</em> ? We don't want visitors playing
+silly jokes with permissions.</p></li><li><p>Is the target user the owner of the script?</p></li></ul>
+<p>If all these hurdles are passed, then the program executes. In
+setting up your system, you have to bear these hurdles in mind.</p>
+
+
+
+
+
+<p>Note that once <em class="emphasis">suEXEC</em> has decided it will
+execute your script, it then makes it even safer by cleaning the
+environment -- that is, deleting any environment variables not on
+its list of safe ones and replacing the <tt class="literal">PATH</tt> with
+the path defined in <tt class="literal">SAFE_PATH</tt> in
+<em class="filename">suexec.h</em>. The list of safe environment variables
+can be found in <em class="filename">.../src/support/suexec.c</em>, in the
+variable <tt class="literal">safe_env_lst</tt>. This list includes all the
+standard variables passed to CGI scripts. Of course, this means that
+any special-purpose variables you set with <tt class="literal">SetEnv</tt>
+or <tt class="literal">PassEnv</tt> directives will not make it to your CGI
+scripts unless you add them to <em class="filename">suexec.c</em>.</p>
+
+
+
+
+
+<a name="ch04-22-fm2xml" /><div class="sect2">
+<h3 class="sect2">4.7.1. A Demonstration of suEXEC</h3>
+
+
+
+
+
+<p>So far, for the sake of simplicity, we have been running everything
+as <em class="emphasis">root,</em> to which all things are possible. To
+demonstrate <em class="emphasis">suEXEC</em> we need to create a humble
+but ill-intentioned user, <em class="emphasis">Peter</em>, who will write
+and run a script called <em class="emphasis">badcgi.cgi</em> intending to
+do harm to those around. <em class="emphasis">badcgi.cgi</em>
+simply deletes <em class="emphasis">/usr/victim/victim1</em> as
+a demonstration of its power -- but it could do many worse things.
+This file belongs to <em class="emphasis">webuser</em> and
+<em class="emphasis">webgroup.</em> Normally, <em class="emphasis">Peter</em>,
+who is not <em class="emphasis">webuser</em> and does not belong to
+<em class="emphasis">webgroup,</em> would not be allowed to do anything to
+it, but if he gets at it through Apache (undefended by
+<em class="emphasis">suEXEC</em> ) he can do what he likes.</p>
+
+
+
+
+
+<p><em class="emphasis">Peter</em> creates himself a little web site in his
+home directory, <em class="emphasis">/home/peter,</em> which contains the
+directories:</p>
+
+
+
+
+
+<blockquote><pre class="code">conf
+logs
+public_html</pre></blockquote>
+
+
+
+
+
+<p>and the usual file <em class="emphasis">go</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">httpd -d /home/peter</pre></blockquote>
+
+
+
+
+
+<p>The Config file is:</p>
+
+
+
+
+
+<blockquote><pre class="code">User webuser
+Group webgroup
+ServerName www.butterthlies.com
+ServerAdmin sales@butterthlies.com
+UserDir public_html
+AddHandler cgi-script cgi</pre></blockquote>
+
+
+
+
+
+<p>Most of this is relevant in the present situation. By specifying
+<em class="emphasis">webuser</em> and <em class="emphasis">webgroup</em>, we
+give any program executed by Apache that user and group. In our guise
+of <em class="emphasis">Peter</em>, we are going to ask the browser to log
+onto
+<em class="emphasis">httpd://www.butter-thlies.com/~peter</em> -- that
+is, to the home directory of <em class="emphasis">Peter</em> on the
+computer whose port answers to <em class="emphasis">www.butterthlies.com.
+</em>Once in that home directory, we are referred to
+the
+<tt class="literal">UserDir</tt><em class="emphasis">
+public_html</em>, which acts pretty much
+the same as <tt class="literal">DocumentRoot</tt> in the web sites we have
+been playing with.</p>
+
+
+
+
+
+<p><em class="emphasis">Peter</em> puts an innocent-looking Butterthlies
+form, <em class="emphasis">form_summer.html</em>, into
+<em class="emphasis">public_html.</em> But, it conceals a viper! Instead
+of having <tt class="literal">ACTION="mycgi.cgi"</tt>, as
+innocent forms do, this one calls <em class="emphasis">badcgi.cgi</em>,
+which looks like this:</p>
+
+
+
+
+
+<blockquote><pre class="code">#!/bin/sh
+echo "content-type: text/plain"
+echo
+rm -f /usr/victim/victim1</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-525" />This is a script of unprecedented
+villainy, whose last line will utterly destroy and undo the innocent
+file <em class="emphasis">victim1</em>. Remembering that any CGI script
+executed by Apache has only the user and group permissions specified
+in the Config file -- that is, <em class="emphasis">webuser
+</em>and <em class="emphasis">webgroup,</em> we go and make the
+target file the same, by logging on as <em class="emphasis">root</em> and
+typing:</p>
+
+
+
+
+
+<blockquote><pre class="code"><b class="emphasis-bold">chown webuser:webgroup /usr/victim</b>
+<b class="emphasis-bold">chown webuser:webgroup /usr/victim/victim1</b></pre></blockquote>
+
+
+
+
+
+<p>Now, if we log on as <em class="emphasis">Peter</em> and execute
+<em class="emphasis">badcgi.cgi</em><em class="emphasis">,</em> we are roundly
+rebuffed:</p>
+
+
+
+
+
+<blockquote><pre class="code">./badcgi.cgi
+rm: /usr/victim/victim1: Permission denied</pre></blockquote>
+
+
+
+
+
+<p>This is as it should be -- Unix security measures are working.
+However, if we do the same thing under the cloak of Apache, by
+logging on as <em class="emphasis">root</em> and executing:</p>
+
+
+
+
+
+<blockquote><pre class="code"><b class="emphasis-bold">/home/peter/go</b></pre></blockquote>
+
+
+
+
+
+<p>and then, on the browser, accessing
+<em class="emphasis">http://www.butterthlies.com/~peter</em>, opening
+<em class="emphasis">form_summer.html</em>, and clicking the Submit button
+at the bottom of the form, we see that the browser is accessing
+<em class="emphasis">www.butterthlies.com/~peter/badcgi.cgi</em> and we
+get the warning message:</p>
+
+
+
+
+
+<blockquote><pre class="code">Document contains no data</pre></blockquote>
+
+
+
+
+
+<p>This statement is regrettably true because
+<em class="emphasis">badcgi.cgi</em> now has the permissions of
+<em class="emphasis">webuser</em> and <em class="emphasis">webgroup
+</em>; it can execute in the directory <em class="emphasis">/usr/victim,
+</em>and it has removed the unfortunate
+<em class="emphasis">victim1</em> in insolent silence.</p>
+
+
+
+
+
+<p>So much for what an in-house Bad Guy could do before
+<em class="emphasis">suEXEC</em> came along. If we now replace
+<em class="emphasis">victim1,</em> stop Apache, rename
+<em class="emphasis">suEXEC.not</em> to <em class="emphasis">suEXEC</em>,
+restart Apache (checking that the <em class="emphasis">.../logs/error_log
+</em>file shows that <em class="emphasis">suEXEC</em> started up),
+and click Submit on the browser again, we get the following
+comforting message:</p>
+
+
+
+
+
+<blockquote><pre class="code">Internal Server Error
+The server encountered an internal error or misconfiguration and was unable to complete your request.
+Please contact the server administrator, sales@butterthlies.com and inform them of the time the error occurred, and anything
+you might have done that may have caused the error.</pre></blockquote>
+
+
+
+
+
+<p>The error log contains the following:</p>
+
+
+
+
+
+<blockquote><pre class="code">[Tue Sep 15 13:42:53 1998] [error] malformed header from script. Bad header=suexec running: /home/peter/public_html/badcgi.cgi</pre></blockquote>
+
+
+
+
+
+<p>Ha, ha!<a name="INDEX-526" />
+<a name="INDEX-527" />
+<a name="INDEX-528" />
+<a name="INDEX-529" /></p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch04_08.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">4.6. Setting Environment Variables</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">4.8. Handlers</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

@@ -1,0 +1,506 @@
+<html><head><title>Turning SAX Events into Data Structures  (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch04_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+	<h2 class="sect1">4.4. Turning SAX Events into Data Structures </h2>
+
+	<p>
+<a name="INDEX-589" />
+<a name="INDEX-590" />
+<a name="INDEX-591" />
+<a name="INDEX-592" />
+        As described earlier, one of the great strengths of SAX
+	is that it lets applications use appropriate data structures,
+	instead of forcing the use of generic data structures.
+	In <a href="ch03_05.htm#sax2-CHP-3-SECT-5.2">Section 3.5.2, "Push Mode Event Production"</a> in <a href="ch03_01.htm">Chapter 3, "Producing  SAX2 Events"</a>, we looked at
+	the problem of producing SAX events from data structures.
+	Here we look at the reverse process: producing data structures from SAX events. This is a process that most SAX applications handle to one degree or another. One of the most traditional names for this process is <em class="emphasis">unmarshaling</em>; it's also sometimes called <em class="emphasis">deserializing</em>. (I tend to avoid using the latter term with Java except when talking about RMI.)</p>
+
+	<p>We'll first look at how to turn SAX into generic
+	DOM (and DOM-like) data structures. If you're
+	working with such data structures, you may find it's
+	advantageous to build them using SAX.
+	With SAX, you can easily discard data you
+	don't need, filtering it out so you don't need to pay
+	its costs.
+	Afterward we'll look briefly at some of the
+	concerns associated with working with data structures
+	that are more specialized to your application.
+	</p>
+
+	<a name="sax2-CHP-4-SECT-4.1" /><div class="sect2">
+	    <h3 class="sect2">4.4.1. SAX-to-DOM Consumers</h3>
+
+	    <p>
+<a name="INDEX-593" />
+<a name="INDEX-594" />
+<a name="INDEX-595" />
+
+
+            It's easy to turn a SAX event stream into
+	    a complete DOM document tree,
+	    or into a DOM-like data structure such as DOM4J
+	    or JDOM. Most open source DOM parsers build those data structures directly from SAX event streams. (Xerces has the only such DOM I know that doesn't work that way.) Building a DOM document from a SAX2 event stream requires implementing all four event consumer interfaces: <em class="emphasis">ContentHandler</em>,<a name="INDEX-596" />
+of course; <em class="emphasis">LexicalHandler</em><a name="INDEX-597" />
+ to report boundaries of entity references and CDATA sections as well as comments; and  both <em class="emphasis">DeclHandler</em><a name="INDEX-598" />
+ and <em class="emphasis">DTDHandler</em><a name="INDEX-599" />
+ to provide the subset of DTD information that DOM requires. The implementations of those interfaces must use nonstandard DOM functions, because key functionality is missing from public DOM APIs. This means that if you're using generic code to construct a DOM tree, you won't be able to implement every behavior DOM specifies. If that doesn't seem like a feature to you, you'll need builder code that's specialized to a particular DOM implementation.</p>
+	    <p><a href="ch04_04.htm#sax2-CHP-4-TABLE-1">Table 4-1</a>
+	    shows the classes that various
+	    DOM implementations provide for turning a SAX2 event
+	    stream into a DOM tree.<a href="#FOOTNOTE-21">[21]</a>
+	    Most classes have configuration options to let you discard
+	    some of the minimally useful data, instead saving it and
+	    making your application code ignore it later.
+	    Except as noted, they implement all four consumer interfaces.
+	    Each one has a way to present the DOM data it produces,
+	    usually with a <tt class="literal">getDocument()</tt> method;
+	    consult documentation (or source code) for full information.
+	    </p><blockquote class="footnote"><a name="FOOTNOTE-21" /><p>[21]As presented in Chapter 3, 
+	    in
+	    <a href="ch03_05.htm#sax2-CHP-3-SECT-5.1">Section 3.5.1, "DOM-to-SAX Event Production (and DOM4J, JDOM)"</a>, most of these packages
+	    also support DOM-to-SAX event producers.</p></blockquote>
+	    <a name="sax2-CHP-4-TABLE-1" /><h4 class="objtitle">Table 4-1. SAX-to-DOM consumer classes</h4><table border="1">
+	    
+	    
+	    
+		<tr>
+		    <th><p>Implementation</p></th>
+		    <th><p>Class name</p></th>
+		    <th><p>Comment</p></th>
+		</tr>
+	    
+        
+		<tr>
+		    <td><p>Crimson</p></td>
+		    <td><p>
+<a name="INDEX-600" />
+<a name="INDEX-601" />
+                    <em class="emphasis">org.apache.crimson.tree.Xml<?troff \%?>DocumentBuilder</em></p></td>
+		    <td><p>Implements all the event consumer handlers.</p></td>
+		</tr>
+	    
+		<tr>
+		    <td><p>DOM4J</p></td>
+		    <td><p>
+<a name="INDEX-602" />
+<a name="INDEX-603" />
+                    <em class="emphasis">org.dom4j.io.SAXContentHandler</em></p></td>
+		    <td><p>Extends <em class="emphasis">DefaultHandler</em>; does not implement <em class="emphasis">DeclHandler</em>.</p></td>
+		</tr>
+	    
+		<tr>
+		    <td><p>GNUJAXP</p></td>
+		    <td><p>
+<a name="INDEX-604" />
+<a name="INDEX-605" />
+                    <em class="emphasis">gnu.xml.dom.Consumer</em></p></td>
+		    <td><p>Uses the <em class="emphasis">gnu.xml.pipeline</em> framework.</p></td>
+		</tr>
+	    
+		<tr>
+		    <td><p>JDOM</p></td>
+		    <td><p>
+<a name="INDEX-606" />
+<a name="INDEX-607" />
+                    <em class="emphasis">org.jdom.input.SAXHandler</em></p></td>
+		    <td><p>Extends <em class="emphasis">DefaultHandler</em>.</p></td>
+		</tr>
+	    </table><p>
+
+	    <p><a href="ch04_04.htm#sax2-CHP-4-EX-1">Example 4-1</a>
+	    uses the DOM implementation from Crimson to illustrate how easy
+	    it is to construct a DOM tree from SAX events. 
+	    
+</p>
+
+	    <a name="sax2-CHP-4-EX-1" /><div class="example">
+		<h4 class="objtitle">Example 4-1. Converting SAX events to a DOM document (Crimson)</h4>
+
+	    <blockquote><pre class="code">
+public Document SAX2DOM (String uri)
+throws SAXException, IOException
+{
+    XmlDocumentBuilder	consumer;
+    XMLReader		producer;
+
+    consumer = new XmlDocumentBuilder ();
+
+    producer = XMLReaderFactory.createXMLReader ();
+    producer.setContentHandler (consumer);
+    producer.setDTDHandler (consumer);
+    producer.setProperty 
+	("http://xml.org/sax/properties/lexical-handler", 
+	consumer);
+    producer.setProperty 
+	("http://xml.org/sax/properties/declaration-handler", 
+	consumer);
+
+    producer.parse (uri);
+    return consumer.getDocument ();
+}</pre></blockquote>
+	    
+		</div>
+
+	    </div>
+	    
+	<a name="sax2-CHP-4-SECT-4.2" /><div class="sect2">
+	    <h3 class="sect2">4.4.2. Pruning Noise Data from a DOM Tree </h3>
+
+	    <p>
+<a name="INDEX-608" />
+<a name="INDEX-609" />
+For various historical reasons, DOM provides much
+	    information that just adds overhead to applications.
+	    When you build a DOM with SAX2, it's particularly easy to
+	    prune that information out of DOM trees: you can
+	    simply arrange never to deliver it!
+	    Similar techniques are frequently used when
+	    feeding SAX event data to a component.
+	    It's often easier to let the component see only parts of
+	    the Infoset that you care about than to remove the resulting
+	    data noise later.
+	    </p>
+
+	    <p>The simplest example of this would be just to hook up the
+	    <em class="emphasis">ContentHandler</em> to a SAX parser and
+	    ignore the other three handlers.
+	    The resulting DOM will not have DTD information, but
+	    that's no loss, because even DOM Level 2 doesn't provide
+	    enough of the DTD information to be useful.
+	    (You can save more complete DTD information using custom
+	    SAX handlers, if you need it.)
+	    Because the <em class="emphasis">LexicalHandler</em> isn't
+	    provided, you won't see comment nodes
+	    or entity reference nodes (or their read-only children which
+	    really complicate your code).
+	    Also, any CDATA text nodes will be transparently merged
+	    with any adjacent "normal" text nodes.
+	    A DOM without such information is a lot easier
+	    to work with; your code won't need to handle
+	    special cases that come from storing such data.
+	    It will also need somewhat less memory and take
+	    less time to construct the DOM tree.
+	    </p>
+
+	    <p>
+<a name="INDEX-610" />
+            To further streamline your data, override
+	    <tt class="literal">ignorableWhitespace()</tt>
+	    and discard whitespace characters.
+	    While such events won't always be available
+	    even for documents that include DTDs, discarding "ignorable"
+	    characters can save significant amounts of memory.
+	    The savings vary widely based on DTDs and documents;
+	    documents that use mostly elements with element content
+	    models (often, but not always, data-oriented DTDs)
+	    have the biggest savings.
+	    Space savings of ten percent aren't unreasonable
+	    and are coupled with some time savings for DOM tree construction,
+	    but such savings are highly data dependent.
+	    (You may be able to discard processing instructions, depending on your application.)
+	    </p>
+
+	    <p>Discarding lots
+	    of the DOM data is so common that when you use JAXP to build a DOM
+	    tree, you can configure it to automatically discard some
+	    of the data. (Unfortunately, the default is to include
+	    all of that data. You might not even need to strip out the events yourself. That configuration information gets sent directly to the SAX handler code that builds the DOM, and you can usually use it directly without needing to subclass. <a href="ch04_04.htm#sax2-CHP-4-EX-2">Example 4-2</a>, a modified version of the previous example, shows this less noisy setup.</p>
+
+	    <a name="sax2-CHP-4-EX-2" /><div class="example">
+		<h4 class="objtitle">Example 4-2. Converting SAX events to DOM, discarding noise (Crimson)</h4>
+
+		<blockquote><pre class="code">
+public Document SAX2DOM (String uri)
+throws SAXException, IOException
+{
+    XmlDocumentBuilder	consumer;
+    XMLReader		producer;
+
+    consumer = new XmlDocumentBuilder ();
+    consumer.setIgnoreWhitespace (true);
+
+    producer = XMLReaderFactory.createXMLReader ();
+    producer.setContentHandler (consumer);
+
+    producer.parse (uri);
+    return consumer.getDocument ();
+}</pre></blockquote>
+	    
+		</div>
+
+	    </div>
+
+	<a name="sax2-CHP-4-SECT-4.3" /><div class="sect2">
+	    <h3 class="sect2">4.4.3. Building a Partial DOM </h3>
+
+	    <p>
+<a name="INDEX-611" />
+            Often an even better solution for working with
+	    DOM is not to build an entire
+	    <em class="emphasis">org.w3c.dom.Document</em> object.
+	    You can build just the individual subtrees you need,
+	    never paying memory for the rest.
+	    Unfortunately, the classes listed earlier are set up to
+	    build entire document objects, so they won't help.
+	    However, it's easy to use SAX events to assemble
+	    trees of DOM nodes.
+	    </p>
+
+	    <p>Here's one way to do it.
+	    This example defines an interface that exposes an element
+	    type using a namespace URI and a local name. It also exposes
+	    an event handler method to call with a DOM subtree that
+	    holds only such elements and their children.
+	    In effect, DOM subtrees are streamed, rather than SAX events.
+	    Such a model could work well with documents
+	    that are huge but highly regular, if the subtrees were
+	    processed then immediately discarded to save memory.
+	    Such structures might represent a series of composite
+	    records built from database queries, for example.
+	    </p>
+
+	    <p><a href="ch04_04.htm#sax2-CHP-4-EX-3">Example 4-3</a>
+	    uses JAXP to bootstrap an empty DOM
+	    document, which is used as a factory to create DOM
+	    elements and text nodes.
+	    The factory should be used for attributes too,
+	    in a more complete example,
+	    and perhaps for processing instructions.
+	    Notice how the SAX document traversal exactly matches
+	    a walk over the DOM tree being constructed,
+	    and how the partial DOM tree serves as only the state
+	    that's needed.
+	    Also, that DOM handles namespaces slightly differently
+	    than SAX does.
+	    If you need to build DOM trees with SAX, your code doesn't
+	    need to be much more complicated than this
+	    (other than passing attributes along)
+	    unless you
+	    try to implement all the gingerbread ornamenting
+	    the data model exposed by DOM.
+	    </p>
+
+	    <a name="sax2-CHP-4-EX-3" /><div class="example">
+		<h4 class="objtitle">Example 4-3. Using SAX to stream DOM subtrees</h4>
+
+		<blockquote><pre class="code">
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.*;
+import org.xml.sax.*;
+import org.xml.sax.helpers.DefaultHandler;
+
+// a kind of event handler
+interface DomListener
+{
+    public String getURI ();
+    public String getLocalName ();
+    public void processTree (Element tree) throws SAXException;
+}
+
+public class DomFilter extends DefaultHandler
+{
+    private Document	factory;
+    private Element	current;
+    private DomListener	listener;
+
+    public DomFilter (DomListener l)
+	{ listener = l; }
+
+    public void startDocument ()
+    throws SAXException
+    {
+	// all this just to get an empty document;
+	// we need one to use as a factory
+	try {
+	    factory = DocumentBuilderFactory
+		.newInstance ()
+		.newDocumentBuilder ()
+		.newDocument ();
+	} catch (Exception e) {
+	    throw new SAXException ("can't get DOM factory", e);
+	}
+    }
+
+    public void startElement (String uri, String local,
+	String qName, Attributes atts)
+    throws SAXException
+    {
+	// start a new subtree, or ignore
+	if (current == null) {
+	    if (!listener.getURI ().equals (uri)) 
+		return;
+	    if (!listener.getLocalName ().equals (local)) 
+		return;
+	    current = factory.createElementNS (uri, qName);
+
+	// Add to current subtree, descend.
+	} else {
+	    Element	e;
+
+	    if ("".equals (uri))
+		e = factory.createElement (qName);
+	    else
+		e = factory.createElementNS (uri, qName);
+	    current.appendChild (e);
+	    current = e;
+	}
+	// NOTE:  this example discards all attributes!
+	// They ought to be saved to the current element.
+    }
+
+    public void endElement (String uri, String local, String qName)
+    throws SAXException
+    {
+	Node	parent;
+
+	// ignore?
+	if (current == null)
+	    return;
+	parent = current.getParentNode ();
+
+	// end subtree?
+	if (parent == null) {
+	    current.normalize ();
+	    listener.processTree (current);
+	    current = null;
+
+	// else climb up one level
+	} else
+	    current = (Element) current.getParentNode ();
+    }
+
+    // if saving, append and continue
+    public void characters (char buf [], int offset, int length)
+    throws SAXException
+    {
+	if (current != null)
+	    current.appendChild (factory.createTextNode (
+		new String (buf, offset, length)));
+    }
+}</pre></blockquote>
+
+		</div>
+
+		<p>You can use similar techniques to construct
+		other kinds of data structures and to perform more
+		interesting filter functions. For example, perhaps
+		more than one element type is interesting, or some
+		types of elements should be reported through different
+		event handler callbacks. It's also easy to transform
+		the data as you read it; the DOM trees you
+		construct don't need to match the document structure
+		that the parser reports.
+<a name="INDEX-612" />
+		
+</p>
+
+	    </div>
+
+	<a name="sax2-CHP-4-SECT-4.4" /><div class="sect2">
+	    <h3 class="sect2">4.4.4. Turning SAX Events into Custom Data Structures </h3>
+
+	    <p>
+<a name="INDEX-613" />
+<a name="INDEX-614" />
+<a name="INDEX-615" />
+            If your application data structure or interchange
+	    syntax is already defined, you may not be able to unmarshal
+	    it using software based on the numerous schema-oriented tools.
+	    However, lots of software uses SAX to do this efficiently.
+	    Once you understand how SAX models data in XML documents, you
+	    can treat unmarshaling much like any other parsing problem.
+	    It's closely associated with marshaling your data structures 
+	    to XML.
+	    Here we'll look at some of the issues you may want to consider
+	    when transforming XML into your data structures.
+	    </p>
+
+	    <p>You may find that some individual data items, such as integers
+	    and dates, use the low-level encoding rules that are specified in Part 2
+	    of the W3C XML Schema specification (<a href="http://www.w3c.org/TR/xmlschema-2/">http://www.w3c.org/TR/xmlschema-2/</a>).
+	    Those encodings are low-level policy decisions, and they're
+	    conceptually independent of the rest of the W3C Schema;
+	    you can use them even if you don't buy the W3C approach to
+	    those schemas. Some other schema systems, such as
+	    Relax-NG, incorporate those low-level encoding policies
+	    without adopting <?troff .ne 10?>more problematic parts of the W3C XML Schema specification.
+	    Your application might likewise want to use these policies.
+	    </p>
+
+	    <p>One basic high-level encoding
+	    issue is how closely the XML structures
+	    and application structures should match. For example, an element 
+	    will be easier to unmarshal by mapping its attributes
+	    (or child elements) directly to properties of a single
+	    application object rather than by mapping them to properties
+	    of several different objects. 
+	    The latter design is more complex, and
+	    for many purposes it could be much more appropriate,
+	    but such unmarshaling code needs more complex state.
+	    </p>
+
+	    <p>Regularity of the various structures is another issue.
+	    It's usually less work to handle regular structures,
+	    since it's easy to create general methods and reuse them.
+	    Bugs are less frequent and more easily found than when
+	    every transformation involves yet another special case.
+	    </p>
+
+	    <p>You'll need to figure out how much state you need
+	    to track and what techniques you will use.
+	    You might be able to use extremely simple parsing
+	    state machines; one of these is shown later, 
+            in <a href="ch06_01.htm#sax2-CHP-6-EX-2">Example 6-2</a>.
+	    Sometimes it might easier to unmarshal fragments into an
+	    intermediate form (as in the DOM subtrees example earlier),
+	    and map that form to your application structure before
+	    discarding them.
+	    </p>
+
+	    <p>Often some sort of recursive-descent parsing algorithm
+	    that explicitly tracks the state of your parsing activities
+	    will be useful.
+	    It will often be helpful to keep a stack of pending elements
+	    and attributes, as shown later
+	    (in <a href="ch05_01.htm#sax2-CHP-5-EX-1">Example 5-1</a>).
+	    But since the XML structures might not map directly
+	    to your application structures, you might also need to stack
+	    objects you're in various stages of unmarshaling.
+	    </p>
+
+	    <p>The worst scenario is when neither the XML text
+	    nor the application data structures are very regular.
+	    Software to work with that kind of system quickly gets
+	    fragile as it grows, and you'll probably want to change
+	    some of your application constraints.
+<a name="INDEX-616" />
+<a name="INDEX-617" />
+<a name="INDEX-618" />
+<a name="INDEX-619" />
+  </p>
+
+	    </div>
+
+	
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch04_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4.3. Exposing DTD Information </td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">4.5. XML Pipelines </td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

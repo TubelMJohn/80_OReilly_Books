@@ -1,0 +1,447 @@
+<?label 8. Redirection?><html><head><title>Redirection (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch07_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch08_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 8. Redirection</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch08_01.htm">ScriptAlias </a><br />
+<a href="ch08_02.htm">ScriptAliasMatch</a><br />
+<a href="ch08_03.htm">Alias</a><br />
+<a href="ch08_04.htm">AliasMatch</a><br />
+<a href="ch08_05.htm">UserDir</a><br />
+<a href="ch08_06.htm">Redirect</a><br />
+<a href="ch08_07.htm">RedirectMatch</a><br />
+<a href="ch08_08.htm">Rewrite</a><br />
+<a href="ch08_09.htm">Speling</a><br /></p></div>
+
+
+
+
+
+
+
+
+
+<p>
+<a name="INDEX-821" />
+<a name="INDEX-822" /> <a name="INDEX-823" />Few
+things are ever in exactly the right place at the right time, and
+this is as true of most web servers as of anything else in this vale
+of tears. <tt class="literal">Alias</tt> and <tt class="literal">Redirect</tt>
+allow requests to be shunted about your filesystem or around the Web.
+Although in a perfect world it should never be necessary to do this,
+in practice it is often useful to be able to move HTML files around
+on the server, or even to a different server, without having to
+change all the links in the HTML script.<a href="#FOOTNOTE-52">[52]</a> A more legitimate use -- of <tt class="literal">Alias</tt>,
+at least -- is to rationalize directories spread around the
+system. For example, they may be maintained by different users, and
+perhaps may even be held on remotely mounted filesystems. But
+<tt class="literal">Alias</tt> can make them appear to be grouped in a more
+logical way.</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-52" /><p>[52]Too much of
+this kind of thing can make your site difficult to maintain.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<p><tt class="literal">ScriptAlias</tt> allows you to run
+<a name="INDEX-824" />CGI scripts, without which few web sites
+could function. You have a choice: everything that<tt class="literal">
+ScriptAlias</tt> does, and much more, can be done by the new
+<tt class="literal">Rewrite</tt> directive (described later in this
+chapter), but at a cost of some real programming effort.</p>
+
+
+
+
+
+<p><tt class="literal">ScriptAlias </tt>
+<a name="INDEX-825" /> <a name="INDEX-826" />is
+relatively simple to use, but it is also a good example of
+Apache's modularity being a little less modular than we might
+like. Although <tt class="literal">ScriptAlias</tt> is defined in
+<em class="filename">mod_alias.c </em>
+<a name="INDEX-827" /> <a name="INDEX-828" />in
+the Apache source code, it needs <em class="filename">mod_cgi.c </em>(or
+any module that does CGI) in order to function. The functionality of
+<em class="filename">mod_alias.c</em> is one way of causing CGI scripts to
+run. It is compiled into Apache by default.</p>
+
+
+
+
+
+<p>The <em class="filename">httpd.conf</em> file on ...
+/<em class="filename">site.alias</em> contains the following:</p>
+
+
+
+
+
+<blockquote><pre class="code">User webuser
+Group webgroup
+
+ServerName www.butterthlies.com
+
+ServerAdmin sales@butterthlies.com
+DocumentRoot /usr/www/site.alias/htdocs/customers
+ErrorLog /usr/www/site.alias/logs/customers/error_log
+TransferLog /usr/www/site.alias/logs/customers/access_log
+Alias /somewhere_else /usr/www/somewhere_else
+
+&lt;VirtualHost sales.butterthlies.com&gt;
+ServerAdmin sales_mgr@butterthlies.com
+DocumentRoot /usr/www/site.alias/htdocs/salesmen
+ServerName sales.butterthlies.com
+ErrorLog /usr/www/site.alias/logs/salesmen/error_log
+TransferLog /usr/www/site.alias/logs/salesmen/access_log
+&lt;/VirtualHost&gt;</pre></blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch08-29848" />
+<h2 class="sect1">8.1. ScriptAlias </h2>
+
+
+
+
+
+<blockquote><pre class="code">ScriptAlias <em class="replaceable">url_path</em> <em class="replaceable">directory_or_filename </em>
+Server config, virtual host</pre></blockquote>
+
+
+
+
+
+<p>We have already come across <tt class="literal">ScriptAlias</tt> (see <a href="ch04_01.htm">Chapter 4, "Common Gateway Interface (CGI) "</a>). It allows scripts to be stored safely out of
+the way of prying fingers and, moreover, automatically marks the
+directory where they are stored as containing CGI scripts.<a name="INDEX-829" /></p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch07_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch08_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">7.3. Imagemaps</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">8.2. ScriptAliasMatch</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

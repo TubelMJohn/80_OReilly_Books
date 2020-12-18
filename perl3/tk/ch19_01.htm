@@ -1,0 +1,297 @@
+<html><head><title>Interprocess Communication with Pipes and Sockets (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch18_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch19_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 19. Interprocess Communication with Pipes and Sockets</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch19_01.htm">Handling Unsolicited Media Changes</a><br />
+<a href="ch19_02.htm">IPADM Design Considerations</a><br />
+<a href="ch19_03.htm">The Perl/Tk IPADM Client, ipadm</a><br />
+<a href="ch19_04.htm">The IPADM Helper, ipadmh</a><br />
+<a href="ch19_05.htm">The IPADM Daemon, ipadmd</a><br />
+<a href="ch19_06.htm">Polling Win32 Sockets</a><br /></p></div>
+
+<p><a name="INDEX-2925" /></a><a name="INDEX-2926" /></a><a name="INDEX-2927" /></a><a name="INDEX-2928" /></a><a name="INDEX-2929" /></a><a name="INDEX-2930" /></a><a name="INDEX-2931" /></a><a name="INDEX-2932" /></a><a name="INDEX-2933" /></a>The
+term <em class="firstterm">interprocess communication</em> describes a
+scenario in which two or more processes talk to one another. The
+processes may reside on the same computer or they may be on separate
+computers connected via a network. In Unix, there are several IPC
+mechanisms: pipes, semaphores, signals, shared memory, and sockets,
+to name a few. All are useful for local communication, but sockets
+are typically used for communication over a network.
+</p>
+
+<p><a name="INDEX-2934" /></a>The
+problem with reading and writing a network socket is that an I/O
+operation often takes a considerable amount of time to complete,
+which, as described in <a href="ch15_01.htm">Chapter 15, "Anatomy of the MainLoop"</a>, might block the
+flow of Tk events. Your program then stalls, and the user becomes
+unhappy. But with care, it's possible to mix network
+programming with Perl/Tk and still maintain lively event processing.
+</p>
+
+<p>In this chapter, we'll write some Perl/Tk network programs
+using pipes and sockets. In <a href="ch20_01.htm">Chapter 20, "IPC with send"</a>, we'll
+cover more examples using an IPC mechanism unique to Tk, the
+<em class="emphasis">send</em> command.
+</p>
+
+<p>The first example in this chapter is a simple TCP/IP media change
+client/server, just to become familiar with the basic mechanisms.
+These programs help automate daily tape backups on a Linux computer.
+The client sends an operator message to a central machine, requesting
+a tape change, and the server posts the message in a Perl/Tk window
+and returns the operator's response.
+</p>
+
+<p><a name="INDEX-2935" /></a><a name="INDEX-2936" /></a>Later,
+we'll develop a Tk user interface that updates flat files on a
+remote machine, but won't freeze in the face of I/O delays and
+timeouts due to network latency or disabled servers. The model is
+extremely simple; it depends on
+<tt class="literal">fileevent</tt>,<a href="#FOOTNOTE-48">[48]</a>
+in conjunction with a helper process that uses Unix pipes to
+communicate with the Perl/Tk client, and TCP/IP sockets to
+communicate with the remote daemon. Information is exchanged between
+the client and daemon using a command/response protocol mediated by
+the helper. The client pipes a command to the helper, which forwards
+it to the daemon. The daemon obliges by sending output (and errors)
+to the helper for piping to the Tk client.
+</p><blockquote class="footnote"><a name="FOOTNOTE-48" /></a><p> [48] Although there have been success stories, <tt class="literal">fileevent</tt> on Win32 operating systems is at best problematic. We present two possible workarounds: polling and shared memory. The former solution appears in another section of this chapter, while the latter is written-up in <a href="ch22_01.htm">Chapter 22, "Perl/Tk and the Web"</a>. A newer Perl, combined with the upcoming Tk 8.3, should resolve these deficiencies.</p></blockquote>
+<div class="sect1"><a name="mastperltk-CHP-19-SECT-1" /></a>
+<h2 class="sect1">19.1. Handling Unsolicited Media Changes</h2>
+
+<p><a name="INDEX-2937" /></a><a name="INDEX-2938" /></a>A good system administrator
+always implements backup procedures, which protect her machines from
+damaged disks, malevolent miscreants, or rash
+<tt class="literal">&lt;Return&gt;</tt> s. The venerable tape is still the
+backup medium of choice for most shops due to its low cost and high
+reliability. Typically, a full system backup is performed, say, once
+a week, followed by periodic incremental change dumps. It's not
+uncommon for a full dump to require several tape volumes, and some
+sort of operator intervention is required to swap tapes.
+</p>
+
+<p>But our administrator, in accordance with Perl's First Virtue,
+Laziness, is also likely to initiate these backups via
+<em class="emphasis">cron</em> or some similar automated means, which
+means there is no terminal for the backup program to communicate with
+her. Fortunately, the backup program has an option to run a
+user-specified program when a media change is required. This alert
+program is typically a script to send a mail message or display a
+window that attracts the operator's attention. Sending mail
+seems to lack style. But opening a window is cool unless there are
+many machines, each with its own window, so let's write a
+TCP/IP server that displays media change messages in Tk windows on a
+single machine, as they arrive from any number of backup client
+machines.
+</p>
+
+<a name="mastperltk-CHP-19-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">19.1.1. The Media Change Client, mediachangec</h3>
+
+<p><a name="INDEX-2939" /></a><a name="INDEX-2940" /></a><a name="INDEX-2941" /></a><a name="INDEX-2942" /></a>When the system backup reaches end of
+volume, it executes this incredibly simple client code, specifying
+the IP address of the media change server plus a message string to
+display. The code first opens a socket to the server and unbuffers
+it.<a href="#FOOTNOTE-49">[49]</a></p><blockquote class="footnote"> <a name="FOOTNOTE-49" /></a><p> [49] The <tt class="literal">autoflush</tt> call is not
+required in recent versions of IO::Socket but is included for
+completeness.</p> </blockquote>
+
+<p>The <tt class="literal">PeerAddr</tt> and
+<tt class="literal">PeerPort</tt> options specify the host to contact and
+the TCP/IP port the server listens on. The client code then outputs
+the message on the socket, reads the operator's response from
+the socket, and prints it on STDOUT.
+</p>
+
+<blockquote><pre class="code">use IO::Socket;
+
+do {print "Usage:  mediachangec host message\n"; exit} unless @ARGV == 2;
+
+$sock = IO::Socket::INET-&gt;new(
+    PeerAddr =&gt; $ARGV[0],
+    Proto    =&gt; 'tcp',
+    PeerPort =&gt; 8979,
+);
+die "Cannot connect: $!" unless defined $sock;
+$sock-&gt;autoflush(1);
+
+print $sock $ARGV[1], "\n";     # send operator message
+print STDOUT &lt;$sock&gt;;           # display operator response</pre></blockquote>
+
+<p>As shown in <a href="ch19_01.htm#mastperltk-CHP-19-FIG-1">Figure 19-1</a>, the response comes directly
+from a messageBox widget posted on the server's display and can
+be either "Ok" or "Cancel."
+</p>
+
+<a name="mastperltk-CHP-19-FIG-1" /></a><div class="figure"><img src="figs/mptk.1901.gif" alt="Figure 19-1" width="405" height="152" /></div><h4 class="objtitle">Figure 19-1. A media change operator message</h4>
+
+</div>
+<a name="mastperltk-CHP-19-SECT-1.2" /></a><div class="sect2">
+<h3 class="sect2">19.1.2. The Media Change Server, mediachanged</h3>
+
+<p>We're about to see a forking TCP/IP server, sometimes called a
+network daemon. In typical Unix fashion, we'll call it
+<em class="emphasis">mediachanged</em>, with the trailing
+<em class="emphasis">d</em> identifying it as a daemon program. This
+bare-bones example serves as the basis for the much more complicated
+IPADM server discussed in the remaining sections of this chapter.
+</p>
+
+<p>The following code is initiated on the media change server at boot
+time and runs forever. It opens a listen socket on the little-known
+port 8979 and, as requests arrive, it forks a new child that creates
+a Tk MainWindow with a lone messageBox widget. Here are the preamble
+statements:
+</p>
+
+<blockquote><pre class="code">#!/usr/local/bin/perl -w
+# 
+# mediachanged - media change daemon.
+#
+# Wait for connect on our well known port, display the received message
+# in a Tk messageBox, and return the operator's reply.
+
+use 5.005;
+use IO::Handle;
+use IO::Socket;
+use Net::hostent;
+use POSIX qw/setsid/;
+use Tk;
+use subs qw/client_connect/;
+use strict;</pre></blockquote>
+
+<p>This statement ensures that the daemon's children are properly
+disposed of after they terminate:
+</p>
+
+<blockquote><pre class="code">$SIG{CHLD} = sub {wait};</pre></blockquote>
+
+<p>The program backgrounds itself by forking and terminating the parent:</p>
+
+<blockquote><pre class="code">my $pid = fork;
+die "fork failed: $!" unless defined $pid;
+exit if $pid;                   # parent exits, daemon continues
+setsid or die "setsid failed: $!";</pre></blockquote>
+
+<p><a name="INDEX-2943" /></a><a name="INDEX-2944" /></a>Here we create a <em class="emphasis">listen
+socket</em>, distinct from the client's <em class="emphasis">connect
+socket</em>, differentiated by the <tt class="literal">Listen</tt>
+option that specifies how many simultaneous incoming connections on
+port 8979 are possible:
+</p>
+
+<blockquote><pre class="code">my $server = IO::Socket::INET-&gt;new(
+    Proto     =&gt; 'tcp',
+    LocalPort =&gt; 8979,
+    Listen    =&gt; SOMAXCONN,
+    Reuse     =&gt; 1,
+);
+
+die "Socket::INET::new failed: $!" unless defined $server;</pre></blockquote>
+
+<p><a name="INDEX-2945" /></a><a name="INDEX-2946" /></a>At last, here is the daemon's
+main loop, where it blocks on the <tt class="literal">accept</tt> statement
+until a media change request arrives. It then makes a (very) feeble
+attempt at authentication by verifying that the peer's IP
+address is from a legal subnet (192.168.x.x). Unfortunately, an IP
+address is easily spoofed, so this authentication scheme is
+unreliable. Nevertheless, within the context of an isolated machine
+room, the data is useful enough, so we initialize the variable
+<tt class="literal">$from</tt> with the peer's human-readable IP
+name.
+</p>
+
+<p>The daemon then quickly spawns a child to handle the request and
+resumes waiting on the <tt class="literal">accept</tt>. The child unbuffers
+the network socket, <tt class="literal">$ns</tt>, and calls
+<tt class="literal">client_connect</tt> to continue processing.
+</p>
+
+<blockquote><pre class="code">while (my $ns = $server-&gt;accept) {
+
+    my $peeraddr = $ns-&gt;peeraddr;
+    my $hostinfo = gethostbyaddr($peeraddr);
+    my $remote_host = $hostinfo-&gt;name || $ns-&gt;peerhost;
+    my(@inetaddr) = unpack('C4', $peeraddr);
+    my $from = "Message from $remote_host (" . join('.', @inetaddr) . ')';
+    unless ($inetaddr[0] == 192 and $inetaddr[1] == 168) {
+        close $ns;
+        next;
+    }
+ 
+    if (my $pid = fork) {
+        close $ns or die "Client socket close failed: $!";
+    } elsif (defined $pid) {
+        $ns-&gt;autoflush(1);
+        client_connect $ns, $from;
+    } else {
+        die "fork error: $!";
+    }
+    
+} # whilend forever network daemon</pre></blockquote>
+
+<p>Subroutine <tt class="literal">client_connect</tt> first reads the media
+change message from the network socket. Then it creates the
+MainWindow, withdraws it, creates a 15-second repeating timer event
+to ring the bell and alert the operator, and posts an
+<tt class="literal">OKCancel</tt> messageBox dialog widget. Eventually the
+operator interacts with the messageBox, which returns either the
+string <tt class="literal">OK</tt> or the string <tt class="literal">Cancel</tt>.
+This reply string is sent to the peer via the network socket, and
+we're done.
+</p>
+
+<blockquote><pre class="code">sub client_connect {
+
+    # Process a client connect - send our client either an "Ok" or
+    # "Cancel" string, depending upon how the media change went.
+
+    my($ns, $from) = @_;
+
+    chomp( $_ = &lt;$ns&gt; );
+
+    my $mw = MainWindow-&gt;new;
+    $mw-&gt;withdraw;
+    $mw-&gt;bell;
+    $mw-&gt;repeat(15 * 1000 =&gt; sub {$mw-&gt;bell});
+    my $reply = $mw-&gt;messageBox(
+        -icon       =&gt; 'info',
+        -type       =&gt; 'OKCancel',
+        -message    =&gt; "$from\n\n$_",
+        -wraplength =&gt; '6i',
+        -title      =&gt; 'mediachanged',
+        -background =&gt; '#ECFFFF',
+    );
+    print $ns "$reply\n";
+    close $ns;
+    exit;
+
+} # end client_connect</pre></blockquote>
+
+<p>Armed with the know-how to build a TCP/IP client/server, let's
+examine a more complicated scenario involving a Perl/Tk
+client.<a name="INDEX-2947" /></a><a name="INDEX-2948" /></a><a name="INDEX-2949" /></a><a name="INDEX-2950" /></a>
+</p>
+
+</div>
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch18_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch19_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">18.5. Tix Images</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">19.2. IPADM Design Considerations</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

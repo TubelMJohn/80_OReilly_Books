@@ -1,0 +1,359 @@
+<html><head><title>Session Tracking Without Cookies (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch08_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">8.2. Session Tracking Without Cookies</h2>
+
+<p><a name="INDEX-926" />Session tracking is an essential part
+of most web applications. By nature, the HTTP protocol is
+connectionless. This means that each time users click on a hyperlink
+or submit an XHTML form, the browser establishes a new connection to
+the web server. Once the request is sent and the response is
+received, the connection between browser and server is broken.
+</p>
+
+<p>This presents a problem for servlet authors. Although the browser and
+web server do not maintain a persistent connection between page
+views, applications must maintain state information for each user.
+Stateful applications make technologies like shopping carts possible,
+for instance. With each request from the browser, the servlet must
+reestablish the identity of the user and locate his session
+information.
+</p>
+
+<a name="javaxslt-CHP-8-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">8.2.1. Servlet Session-Tracking API</h3>
+
+<p>The traditional servlet approach to session tracking utilizes the
+<tt class="literal">javax.servlet.http.HttpSession</tt><a name="INDEX-927" />
+<a name="INDEX-928" /> interface. This interface allows a web
+application to store information about a user that persists across
+page requests. The interface is easy to use, mapping attribute names
+to attribute values. The code shown here is part of a servlet that
+uses <tt class="literal">HttpSession</tt>:
+</p>
+
+<blockquote><pre class="code">public void doGet(HttpServletRequest req, HttpServletResponse res)
+        throws ServletException, IOException {
+    // retrieve an instance of HttpSession for this user. The "true" parameter
+    // indicates that the object should be created if it does not exist.<tt class="userinput"><b>
+    HttpSession session = req.getSession(true);</b></tt>
+
+    // retrieve the cart for this user<tt class="userinput"><b>
+    Cart cart = (Cart) session.getAttribute("shoppingCart");</b></tt>
+
+    if (cart == null) {
+        cart = new Cart( );<tt class="userinput"><b>
+        session.setAttribute("shoppingCart", cart);</b></tt>
+    }
+
+    ...
+}</pre></blockquote>
+
+<p>The first line of the <tt class="literal">doGet( )</tt> method locates the
+<tt class="literal">HttpSession</tt> instance associated with the current
+user. The <tt class="literal">true</tt> parameter indicates that a new
+session should be created if one does not already exist. Once the
+session is created, a <tt class="literal">Cart</tt> object can be retrieved
+using <tt class="literal">HttpSession</tt>'s <tt class="literal">getAttribute(
+)</tt> method.
+</p>
+
+<p>Browser cookies provide the standard method of implementing
+<tt class="literal">HttpSession</tt>. A cookie is a small piece of
+information stored on the client machine and generally contains a
+randomly generated sequence of characters that uniquely identifies a
+user. When the browser issues a request to the servlet, the servlet
+looks for a cookie named
+<tt class="literal">jsessionid</tt><a name="INDEX-929" />
+and uses its value to locate an instance of
+<tt class="literal">HttpSession</tt>. <a href="ch08_02.htm#javaxslt-CHP-8-FIG-3">Figure 8-3</a>
+illustrates the normal session-tracking model.
+</p>
+
+<a name="javaxslt-CHP-8-FIG-3" /><div class="figure"><img src="figs/jxt_0803.gif" alt="Figure 8-3" width="475" height="223" /></div><h4 class="objtitle">Figure 8-3. Session tracking</h4>
+
+<p><a name="INDEX-930" />Cookies are a mixed
+blessing. Although they make session tracking very easy to implement,
+this leads to security concerns because people do not want their
+browsing habits monitored. Therefore, quite a few people set their
+browsers to disable all cookies. When users disable cookies, servlets
+must use another technique to enable session tracking.
+</p>
+
+<p><a name="INDEX-931" />The standard servlet API has a
+fallback mechanism when cookies are disabled. It reverts to a
+technique called <a name="INDEX-932" />URL rewriting. If cookies are
+disabled, the <a name="INDEX-933" />session identifier is appended to the
+URL. This way, whenever a user clicks on a hyperlink or submits an
+XHTML form, the session identifier is transmitted along with the
+request. This cannot happen without some level of programmer
+intervention, however. Imagine a scenario where a servlet is
+requested, and it returns an XHTML page with the following content:
+</p>
+
+<blockquote><pre class="code">Click on the link to move next:
+&lt;a href="/shopping/moveNext"/&gt;Move Next&lt;/a&gt;</pre></blockquote>
+
+<p>This causes session tracking to fail, because the session identifier
+is lost whenever the user clicks on the hyperlink. We really want the
+HTML to look like this:
+</p>
+
+<blockquote><pre class="code">Click on the link to move next:
+&lt;a href="/shopping/moveNext;jsessionid=0e394s8a576f67b38s7"/&gt;Move Next&lt;/a&gt;</pre></blockquote>
+
+<p>Now, when the user clicks on the hyperlink, the session identifier
+(<tt class="literal">jsessionid</tt>) is transmitted to the servlet as part
+of the requested URL.
+</p>
+
+<p>The value for
+<tt class="literal">jsessionid</tt><a name="INDEX-934" />
+cannot be hardcoded. It must be dynamically generated for each
+instance of <tt class="literal">HttpSession</tt>, making it much harder for
+hackers to obtain session identifiers to impersonate users.<a href="#FOOTNOTE-37">[37]</a> This means that the XHTML cannot be entirely static; the
+session identifier must be dynamically inserted into the XHTML
+whenever a link or form action is required.
+<tt class="literal">HttpServletResponse</tt> has a method called
+<tt class="literal">encodeURL( )</tt><a name="INDEX-935" />
+<a name="INDEX-936" /> that makes this possible:
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-37" /><p> [37] Sessions and their associated identifiers typically expire
+after 30 minutes of inactivity and must be regenerated.</p>
+</blockquote>
+
+<blockquote><pre class="code">String originalURL = "/shopping/moveNext";
+String encodedURL = response.encodeURL(originalURL);</pre></blockquote>
+
+<p>Now, <tt class="literal">encodedURL</tt> will be encoded with the session
+id if the <tt class="literal">jsessionid</tt> cookie was not found. For
+session tracking to work, this technique must be used consistently
+for every hyperlink and form action on a web site.
+</p>
+
+</div>
+<a name="javaxslt-CHP-8-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">8.2.2. Session Tracking with Java and XSLT</h3>
+
+<p>With <a name="INDEX-937" /> <a name="INDEX-938" />XSLT,
+session tracking is a little harder because the stylesheet generates
+the URL rather than the servlet. For instance, a stylesheet might
+contain the following code:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:template match="cart"&gt;
+  Click on the link to move next:
+  &lt;a href="/shopping/moveNext"/&gt;Move Next&lt;/a&gt;
+  ...
+&lt;/xsl:template&gt;</pre></blockquote>
+
+<p>Like before, the <tt class="literal">jsessionid</tt> needs to be
+concatenated to the URL. To make this happen, the following steps
+must be performed:
+</p>
+
+<ol><li>
+<p>In the servlet, determine if cookies are enabled or disabled.</p>
+</li><li>
+<p>If cookies are disabled, get the value of
+<tt class="literal">jsessionid</tt>.
+</p>
+</li><li>
+<p>Pass <tt class="literal">;jsessionid=XXXX</tt> as a parameter to the XSLT
+stylesheet, where <tt class="literal">XXXX</tt> is the session identifier.
+</p>
+</li><li>
+<p>In the stylesheet, append the session id parameter to all URLs in
+hyperlinks and form actions.
+</p>
+</li></ol>
+<p>If <a name="INDEX-939" />cookies are enabled, there
+is no reason to manually implement session tracking. This is easy to
+check because the
+<tt class="literal">javax.servlet.http.HttpServletRequest</tt> interface
+provides the <tt class="literal">isRequestedSessionIdFromCookie(
+)</tt><a name="INDEX-940" /> method. When this method returns
+<tt class="literal">true</tt>, cookies are enabled, and the remaining steps
+can be ignored. The code in <a href="ch08_02.htm#javaxslt-CHP-8-EX-5">Example 8-5</a> shows what a
+servlet's <tt class="literal">doGet( )</tt> method looks like when
+implementing session tracking.<a name="INDEX-941" />
+</p>
+
+<a name="javaxslt-CHP-8-EX-5" /><div class="example">
+<h4 class="objtitle">Example 8-5. Session-tracking code </h4>
+<blockquote><pre class="code">public void doGet(HttpServletRequest req, HttpServletResponse res)
+        throws ServletException, IOException {
+    try {
+        // retrieve current settings from the session
+        HttpSession session = req.getSession(true);
+        Cart cart = (Cart) session.getAttribute("shoppingCart");
+
+        if (cart == null) {
+            cart = new Cart( );
+            session.setAttribute("shoppingCart", cart);
+        }
+
+        // produce the DOM tree
+        Document doc = CartDOMProducer.createDocument(cart);
+
+        // prepare the XSLT transformation
+        Transformer trans = StylesheetCache.newTransformer(
+                this.xsltFileName);
+
+        <tt class="userinput"><b>// allow cookieless session tracking
+        if (!req.isRequestedSessionIdFromCookie( )) {
+            String sessionID = session.getId( );
+            trans.setParameter("global.sessionID", 
+                ";jsessionid=" + sessionID);
+        }</b></tt>
+
+        // send the web page back to the user
+        res.setContentType("text/html");
+        trans.transform(new javax.xml.transform.dom.DOMSource(doc),
+                new StreamResult(res.getWriter( )));
+
+    } catch (ParserConfigurationException pce) {
+        throw new ServletException(pce);
+    } catch (TransformerConfigurationException tce) {
+        throw new ServletException(tce);
+    } catch (TransformerException te) {
+        throw new ServletException(te);
+    }
+}</pre></blockquote>
+</div>
+
+<p>The critical lines of code are emphasized. The first of these checks
+to see if the session was not obtained using a cookie:
+</p>
+
+<blockquote><pre class="code">if (!req.isRequestedSessionIdFromCookie( )) {</pre></blockquote>
+
+<p>For the very first request, the cookie will not be present because
+the servlet has not had a chance to create it. For all subsequent
+requests, the cookie will be missing if the user has disabled cookies
+in the browser. Under either scenario, the session identifier is
+obtained from the <tt class="literal">HttpSession</tt> instance:
+</p>
+
+<blockquote><pre class="code">String sessionID = session.getId( );</pre></blockquote>
+
+<p>The servlet API takes care of generating a random session identifier;
+you are responsible for preserving this identifier by passing it as a
+parameter to the stylesheet. This is done as follows:
+</p>
+
+<blockquote><pre class="code">trans.setParameter("global.sessionID", 
+       ";jsessionid=" + sessionID);</pre></blockquote>
+
+<p>This servlet also takes the liberty of prefixing the session
+identifier with <tt class="literal">";jessionid="</tt>. This makes the XSLT
+stylesheet simpler, because it does not have to check if the session
+ID is an empty string or not. As implemented here, the value of
+<tt class="literal">global.sessionID</tt> can be appended to all URLs:
+</p>
+
+<blockquote><pre class="code">&lt;a href="/whatever{$global.sessionID}"&gt;click here&lt;/a&gt;</pre></blockquote>
+
+<p>The end result is that if cookies are enabled, the URL will be
+unaffected. Otherwise, it will be properly encoded to use session
+tracking. A larger XSLT example follows in <a href="ch08_02.htm#javaxslt-CHP-8-EX-6">Example 8-6</a>.<a name="INDEX-942" /> <a name="INDEX-943" />
+</p>
+
+<a name="javaxslt-CHP-8-EX-6" /><div class="example">
+<h4 class="objtitle">Example 8-6. Session-tracking XSLT stylesheet </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+
+&lt;xsl:stylesheet version="1.0" 
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+
+  &lt;!--
+  *********************************************************************
+  ** global.sessionID : Used for URL-rewriting to implement 
+  **                    session tracking without cookies.
+  ******************************************************************--&gt;
+  <tt class="userinput"><b>&lt;xsl:param name="global.sessionID"/&gt;</b></tt>
+  
+  &lt;!-- This stylesheet produces XHTML --&gt;
+  &lt;xsl:output method="xml" indent="yes" encoding="UTF-8"
+  doctype-public="-//W3C//DTD XHTML 1.0 Transitional//EN"
+  doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"/&gt;
+
+  &lt;!-- 
+  *********************************************************************
+  ** This template produces the skeletal XHTML document.
+  ******************************************************************--&gt;
+  &lt;xsl:template match="/"&gt;
+    &lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+      &lt;head&gt;
+        &lt;title&gt;Shopping Example&lt;/title&gt;
+      &lt;/head&gt;
+      &lt;body&gt;
+        &lt;!-- Create a form for this page --&gt;
+        <tt class="userinput"><b>&lt;form method="post" action="/chap8/shopping{$global.sessionID}"&gt;</b></tt>
+        &lt;h1&gt;Shopping Example&lt;/h1&gt;
+          ...remainder of page omitted
+        &lt;/form&gt;
+      &lt;/body&gt;
+    &lt;/html&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="cart"&gt;
+    Click on the link to move next:
+    <tt class="userinput"><b>&lt;a href="/shopping/moveNext{$global.sessionID}?param=value"/&gt;Move Next&lt;/a&gt;</b></tt>
+    ...
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt; </pre></blockquote>
+</div>
+
+<p>This stylesheet fully illustrates the three key components that make
+session tracking with XSLT possible. First, the session identifier is
+passed to the stylesheet as a parameter:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:param name="global.sessionID"/&gt;</pre></blockquote>
+
+<p>Next, this session identifier is used for the form action:</p>
+
+<blockquote><pre class="code">&lt;form method="post" action="/chap8/shopping{$global.sessionID}"&gt;</pre></blockquote>
+
+<p>And finally, it is used for all hyperlinks:</p>
+
+<blockquote><pre class="code">&lt;a href="/shopping/moveNext{$global.sessionID}?param=value"/&gt;Move Next&lt;/a&gt;</pre></blockquote>
+
+<p>The <tt class="literal">?param=value</tt> string was added here to
+illustrate that request parameters are appended after the session
+identifier. Therefore, the full URL will look similar to the
+following when the user clicks on the hyperlink:
+</p>
+
+<blockquote><pre class="code">http://localhost:8080/shopping/moveNext;jsessionid=298ulkj2348734jkj43?param=value</pre></blockquote>
+
+<p>Tracking sessions is essential, and the technique shown in this
+section works when browser cookies are disabled. You should always
+test your web applications by disabling all browser cookies to see if
+every URL is properly encoded with the session identifier<a name="INDEX-944" />.
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch08_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">8. Additional Techniques</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">8.3. Identifying the Browser</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

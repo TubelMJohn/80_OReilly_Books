@@ -1,0 +1,1313 @@
+<?label 5. Interacting with the Database ?><html><head><title>Interacting with the Database  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch05_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 5. Interacting with the Database </h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch05_01.htm">Issuing Simple Queries </a><br />
+<a href="ch05_02.htm">Executing Non-SELECT Statements </a><br />
+<a href="ch05_03.htm">Binding Parameters to Statements </a><br />
+<a href="ch05_04.htm">Binding Output Columns </a><br />
+<a href="ch05_05.htm">do(  ) Versus prepare(   ) </a><br />
+<a href="ch05_06.htm">Atomic and Batch Fetching </a><br /></p></div>
+
+
+
+
+
+<p>In our journey through the DBI so far, we have discussed ways in
+which you can connect and disconnect from databases of various types
+within Perl programs. We have also discussed ways in which you can
+detect and rectify errors when calling DBI methods.</p>
+
+
+
+<p>What we haven't discussed yet is how to manipulate data within
+your databases: that is, retrieving, updating, and deleting
+information (amongst other activities). This chapter discusses how to
+perform these activities with the DBI and how to use Perl's
+powerful data manipulation functionality to efficiently manipulate
+your data.</p>
+
+
+
+<p>Recall the discussion in <a href="ch04_01.htm">Chapter 4, "Programming with the DBI "</a> about the
+architecture of DBI -- specifically, the topic of
+<em class="emphasis">statement handles</em>. These handles, and the
+methods associated with them, provide the functionality to manipulate
+data within your databases.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch05-ch05_issuing_0" />
+<h2 class="sect1">5.1. Issuing Simple Queries </h2>
+
+
+
+<p>The <a name="INDEX-508" />most common interaction between
+a program and a database is retrieving or fetching data. In standard
+SQL, this process is performed with the
+<tt class="literal">SELECT</tt>
+<a name="INDEX-509" /> <a name="INDEX-510" />
+keyword. With Perl and the DBI, we have far more control over the way
+in which data is retrieved from the database. We also have far more
+control over how to post-process the fetched data.</p>
+
+
+
+<p>
+<a name="INDEX-511" />Retrieving data from a database using DBI
+is essentially a four-stage cycle:</p>
+
+
+
+<ol><li><p>The prepare stage parses an SQL statement, validates that statement,
+and returns a statement handle representing that statement within the
+database.</p></li><li><p>Providing the prepare stage has returned a valid statement handle,
+the next stage is to <em class="emphasis">execute</em> that statement
+within the database. This actually performs the query and begins to
+populate data structures within the database with the queried data.
+At this stage, however, your Perl program does not have access to the
+queried data.</p></li><li><p>The third stage is known as the <em class="emphasis">fetch</em> stage, in
+which the actual data is fetched from the database using the
+statement handle. The fetch stage pulls the queried data, row by row,
+into Perl data structures, such as scalars or hashes, which can then
+be manipulated and post-processed by your program.</p>
+
+
+
+<p>The fetch stage ends once all the data has been fetched, or it can be
+terminated early using the <tt class="literal">finish()</tt> method.</p>
+
+
+
+<p>If you'll need to re-<tt class="literal">execute()</tt> your query
+later, possibly with different parameters, then you can just keep
+your statement handle, re-<tt class="literal">execute()</tt> it, and so
+jump back to stage 2.</p></li><li><p>The final stage in the data retrieval cycle is the
+<em class="emphasis">deallocation</em> stage. This is essentially an
+automatic internal cleanup exercise in which the DBI and driver
+deallocate the statement handle and associated information. For some
+drivers, that process may also involve talking to the database to
+tell it to deallocate any information it may hold related to the
+statement.</p>
+
+
+
+<p>All this is done for you automatically, triggered by Perl's own
+<em class="emphasis">garbage collection</em> mechanism.</p></li></ol>
+<p>This cycle occurs for every SQL <tt class="literal">SELECT</tt> statement
+executed. For other SQL statements, such as
+<tt class="literal">INSERT</tt>, <tt class="literal">UPDATE</tt>, and
+<tt class="literal">DELETE</tt>, the fetch is skipped and only the prepare,
+execute, and deallocation stages apply (as we'll discuss later
+in this chapter).</p>
+
+
+
+<p>To understand how this four-stage data fetch cycle fits into your
+programs, we'll take a closer look at each stage individually.</p>
+
+
+
+<a name="ch05-ch05_preparing_0" /><div class="sect2">
+<h3 class="sect2">5.1.1. Preparing SQL Statements </h3>
+
+
+
+<p>
+<a name="INDEX-512" />The
+first <a name="INDEX-513" />stage of the cycle to retrieve
+data from your database is to <em class="emphasis">prepare</em> the
+<a name="INDEX-514" />statement handle from an
+SQL statement. This stage generally corresponds to the
+<em class="emphasis">parse</em> stage that occurs internally within your
+database engine.</p>
+
+
+
+<p>What typically occurs is that the SQL statement is sent as a string
+of characters via a valid database handle to the database. This
+string is then parsed by the database itself to ensure that it is
+valid SQL, both in terms of syntax and also in terms of entities
+referred to within the database (e.g., to make sure you aren't
+referring to tables that don't exist and that you have
+permission to refer to those that do).</p>
+
+
+
+<p>Provided that the database swallows this statement without any
+complaints, it will return some sort of database-specific data
+structure that encapsulates that parsed statement. It is this
+database-specific data structure that the DBI further encapsulates as
+a <em class="emphasis">statement handle</em>. <a href="ch05_01.htm#ch05-38375">Figure 5-1</a>
+shows this <a name="INDEX-515" />process more clearly.</p>
+
+
+
+<a name="ch05-38375" /><div class="figure"><img width="502" src="figs/dbi.0501.gif" height="377" alt="Figure 5-1" /></div><h4 class="objtitle">Figure 5-1. Statement preparation data flow via DBI</h4>
+
+<p>It is through this DBI statement handle that you perform the
+remainder of the data-fetching cycle.</p>
+
+
+
+<p>In DBI terms, the way to prepare a statement is to use the
+<tt class="literal">prepare()</tt>
+<a name="INDEX-516" />
+<a name="INDEX-517" />
+method, which is executed via a database handle. For example, a
+simple DBI program <a name="INDEX-518" />that creates a statement handle can be
+written as follows:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch05/prepare/ex1: Simply creates a database handle and a statement handle
+
+use DBI;
+
+### The database handle
+my $dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" );
+
+### The statement handle
+my $sth = $dbh-&gt;prepare( "SELECT id, name FROM megaliths" );
+
+exit;</pre></blockquote>
+
+
+
+<p>This, of course, assumes that all goes well with the parsing of the
+statement. It is possible that you made a mistake when typing in your
+SQL statement, or that the database failed to parse the statement for
+any number of other reasons. If this occurs, a value of
+<tt class="literal">undef</tt> is returned from the
+<tt class="literal">prepare()</tt> call, signifying that the parse has
+failed.</p>
+
+
+
+<p>In addition to this return value, the DBI would also print out an
+error message because the <tt class="literal">PrintError</tt> attribute is
+enabled by default on database handles from
+<tt class="literal">DBI-&gt;connect()</tt>. See <a href="ch04_01.htm">Chapter 4, "Programming with the DBI "</a> for more about <tt class="literal">PrintError</tt>.</p>
+
+
+
+<p>Finally, there's an important twist to preparing statements, in
+that drivers are allowed to defer actually doing the prepare stage of
+the cycle until
+<tt class="literal">execute()</tt>
+<a name="INDEX-519" />
+<a name="INDEX-520" />
+is called. That's because some databases don't provide
+any other way of doing it. So everything that's been said about
+<tt class="literal">prepare()</tt>
+<a name="INDEX-521" /> -- what it does and why it may
+fail --  may actually not apply until <tt class="literal">execute()</tt>
+is called.</p>
+
+
+
+<a name="ch05-1-fm2xml" /><div class="sect3">
+<h3 class="sect3">5.1.1.1. Constructing "on-the-fly" statements </h3>
+
+
+
+<p>It <a name="INDEX-522" />is
+also possible to construct ``on-the-fly'' SQL
+statements using <a name="INDEX-523" /> <a name="INDEX-524" />Perl's built-in string
+handling capabilities, which can then be passed to <tt class="literal">prepare(
+)</tt>. A good example of this functionality can be demonstrated
+using <a name="INDEX-525" />DBI to integrate
+databases and web sites.</p>
+
+
+
+<p>Suppose you had your megalith database available on the Web for easy
+online browsing. When a user types in the name of a site, it gets
+passed into a CGI script in the form of a string. This string is then
+used in an SQL statement to retrieve the appropriate information on
+the site from the database.</p>
+
+
+
+<p>Therefore, to be able to accomplish this sort of interactivity, you
+need to be able to custom-build SQL statements, and using
+Perl's string handling is one way to do it.<a href="#FOOTNOTE-45">[45]</a> The following code
+illustrates the principle:</p><blockquote>
+
+
+<a name="FOOTNOTE-45" /><p>[45]A
+frequently better way is to use bind values, which we'll
+discuss later in this chapter.</p>
+
+
+</blockquote>
+
+
+
+<blockquote><pre class="code">### This variable is populated from the online form, somehow...
+my $siteNameToQuery = $CGI-&gt;param( "SITE_NAME" );
+
+### Take care to correctly quote it for use in an SQL statement
+my $siteNameToQuery_quoted = $dbh-&gt;quote( $siteNameToQuery );
+
+### Now interpolate the variable into the double-quoted SQL statement
+$sth = $dbh-&gt;prepare( "
+            SELECT meg.name, st.site_type, meg.location, meg.mapref
+            FROM megaliths meg, site_types st
+            WHERE name = $siteNameToQuery_quoted
+            AND meg.site_type_id = st.id
+          " );
+$sth-&gt;execute(  );
+@row = $sth-&gt;fetchrow_array(  );
+...</pre></blockquote>
+
+
+
+<p>Furthermore, <em class="emphasis">any</em> part of this query can be
+constructed on the fly since the SQL statement is, at this stage,
+simply a Perl string. Another neat trick is to adaptively query
+columns from the database depending on which fields the online
+browser wants to display. <a href="ch05_01.htm#ch05-12055">Figure 5-1</a> shows the web
+page from which the user selects his or her desired columns.</p>
+
+
+
+<a name="ch05-12055" /><div class="figure"><img width="502" src="figs/dbi.0502.gif" height="313" alt="Figure 5-1" /></div><h4 class="objtitle">Figure 5-1. Megalithic query form</h4>
+
+<p>The code required to drive this form of SQL generation can be written
+neatly as:</p>
+
+
+
+<blockquote><pre class="code">### Collect the selected field names
+@fields = ();
+
+### Work out which checkboxes have been selected
+push @fields, "name"     if $nameCheckbox     eq "CHECKED";
+push @fields, "location" if $locationCheckbox eq "CHECKED";
+push @fields, "type"     if $typeCheckbox     eq "CHECKED";
+push @fields, "mapref"   if $maprefCheckbox   eq "CHECKED";
+
+### Sanity-check that *something* was selected
+die "No fields were selected for querying!\n"
+    unless @fields;
+
+### Now build the SQL statement
+$statement = sprintf "SELECT %s FROM megaliths WHERE name = %s",
+    join(", ", @fields), $dbh-&gt;quote($siteNameToQuery);
+
+### Perform the query
+$sth = $dbh-&gt;prepare( $statement );
+$sth-&gt;execute();
+@row = $sth-&gt;fetchrow_array();
+...</pre></blockquote>
+
+
+
+<p>That is, the entire SQL query, from the columns to fetch to the
+conditions under which the data is fetched, has been constructed
+dynamically and passed to the database for processing.</p>
+
+
+
+<p>The web page that was displayed on the user's browser after
+executing this query can be seen in <a href="ch05_01.htm#ch05-11224">Figure 5-2</a>.</p>
+
+
+
+<a name="ch05-11224" /><div class="figure"><img width="502" src="figs/dbi.0503.gif" height="271" alt="Figure 5-2" /></div><h4 class="objtitle">Figure 5-2. Megalithic query results</h4>
+
+<p>Therefore, by using Perl's string handling to build SQL
+statements based on input from the user, DBI can be used to drive
+quite complex web forms <a name="INDEX-526" /> <a name="INDEX-527" />in a <a name="INDEX-528" />very <a name="INDEX-529" /> <a name="INDEX-530" />simple <a name="INDEX-531" />and flexible
+<a name="INDEX-532" />manner.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch05-ch05_executing_0" /><div class="sect2">
+<h3 class="sect2">5.1.2. Executing Select Statements </h3>
+
+
+
+<p>
+<a name="INDEX-533" />The
+second <a name="INDEX-534" />stage of the data fetch cycle
+is to inform the database to go ahead and
+<em class="emphasis">execute</em> the SQL statement that you have
+prepared. This execution stage will actually tell the database to
+perform the query and begin to collect the result set of data.</p>
+
+
+
+<p>Performing the execution of the SQL statement occurs via a valid
+statement handle created when the <tt class="literal">prepare()</tt> method
+successfully completes. For example, execution of an SQL statement
+can be expressed as simply as:</p>
+
+
+
+<blockquote><pre class="code">### Create the statement handle
+my $sth = $dbh-&gt;prepare( "SELECT id, name FROM megaliths" );
+
+### Execute the statement handle
+$sth-&gt;execute();</pre></blockquote>
+
+
+
+<p>Assuming that all goes well with the execution of your statement, a
+<tt class="literal">true</tt> value will be returned from the
+<tt class="literal">execute()</tt>
+<a name="INDEX-535" /> call. Otherwise, a value of
+<tt class="literal">undef</tt> is returned, signifying that the execution
+has failed.</p>
+
+
+
+<p>As with most DBI methods, if
+<tt class="literal">PrintError</tt>
+<a name="INDEX-536" /> is enabled, then an error message
+will be generated via
+<tt class="literal">warn()</tt>
+<a name="INDEX-537" />
+<a name="INDEX-538" />.
+Alternatively, if
+<tt class="literal">RaiseError</tt>
+<a name="INDEX-539" /> is enabled, an exception will be
+generated via
+<tt class="literal">die()</tt>
+<a name="INDEX-540" />
+<a name="INDEX-541" />.
+However you choose to do it, it is always a good idea to check for
+errors.<a href="#FOOTNOTE-46">[46]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-46" /><p>[46]We sometimes don't explicitly check for
+errors in the fragments of code we use as examples. In these cases,
+you can safely assume that we're strapped into our
+<tt class="literal">RaiseError</tt> ejector seat.</p>
+
+
+</blockquote>
+
+
+
+<p>After <tt class="literal">execute()</tt> returns successfully, the database
+has not necessarily completed the execution of the
+<tt class="literal">SELECT</tt>
+<a name="INDEX-542" />
+<a name="INDEX-543" />
+statement; it may have only just started. Imagine that megaliths are
+very common, and our megaliths table has ten million rows. In
+response to the <tt class="literal">execute()</tt> earlier, the database
+may do no more than set a pointer, known as a
+<em class="emphasis">cursor</em>, to just above the first row of the
+table.</p>
+
+
+
+<p>So, after successful execution, the database and driver are ready to
+return the results, but those results will not have been returned to
+your Perl program yet. This is an important point to remember. To
+extract the results data from the database, you need to explicitly
+<em class="emphasis">fetch</em> them. This is the third stage in the
+cycle.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch05-ch05_fetching_0" /><div class="sect2">
+<h3 class="sect2">5.1.3. Fetching Data  </h3>
+
+
+
+<p>
+<a name="INDEX-544" />Fetching
+<a name="INDEX-545" />data is the main object
+of issuing queries to the database. It's fine to exercise a
+database by executing queries, but unless you actually retrieve that
+data, your program will never be able to make use of it.</p>
+
+
+
+<p>The data retrieved by your SQL query is known as a <em class="emphasis">result
+set</em>
+<a name="INDEX-546" />
+<a name="INDEX-547" /> (so called because of the mathematical
+<em class="emphasis">set theory</em> on which relational databases are
+based). The result set is fetched into your Perl program by iterating
+through each record, or row, in the set and bringing the values for
+that row into your program. This form of fetching result set data on
+a row-by-row basis is generally termed a
+<em class="emphasis">cursor</em>
+<a name="INDEX-548" />
+<a name="INDEX-549" />.</p>
+
+
+
+<p>Cursors are used for sequential fetching operations: records are
+fetched in the order in which they are stored within the result set.
+Currently, records cannot be skipped over or randomly accessed.
+Furthermore, once a row addressed by a cursor has been fetched, it is
+``forgotten'' by the cursor. That is, cursors
+cannot step backwards through a result set.</p>
+
+
+
+<p>Therefore, the general way in which we fetch data from the
+database's result set is to loop through the records returned
+via the statement handle, processing each row until no rows are left
+to fetch. This can be expressed by the following pseudo-code.</p>
+
+
+
+<blockquote><pre class="code">while ( records to fetch from $sth ) {
+    ### Fetch the current row from the cursor
+    @columns = get the column values;
+    ### Print it out...
+    print "Fetched Row: @columns\n";
+}</pre></blockquote>
+
+
+
+<p>The DBI simplifies this process even further by combining the check
+for more data and the fetching of that data into a single method
+call.</p>
+
+
+
+<p>There are several ways in which rows can be retrieved from the result
+set using different <a name="INDEX-550" />Perl datatypes. For
+example, you can fetch a row in the form of a simple list of values,
+a reference to an array of values, or a reference to a hash of
+field-name/value pairs. All essentially retrieve the current row from
+the cursor, but return the data to your Perl program in different
+formats.</p>
+
+
+
+<p>The simplest form of data fetching is to use the
+<tt class="literal">fetchrow_array()</tt>
+<a name="INDEX-551" />
+<a name="INDEX-552" />
+<a name="INDEX-553" />
+method, which returns an
+<a name="INDEX-554" />array, or rather a list, containing
+the fields of the row. Let's say that we wanted to fetch the
+name of a megalithic site and what sort of site it is from our
+megaliths database. Therefore, to fetch this data from the table, we
+would write:</p>
+
+
+
+<blockquote><pre class="code">### Prepare the SQL statement ( assuming $dbh exists )
+$sth = $dbh-&gt;prepare( "
+            SELECT meg.name, st.site_type 
+            FROM megaliths meg, site_types st
+            WHERE meg.site_type_id = st.id
+          " );
+
+### Execute the SQL statement and generate a result set
+$sth-&gt;execute();
+
+### Fetch each row of result data from the database as a list
+while ( ( $name, $type ) = $sth-&gt;fetchrow_array ) {
+    ### Print out a wee message....
+    print "Megalithic site $name is a $type\n";
+}</pre></blockquote>
+
+
+
+<p>You could also fetch the data via <tt class="literal">fetchrow_array()</tt>
+into an array variable instead of a list of scalar variables by
+writing:</p>
+
+
+
+<blockquote><pre class="code">while ( @row = $sth-&gt;fetchrow_array ) {
+    ### Print out a wee message
+    print "Megalith site $row[0] is a $row[1]\n";
+}</pre></blockquote>
+
+
+
+<p>which is functionally identical.</p>
+
+
+
+<p>The fundamentally important thing to remember is that the fields in
+the result set are in the order in which you asked for the columns in
+the SQL statement. Therefore, in the example code listed above, the
+<tt class="literal">name</tt> field was requested before the
+<tt class="literal">site_type</tt> field. This ensured that the first
+element of the array or scalar list was the value of the
+<tt class="literal">name</tt> field, followed by the values of the
+<tt class="literal">site_type</tt> field.</p>
+
+
+
+<p>The <tt class="literal">while</tt> loop keeps looping until the expression
+in parentheses evaluates to <tt class="literal">false</tt>. Naturally, we
+want to stop looping when there's no more data to fetch, and
+the <tt class="literal">fetchrow_array()</tt> method arranges that for us.
+It returns an empty list when there's no more data. Perl treats
+that as a <tt class="literal">false</tt> value, thus stopping the loop.</p>
+
+
+
+<p>An important point to remember about <a name="INDEX-555" />fetch loops is that the fetch methods
+return the same value for both the no-more-data condition and an
+error condition. So an error during fetching will cause the loop to
+exit as if all the data had been fetched. When not using
+<tt class="literal">RaiseError</tt>, it's therefore good practice to
+check for the occurrence of errors immediately after every loop
+exits. The example below demonstrates this.<a href="#FOOTNOTE-47">[47]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-47" /><p>[47]Other
+fetch loop examples in the book assume that
+<tt class="literal">RaiseError</tt> is enabled.</p>
+
+
+</blockquote>
+
+
+
+<p>Another way in which you can fetch the data from the database is to
+use the
+<tt class="literal">fetchrow_arrayref()</tt>
+<a name="INDEX-556" />
+<a name="INDEX-557" />
+<a name="INDEX-558" />
+method, which returns a <a name="INDEX-559" />reference to an array rather than an
+array itself. This method has a performance benefit over
+<tt class="literal">fetchrow_array()</tt>, as the returned data is not
+copied into a new array for each row fetched. For example:</p>
+
+
+
+<blockquote><pre class="code">### Fetch the rows of result data from the database
+### as an array ref....
+while ( $array_ref = $sth-&gt;fetchrow_arrayref ) {
+    ### Print out a wee message....
+    print "Megalithic site $arrayref-&gt;[0] is a $array_ref-&gt;[1]\n";
+}
+die "Fetch failed due to $DBI::errstr" if $DBI::err;</pre></blockquote>
+
+
+
+<p>An important thing to watch out for is that currently the same array
+reference is used for all rows fetched from the database for the
+current statement handle. This is of utmost importance if you are
+storing the row data somewhere for future reference. For example, the
+following code was written to stash the returned megalith data in a
+persistent store for future reference after fetching:</p>
+
+
+
+<blockquote><pre class="code">### The stash for rows...
+my @stash;
+
+### Fetch the row references and stash 'em!
+while ( $array_ref = $sth-&gt;fetchrow_arrayref ) {
+    push @stash, $array_ref;        # XXX WRONG!
+}
+
+### Dump the stash contents!
+foreach $array_ref ( @stash ) {
+    print "Row: @$array_ref\n";
+}</pre></blockquote>
+
+
+
+<p>Something very strange happens here. All the rows printed out from
+the stash are identical instead of being different. This is because
+you've stored the <em class="emphasis">reference</em> to the row
+data instead of the row data itself, and since DBI reuses the same
+reference for each row, you don't quite get the results you
+expect. Be sure to store a copy of the values that the array
+reference points to rather than the reference itself, as this example
+shows:</p>
+
+
+
+<blockquote><pre class="code">### The stash for rows...
+my @stash;
+
+### Fetch the row references and stash 'em!
+while ( $array_ref = $sth-&gt;fetchrow_arrayref ) {
+    push @stash, [ @$array_ref ];  # Copy the array contents
+}
+
+### Dump the stash contents!
+foreach $array_ref ( @stash ) {
+    print "Row: @$array_ref\n";
+}</pre></blockquote>
+
+
+
+<p>The <tt class="literal">fetchrow_arrayref()</tt> method is used especially
+in conjunction with <em class="emphasis">column binding</em>, which we
+shall discuss later in this chapter.</p>
+
+
+
+<p>The final cursor-based way to fetch the rows of your result set data
+from the database is to grab it as a <a name="INDEX-560" />hash reference. This functionality
+is implemented via
+
+<a name="INDEX-561" />
+<a name="INDEX-562" />
+<a name="INDEX-563" />the
+<tt class="literal">fetchrow_hashref()</tt> method, which is used in the
+same way as <tt class="literal">fetchrow_arrayref()</tt>. For example:</p>
+
+
+
+<blockquote><pre class="code">### Fetch the current row into a hash reference
+while ( $hash_ref = $sth-&gt;fetchrow_hashref ) {
+    ...</pre></blockquote>
+
+
+
+<p>The hash pointed to by the reference has the names of the fetched
+fields as the keys to the hash, and the values of those fields are
+stored as the hash values. Thus, if we fetched the
+<tt class="literal">name</tt> and <tt class="literal">site_type</tt> fields from
+the database, we could address the hash elements like this:</p>
+
+
+
+<blockquote><pre class="code">### Fetch rows into a hash reference
+while ( $hash_ref = $sth-&gt;fetchrow_hashref ) {
+    print "Megalithic site $hash_ref-&gt;{name} is a $hash_ref-&gt;{site_type}\n";
+}</pre></blockquote>
+
+
+
+<p>There are, as you might expect, a few caveats to using this
+particular method. The most important thing to watch out for is the
+actual name of the field that you've fetched. Some databases
+will do strange things to the field name, such as convert it to all
+uppercase or all lowercase characters, which could cause you to
+access the wrong hash key. You can avoid this problem by telling
+<tt class="literal">fetchrow_hashref()</tt> the name of the
+<em class="emphasis">attribute</em> to use to supply the field names. That
+is, you could use <tt class="literal">NAME</tt> as the default;
+<tt class="literal">NAME_uc</tt> to force field names to be uppercase; and
+<tt class="literal">NAME_lc</tt> to force them to be lowercase. For
+example, a portable way to use hash references can be written as:</p>
+
+
+
+<blockquote><pre class="code">### Fetch rows into a hash reference with lowercase field names
+while ( $hash_ref = $sth-&gt;fetchrow_hashref('NAME_lc') {
+    print "Megalithic site $hash_ref-&gt;{name} is a $hash_ref-&gt;{site_type}\n";
+}</pre></blockquote>
+
+
+
+<p>Specifying <tt class="literal">NAME_uc</tt> or <tt class="literal">NAME_lc</tt>
+is recommended, and doesn't have any impact on performance.</p>
+
+
+
+<p>There are a couple more caveats with
+<tt class="literal">fetchrow_hashref()</tt> that we should discuss. If your
+<tt class="literal">SELECT</tt>
+<a name="INDEX-564" />
+<a name="INDEX-565" />
+statement uses a fully qualified field name, such as:</p>
+
+
+
+<blockquote><pre class="code">SELECT megaliths.id, ...</pre></blockquote>
+
+
+
+<p>then most databases will still return only the string
+<tt class="literal">id</tt> as the name of the field. That's not
+usually a problem but can trip you up if you have selected more than
+one field with the same name, for example:</p>
+
+
+
+<blockquote><pre class="code">SELECT megaliths.id, media.id ...</pre></blockquote>
+
+
+
+<p>Since the hash returned by <tt class="literal">fetchrow_hashref()</tt> can
+have only one <tt class="literal">id</tt> key, you can't get values
+for both fields. You can't even be sure which of the two
+<tt class="literal">id</tt> field values you've got. Your only
+options here are to either use a different method to fetch the rows
+or to <em class="emphasis">alias</em> the <a name="INDEX-566" />column names. Aliasing the
+columns is similar to aliasing the table names, which we discussed in
+<a href="ch03_01.htm">Chapter 3, "SQL and Relational Databases "</a>. You can put an
+<a name="INDEX-567" />alias name after
+the column expression:</p>
+
+
+
+<blockquote><pre class="code">SELECT megaliths.id meg_id, media.id med_id ...</pre></blockquote>
+
+
+
+<p>though some databases require the slightly more verbose form:</p>
+
+
+
+<blockquote><pre class="code">SELECT megaliths.id AS meg_id, media.id AS med_id ...</pre></blockquote>
+
+
+
+<p>This alias technique is also very handy when selecting expressions
+such as:</p>
+
+
+
+<blockquote><pre class="code">SELECT megaliths.id + 1 ...</pre></blockquote>
+
+
+
+<p>because databases differ in how they name columns containing
+expressions. Using aliases not only makes it easier to refer to the
+columns but also makes your application more portable.</p>
+
+
+
+<p>When discussing <tt class="literal">fetchrow_arrayref()</tt>, we pointed
+out that it currently returns the same array reference for each row.
+Well, <tt class="literal">fetchrow_hashref()</tt> currently doesn't
+return the same hash reference for each row but definitely will in a
+future release. (This change will also make it faster, as it's
+a little slower than we'd like at the moment.)</p>
+
+
+
+<p>There are other techniques for fetching data from the database, but
+these deal with either <em class="emphasis">batch fetching</em> or
+<em class="emphasis">atomic fetching</em> and are discussed later in this
+<a name="INDEX-568" />chapter.</p>
+
+
+
+<a name="ch05-ch05_a_0" /><div class="sect3">
+<h3 class="sect3">5.1.3.1. A quick way to fetch and print </h3>
+
+
+
+<p>The DBI
+<a name="INDEX-569" />supports a <a name="INDEX-570" />utility method called
+<tt class="literal">dump_results(
+)</tt>
+<a name="INDEX-571" />
+<a name="INDEX-572" />
+for fetching all of the rows in a statement handle's result set
+and printing them out. This method is invoked via a prepared and
+executed statement handle, and proceeds to fetch and print all the
+rows in the result set from the database. As each line is fetched, it
+is formatted according either to default rules or to rules specified
+by you in your program. Once <tt class="literal">dump_results( )</tt> has
+finished executing, it prints the number of rows fetched from the
+database and any error message. It then returns with the number of
+rows fetched.</p>
+
+
+
+<p>For example, to quickly display the results of a query, you can
+write:</p>
+
+
+
+<blockquote><pre class="code">$sth = $dbh-&gt;prepare( "
+            SELECT name, mapref, location
+            FROM megaliths
+          " );
+$sth-&gt;execute(  );
+$rows = $sth-&gt;dump_results(  );</pre></blockquote>
+
+
+
+<p>which would display the following results:</p>
+
+
+
+<blockquote><pre class="code">'Balbirnie', 'NO 285 029', 'Balbirnie Park, Markinch, Fife'
+'Castlerigg', 'NY 291 236', 'Near Keswick, Cumbria, England'
+'Sunhoney', 'NJ 716 058', 'Near Insch, Aberdeenshire'
+'Avebury', 'SU 103 700', 'Avebury, Wiltshire, England'
+4 rows</pre></blockquote>
+
+
+
+<p>You can customize the way in which this output is formatted by
+specifying the maximum length of each field within the row, the
+characters separating each field within the row, and the characters
+separating each row. You can also supply a Perl filehandle to which
+the output is written.</p>
+
+
+
+<p>The default settings for these parameters are:</p>
+
+
+
+<blockquote><pre class="code">1:  Maximum Field Length  -   35
+2:  Line Separator        -   "\n"
+3:  Field Separator       -   ","
+4:  Output file handle    -   STDOUT</pre></blockquote>
+
+
+
+<p>Therefore, to generate output with 80 character fields separated by
+colons to a file, you can write:</p>
+
+
+
+<blockquote><pre class="code">### Prepare and execute the query
+$sth = $dbh-&gt;prepare( "
+            SELECT name, location, mapref
+            FROM megaliths
+          " );
+$sth-&gt;execute(  );
+
+### Open the output file
+open FILE, "&gt;results.lis" or die "Can't open results.lis: $!";
+
+### Dump the formatted results to the file
+$rows = $sth-&gt;dump_results( 80, '\n', ':', \*FILE );
+
+### Close the output file
+close FILE or die "Error closing result file: $!\n";</pre></blockquote>
+
+
+
+<p><tt class="literal">dump_results( )</tt> internally uses the
+<tt class="literal">neat_list( )</tt>
+<a name="INDEX-573" /> utility function (described in the
+previous chapter) for the actual formatting operation. Because of
+this, you should not use the output of <tt class="literal">dump_results(
+)</tt> for any data transfer or data processing activity.
+It's only meant for human consumption.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch05-ch05_finishing_0" /><div class="sect2">
+<h3 class="sect2">5.1.4. Finishing a Data Fetch Early </h3>
+
+
+
+<p>When a
+<a name="INDEX-574" />statement handle for a
+<tt class="literal">SELECT</tt>
+<a name="INDEX-575" /> statement has been successfully
+executed, it is said to be
+
+<a name="INDEX-576" /> <a name="INDEX-577" /><em class="emphasis">active</em>.
+There's even a boolean statement handle attribute called
+<a name="INDEX-578" /><tt class="literal">Active</tt> that you can
+read. Being active simply means that there's something actively
+going on within the database server on behalf of this handle.</p>
+
+
+
+<p>When you call a fetch method again, after fetching the last row of
+data, the driver automatically finishes whatever is actively going on
+within the database server on behalf of this
+<tt class="literal">execute()</tt> and resets the <tt class="literal">Active</tt>
+attribute. Most drivers don't actually have to do anything in
+this particular case because the server knows that the driver has
+fetched the last row. So the server has automatically freed up any
+resources it was using to store that result set.</p>
+
+
+
+<p>Since this finishing-up is done automatically when a fetch method
+returns an end-of-data status, there's usually no need to be
+aware of it. However, there are two types of situations where
+it's appropriate to take matters into your own hands by calling
+the
+<tt class="literal">finish()</tt>
+<a name="INDEX-579" />
+<a name="INDEX-580" />
+method on the statement handle. (Keep in mind that
+<tt class="literal">finish()</tt> doesn't "finish" the
+statement handle itself -- it finishes only the current
+<em class="emphasis">execution</em> of it. You can still call
+<tt class="literal">execute()</tt> on the handle again later.)</p>
+
+
+
+<p>The first situation is a little obscure and relates to being a good
+database-citizen. If the database server is using a significant
+amount of temporary disk space to hold your result set,
+<em class="emphasis">and</em> you haven't fetched all the records,
+<em class="emphasis">and</em> you won't be destroying or
+re-executing the statement handle soon, <em class="emphasis">then</em>
+it's appropriate to call <tt class="literal">finish()</tt>. That way,
+the server can free up the temporary disk space it's holding
+for your results.<a href="#FOOTNOTE-48">[48]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-48" /><p>[48]A classic example is
+<tt class="literal">SELECT</tt> <tt class="literal">dialled_number,</tt>
+<tt class="literal">count(*)</tt> <tt class="literal">FROM</tt>
+<tt class="literal">calls</tt> <tt class="literal">WHERE</tt>
+<tt class="literal">subscriber</tt> <tt class="literal">=</tt>
+<tt class="literal">?</tt> <tt class="literal">GROUP BY</tt>
+<tt class="literal">dialled_number</tt> <tt class="literal">ORDER</tt>
+<tt class="literal">BY</tt> <tt class="literal">count(*)</tt>
+<tt class="literal">DESC</tt> when you only want to fetch the first few
+rows out of the thousands that the database has stored in temporary
+buffer space and sorted for you.</p>
+
+
+</blockquote>
+
+
+
+<p>The second type of situation is less obscure, mainly because the DBI
+nags you about it by issuing warnings like this one from
+<tt class="literal">disconnect( )</tt>:</p>
+
+
+
+<blockquote><pre class="code">disconnect invalidates 1 active statement handle
+(either destroy statement handles or call finish on them before disconnecting)</pre></blockquote>
+
+
+
+<p>What's happening here is that the DBI is warning you that an
+active statement handle, that may still have data to be fetched from
+it, is being invalidated (i.e., made unusable) by disconnecting from
+the database.</p>
+
+
+
+<p>Why does the DBI bother to warn you? The idea is to help you spot
+cases where you have not caught and dealt with an error from a fetch
+method that has terminated a fetch loop before all the data has been
+retrieved. Some row fetch errors, such as a transaction being
+aborted, mean that it's not possible for more rows to be
+fetched from that statement handle. In those cases, the driver resets
+the <tt class="literal">Active</tt> flag. For others though, such as a
+divide-by-zero in a column expression, or a long field value being
+truncated, further rows can be fetched, so the driver leaves the
+<tt class="literal">Active</tt> flag set.</p>
+
+
+
+<p>In practice, there are other situations apart from fetch loops that
+can leave you with active statement handles both in the normal flow
+of events and due to exceptional circumstances.</p>
+
+
+
+<p>The most humble is the common desire to fetch only
+<em class="emphasis">n</em> rows because you know there are only
+<em class="emphasis">n</em> rows to be fetched. Most drivers can't
+tell that you've fetched the last row, so they can't
+reset the <tt class="literal">Active</tt> flag. This is similar to the
+"good database-citizen" situation we discussed earlier.
+The following example shows the <tt class="literal">finish( )</tt> method
+being called after fetching the one and only row of interest:</p>
+
+
+
+<blockquote><pre class="code">sub select_one_row {
+    my $sth = shift;
+    $sth-&gt;execute(@_) or return;
+    my @row = $sth-&gt;fetchrow_array(  );
+    $sth-&gt;finish(  );
+    return @row;
+}</pre></blockquote>
+
+
+
+<p>A more exceptional situation is often related to using
+<tt class="literal">RaiseError</tt>
+<a name="INDEX-581" />. When an exception is thrown, such as
+when the DBI detects an error on a handle with
+<tt class="literal">RaiseError</tt> set, or when any other code calls
+<tt class="literal">die(
+)</tt>
+<a name="INDEX-582" />
+<a name="INDEX-583" />,
+then the flow of control within your script takes a sudden leap from
+where it was up to the nearest enclosing <tt class="literal">eval</tt>
+block. It's quite possible that this process may leave handles
+with unfinished data.</p>
+
+
+
+<p>The warning from <tt class="literal">disconnect(
+)</tt>
+<a name="INDEX-584" />
+<a name="INDEX-585" />,
+and most other DBI warnings, can be silenced for a given handle by
+resetting the <tt class="literal">Warn</tt> attribute of that handle. This
+practice is generally frowned upon, but if you must, you can.</p>
+
+
+
+<p>Remember that calling <tt class="literal">finish( )</tt> is never
+essential, does not destroy the Perl statement handle object itself,
+is not required to avoid leaks, and does not stop <tt class="literal">execute(
+)</tt> being called again on the handle. All of those are common
+misconceptions, often perpetuated in other books. We'll discuss
+how statement handles actually do get destroyed in <a name="INDEX-586" />the <a name="INDEX-587" />next section.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch05-ch05.new_deallocating_0" /><div class="sect2">
+<h3 class="sect2">5.1.5. Deallocating Statement Handles </h3>
+
+
+
+<p>When <a name="INDEX-588" />a
+statement is prepared, the returned statement handle is associated
+with allocated memory resources within both your Perl script and the
+database server you're connected to. When you no longer need a
+statement handle, you should destroy it. That sounds drastic, but all
+it really means is letting go.</p>
+
+
+
+<p>Statement handles are actually represented by Perl objects and, as
+such, are subject to the machinations of
+<a name="INDEX-589" />Perl's
+<a name="INDEX-590" />garbage
+collector. This implies that when no references to a statement handle
+remain (for example, the handle variable has gone out of scope or has
+been overwritten with a new value), Perl itself will destroy the
+object and reclaim the resources used by it.</p>
+
+
+
+<p>Here's an example of a short-lived statement handle:</p>
+
+
+
+<blockquote><pre class="code">if ($fetch_new_data) {
+    my $sth = $dbh-&gt;prepare( ... );
+    $sth-&gt;execute(  );
+    $data = $sth-&gt;fetchall_arrayref(  );
+}</pre></blockquote>
+
+
+
+<p>Notice that we don't have to make any explicit steps to free or
+deallocate the statement handle. Perl is doing that for us. The
+<tt class="literal">my</tt> <tt class="literal">$sth</tt> variable holds the only
+reference to that particular statement handle object. When the
+<a name="INDEX-591" />
+<a name="INDEX-592" /><tt class="literal">$sth</tt>
+variable ceases to exist at the end of the block, the last reference
+is removed and Perl's garbage collector swings into action.
+Similarly, when the script exits, all global variables cease to exist
+and any objects they refer to are deallocated in the same way.</p>
+
+
+
+<p>Here's a slightly different example:</p>
+
+
+
+<blockquote><pre class="code">### Issue SQL statements to select sites by type
+foreach ( 'Stone Circle', 'Monolith', 'Henge' ) {
+    my $sth = $dbh-&gt;prepare( ... $_ ... );
+    $sth-&gt;execute(  );
+    $sth-&gt;dump_results(  );
+}</pre></blockquote>
+
+
+
+<p>The second and subsequent itterations of the loop assign a new
+statement handle reference to the <tt class="literal">$sth</tt> variable,
+which deletes the reference it previously held. So once again, since
+that was the only reference to the handle and it's now been
+deleted, the handle gets deallocated.</p>
+
+
+
+<p>You might have an application that prepares, uses, and discards
+thousands (or hundreds of thousands) of statement handles throughout
+its lifetime. If the database resources for the statements were not
+freed until the database connection was closed, you could easily
+exhaust the database resources in a short amount of time.</p>
+
+
+
+<p>In practice, the only time that you might overload the database is
+when you're storing the statement handles in arrays or hashes.
+If you're not careful to delete or overwrite old values, then
+handles can accumulate.</p>
+
+
+
+<p>To keep track of how many statement handles are allocated for a
+database handle (for example, to help spot leaks), you can use the
+<tt class="literal">Kids</tt>
+<a name="INDEX-593" /> and
+<tt class="literal">ActiveKids</tt>
+<a name="INDEX-594" /> database handle attributes. Both of
+these will return integer counts. The first counts all statement
+handles; the second counts only those that have their
+<tt class="literal">Active</tt> attribute set.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch05_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">4.6. Utility Methods and Functions </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">5.2. Executing Non-SELECT Statements </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

@@ -1,0 +1,336 @@
+<html><head><title>Bootstrapping an XMLReader (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch03_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+	<h2 class="sect1">3.2. Bootstrapping an XMLReader</h2>
+
+	<p>
+<a name="INDEX-397" />
+        There are several ways to obtain an <em class="emphasis">XMLReader</em>. Here we'll look at a few of them, focusing first on the
+	most commonly available ones. These are the "pure SAX"
+	solutions.
+	</p>
+
+	<p>It's good policy to reuse parsers, rather than
+	constantly discard and recreate them.
+	Some parsers are more expensive to create than others,
+	so such reuse can improve performance if you parse
+	many documents. Similarly, factory approaches add some fixed
+	costs to achieve vendor neutrality, and those costs can add up.
+	In contexts like servlets, where any number of
+	threads may need to parse XML concurrently, parsers are often pooled so those
+	bootstrapping costs won't increase per-request service times.
+	</p>
+
+	<a name="sax2-CHP-3-SECT-2.1" /><div class="sect2">
+	    <h3 class="sect2">3.2.1. The XMLReaderFactory Class</h3>
+
+	    <p>
+<a name="INDEX-398" />
+            The simplest way to get a parser is to use the default
+	    parser for your environment, as we saw earlier: </p>
+
+	    <blockquote><pre class="code">import org.xml.sax.helpers.XMLReaderFactory;
+
+...
+
+XMLReader       parser = null;
+
+try {
+    parser = XMLReaderFactory.createXMLReader ();
+    // success!
+
+} catch (SAXException e) {
+    System.err.println ("Can't get default parser: " + e.getMessage ());
+}
+	    </pre></blockquote>
+
+	    <p>
+<a name="INDEX-399" />
+<a name="INDEX-400" />
+<a name="INDEX-401" />
+            Normally, the default parser is defined by setting
+	    the <em class="emphasis">org.xml.sax.driver</em> system property.
+	    Application startup should set that property, normally using
+	    JVM invocation flags.
+	    (In a very few cases <tt class="literal">System.setProperty()</tt>
+	    may be appropriate.)
+	    </p>
+
+<blockquote><pre class="code">$ java -Dorg.xml.sax.driver=gnu.xml.aelfred2.XMLReader
+</pre></blockquote>
+
+	    <p>Unfortunately, in many cases the original reference
+	    implementation of that method is used. This is problematic in two situations: when the system property isn't set and when security permissions are set to prevent access to
+	    that system property; this is common for many applets.
+	    Good SAX2 distributions will ensure that this factory method
+	    succeeds in the face of such errors.
+	    The current release of the SAX2 helper classes
+	    makes this easy to do.<a href="#FOOTNOTE-15">[15]</a>
+	    </p><blockquote class="footnote"><a name="FOOTNOTE-15" /><p>[15]The current version of
+		<em class="emphasis">XMLReaderFactory</em> has more
+		intelligence and supports additional
+		configuration mechanisms. For example, your application or parser distribution can configure a <em class="filename">META-INF/services/org.xml.sax.driver</em> resource into its class path, holding a single string to be used if the system property hasn't been set. SAX2 parser distributions are expected to work even if the system property or class path resource hasn't been set.
+		</p></blockquote>
+
+	    <p>Because of that problem, you may choose to code your
+	    application so parser choice is a configuration option encoded
+	    through some other mechanism than system properties.
+	    You can't keep
+	    it in your application's XML-format configuration file. Once you get that configuration data you'll
+	    probably use a different <em class="emphasis">XMLReaderFactory</em> call: </p>
+	    <blockquote><pre class="code">import org.xml.sax.helpers.XMLReaderFactory;
+
+...
+
+XMLReader       parser = null;
+String          className = ...;
+
+try {
+    parser = XMLReaderFactory.createXMLReader (className);
+    // success!
+
+    } catch (SAXException e) {
+    System.err.println ("Can't get default parser: " + e.getMessage ());
+}
+	    </pre></blockquote>
+
+	    <p>Using this factory call, the class name identifies the SAX
+	    parser you want to use. It may well be one of the entries
+	    in <a href="ch03_02.htm#sax2-CHP-3-TABLE-1">Table 3-1</a>,
+	    though some frameworks bundle other parsers.
+	    </p>
+
+	    <a name="sax2-CHP-3-TABLE-1" /><h4 class="objtitle">Table 3-1. SAX2 XMLReader implementation classes</h4><table border="1">
+            
+            
+	    
+		<tr><th><p>Parser (and type)</p></th>
+		    <th><p>Class name</p></th></tr>
+	    
+	    
+		<tr><td><p>&AElig;lfred (nonvalidating)</p></td>
+		    <td><p><em class="emphasis">gnu.xml.aelfred2.SAXDriver</em></p></td></tr>
+		<tr><td><p>&AElig;lfred (optionally validating)</p></td>
+		    <td><p><em class="emphasis">gnu.xml.aelfred2.XmlReader</em></p></td></tr>
+		<tr><td><p>Crimson (optionally validating)</p></td>
+		    <td><p><em class="emphasis">org.apache.crimson.XmlReaderImpl</em></p></td></tr>
+		<tr><td><p> Xerces (optionally validating)</p></td>
+		    <td><p><em class="emphasis">org.apache.xerces.parsers.SAXParser</em></p></td></tr>
+	    </table><p>
+
+	    <p>If you're using a parser without
+	    a settable option for validation, you may want to let
+	    distinct parsers be configured for validating and nonvalidating
+	    usage, assuming that your application needs both.
+	    Parsers with validation support are significantly larger
+	    than ones without it, which is partly why&AElig;lfred still has a
+	    nonvalidating class.
+<a name="INDEX-402" />
+	    
+</p>
+
+	</div>
+
+	<a name="sax2-CHP-3-SECT-2.2" /><div class="sect2">
+	    <h3 class="sect2">3.2.2. Calling Parser Constructors</h3>
+
+	    <p>If you need to force the use of some particular parser,
+	    you can invoke its constructor directly. Every SAX2 <em class="emphasis">XMLReader</em>
+	    must have a default constructor in order to work with the
+	    <em class="emphasis">XMLReaderFactory</em> class. Since it exists, you can invoke it
+	    directly using the same class names you may have passed to the
+	    <em class="emphasis">XMLReaderFactory</em>, if you used application-level configuration:
+	    </p>
+
+	    <blockquote><pre class="code">import org.xml.sax.XMLReader;
+import gnu.xml.aelfred2.XmlReader;
+
+...
+
+XMLReader       parser = new XmlReader ();
+	    </pre></blockquote>
+
+	    <p>In some cases you may actually prefer to force use of
+	    some particular parser.
+	    In other cases, you may have no option, maybe because
+	    of class loader or security configuration.
+	    If you run into trouble with those mechanisms, you may
+	    not be able to use factory APIs to access parsers unless they
+	    are visible through the system class loader.
+	    </p>
+
+	    <p>In general, avoid such nonportable coding decisions;
+	    use a factory API wherever you can.
+	    </p>
+
+	</div>
+
+	<a name="sax2-CHP-3-SECT-2.3" /><div class="sect2">
+	    <h3 class="sect2">3.2.3. Using JAXP</h3>
+
+	    <p>
+<a name="INDEX-403" />
+            Sun's JAXP 1.1 supports yet another way to bootstrap SAX parsers.
+	    It's a more complex process, taking several steps instead of
+	    just one:</p>
+
+	    <ol>
+		<li><p>
+<a name="INDEX-404" />
+                    First, get a
+		    <em class="emphasis">javax.xml.parsers.SAXParserFactory</em>.
+		    </p></li>
+		<li><p>Tell it to return parsers that will
+		    do the kind of processing needed by your application.
+		    </p></li>
+		<li><p>Ask it to give you a JAXP parser of type
+		    <em class="emphasis">javax.xml.parsers.SAXParser</em>.
+		    </p></li>
+		<li><p>
+<a name="INDEX-405" />
+                    Finally, ask the JAXP parser to give
+		    you the <em class="emphasis">XMLReader</em> that is
+		    normally lurking inside of it.
+		    </p></li>
+	    </ol>
+
+	    <p>Conceptually this is like the no-parameters
+	    <tt class="literal">XMLReaderFactory.createXMLReader()</tt> method,
+	    except it's complicated by expecting the factory to return
+	    preconfigured parsers.<a href="#FOOTNOTE-16">[16]</a>
+	    Configuring the parser using the SAX2 flags and properties
+	    directly is preferable; the API "surface area" is smaller.
+	    Other than having different default namespace-processing modes,
+	    the practical difference is primarily availability: many implementations ensure that a JAXP system
+	    default is always accessible, but they haven't paid the same
+	    attention to providing the default SAX2 parser.
+	    (Current versions of the SAX2 classes make that
+	    easier, but you might not be using such versions.)</p><blockquote class="footnote"><a name="FOOTNOTE-16" /><p>[16]You can also look at this as choosing between parsers. For example, JAXP 1.2 will probably say how to request that schema validation be done. That's most naturally done as a layer on top of SAX, with a parser filter postprocessing the output of some other SAX parser.</p></blockquote>
+	    
+            <p>The code to use
+	    the JAXP bootstrap API to get a SAX2 parser looks like this:
+	    </p>
+
+	    <blockquote><pre class="code">import org.xml.sax.*;
+import javax.xml.parsers.*;
+
+XMLReader        parser;
+
+try {
+    SAXParserFactory factory;
+
+    factory = SAXParserFactory.newInstance ();
+    factory.setNamespaceAware (true);
+    parser = factory.newSAXParser ().getXMLReader ();
+    // success!
+
+} catch (FactoryConfigurationError err) {
+    System.err.println ("can't create JAXP SAXParserFactory, "
+	+ err.getMessage ());
+} catch (ParserConfigurationException err) {
+    System.err.println ("can't create XMLReader with namespaces, "
+	+ err.getMessage ());
+} catch (SAXException err) {
+    System.err.println ("Hmm, SAXException, " + err.getMessage ());
+}</pre></blockquote>
+
+	    <p>Rather than calling <tt class="literal">newInstance()</tt>,
+	    you can hardcode the constructor for a particular factory,
+	    probably using one of the classes listed in
+	    <a href="ch03_02.htm#sax2-CHP-3-TABLE-2">Table 3-2</a>.
+	    It's better to keep implementation preferences as configuration
+	    issues though, and not hardwire them into source code.
+	    For situations where you may have several parsers in your
+	    class path (or a tree of class loaders, as found in many
+	    recent servlet engines),
+	    JAXP offers several methods to configure such preferences.
+	    You
+	    can associate the factory class name value with the key
+	    <em class="emphasis">javax.xml.parsers.SAXParserFactory</em> by
+	    using the key to name a system property (which sets the default parser
+	    for your JVM instance) or by putting it in the
+	    <em class="filename">$JAVA_HOME/jre/lib/jaxp.properties</em>
+	    property file (which sets the default policy for that
+	    JVM implementation).
+	    I prefer the <em class="filename">jaxp.properties</em> solution;
+	    with the other method the default parser is a function
+	    of your class path settings and even the names assigned
+	    to various JAR files. You can also embed this preference in your 
+	    application's JAR files as a <em class="filename">META-INF/services/...</em> file, but that solution is similarly sensitive to class loader
+	    configuration issues.
+	    </p>
+
+	    <a name="sax2-CHP-3-TABLE-2" /><h4 class="objtitle">Table 3-2. JAXP SAXParserFactory implementation classes</h4><table border="1">
+            
+            
+	    
+		<tr>
+		    <th><p>JAXP factory</p></th>
+		    <th><p>Class name</p></th>
+		</tr>
+	    
+	    
+		<tr>
+		    <td><p>&AElig;lfred</p></td>
+	    <td><p><em class="emphasis">gnu.xml.aelfred2.JAXPFactory</em></p></td>
+		</tr>
+		<tr>
+		    <td><p>Crimson</p></td>
+		    <td><p><em class="emphasis">org.apache.crimson.jaxp.SAXParserFactoryImpl</em></p></td>
+		</tr>
+		<tr>
+		    <td><p> Xerces</p></td>
+		    <td><p><em class="emphasis">org.apache.xerces.jaxp.SAXParserFactoryImpl</em></p></td>
+		</tr>
+	    </table><p>
+
+	    <p>If you're using JAXP to bootstrap a SAX2
+	    parser, rather than the SAX2 APIs, the default setting for
+	    namespace processing is different: JAXP parsers don't process 
+            namespaces by default, while SAX2 parsers do.
+	    SAX2 normally removes all
+	    <tt class="literal">xmlns*</tt> attributes, reports namespace scope
+	    events, and may hide the namespace prefixes actually used
+	    by element and attribute names.
+	    JAXP does none of that unless you make it; in fact,
+	    the default parser mode for some current implementations is
+	    the illegal SAX2 mode described in the previous chapter.
+	    The example code in this section made the JAXP factory follow 
+            SAX2 defaults.
+	    </p>
+
+	    <p>This book encourages you to use SAX2 directly,
+	    rather than through the JAXP factory mechanism.
+	    Even if JAXP is available, it's more complex to use.
+	    Also, the <?troff .ne 10?>resulting parser is configured differently,
+	    so many of the examples in this book would break.
+<a name="INDEX-406" />
+<a name="INDEX-407" />
+	    
+</p>
+
+	</div>
+
+    
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch03_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">3. Producing  SAX2 Events</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">3.3. Configuring XMLReader Behavior</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

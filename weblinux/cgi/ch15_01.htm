@@ -1,0 +1,385 @@
+<?label 15. Debugging CGI Applications?><html><head><title>Debugging CGI Applications (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch14_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch15_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 15. Debugging CGI Applications</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch15_01.htm">Common Errors</a><br>
+<a href="ch15_02.htm">Perl Coding Techniques</a><br>
+<a href="ch15_03.htm">Debugging Tools</a><br></p></div>
+
+
+
+<p>So far, <a name="INDEX-2905" /> <a name="INDEX-2,906" /> <a name="INDEX-2,907" />we've
+discussed numerous CGI applications, ranging from the trivial to the
+very complex, but we haven't touched upon the techniques needed
+to debug them if something goes wrong. Debugging a CGI application is
+not much different than debugging any other type of application,
+because, after all, code is code. However, since a CGI application is
+run by a remote user across the network in a special environment
+created by the web server, it is sometimes difficult to pinpoint the
+problems.</p>
+
+
+<p>This chapter is all about debugging CGI applications. First,
+we'll examine some of the common errors that developers
+generally come across when implementing CGI applications. These
+include incorrect server configuration, permission problems, and
+violations of the HTTP protocol. Then, we'll explore a few
+tips, tricks, and tools that will help us track down problems and
+develop better applications.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch15-16509" />
+<h2 class="sect1">15.1. Common Errors</h2>
+
+
+<p>This section <a name="INDEX-2908" />
+<a name="INDEX-2909" /> <a name="INDEX-2,910" />can serve as a checklist that you can
+use to diagnose common problems. Here is a list of common sources of
+errors:</p>
+
+
+
+<a name="ch15-1-fm2xml" /><table border="1">
+
+
+
+<tr>
+<th>
+<p>Source of Problem</p></th>
+<th>
+<p>Typical Error Message</p></th>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p>Application permissions</p></td>
+<td>
+<p>403 Forbidden</p></td>
+</tr>
+
+<tr>
+<td>
+<p>The pound-bang line</p></td>
+<td>
+<p>403 Forbidden</p></td>
+</tr>
+
+<tr>
+<td>
+<p>Line endings</p></td>
+<td>
+<p>500 Internal Server Error</p></td>
+</tr>
+
+<tr>
+<td>
+<p>"Malformed" header</p></td>
+<td>
+<p>500 Internal Server Error</p></td>
+</tr>
+
+
+</table>
+
+<p>Let's look at each of these in more detail.</p>
+
+
+<a name="ch15-2-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.1.1. Application Permissions</h3>
+
+
+<p>Typically, <a name="INDEX-2911" />
+<a name="INDEX-2912" />web servers are configured to run
+as <em class="emphasis">nobody</em>
+<a name="INDEX-2913" />
+<a name="INDEX-2914" />
+<a name="INDEX-2915" /> or another user with
+minimal access privileges. This is a great preventative step, and one
+that can possibly salvage your data in the case of an attack. Since
+the web server process does not have privileges to write to, read
+from, or execute files in directories that don't have
+"<a name="INDEX-2916" />world" access, most of your
+data will stay intact.</p>
+
+
+<p>However, this <a name="INDEX-2917" /> <a name="INDEX-2,918" />also
+create a few problems for us. First and foremost, we need to set the
+world execute bit on the CGI applications, so the server can execute
+them. Here's how you can check the
+<a name="INDEX-2919" />
+<a name="INDEX-2920" />permissions of your applications:</p>
+
+
+<blockquote><pre class="code">$ ls -l /usr/local/apache/cgi-bin/clock
+-rwx------  1 shishir      3624 Oct 17 17:59 clock</pre></blockquote>
+
+
+<p>The first field lists the permissions for the file. This field is
+divided into three parts: the privileges for the owner, the group,
+and the world (from left to right), with the first letter indicating
+the type of the file: either a regular file, or a directory. In this
+example, the owner has sole permission to read, write, and execute
+the program.</p>
+
+
+<p>If you want the server to be able to execute this application, you
+have to issue the following
+<a name="INDEX-2921" />
+<a name="INDEX-2922" /> <a name="INDEX-2,923" />
+<a name="INDEX-2924" />command:</p>
+
+
+<blockquote><pre class="code">$ chmod 711 clock
+-rwx--x--x  1 shishir      3624 Oct 17 17:59 clock*</pre></blockquote>
+
+
+<p>The <tt class="command">chmod</tt> command (change mode) modifies the
+permissions for the file. The octal code of 711 indicates read (octal
+4), write (octal 2), and execute (octal 1) permissions for the owner,
+and execute permissions for everyone else.</p>
+
+
+<p>That's not the end of our permission woes. We could run into
+other problems dealing with file permissions, most notably, the
+inability to create or update files. We will discuss this in <a href="ch15_02.htm#ch15-21836">Section 15.2, "Perl Coding Techniques"</a> later in this chapter.</p>
+
+
+<p>Despite configuring the server to recognize CGI applications and
+setting the execute permissions, our applications can still fail to
+execute, as you'll see next.</p>
+</div>
+
+
+
+
+<a name="ch15-3-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.1.2. The Pound-Bang</h3>
+
+
+<p>If a <a name="INDEX-2925" />
+<a name="INDEX-2926" />
+<a name="INDEX-2927" />CGI application is written in Perl,
+Python, Tcl, or another
+<a name="INDEX-2928" />interpreted scripting language, then
+it must have a line at the very top that begins with a pound-bang, or
+<tt class="literal">#!</tt>, like this:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT</pre></blockquote>
+
+
+<p>We've seen this above every script throughout this book. When
+the web server recognizes a request for a CGI application, it calls
+the <em class="emphasis">exec</em>
+<a name="INDEX-2929" />
+<a name="INDEX-2930" /> <a name="INDEX-2,931" /> system
+function to execute the application. If the application is a compiled
+executable, the operating system will go ahead and execute it.
+However, if our application is a script of some sort, then the
+operating system will look at the first line to see what interpreter
+to use.</p>
+
+
+<p>If your scripts are missing the pound-bang line, or if the
+<a name="INDEX-2932" />
+<a name="INDEX-2933" />path you specify is invalid, then you
+will get an error. On some systems, for example,
+<tt class="command">perl</tt>
+<a name="INDEX-2934" /> <a name="INDEX-2,935" /> is found at
+<em class="filename">/usr/bin/perl</em>, while on others it is found at
+<em class="filename">/usr/local/bin/perl</em>. On <a name="INDEX-2936" />
+<a name="INDEX-2937" />Unix systems, you can use either of
+the following commands to locate <em class="emphasis">perl</em> (depending
+on your shell):</p>
+
+
+<blockquote><pre class="code">$ which perl
+$ whence perl</pre></blockquote>
+
+
+<p>If neither of these commands work, then look for
+<tt class="command">perl5</tt> instead of <tt class="command">perl</tt>. If you
+still cannot locate <tt class="command">perl</tt>, then try either of the
+following commands. They return anything on your filesystem named
+<tt class="command">perl</tt>, so they could return multiple results, and
+the <tt class="command">find</tt> command will search your entire
+filesystem, so depending on the size of the filesystem, this could
+take a while:</p>
+
+
+<blockquote><pre class="code">$ locate perl
+$ find / -name perl -type f -print 2&gt;/dev/null</pre></blockquote>
+
+
+<p>Another thing to keep in mind: if you have
+<a name="INDEX-2938" />
+<a name="INDEX-2939" />multiple interpreters
+(i.e., different versions) for the same language, make sure that your
+scripts reference the one you intend, or else you may see some
+mysterious effects. For example, on some systems,
+<em class="emphasis">perl4</em> is still installed in addition to
+<em class="emphasis">perl5</em>. Test the path you use with the
+
+<a name="INDEX-2940" /> <a name="INDEX-2,941" /><em class="emphasis">-v</em> flag to get its
+version.</p>
+</div>
+
+
+
+
+<a name="ch15-4-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.1.3. Line Endings</h3>
+
+
+<p>If you are working with a CGI script that downloaded from another
+site or edited with a different platform, then it is possible that
+the <a name="INDEX-2942" />
+<a name="INDEX-2943" />line endings do not match those of the
+current system. For example, <tt class="command">perl</tt> on Unix will
+complain with multiple syntax errors if you attempt to run a file
+that is formatted for Windows. You can clean these files up with
+<tt class="command">perl</tt> from the command line:</p>
+
+
+<blockquote><pre class="code">$ perl -pi -e 's/\r\n/\n/' calendar.cgi</pre></blockquote>
+</div>
+
+
+
+
+<a name="ch15-5-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.1.4. "Malformed" Header</h3>
+
+
+<p>As we first discussed in <a href="ch02_01.htm">Chapter 2, "The Hypertext Transport Protocol "</a>, and <a href="ch03_01.htm">Chapter 3, "The Common Gateway Interface"</a>, and have seen in all the examples since, all
+CGI applications must return a
+<a name="INDEX-2944" /> <a name="INDEX-2,945" /> <a name="INDEX-2,946" />
+<a name="INDEX-2947" />valid
+HTTP content-type header, followed by a newline, before the actual
+content, like this:</p>
+
+
+<blockquote><pre class="code">Content-type: text/html
+(other headers)
+
+(content)</pre></blockquote>
+
+
+<p>If you fail to follow this format, then a typical <em class="emphasis">500
+Server Error</em>
+<a name="INDEX-2948" /> will ensue. The partial solution is
+to return all necessary
+<a name="INDEX-2949" /> <a name="INDEX-2,950" />HTML headers, including
+content type, as early on in the CGI application as possible. We will
+look at a very useful technique in the next section that will help us
+with this task.</p>
+
+
+<p>However, there are other reasons why we may see such an error. If
+your CGI application generates errors that are printed to STDERR,
+these error messages may be returned to the web server before all of
+the header information. Because Perl
+<a name="INDEX-2951" />
+<a name="INDEX-2952" />buffers output to STDOUT, errors that
+occur after you have printed the headers may even cause this problem.</p>
+
+
+<p>What's the moral? Make sure you check your application from the
+command line before you try to execute it from the Web. If
+you're using Perl to develop CGI applications, then you can use
+the <em class="emphasis">-wcT</em>
+
+<a name="INDEX-2953" /> <a name="INDEX-2,954" /> <a name="INDEX-2,955" />switch to check for syntax errors:</p>
+
+
+<blockquote><pre class="code">$ perl -wcT clock.cgi
+syntax error in file clock.cgi at line 9, at EOF
+clock.cgi had compilation errors.</pre></blockquote>
+
+
+<p>If there are <a name="INDEX-2956" />
+<a name="INDEX-2957" />warnings, but no errors, you may see
+the following:</p>
+
+
+<blockquote><pre class="code">$ perl -wcT clock.cgi
+Name "main::opt_g" used only once: possible typo at clock.cgi line 5.
+Name "main::opt_u" used only once: possible typo at clock.cgi line 6.
+Name "main::opt_f" used only once: possible typo at clock.cgi line 7.
+clock.cgi syntax OK</pre></blockquote>
+
+
+<p>Pay attention to the warnings, as well. Perl's syntax checker
+has really improved over the years, and will alert you of many
+possible errors, such as using non existent variables, uninitialized
+variables, or file handles.</p>
+
+
+<p>And finally, if there are no warnings or errors, you will see:</p>
+
+
+<blockquote><pre class="code">$ perl -wcT clock.cgi
+clock.cgi syntax OK</pre></blockquote>
+
+
+<p>To reiterate, make sure your application works from the command line
+before you even attempt to debug its functionality from the
+<a name="INDEX-2958" />
+<a name="INDEX-2959" />
+<a name="INDEX-2960" />Web.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch14_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch15_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">14.5. CGI Gateway to XML Middleware</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">15.2. Perl Coding Techniques</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

@@ -1,0 +1,417 @@
+<html><head><title>Grouping Nodes (XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Doug Tidwell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596000537L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XSL" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch06_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+    <h2 class="sect1">6.2. Grouping Nodes</h2>
+    <p>
+<a name="INDEX-534" />
+<a name="INDEX-535" />
+<a name="INDEX-536" />
+<a name="INDEX-537" />
+<a name="INDEX-538" />
+
+When grouping nodes, we sort things to get them into a certain order, then we group all items that have the same value for the sort key (or keys). We'll use <tt class="literal">xsl:sort</tt> for this grouping, then use variables or functions like <tt class="literal">key()</tt> or <tt class="literal">generate-id()</tt> to finish the job.</p>
+    <div class="sect2">
+      <h3 class="sect2">6.2.1. Our First Attempt</h3>
+      <p>
+<a name="INDEX-539" />
+<a name="INDEX-540" />
+
+
+For our first example, we'll take our list of addresses and group them. We'll look for all unique values of the <tt class="literal">&lt;zip&gt;</tt> element and list the addresses that match each one. What we'll do is sort the list by Zip Code, then go through the list. If a given item doesn't match the previous Zip Code, we'll print out a heading; if it does match, we'll just print out the address. Here's our first attempt:  </p>
+      <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+  &lt;xsl:output method="text" indent="no"/&gt;
+  &lt;xsl:variable name="newline"&gt;
+&lt;xsl:text&gt;
+&lt;/xsl:text&gt;
+  &lt;/xsl:variable&gt;
+
+  &lt;xsl:template match="/"&gt;
+    &lt;xsl:text&gt;Addresses sorted by Zip Code&lt;/xsl:text&gt;
+    &lt;xsl:value-of select="$newline"/&gt;
+    &lt;xsl:for-each select="addressbook/address"&gt;
+      &lt;xsl:sort select="zip"/&gt;
+      &lt;xsl:if test="zip!=preceding-sibling::address[1]/zip"&gt;
+        &lt;xsl:value-of select="$newline"/&gt;
+        &lt;xsl:text&gt;Zip code &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="zip"/&gt;
+        &lt;xsl:text&gt; (&lt;/xsl:text&gt;
+        &lt;xsl:value-of select="city"/&gt;
+        &lt;xsl:text&gt;, &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="state"/&gt;
+        &lt;xsl:text&gt;): &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="$newline"/&gt;
+      &lt;/xsl:if&gt;
+      &lt;xsl:if test="name/title"&gt;
+        &lt;xsl:value-of select="name/title"/&gt;
+        &lt;xsl:text&gt; &lt;/xsl:text&gt;
+      &lt;/xsl:if&gt;
+      &lt;xsl:value-of select="name/first-name"/&gt;
+      &lt;xsl:text&gt; &lt;/xsl:text&gt;
+      &lt;xsl:value-of select="name/last-name"/&gt;
+      &lt;xsl:value-of select="$newline"/&gt;
+      &lt;xsl:value-of select="street"/&gt;
+      &lt;xsl:value-of select="$newline"/&gt;
+      &lt;xsl:value-of select="$newline"/&gt;
+
+    &lt;/xsl:for-each&gt;
+  &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+      <p>Our approach in this stylesheet consists of two steps:</p>
+      <ol>
+        <li>
+          <p>Sort the addresses by Zip Code.</p>
+          <blockquote><pre class="code">
+&lt;xsl:sort select="zip"/&gt;</pre></blockquote>
+        </li>
+        <li>
+          <p>For each Zip Code, if it doesn't match the previous Zip Code, print out a heading, then print out the addresses that match it.</p>
+          <blockquote><pre class="code">
+&lt;xsl:if test="zip!=preceding-sibling::address[1]/zip"&gt;
+  &lt;xsl:value-of select="$newline"/&gt;
+  &lt;xsl:text&gt;Zip code &lt;/xsl:text&gt;
+  ...</pre></blockquote>
+
+          <p>(Remember that <tt class="literal">preceding-sibling</tt> returns a <tt class="literal">NodeSet</tt>, so <tt class="literal">preceding-sibling::address[1]</tt> represents the first preceding sibling.)</p>
+        </li>
+      </ol>
+      <p>That sounds reasonable, doesn't it?  Let's take a look at the results:</p>
+      <blockquote><pre class="code">
+Addresses sorted by Zip Code
+
+Zip code 00218 (Winter Harbor, ME): 
+Ms. Natalie Attired
+707 Breitling Way
+
+
+Zip code 02718 (Skunk Haven, MA): 
+Mary Backstayge
+283 First Avenue
+
+Harry Backstayge
+283 First Avenue
+
+
+Zip code 02930 (Lynn, MA): 
+Ms. Amanda Reckonwith
+930-A Chestnut Street
+
+
+Zip code 27318 (Boylston, VA): 
+Mary McGoon
+103 Bryant Street
+
+Mr. Chester Hasbrouck Frisby
+1234 Main Street
+</pre></blockquote>
+      <p>Yes, that certainly seemed like a good approach, but there's one minor problem: it doesn't work.  </p>
+
+      <p>Looking at our results, there seems to be only one problem:  one of the addresses (Mr. Chester Hasbrouck Frisby) is grouped under the heading for Boylston, Virginia, but he actually lives in Sheboygan, Wisconsin, Zip Code 48392. The problem here is that the axes work with the document order, not the sorted order we've created inside the <tt class="literal">xsl:for-each</tt> element. </p>
+      <p>As straightforward as our logic seemed, we'll have to find another way.
+<a name="INDEX-541" />
+<a name="INDEX-542" />
+
+</p>
+
+    </div>
+    <div class="sect2">
+      <h3 class="sect2">6.2.2. A Brute-Force Approach</h3>
+      <p>One thing we could do is make the transformation in two passes; we could write an intermediate stylesheet to sort the names and generate a new XML document, then use the stylesheet we've already written, because document order and sorted order will be the same. Here's how that intermediate stylesheet would look:</p>
+      <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+
+  &lt;xsl:output method="xml" indent="no"/&gt;
+  &lt;xsl:strip-space elements="*"/&gt;
+
+  &lt;xsl:template match="/"&gt;
+    &lt;addressbook&gt;
+      &lt;xsl:for-each select="addressbook/address"&gt;
+        &lt;xsl:sort select="name/last-name"/&gt;
+        &lt;xsl:sort select="name/first-name"/&gt;
+        &lt;xsl:copy-of select="."/&gt;
+      &lt;/xsl:for-each&gt;
+    &lt;/addressbook&gt;
+  &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+      <p>This stylesheet generates a new <tt class="literal">&lt;addressbook&gt;</tt> document that has all of the <tt class="literal">&lt;address&gt;</tt> elements sorted correctly. We can then run our original stylesheet against the sorted document and get the results we want. This works, but it's not very elegant. Even worse, it's really slow because we have to stop in the middle and write a file out to disk, then read that data back in. We'll find a way to group elements in a single stylesheet, but we'll have to do it with a different technique. </p>
+    </div>
+    <div class="sect2">
+      <h3 class="sect2">6.2.3. Grouping with &lt;xsl:variable&gt;</h3>
+      <p>
+<a name="INDEX-543" />
+<a name="INDEX-544" />
+<a name="INDEX-545" />
+<a name="INDEX-546" />
+
+
+We mentioned earlier that sometimes <tt class="literal">&lt;xsl:variable&gt;</tt> is useful for grouping, so let's try that approach. We'll save the value of the <tt class="literal">&lt;zip&gt;</tt> element each time through the <tt class="literal">&lt;xsl:for-each&gt;</tt> element and use <tt class="literal">preceding-sibling</tt> in a slightly different way. Here's how attempt number three looks:</p>
+      <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+
+  &lt;xsl:output method="text" indent="no"/&gt;
+
+  &lt;xsl:variable name="newline"&gt;
+&lt;xsl:text&gt;
+&lt;/xsl:text&gt;
+  &lt;/xsl:variable&gt;
+
+  &lt;xsl:template match="/"&gt;
+    &lt;xsl:text&gt;Addresses sorted by Zip Code&lt;/xsl:text&gt;
+    &lt;xsl:value-of select="$newline"/&gt;
+    &lt;xsl:for-each select="addressbook/address"&gt;
+      &lt;xsl:sort select="zip"/&gt;
+      &lt;xsl:sort select="name/last-name"/&gt;
+      &lt;xsl:sort select="name/first-name"/&gt;
+      &lt;xsl:variable name="lastZip" select="zip"/&gt;
+      &lt;xsl:if test="not(preceding-sibling::address[zip=$lastZip])"&gt;
+        &lt;xsl:text&gt;Zip code &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="zip"/&gt;
+        &lt;xsl:text&gt;: &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="$newline"/&gt;
+        &lt;xsl:for-each select="/addressbook/address[zip=$lastZip]"&gt;
+          &lt;xsl:sort select="name/last-name"/&gt;
+          &lt;xsl:sort select="name/first-name"/&gt;
+          &lt;xsl:if test="name/title"&gt;
+            &lt;xsl:value-of select="name/title"/&gt;
+            &lt;xsl:text&gt; &lt;/xsl:text&gt;
+          &lt;/xsl:if&gt;
+          &lt;xsl:value-of select="name/first-name"/&gt;
+          &lt;xsl:text&gt; &lt;/xsl:text&gt;
+          &lt;xsl:value-of select="name/last-name"/&gt;
+          &lt;xsl:value-of select="$newline"/&gt;
+          &lt;xsl:value-of select="street"/&gt;
+          &lt;xsl:value-of select="$newline"/&gt;
+          &lt;xsl:value-of select="$newline"/&gt;
+        &lt;/xsl:for-each&gt;
+      &lt;/xsl:if&gt;
+    &lt;/xsl:for-each&gt;
+  &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+      <p>This stylesheet generates what we want:</p>
+      <blockquote><pre class="code">
+Addresses sorted by Zip Code
+Zip code 00218: 
+Ms. Natalie Attired
+707 Breitling Way
+
+Zip code 02718: 
+Harry Backstayge
+283 First Avenue
+
+Mary Backstayge
+283 First Avenue
+
+Zip code 02930: 
+Ms. Amanda Reckonwith
+930-A Chestnut Street
+
+Zip code 27318: 
+Mary McGoon
+103 Bryant Street
+
+Zip code 48392: 
+Mr. Chester Hasbrouck Frisby
+1234 Main Street
+</pre></blockquote>
+      <p>So why does this approach work when our first attempt didn't?  The answer is: we don't count on the sorted order of the elements to generate the output. The downside of this approach is that we go through several steps to get the results we want:</p>
+      <ol>
+        <li>
+          <p>We sort all the addresses by Zip Code:</p>
+          <blockquote><pre class="code">
+&lt;xsl:sort select="zip"/&gt;</pre></blockquote>
+        </li>
+        <li>
+          <p>We store the current <tt class="literal">&lt;zip&gt;</tt> element's value in the variable <tt class="literal">lastZip</tt>:</p>
+          <blockquote><pre class="code">
+&lt;xsl:variable name="lastZip" select="zip"/&gt;</pre></blockquote>
+        </li>
+        <li>
+          <p>For each <tt class="literal">&lt;zip&gt;</tt> element, we look at all of its preceding siblings to see if this is the first time we've encountered this particular value (stored in <tt class="literal">lastZip</tt>). If it is, there won't be any preceding siblings that match.</p>
+          <blockquote><pre class="code">
+&lt;xsl:if test="not(preceding-sibling::address[zip=$lastZip])"&gt;</pre></blockquote>
+        </li>
+        <li>
+          <p>If this is the first time we've encountered this value in the <tt class="literal">&lt;zip&gt;</tt> element, we go back and reselect all <tt class="literal">&lt;address&gt;</tt> elements with <tt class="literal">&lt;zip&gt;</tt> children that match this value. Once we have that group, we sort them by first name within last name and print each address.</p>
+          <blockquote><pre class="code">
+&lt;xsl:for-each select="/addressbook/address[zip=$lastZip]"&gt;
+  &lt;xsl:sort select="name/last-name"/&gt;
+  &lt;xsl:sort select="name/first-name"/&gt;</pre></blockquote>
+        </li>
+      </ol>
+      <p>So, we've found a way to get the results we want, but it's really inefficient. We sort the data, then we look at each Zip Code in sorted order, then see if we've encountered that value before in document order, then we reselect all the items that match the current Zip Code and resort them before we write them out. Whew!  There's got to be a better way, right?  Well, since we're not at the end of the chapter, it's a safe bet we'll find a better way in the next section. Read on....
+<a name="INDEX-547" />
+<a name="INDEX-548" />
+
+</p>
+    </div>
+    <div class="sect2">
+      <h3 class="sect2">6.2.4. The &lt;xsl:key&gt; Approach</h3>
+      <p>
+<a name="INDEX-549" />
+<a name="INDEX-550" />
+<a name="INDEX-551" />
+<a name="INDEX-552" />
+
+In this section, we'll look at using <tt class="literal">&lt;xsl:key&gt;</tt> to group items in an XML document. This approach is commonly referred to as the "Muench method," after Oracle XML Evangelist (and O'Reilly author) Steve Muench, who first suggested this technique. The Muench method has three steps:</p>
+      <ol>
+        <li>
+          <p>Define a <tt class="literal">key</tt> for the property we want to use for grouping.</p>
+        </li>
+        <li>
+          <p>Select all of the nodes we want to group. We'll do some tricks with the <tt class="literal">key()</tt> and <tt class="literal">generate-id()</tt> functions to find the unique grouping values.</p>
+        </li>
+        <li>
+          <p>For each unique grouping value, use the <tt class="literal">key()</tt> function to retrieve all nodes that match it. Because the <tt class="literal">key()</tt> function returns a node-set, we can do further sorts on the set of nodes that match any given grouping value.</p>
+        </li>
+      </ol>
+      <p>Well, that's how the technique works -- let's start building the stylesheet that makes the magic happen. The first step, creating a key function, is easy. Here's how it looks:</p>
+      <blockquote><pre class="code">
+&lt;xsl:key name="zipcodes" match="address" use="zip"/&gt;</pre></blockquote>
+      <p>This <tt class="literal">&lt;xsl:key&gt;</tt> element defines a new index called <tt class="literal">zipcodes</tt>. It indexes <tt class="literal">&lt;address&gt;</tt> elements based on the value of the <tt class="literal">&lt;zip&gt;</tt> element they contain.</p>
+      <p>Now that we've defined our <tt class="literal">key</tt>, we're ready for the complicated part. We use the <tt class="literal">key()</tt> and <tt class="literal">generate-id()</tt> functions together. Here's the syntax, which we'll discuss extensively in a minute:</p>
+      <blockquote><pre class="code">
+&lt;xsl:for-each select="//address[generate-id(.)=
+  generate-id(key('zipcodes', zip)[1])]"&gt;</pre></blockquote>
+      <p>Okay, let's take a deep, cleansing breath and start digging through this syntax. What we're selecting here is all <tt class="literal">&lt;address&gt;</tt> elements in which the automatically generated <tt class="literal">id</tt> matches the automatically generated <tt class="literal">id</tt> of the first node returned by the <tt class="literal">key()</tt> function when we ask for all <tt class="literal">&lt;address&gt;</tt> elements that match the current <tt class="literal">&lt;zip&gt;</tt> element. </p>
+      
+ <p>Well, that's clear as crystal, isn't it?  Let me try to explain that again from a slightly different perspective.</p>
+
+          <p>For each <tt class="literal">&lt;address&gt;</tt>, we use the <tt class="literal">key()</tt> function to retrieve all <tt class="literal">&lt;address&gt;</tt>es that have the same <tt class="literal">&lt;zip&gt;</tt>. We then take the first node from that node-set. Finally, we use the <tt class="literal">generate-id()</tt> function to generate an <tt class="literal">id</tt> for both nodes. If the two generated <tt class="literal">id</tt>s are identical, then the two nodes are the same. </p>
+          <p>Whew. Let me catch my breath.</p>
+
+          <p>If this <tt class="literal">&lt;address&gt;</tt> matches the first node returned by the <tt class="literal">key()</tt> function, then we know we've found the first <tt class="literal">&lt;address&gt;</tt> that matches this grouping value. Selecting all of the first values (remember, our previous predicate ends with <tt class="literal">[1]</tt>) gives us a node-set of some number of <tt class="literal">&lt;address&gt;</tt> elements, each of which contains one of the unique grouping values we need.</p>
+<p>Well, that's how this technique works. At this point, we've got a way to generate a node-set that contains all of the unique grouping values; now we need to process those nodes. From this point, we'll do several things, all of which are comparatively simple:</p>
+      <ul>
+        <li>
+          <p>Sort all nodes based on the grouping property. In this example, the property is the <tt class="literal">&lt;zip&gt;</tt> element. We start by selecting the first occurrence of every unique <tt class="literal">&lt;zip&gt;</tt> element in the document, then we sort those <tt class="literal">&lt;zip&gt;</tt> elements. Here's how it looks in the stylesheet:</p>
+          <blockquote><pre class="code">
+&lt;xsl:for-each 
+  select="//address[generate-id(.)=generate-id(key('zipcodes', zip)[1])]"&gt;
+  &lt;xsl:sort select="zip"/&gt;</pre></blockquote>
+        </li>
+        <li>
+          <p>The outer <tt class="literal">&lt;xsl:for-each&gt;</tt> element selects all the unique values of the <tt class="literal">&lt;zip&gt;</tt> element. Next, we use the <tt class="literal">key()</tt> function to retrieve all <tt class="literal">&lt;address&gt;</tt> elements that match the current <tt class="literal">&lt;zip&gt;</tt> element:  </p>
+          <blockquote><pre class="code">
+&lt;xsl:for-each select="key('zipcodes', zip)"&gt;</pre></blockquote>
+        </li>
+        <li>
+          <p>The <tt class="literal">key()</tt> function gives us a node-set of all matching <tt class="literal">&lt;address&gt;</tt> elements. We sort that node-set based on the <tt class="literal">&lt;last-name&gt;</tt> and <tt class="literal">&lt;first-name&gt;</tt> elements, then process them in turn:</p>
+          <blockquote><pre class="code">
+    &lt;xsl:sort select="name/last-name"/&gt;
+    &lt;xsl:sort select="name/first-name"/&gt;
+    &lt;tr&gt;
+      &lt;xsl:if test="position() = 1"&gt;
+        &lt;td valign="center" bgcolor="#999999"&gt;
+          &lt;xsl:attribute name="rowspan"&gt;
+            &lt;xsl:value-of select="count(key('zipcodes', zip))"/&gt;
+          &lt;/xsl:attribute&gt;
+          &lt;b&gt;
+            &lt;xsl:text&gt;Zip code &lt;/xsl:text&gt;&lt;xsl:value-of select="zip"/&gt;
+          &lt;/b&gt;
+        &lt;/td&gt;
+      &lt;/xsl:if&gt;
+      &lt;td align="right"&gt;
+        &lt;xsl:value-of select="name/first-name"/&gt;
+        &lt;xsl:text&gt; &lt;/xsl:text&gt;
+        &lt;b&gt;&lt;xsl:value-of select="name/last-name"/&gt;&lt;/b&gt;
+      &lt;/td&gt;
+      &lt;td&gt;
+        &lt;xsl:value-of select="street"/&gt;
+        &lt;xsl:text&gt;, &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="city"/&gt;
+        &lt;xsl:text&gt;, &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="state"/&gt;
+        &lt;xsl:text&gt; &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="zip"/&gt;
+      &lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/xsl:for-each&gt;
+&lt;/xsl:for-each&gt;</pre></blockquote>
+          <p>We generate a table cell that contains the Zip Code common to all addresses, creating a <tt class="literal">rowspan</tt> attribute based on the number of matches for the current Zip Code. From there, we write the other data items into table cells.</p>
+        </li>
+      </ul>
+      <p>Here's our complete stylesheet:</p>
+      <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+
+  &lt;xsl:output method="html" indent="no"/&gt;
+
+  &lt;xsl:key name="zipcodes" match="address" use="zip"/&gt;
+
+  &lt;xsl:template match="/"&gt;
+    &lt;table border="1"&gt;
+      &lt;xsl:for-each select="//address[generate-id(.)=
+        generate-id(key('zipcodes', zip)[1])]"&gt;
+        &lt;xsl:sort select="zip"/&gt; 
+        &lt;xsl:for-each select="key('zipcodes', zip)"&gt;
+          &lt;xsl:sort select="name/last-name"/&gt;
+          &lt;xsl:sort select="name/first-name"/&gt;
+          &lt;tr&gt;
+            &lt;xsl:if test="position() = 1"&gt;
+              &lt;td valign="center" bgcolor="#999999"&gt;
+                &lt;xsl:attribute name="rowspan"&gt;
+                  &lt;xsl:value-of select="count(key('zipcodes', zip))"/&gt;
+                &lt;/xsl:attribute&gt;
+                &lt;b&gt;
+                  &lt;xsl:text&gt;Zip code &lt;/xsl:text&gt;&lt;xsl:value-of select="zip"/&gt;
+                &lt;/b&gt;
+              &lt;/td&gt;
+            &lt;/xsl:if&gt;
+            &lt;td align="right"&gt;
+              &lt;xsl:value-of select="name/first-name"/&gt;
+              &lt;xsl:text&gt; &lt;/xsl:text&gt;
+              &lt;b&gt;&lt;xsl:value-of select="name/last-name"/&gt;&lt;/b&gt;
+            &lt;/td&gt;
+            &lt;td&gt;
+              &lt;xsl:value-of select="street"/&gt;
+              &lt;xsl:text&gt;, &lt;/xsl:text&gt;
+              &lt;xsl:value-of select="city"/&gt;
+              &lt;xsl:text&gt;, &lt;/xsl:text&gt;
+              &lt;xsl:value-of select="state"/&gt;
+              &lt;xsl:text&gt; &lt;/xsl:text&gt;
+              &lt;xsl:value-of select="zip"/&gt;
+            &lt;/td&gt;
+          &lt;/tr&gt;
+        &lt;/xsl:for-each&gt;
+      &lt;/xsl:for-each&gt;
+    &lt;/table&gt;
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+      <p>When we view the generated HTML document in a browser, it looks like <a href="ch06_02.htm#xslt-CHP-6-FIG-1">Figure 6-1</a>.</p>
+      <a name="xslt-CHP-6-FIG-1" /><div class="figure"><img height="124" alt="Figure 6-1" src="figs/xslt.0601.gif" width="459" /></div><h4 class="objtitle">Figure 6-1. HTML document with grouped items</h4>
+
+      <p>Notice how the two <tt class="literal">&lt;xsl:for-each&gt;</tt> and the various <tt class="literal">&lt;xsl:sort&gt;</tt> elements work together. The outer <tt class="literal">&lt;xsl:for-each&gt;</tt> element selects the unique values of the <tt class="literal">&lt;zip&gt;</tt> element and sorts them; the inner <tt class="literal">&lt;xsl:for-each&gt;</tt> element selects all <tt class="literal">&lt;address&gt;</tt> elements that match the current <tt class="literal">&lt;zip&gt;</tt> element, and then sorts them by <tt class="literal">&lt;last-name&gt;</tt> and <tt class="literal">&lt;first-name&gt;</tt>.
+
+<a name="INDEX-553" />
+<a name="INDEX-554" />
+</p>
+    </div>
+  
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch06_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">6. Sorting and Grouping Elements</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">6.3. Summary</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

@@ -1,0 +1,721 @@
+<html><head><title>Generating Links with the key() Function (XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Doug Tidwell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596000537L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XSL" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch05_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+    <h2 class="sect1">5.2. Generating Links with the key() Function</h2>
+    <p>
+<a name="INDEX-448" />
+<a name="INDEX-449" />
+<a name="INDEX-450" />
+
+Now that we've covered the <tt class="literal">id()</tt> function in great detail, we'll move on to XSLT's <tt class="literal">key()</tt> function. Each <tt class="literal">key()</tt> function effectively creates an index of the document. You can then use that index to find all elements that have a particular property. Conceptually, <tt class="literal">key()</tt> works like a database index. If you have a database of (U.S. postal) addresses, you might want to index that database by the people's last names, by the states in which they live, by their Zip Codes, etc. Each index takes a certain amount of time to build, but it saves processing time later. If you want to find all the people who live in the state of Idaho, you can use the index to find all those people directly; you don't have to search the entire database.</p>
+    <p>We'll discuss the details of how the <tt class="literal">key()</tt> function works, then we'll compare it to the <tt class="literal">id()</tt> function. </p>
+    <div class="sect2">
+      <h3 class="sect2">5.2.1. Defining a key()</h3>
+      <p>
+<a name="INDEX-451" />
+
+You define a <tt class="literal">key()</tt> function with the <tt class="literal">&lt;xsl:key&gt;</tt> element:</p>
+      <blockquote><pre class="code">
+&lt;xsl:key name="language-index" match="defn" use="@language"/&gt;</pre></blockquote>
+      <p>The key has three elements:</p>
+      <ul>
+        <li>
+          <p>A <tt class="literal">name</tt>, used to refer to this particular key. When you want to find parts of your XML document, use the <tt class="literal">name</tt> to indicate the key you want to use.</p>
+        </li>
+        <li>
+          <p>A <tt class="literal">match</tt> attribute containing an XPath expression. This specifies what part of the document you want to index. The previous example created an index on all of the <tt class="literal">&lt;defn&gt;</tt> elements. When we call the <tt class="literal">key()</tt> function, it will return a <tt class="literal">&lt;defn&gt;</tt> element. Note: according to Section 12.2 of the XSLT specification, the value of the <tt class="literal">match</tt> attribute can't contain a variable.</p>
+        </li>
+        <li>
+          <p>A <tt class="literal">use</tt> attribute containing another XPath expression. This attribute is interpreted in the context of the <tt class="literal">match</tt> attribute. In other words, the previous <tt class="literal">&lt;xsl:key&gt;</tt> element created an index of all the <tt class="literal">&lt;defn&gt;</tt> elements, and used the <tt class="literal">language</tt> attribute to retrieve them. Note: according to Section 12.2 of the XSLT specification, the value of the <tt class="literal">use</tt> attribute can't contain a variable.</p>
+        </li>
+      </ul>
+    </div>
+    <div class="sect2">
+      <h3 class="sect2">5.2.2. A Slightly More Complicated XML Document in Need of Links</h3>
+      <p>To illustrate the full power of the <tt class="literal">key()</tt> function, we'll modify our original glossary slightly. Here's an excerpt:</p>
+      <blockquote><pre class="code">
+&lt;glentry&gt;
+  &lt;term id="DMZlong" xreftext="demilitarized zone"&gt;demilitarized 
+    zone (DMZ)&lt;/term&gt;
+  &lt;defn topic="security" language="en"&gt;
+    In network security, a network that is isolated from, and 
+    serves as a neutral zone between, a trusted network (for example, 
+    a private intranet) and an untrusted network (for example, the
+    Internet). One or more secure gateways usually control access 
+    to the DMZ from the trusted or the untrusted network.
+  &lt;/defn&gt;
+  &lt;defn topic="security" language="it"&gt;
+    [Pretend this is an Italian definition of DMZ.]
+  &lt;/defn&gt;
+  &lt;defn topic="security" language="es"&gt;
+    [Pretend this is a Spanish definition of DMZ.]
+  &lt;/defn&gt; 
+  &lt;defn topic="security" language="jp"&gt;
+    [Pretend this is a Japanese definition of DMZ.]
+  &lt;/defn&gt;
+  &lt;defn topic="security" language="de"&gt;
+    [Pretend this is a German definition of DMZ.]
+  &lt;/defn&gt; 
+&lt;/glentry&gt;
+
+&lt;glentry&gt;
+  &lt;term id="DMZ" acronym="yes"&gt;DMZ&lt;/term&gt;
+  &lt;defn topic="security" language="en"&gt;
+    See &lt;xref refid="DMZlong"/&gt;.
+  &lt;/defn&gt;
+&lt;/glentry&gt;</pre></blockquote>
+      <p>In our modified document, we've added two new attributes to <tt class="literal">&lt;defn&gt;</tt>: <tt class="literal">topic</tt> and <tt class="literal">language</tt>. We also added the <tt class="literal">acronym</tt> attribute to the <tt class="literal">&lt;term&gt;</tt> element. We've modified our DTD to add these attributes and enumerate their valid values:</p>
+      <blockquote><pre class="code">
+&lt;!--The word being defined--&gt;
+&lt;!ELEMENT term  (#PCDATA) &gt;
+
+&lt;!--The id is used for cross-referencing, and the 
+    xreftext is the text used by cross-references.--&gt;
+&lt;!ATTLIST term
+               id        ID       #REQUIRED 
+               xreftext  CDATA    #IMPLIED  
+               acronym   (yes|no) "no"&gt;
+
+&lt;!--The definition of the term--&gt;
+&lt;!ELEMENT defn  (#PCDATA | xref | seealso)* &gt;
+
+&lt;!--The topic defines the subject of the definition, the
+    language code defines the language of this definition,
+    and the acronym is yes or no (default is no).--&gt;
+&lt;!ATTLIST defn
+                topic    (Java|general|security) "general"
+                language (en|de|es|it|jp)        "en"&gt;</pre></blockquote>
+      <p>The <tt class="literal">topic</tt> attribute defines the computing topic to which this definition applies, and the <tt class="literal">language</tt> attribute defines the language in which this definition is written. The <tt class="literal">acronym</tt> attribute defines whether or not this term is an acronym.</p>
+      <p>Now that we've created a more flexible XML document, we can use the <tt class="literal">key()</tt> function to do several useful things:</p>
+      <ul>
+        <li>
+          <p>We can find all <tt class="literal">&lt;defn&gt;</tt> elements that are written in a particular language (as long as it's one of the five languages we defined).</p>
+        </li>
+        <li>
+          <p>We can find all <tt class="literal">&lt;defn&gt;</tt> elements that apply to a particular topic.</p>
+        </li>
+        <li>
+          <p>We can find all <tt class="literal">&lt;term&gt;</tt> elements that are acronyms.</p>
+        </li>
+      </ul>
+      <p>Thinking back to our earlier discussion, these are all things we can't do with the <tt class="literal">id()</tt> function. If the <tt class="literal">language</tt>, <tt class="literal">topic</tt>, and <tt class="literal">acronym</tt> attributes were defined to be of type <tt class="literal">ID</tt>, only one definition could be written in English, only one definition could apply to the security topic, and only one term could be an acronym. Clearly, that's an unacceptable limitation on our document.</p>
+    </div>
+    <a name="xslt-CHP-5-SECT-2.3" /><div class="sect2">
+      <h3 class="sect2">5.2.3. Stylesheets That Use the key() Function</h3>
+      <p>
+<a name="INDEX-452" />
+We've mentioned some useful things we can do with the <tt class="literal">key()</tt> function, so now we'll build some stylesheets that use it. Our first stylesheet will list all definitions written in a particular language. We'll go through the various parts of the stylesheet, explaining all the things we had to add to make everything work. The first thing we'll do, of course, is define the <tt class="literal">key()</tt> function:</p>
+      <blockquote><pre class="code">
+&lt;xsl:key name="language-index" match="defn" use="@language"/&gt;</pre></blockquote>
+      <p>Notice that the <tt class="literal">match</tt> attribute we used was the simple element name <tt class="literal">defn</tt>. This tells the XSLT processor to match all <tt class="literal">&lt;defn&gt;</tt> elements at all levels of the document. Because of the structure of our document, we could have written <tt class="literal">match="/glossary/glentry/defn"</tt>, as well. Although this XPath expression is more restrictive, it matches the same elements because all <tt class="literal">&lt;defn&gt;</tt> elements must appear inside <tt class="literal">&lt;glentry&gt;</tt> elements, which in turn appear inside the <tt class="literal">&lt;glossary&gt;</tt> element.</p>
+      <p>Next, we set up our stylesheet to determine what value of the <tt class="literal">language</tt> attribute we're searching for. We'll do this with a global <tt class="literal">&lt;xsl:param&gt;</tt> element:</p>
+      <blockquote><pre class="code">
+&lt;xsl:param name="targetLanguage"/&gt;</pre></blockquote>
+      <p>Recall from our earlier discussion of the <tt class="literal">&lt;xsl:param&gt;</tt> element that any top-level <tt class="literal">&lt;xsl:param&gt;</tt> is a global parameter to the stylesheet and may be set or initialized from outside the stylesheet. The way to do this varies from one XSLT processor to another. Here's how it's done with Xalan. (The command should be on one line.)</p>
+      <blockquote><pre class="code">
+java org.apache.xalan.xslt.Process -in moreterms.xml -xsl crossref2.xsl 
+-param targetLanguage it</pre></blockquote>
+      
+      <p>If you use Michael Kay's Saxon processor, the syntax looks like this:</p>
+      <blockquote><pre class="code">
+java com.icl.saxon.StyleSheet moreterms.xml crossref2.xsl targetLanguage=it</pre></blockquote>
+      <p>Now that we've defined our <tt class="literal">key()</tt> function and defined a parameter to specify which language we're looking for, we need to generate our output. Here's the modified template that generates the HTML <tt class="literal">&lt;title&gt;</tt> and <tt class="literal">&lt;h1&gt;</tt> tags:</p>
+      <blockquote><pre class="code">
+&lt;xsl:template match="glossary"&gt;
+  &lt;html&gt;
+    &lt;head&gt;
+      &lt;title&gt;
+        &lt;xsl:text&gt;Glossary Listing: &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="key('language-index', 
+          $targetLanguage)[1]/preceding-sibling::term"/&gt;
+        &lt;xsl:text&gt; - &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="key('language-index', 
+          $targetLanguage)[last()]/preceding-sibling::term"/&gt;
+      &lt;/title&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+      &lt;h1&gt;
+        &lt;xsl:text&gt;Glossary Listing: &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="key('language-index', 
+          $targetLanguage)[1]/ancestor::glentry/term"/&gt;
+        &lt;xsl:text&gt; - &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="key('language-index', 
+          $targetLanguage)[last()]/ancestor::glentry/term"/&gt;
+      &lt;/h1&gt;
+      &lt;xsl:for-each select="key('language-index', $targetLanguage)"&gt;
+        &lt;xsl:apply-templates select="ancestor::glentry"/&gt;
+      &lt;/xsl:for-each&gt;
+    &lt;/body&gt;
+  &lt;/html&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+      <p>There are a couple of significant changes here. When we were using the <tt class="literal">id()</tt> function, it was easy to find the first and last terms in the document. Because we're now trying to list only the definitions that are written in a particular language, that won't work. Reading the XPath expressions in the <tt class="literal">&lt;xsl:value-of&gt;</tt> elements from left to right, we find the first and last <tt class="literal">&lt;defn&gt;</tt> elements returned by the <tt class="literal">key()</tt> function, then use the <tt class="literal">preceding-sibling</tt> axis to reference the <tt class="literal">&lt;term&gt;</tt> element that preceded it. We could also have written our XPath expressions using the <tt class="literal">ancestor</tt> axis:</p>
+      <blockquote><pre class="code">
+&lt;h1&gt;
+  &lt;xsl:text&gt;Glossary Listing: &lt;/xsl:text&gt;
+  &lt;xsl:value-of select="key('language-index', 
+    $targetLanguage)[1]/ancestor::glentry/term"/&gt;
+  &lt;xsl:text&gt; - &lt;/xsl:text&gt;
+  &lt;xsl:value-of select="key('language-index', 
+    $targetLanguage)[last()]/ancestor::glentry/term"/&gt;
+&lt;/h1&gt;</pre></blockquote>
+      <p>Now that we've successfully generated the HTML <tt class="literal">&lt;title&gt;</tt> and <tt class="literal">&lt;h1&gt;</tt> elements, we need to process the actual definitions for the chosen language. To do this, we'll use the <tt class="literal">targetLanguage</tt> parameter. Here's how the rest of the template looks:</p>
+      <blockquote><pre class="code">
+&lt;xsl:for-each select="key('language-index', $targetLanguage)"&gt;
+  &lt;xsl:apply-templates select="ancestor::glentry"/&gt;
+&lt;/xsl:for-each&gt;</pre></blockquote>
+      <p>In this code, we've selected all the values from the <tt class="literal">language-index</tt> key that match the <tt class="literal">targetLanguage</tt> parameter. For each one, we use the <tt class="literal">ancestor</tt> axis to select the <tt class="literal">&lt;glentry&gt;</tt> element. We've already written the templates that process these elements correctly, so we can just reuse them. </p>
+      <p>The final change we make is to select only those <tt class="literal">&lt;defn&gt;</tt> elements whose <tt class="literal">language</tt> attributes match the <tt class="literal">targetLanguage</tt> parameter. We do this with a simple XPath expression:</p>
+      <blockquote><pre class="code">
+&lt;xsl:apply-templates select="defn[@language=$targetLanguage]"/&gt;</pre></blockquote>
+      <p>Here's the complete stylesheet:</p>
+      <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+&lt;xsl:output method="html" indent="yes"/&gt;
+&lt;xsl:strip-space elements="*"/&gt;
+
+  &lt;xsl:key name="language-index" match="defn" use="@language"/&gt;
+
+  &lt;xsl:param name="targetLanguage"/&gt;
+
+  &lt;xsl:template match="/"&gt;
+    &lt;xsl:apply-templates select="glossary"/&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="glossary"&gt;
+    &lt;html&gt;
+      &lt;head&gt;
+        &lt;title&gt;
+          &lt;xsl:text&gt;Glossary Listing: &lt;/xsl:text&gt;
+          &lt;xsl:value-of select="key('language-index', 
+            $targetLanguage)[1]/preceding-sibling::term"/&gt;
+          &lt;xsl:text&gt; - &lt;/xsl:text&gt;
+          &lt;xsl:value-of select="key('language-index', 
+            $targetLanguage)[last()]/preceding-sibling::term"/&gt;
+        &lt;/title&gt;
+      &lt;/head&gt;
+      &lt;body&gt;
+        &lt;h1&gt;
+          &lt;xsl:text&gt;Glossary Listing: &lt;/xsl:text&gt;
+          &lt;xsl:value-of select="key('language-index', 
+            $targetLanguage)[1]/ancestor::glentry/term"/&gt;
+          &lt;xsl:text&gt; - &lt;/xsl:text&gt;
+          &lt;xsl:value-of select="key('language-index', 
+            $targetLanguage)[last()]/ancestor::glentry/term"/&gt;
+        &lt;/h1&gt;
+        &lt;xsl:for-each select="key('language-index', $targetLanguage)"&gt;
+          &lt;xsl:apply-templates select="ancestor::glentry"/&gt;
+        &lt;/xsl:for-each&gt;
+      &lt;/body&gt;
+    &lt;/html&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="glentry"&gt;
+    &lt;p&gt;
+      &lt;b&gt;
+        &lt;a name="{term/@id}"/&gt;
+        &lt;xsl:value-of select="term"/&gt;
+        &lt;xsl:text&gt;: &lt;/xsl:text&gt;
+      &lt;/b&gt;
+      &lt;xsl:apply-templates select="defn[@language=$targetLanguage]"/&gt;
+    &lt;/p&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="defn"&gt;
+    &lt;xsl:apply-templates 
+     select="*|comment()|processing-instruction()|text()"/&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="xref"&gt;
+    &lt;a href="#{@refid}"&gt;
+      &lt;xsl:choose&gt;
+        &lt;xsl:when test="id(@refid)/@xreftext"&gt;
+          &lt;xsl:value-of select="id(@refid)/@xreftext"/&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:otherwise&gt;
+          &lt;xsl:value-of select="id(@refid)"/&gt;
+        &lt;/xsl:otherwise&gt;
+
+      &lt;/xsl:choose&gt;
+    &lt;/a&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="seealso"&gt;
+    &lt;b&gt;
+      &lt;xsl:text&gt;See also: &lt;/xsl:text&gt;
+    &lt;/b&gt;
+    &lt;xsl:for-each select="id(@refids)"&gt;
+      &lt;a href="#{@id}"&gt;
+        &lt;xsl:choose&gt;
+          &lt;xsl:when test="@xreftext"&gt;
+            &lt;xsl:value-of select="@xreftext"/&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:otherwise&gt;
+            &lt;xsl:value-of select="."/&gt;
+          &lt;/xsl:otherwise&gt;
+        &lt;/xsl:choose&gt;
+      &lt;/a&gt;
+      &lt;xsl:if test="not(position()=last())"&gt;
+        &lt;xsl:text&gt;, &lt;/xsl:text&gt;
+      &lt;/xsl:if&gt;
+    &lt;/xsl:for-each&gt;
+    &lt;xsl:text&gt;.  &lt;/xsl:text&gt;
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+      <p>Given our sample document and a <tt class="literal">targetLanguage</tt> of <tt class="literal">en</tt>, we get these results:</p>
+      <blockquote><pre class="code">
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;Glossary Listing: applet - wildcard character&lt;/title&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;h1&gt;Glossary Listing: applet - wildcard character&lt;/h1&gt;
+    &lt;p&gt;
+      &lt;b&gt;&lt;a name="applet"&gt;&lt;/a&gt;applet: &lt;/b&gt;
+      An application program,
+      written in the Java programming language, that can be 
+      retrieved from a web server and executed by a web browser. 
+      A reference to an applet appears in the markup for a web 
+      page, in the same way that a reference to a graphics
+      file appears; a browser retrieves an applet in the same 
+      way that it retrieves a graphics file. 
+      For security reasons, an applet's access rights are limited
+      in two ways: the applet cannot access the file system of the 
+      client upon which it is executing, and the applet's 
+      communication across the network is limited to the server 
+      from which it was downloaded. 
+      Contrast with &lt;a href="#servlet"&gt;servlet&lt;/a&gt;.
+      ...</pre></blockquote>
+
+      <p>Changing the <tt class="literal">targetLanguage</tt> to <tt class="literal">it</tt>, the results are now different:</p>
+      <blockquote><pre class="code">
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;Glossary Listing: applet - servlet&lt;/title&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;h1&gt;Glossary Listing: applet - servlet&lt;/h1&gt;
+    &lt;p&gt;
+      &lt;b&gt;&lt;a name="applet"&gt;&lt;/a&gt;applet: &lt;/b&gt;
+      [Pretend this is an Italian definition of applet.]
+    &lt;/p&gt;
+    &lt;p&gt;
+      &lt;b&gt;&lt;a name="DMZlong"&gt;&lt;/a&gt;demilitarized 
+      zone (DMZ): &lt;/b&gt;
+      [Pretend this is an Italian definition of DMZ.]
+    &lt;/p&gt;
+    &lt;p&gt;
+      &lt;b&gt;&lt;a name="servlet"&gt;&lt;/a&gt;servlet: &lt;/b&gt;
+      [Pretend this is an Italian definition of servlet.]
+    &lt;/p&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</pre></blockquote>
+      <p>With this stylesheet, we have a way to create a useful subset of our glossary. Notice that we're still using our original technique of <tt class="literal">ID</tt>, <tt class="literal">IDREF</tt>, and <tt class="literal">IDREFS</tt> to process the <tt class="literal">&lt;xref&gt;</tt> and <tt class="literal">&lt;seealso&gt;</tt> elements. If you want, you could redefine the processing to use the <tt class="literal">key()</tt> function instead. Here's how you'd define a <tt class="literal">key()</tt> function to mimic our earlier use of <tt class="literal">ID</tt> and <tt class="literal">IDREF</tt>:</p>
+      <blockquote><pre class="code">
+&lt;xsl:template match="xref"&gt;
+  &lt;a href="#{@refid}"&gt;
+    &lt;xsl:choose&gt;
+      &lt;xsl:when test="key('term-ids', @refid)[1]/@xreftext"&gt;
+        &lt;xsl:value-of select="key('term-ids', @refid)[1]/@xreftext"/&gt;
+      &lt;/xsl:when&gt;
+      &lt;xsl:otherwise&gt;
+        &lt;xsl:value-of select="key('term-ids', @refid)[1]"/&gt;
+      &lt;/xsl:otherwise&gt;
+    &lt;/xsl:choose&gt;
+  &lt;/a&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+      <p>As an exercise for the reader, you can modify this stylesheet so that it lists only definitions that apply to a particular topic, or only terms that are acronyms. </p>
+      
+
+<div class="sect3">
+        <h3 class="sect3">5.2.3.1. The key() function and the IDREFS datatype</h3>
+        <p>
+<a name="INDEX-453" />
+<a name="INDEX-454" />
+
+For all its flexibility, the <tt class="literal">key()</tt> function doesn't support anything like the <tt class="literal">IDREFS</tt> datatype. We can try to use the <tt class="literal">key()</tt> function the same way we used <tt class="literal">id()</tt>:</p>
+        <blockquote><pre class="code">
+&lt;xsl:template match="seealso"&gt;
+  &lt;b&gt;
+    &lt;xsl:text&gt;See also: &lt;/xsl:text&gt;
+  &lt;/b&gt;
+  &lt;xsl:for-each select="key('term-ids', @refids)"&gt;
+    &lt;a&gt;
+  ...</pre></blockquote>
+        <p>But the <tt class="literal">&lt;xsl:for-each&gt;</tt> doesn't have anything to work with. That's because the key value we're looking for is <tt class="literal">"wildcard-char DMZlong pattern-matching"</tt>. When we were dealing with the <tt class="literal">id()</tt> function, this string was broken into three tokens because anything with a datatype of <tt class="literal">ID</tt> can't contain a space. With the <tt class="literal">key()</tt> function, we can search on anything, including the contents of an element. (See <a href="ch05_03.htm#xslt-CHP-5-SECT-3">Section 5.3, "Generating Links in Unstructured Documents"</a> for an example of this.)  For this reason, our call to the <tt class="literal">key()</tt> function asking for all the <tt class="literal">&lt;term&gt;</tt> elements with an <tt class="literal">id</tt> attribute equal to <tt class="literal">"wildcard-char DMZlong pattern-matching"</tt> returns nothing. Any attribute with a datatype of <tt class="literal">ID</tt> can't contain spaces, so we get no results. </p>
+        <p>There are several ways to deal with this problem; we'll go through our choices next.</p>
+      </div>
+      <div class="sect3">
+        <h3 class="sect3">5.2.3.2. Solution #1: Replace the IDREFS datatype</h3>
+        <p>
+<a name="INDEX-455" />
+
+If you consider this a problem and refuse to use the <tt class="literal">id()</tt> function, there are several approaches you can take. The most drastic (but probably the simplest to implement) is to not use the <tt class="literal">IDREFS</tt> datatype at all. You could change the <tt class="literal">&lt;seealso&gt;</tt> element so that it contains a list of references to other elements:</p>
+        <blockquote><pre class="code">
+&lt;seealso&gt;
+  &lt;item refid="wildcard-character"/&gt;
+  &lt;item refid="DMZlong"/&gt;
+  &lt;item refid="pattern-matching"/&gt;
+&lt;/seealso&gt;</pre></blockquote>  
+        <p>This approach has the advantage that we can use the value of all the <tt class="literal">refid</tt> attributes of all <tt class="literal">&lt;item&gt;</tt> elements with the <tt class="literal">key()</tt> function. That means we can search on anything, not just values of attributes. The disadvantage, of course, is that we had to change the structure of our XML document to make this approach work. If you have control of the structure of your XML document, that's possible; it's entirely likely, of course, that you can't change the XML document at all. A variation on this approach would be to use a stylesheet to transform the <tt class="literal">IDREFS</tt> datatype into the previous structure.</p>
+      </div>
+      <div class="sect3">
+        <h3 class="sect3">5.2.3.3. Solution #2: Use the XPath contains() function</h3>
+        <p>
+<a name="INDEX-456" />
+<a name="INDEX-457" />
+
+
+A second approach is to leave the structure of the XML document unchanged, then use the XPath <tt class="literal">contains()</tt> function to find all <tt class="literal">&lt;term&gt;</tt> elements whose <tt class="literal">id</tt> attributes are contained in the value of the <tt class="literal">refids</tt> attribute of the <tt class="literal">&lt;seealso&gt;</tt> element. Here's how that would work:</p>
+        <blockquote><pre class="code">
+&lt;xsl:template match="seealso"&gt;
+  &lt;b&gt;
+    &lt;xsl:text&gt;See also: &lt;/xsl:text&gt;
+  &lt;/b&gt;
+  &lt;xsl:variable name="id_list" select="@refids"/&gt;
+  &lt;xsl:for-each select="//term"&gt;
+    &lt;xsl:if test="contains($id_list, @id)"&gt;
+      &lt;a href="#{@id}"&gt;
+        &lt;xsl:choose&gt;
+          &lt;xsl:when test="@xreftext"&gt;
+            &lt;xsl:value-of select="@xreftext"/&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:otherwise&gt;
+            &lt;xsl:value-of select="."/&gt;
+          &lt;/xsl:otherwise&gt;
+        &lt;/xsl:choose&gt;
+      &lt;/a&gt;
+      &lt;xsl:if test="not(position()=last())"&gt;
+        &lt;xsl:text&gt;, &lt;/xsl:text&gt;
+      &lt;/xsl:if&gt;
+    &lt;/xsl:if&gt;
+  &lt;/xsl:for-each&gt;
+  &lt;xsl:text&gt;.  &lt;/xsl:text&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+        <p>We've done a couple of things here:  First, we've saved the value of the <tt class="literal">refids</tt> attribute of the <tt class="literal">&lt;seealso&gt;</tt> element in the variable <tt class="literal">id_list</tt>. That's because we can't access it within the <tt class="literal">&lt;for-each&gt;</tt> element. We can find a given <tt class="literal">&lt;seealso&gt;</tt> element from within a given <tt class="literal">&lt;term&gt;</tt> element, but it's too difficult to find that element generically from every <tt class="literal">&lt;term&gt;</tt> element. The simplest way to find the element is to save the value in a variable.</p>
+        <p>Second, we look at all of the <tt class="literal">&lt;term&gt;</tt> elements in the document. For each one, if our variable (containing the <tt class="literal">refids</tt> attribute of the <tt class="literal">&lt;seealso&gt;</tt> element) contains the value of the current <tt class="literal">&lt;term&gt;</tt> element's <tt class="literal">id</tt> attribute, then we process that <tt class="literal">&lt;term&gt;</tt> element.</p>
+
+        <p>Here are the results our stylesheet generates:</p>
+        <blockquote><pre class="code">
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;Glossary Listing: applet - wildcard character&lt;/title&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;h1&gt;Glossary Listing: applet - wildcard character&lt;/h1&gt;
+    &lt;p&gt;
+      &lt;b&gt;&lt;a name="applet"&gt;&lt;/a&gt;applet: &lt;/b&gt;
+      An application program,
+      written in the Java programming language, that can be
+      retrieved from a web server and executed by a web browser.
+      A reference to an applet appears in the markup for a web
+      page, in the same way that a reference to a graphics
+      file appears; a browser retrieves an applet in the same
+      way that it retrieves a graphics file.
+      For security reasons, an applet's access rights are limited
+      in two ways: the applet cannot access the file system of the
+      client upon which it is executing, and the applet's
+      communication across the network is limited to the server
+      from which it was downloaded.
+      Contrast with &lt;a href="#servlet"&gt;servlet&lt;/a&gt;.
+      &lt;b&gt;See also: &lt;/b&gt;&lt;a 
+      href="#DMZlong"&gt;demilitarized zone&lt;/a&gt;, &lt;a href="#DMZ"&gt;
+      DMZ&lt;/a&gt;, &lt;a href="#pattern-matching"&gt;pattern-matching 
+      character&lt;/a&gt;, &lt;a href="#wildcard-char"&gt;wildcard 
+      character&lt;/a&gt;. 
+    &lt;/p&gt;
+      ...</pre></blockquote>
+        <p>There are a couple of problems here. The most mundane is that in our stylesheet, we don't know how many <tt class="literal">&lt;term&gt;</tt> elements have <tt class="literal">id</tt> attributes contained in our variable. That means it's difficult to insert commas correctly between the matching <tt class="literal">&lt;term&gt;</tt>s. In the output here, we were lucky that the last match was in fact the last term, so the results here are correct. For any <tt class="literal">&lt;seealso&gt;</tt> element whose <tt class="literal">refid</tt> attribute doesn't contain the <tt class="literal">id</tt> attribute of the last <tt class="literal">&lt;term&gt;</tt> element in the document, this stylesheet won't work. </p>
+        <p>The more serious problem is that one of the matches is, in fact, wrong. If you look closely at the output, we get a match for the term <tt class="literal">DMZ</tt>, even though there isn't an exact match for its <tt class="literal">id</tt> in our variable. That's because the XPath <tt class="literal">contains()</tt> function says (correctly) that the value <tt class="literal">DMZlong</tt> contains the <tt class="literal">id</tt>s <tt class="literal">DMZlong</tt> and <tt class="literal">DMZ</tt>.</p>
+        <p>So our second attempt at solving this problem doesn't require us to change the structure of the XML document, but in this case, we have to change some of our <tt class="literal">ID</tt>s so that the problem we just mentioned doesn't occur. That's probably going to be a maintenance nightmare and a serious drawback to this approach.
+<a name="INDEX-458" />
+<a name="INDEX-459" />
+
+</p>
+      </div>
+      <div class="sect3">
+        <h3 class="sect3">5.2.3.4. Solution #3: Use recursion to process the IDREFS datatype</h3>
+        <p>
+<a name="INDEX-460" />
+
+Here we use a recursive template to tokenize the <tt class="literal">refids</tt> attribute into individual IDs, then process each one individually. This style of programming takes a while to get used to, but it can be fairly simple. Here's the crux of our stylesheet:</p>
+        <blockquote><pre class="code">
+&lt;xsl:template match="seealso"&gt;
+  &lt;b&gt;
+    &lt;xsl:text&gt;See also: &lt;/xsl:text&gt;
+  &lt;/b&gt;
+  &lt;xsl:call-template name="resolveIDREFS"&gt;
+    &lt;xsl:with-param name="stringToTokenize" select="@refids"/&gt;
+  &lt;/xsl:call-template&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template name="resolveIDREFS"&gt;
+  &lt;xsl:param name="stringToTokenize"/&gt;
+  &lt;xsl:variable name="normalizedString"&gt;
+    &lt;xsl:value-of 
+      select="concat(normalize-space($stringToTokenize), ' ')"/&gt;
+  &lt;/xsl:variable&gt;
+  &lt;xsl:choose&gt;
+    &lt;xsl:when test="$normalizedString!=' '"&gt;
+      &lt;xsl:variable name="firstOfString" 
+        select="substring-before($normalizedString, ' ')"/&gt;
+      &lt;xsl:variable name="restOfString" 
+        select="substring-after($normalizedString, ' ')"/&gt;
+      &lt;a href="#{$firstOfString}"&gt;
+        &lt;xsl:choose&gt;
+          &lt;xsl:when 
+            test="key('term-ids', $firstOfString)[1]/@xreftext"&gt;
+            &lt;xsl:value-of 
+              select="key('term-ids', $firstOfString)[1]/@xreftext"/&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:otherwise&gt;
+            &lt;xsl:value-of 
+              select="key('term-ids', $firstOfString)[1]"/&gt;
+          &lt;/xsl:otherwise&gt;
+        &lt;/xsl:choose&gt;
+      &lt;/a&gt;
+      &lt;xsl:if test="$restOfString!=''"&gt;
+        &lt;xsl:text&gt;, &lt;/xsl:text&gt;
+      &lt;/xsl:if&gt;
+      &lt;xsl:call-template name="resolveIDREFS"&gt;
+        &lt;xsl:with-param name="stringToTokenize" 
+          select="$restOfString"/&gt;
+      &lt;/xsl:call-template&gt;
+    &lt;/xsl:when&gt;
+    &lt;xsl:otherwise&gt;
+      &lt;xsl:text&gt;.&lt;/xsl:text&gt;
+    &lt;/xsl:otherwise&gt;
+  &lt;/xsl:choose&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+        <p>
+<a name="INDEX-461" />
+
+The first thing we did was invoke the named template <tt class="literal">resolveIDREFS</tt> in the template for the <tt class="literal">&lt;seealso&gt;</tt> element. While invoking the template, we pass in the value of the <tt class="literal">refids</tt> attribute and let recursion work its magic.</p>
+        <p>The <tt class="literal">resolveIDREFS</tt> template works like this:</p>
+        <ul>
+          <li>
+            <p>Break the string into two parts: the first ID and the rest of the string. If there is no first ID (i.e., the string contains only whitespace), we're done.</p>
+          </li>
+          <li>
+            <p>Resolve the cross-reference for the first ID.</p>
+          </li>
+          <li>
+            <p>Invoke the template with the rest of the string.</p>
+          </li>
+        </ul>
+        <p>
+<a name="INDEX-462" />
+<a name="INDEX-463" />
+
+One technique in particular is worth mentioning here: the way we handled whitespace in the attribute value. We pass the string we want to tokenize as a parameter to the template, but we need to normalize the whitespace. We use two XPath functions to do this: <tt class="literal">normalize-space()</tt> and <tt class="literal">concat()</tt>. The call looks like this:
+<a name="INDEX-464" />
+<a name="INDEX-465" />
+
+</p>
+        <blockquote><pre class="code">
+&lt;xsl:template name="resolveIDREFS"&gt;
+  &lt;xsl:param name="stringToTokenize"/&gt;
+  &lt;xsl:variable name="normalizedString"&gt;
+    &lt;xsl:value-of 
+      select="concat(normalize-space($stringToTokenize), ' ')"/&gt;
+  &lt;/xsl:variable&gt;</pre></blockquote>
+        <p>The <tt class="literal">normalize-space()</tt> function removes all leading and trailing whitespace from a string and replaces internal whitespace characters with a single space. Remember that whitespace inside an attribute isn't significant; our <tt class="literal">&lt;seealso&gt;</tt> element could be written like this:</p>
+        <blockquote><pre class="code">
+  &lt;seealso refids="  wildcard-char 
+
+
+
+
+
+DMZlong 
+pattern-matching       "/&gt;</pre></blockquote>
+        <p>
+<a name="INDEX-466" />
+
+When we pass this attribute to <tt class="literal">normalizeSpace()</tt>, the returned value is <tt class="literal">wildcard-char DMZlong pattern-matching</tt>. All whitespace at the start and end of the value has been removed and all the whitespace between characters has been replaced with a single space. </p>
+        <p>
+<a name="INDEX-467" />
+<a name="INDEX-468" />
+<a name="INDEX-469" />
+
+
+Because we're using the <tt class="literal">substring-before()</tt> and <tt class="literal">substring-after()</tt> functions to find the first token and the rest of the string, it's important that there be at least one space in the string. (It's possible, of course, that an <tt class="literal">IDREFS</tt> attribute contains only one <tt class="literal">ID</tt>.)  We use the <tt class="literal">concat()</tt> function to add a space to the end of the string. When the string contains only that space, we know we're done. </p>
+        <p>Although this approach is more tedious, it does everything we need it to do. We don't have to change our XML document, and we correctly resolve all the <tt class="literal">ID</tt>s in the <tt class="literal">IDREFS</tt> datatype.
+<a name="INDEX-470" />
+
+</p>
+      </div>
+      <div class="sect3">
+        <h3 class="sect3">5.2.3.5. Solution #4: Use an extension function</h3>
+        <p>
+<a name="INDEX-471" />
+<a name="INDEX-472" />
+
+The final approach is to write an extension function that tokenizes the <tt class="literal">refids</tt> attribute and returns a node-set containing all <tt class="literal">id</tt> values we need to search for. Xalan ships with an extension that does just that. We invoke the extension function on the value of the <tt class="literal">refids</tt> attribute, then use a <tt class="literal">&lt;xsl:for-each&gt;</tt> element to process all items in the node-set. We'll cover extension functions in <a href="ch08_01.htm">Chapter 8, "Extending XSLT"</a>, but for now, here's what the stylesheet looks like:</p>
+        <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:java="http://xml.apache.org/xslt/java"
+  exclude-result-prefixes="java"&gt;
+
+&lt;xsl:output method="html" indent="yes"/&gt;
+&lt;xsl:strip-space elements="*"/&gt;
+
+  &lt;xsl:key name="term-ids" match="term" use="@id"/&gt;
+
+  &lt;xsl:template match="/"&gt;
+    &lt;xsl:apply-templates select="glossary"/&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="glossary"&gt;
+    &lt;html&gt;
+      &lt;head&gt;
+        &lt;title&gt;
+          &lt;xsl:text&gt;Glossary Listing: &lt;/xsl:text&gt;
+          &lt;xsl:value-of select="glentry[1]/term"/&gt;
+          &lt;xsl:text&gt; - &lt;/xsl:text&gt;
+          &lt;xsl:value-of select="glentry[last()]/term"/&gt;
+        &lt;/title&gt;
+      &lt;/head&gt;
+      &lt;body&gt;
+        &lt;h1&gt;
+          &lt;xsl:text&gt;Glossary Listing: &lt;/xsl:text&gt;
+          &lt;xsl:value-of select="glentry[1]/term"/&gt;
+          &lt;xsl:text&gt; - &lt;/xsl:text&gt;
+          &lt;xsl:value-of select="glentry[last()]/term"/&gt;
+        &lt;/h1&gt;
+        &lt;xsl:apply-templates select="glentry"/&gt;
+      &lt;/body&gt;
+    &lt;/html&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="glentry"&gt;
+    &lt;p&gt;
+      &lt;b&gt;
+        &lt;a name="{term/@id}"/&gt;
+        &lt;xsl:value-of select="term"/&gt;
+        &lt;xsl:text&gt;: &lt;/xsl:text&gt;
+      &lt;/b&gt;
+      &lt;xsl:apply-templates select="defn"/&gt;
+    &lt;/p&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="defn"&gt;
+    &lt;xsl:apply-templates 
+     select="*|comment()|processing-instruction()|text()"/&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="xref"&gt;
+    &lt;a href="#{@refid}"&gt;
+      &lt;xsl:choose&gt;
+        &lt;xsl:when test="key('term-ids', @refid)[1]/@xreftext"&gt;
+          &lt;xsl:value-of select="key('term-ids', @refid)[1]/@xreftext"/&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:otherwise&gt;
+          &lt;xsl:value-of select="key('term-ids', @refid)[1]"/&gt;
+        &lt;/xsl:otherwise&gt;
+      &lt;/xsl:choose&gt;
+    &lt;/a&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="seealso"&gt;
+    &lt;b&gt;
+      &lt;xsl:text&gt;See also: &lt;/xsl:text&gt;
+    &lt;/b&gt;
+    &lt;xsl:for-each 
+      select="java:org.apache.xalan.lib.Extensions.tokenize(@refids)"&gt;
+      &lt;a href="{key('term-ids', .)/@id}"&gt;
+        &lt;xsl:choose&gt;
+          &lt;xsl:when test="key('term-ids', .)/@xreftext"&gt;
+            &lt;xsl:value-of select="key('term-ids', .)/@xreftext"/&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:otherwise&gt;
+            &lt;xsl:value-of select="key('term-ids', .)"/&gt;
+          &lt;/xsl:otherwise&gt;
+        &lt;/xsl:choose&gt;
+      &lt;/a&gt;
+      &lt;xsl:if test="not(position()=last())"&gt;
+        &lt;xsl:text&gt;, &lt;/xsl:text&gt;
+      &lt;/xsl:if&gt;
+    &lt;/xsl:for-each&gt;
+    &lt;xsl:text&gt;.&lt;/xsl:text&gt;
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+        <p>In this case, the <tt class="literal">tokenize</tt> function (defined in the Java class <tt class="literal">org.apache.xalan.lib.Extensions</tt>) takes a string as input, then converts the string into a node-set in which each token in the original string becomes a node. </p>
+        <p>
+<a name="INDEX-473" />
+
+Be aware that using extension functions limits the portability of your stylesheets. The extension function here does what we want, but we couldn't use this extension function with Saxon, XT, or the XSLT tools from Oracle or Microsoft. They may or may not supply similar functions, and if they do, you'll have to modify your stylesheet slightly to use them. If it's important to you that you be able to switch XSLT processors at some point in the future, using extensions will limit your ability to do that. </p>
+      </div>
+      <p>
+<a name="INDEX-474" />
+
+Hopefully at this point you're convinced of at least one of the following two things:</p>
+      <ul>
+        <li>
+          <p>If you have an attribute with a datatype of <tt class="literal">IDREFS</tt>, you should use the <tt class="literal">id()</tt> function to resolve cross-references.</p>
+        </li>
+        <li>
+          <p>The <tt class="literal">IDREFS</tt> datatype is pretty limited, so you should avoid using it.
+<a name="INDEX-475" />
+<a name="INDEX-476" />
+<a name="INDEX-477" />
+<a name="INDEX-478" />
+<a name="INDEX-479" />
+
+
+</p>
+        </li>
+      </ul>
+    </div>
+    <div class="sect2">
+      <h3 class="sect2">5.2.4. Advantages of the key() Function</h3>
+      <p>
+<a name="INDEX-480" />
+
+Now that we've taken the <tt class="literal">key()</tt> function through its paces, you can see that it has several advantages:</p>
+      <ul>
+        <li>
+          <p>The <tt class="literal">key()</tt> function is defined in a stylesheet. That means I can define any number of relationships between parts of an XML document at any time. If I need to define a new relationship tomorrow, I don't have to change my XML documents.</p>
+        </li>
+        <li>
+          <p>Any number of <tt class="literal">key()</tt> functions can be defined for a given element. In our glossary example, we could define <tt class="literal">key()</tt> functions for the values of the <tt class="literal">language</tt>, <tt class="literal">topic</tt>, and <tt class="literal">acronym</tt> attributes. We could also create <tt class="literal">key()</tt> functions based on the text of various elements or their children. If we used <tt class="literal">ID</tt>s instead of the <tt class="literal">key()</tt> function, we would be limited to a single index based on the value of the single attribute of the <tt class="literal">ID</tt> datatype.</p>
+          <p>To sum up the advantages for this point, an element can have more than one <tt class="literal">key()</tt> defined against it, and that key doesn't have to be based on an attribute. The key can be based on the element's text, the text of child elements, or other constructs.</p>
+        </li>
+        <li>
+          <p>Any number of elements can match a given value. Taking another look at our glossary example, when we use the <tt class="literal">key()</tt> function to find all <tt class="literal">&lt;defn&gt;</tt> elements that are written in a particular language, the function returns a node-set that can have any number of nodes. If we use an <tt class="literal">ID</tt> instead, legally there can be only one element that matches a given <tt class="literal">ID</tt> value. </p>
+        </li>
+        <li>
+          <p>The value we use to look up elements in the key function isn't constrained to be an XML name. If we use the <tt class="literal">ID</tt> datatype, its value can't contain spaces, among other constraints.
+<a name="INDEX-481" />
+<a name="INDEX-482" />
+<a name="INDEX-483" />
+</p>
+        </li>
+      </ul>
+    </div>
+  
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch05_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">5. Creating Links and Cross-References</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">5.3. Generating Links in Unstructured Documents</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

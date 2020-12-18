@@ -1,0 +1,1522 @@
+<?label 21.2. 
+DBI.pm API?><html><head><title>
+DBI.pm API (MySQL &amp; mSQL)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Randy Jay Yarger, George Reese and Tim King" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924347L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="MySQL &amp; mSQL" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="MySQL and mSQL" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch21_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">MySQL &amp; mSQL</a></td><td width="172" valign="top" align="right"><a href="ch21_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<a name="INDEX-1945" /><h2 class="sect1">21.2. 
+DBI.pm API</h2>
+
+
+
+
+
+<p>The DBI API is the standard database API in Perl. So while MsqPerl
+and MysqlPerl may be more common in legacy code, all new code should
+be written with DBI.</p>
+
+
+
+
+
+<a name="INDEX-1946" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>use</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>use DBI;
+    This must be declared in every Perl program that uses the DBI module.</pre></td><td align="right" /></tr></table></div>
+
+<a name="INDEX-1947" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::available_drivers</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>@available_drivers = DBI-&gt;available_drivers;
+@available_drivers = DBI-&gt;available_drivers($quiet);</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::available_drivers</tt> returns a list of the
+available DBD drivers. The function does this by searching the Perl
+distribution for DBD modules. Unless a true value is passed as the
+argument, the function will print a warning if two DBD modules of the
+same name are found in the distribution. In the current Msql-Mysql
+modules distribution, the driver for mSQL is named `mSQL'
+and the driver for MySQL is named `mysql'.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+
+my @drivers = DBI-&gt;available_drivers;
+print "All of these drivers are available:\n" . join("\n",@drivers) .
+				"\nBut we're only interested in mSQL and mysql. :)\n";</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1948" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr>
+<td align="left"><font size="+1"><b><i>DBI::bind_col</i></b></font></td>
+<td align="right"><i /></td></tr></table>
+<hr color="black" align="left" noshade="true" size="3" width="515" />
+<table cellpadding="5" border="0" width="515"><tr><td align="left">
+<pre>$result = $statement_handle-&gt;bind_col($col_num, \$col_variable, \%unused);
+</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::bind_col</tt> binds a column of a
+<tt class="literal">SELECT</tt> statement with a Perl variable. Every time
+that column is accessed or modified, the value of the corresponding
+variable changes to match. The first argument is the number of the
+column in the statement, where the first column is number 1. The
+second argument is a reference to the Perl variable to bind to the
+column. The optional third argument is a reference to a hash of
+attributes. This is unused in DBD::mysql and DBD::mSQL. The function
+returns an undefined value <tt class="literal">undef</tt> if the binding
+fails for some reason.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('DBI:mSQL:mydata',undef,undef);
+my $query = "SELECT name, date FROM myothertable";
+my $myothertable_output = $db-&gt;prepare($query);
+
+my ($name, $date);
+$myothertable_output-&gt;bind_col(1,\$name,undef);
+$myothertable_output-&gt;bind_col(2,\$date,undef);
+# $name and $date are now bound to their corresponding fields in the outout.
+
+$myothertable_output-&gt;execute;
+while ($myothertable_output-&gt;fetch) {
+       # $name and $date are automatically changed each time.
+				print "Name: $name Date: $date\n";
+}</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1949" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::bind_columns</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$result = $statement_handle-&gt;bind_columns(\%unused, @list_of_refs_to_vars);
+</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::bind_columns</tt> binds an entire list of scalar
+references to the corresponding field values in the output. The first
+argument to the function is a reference to a hash of attributes, as
+in <tt class="literal">DBI::bind_col</tt>. DBD::mSQL and DBD::mysql do not
+use this argument. Each following argument must be a reference to a
+scalar. Optionally, the scalars can be grouped into a
+<tt class="literal">\($var1, $var2)</tt> structure which has the same
+effect. There must be exactly as many scalar references as there are
+fields in the output or the program will die.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('DBI:mSQL:mydata',undef,undef);
+my $query = "SELECT name, date FROM myothertable";
+my $myothertable_output = $db-&gt;prepare($query);
+
+my ($name, $date);
+$myothertable_output-&gt;bind_columns(undef, \($name, $date));
+# $name and $date are now bound to their corresponding fields in the outout.
+
+$myothertable_output-&gt;execute;
+while ($myothertable_output-&gt;fetch) {
+       # $name and $date are automatically changed each time.
+				print "Name: $name Date: $date\n";
+}</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1950" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::bind_param</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$result = $statement_handle-&gt;bind_param($param_number, $bind_value);
+$result = $statement_handle-&gt;bind_param($param_number, $bind_value, $bind_type);
+$result = $statement_handle-&gt;bind_param($param_number, $bind_value, \%bind_type);
+</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::bind_param</tt> substitutes real values for the
+`?' placeholders in statements (see <a href="ch21_02.htm#ch21-36766">Reference 21.22</a>). The first argument is the number
+of the placeholder in the statement. The first placeholder (from left
+to right) is 1. The second argument is the value with which to
+replace the placeholder. An optional third parameter can be supplied
+which determines the type of the value to be substituted. This can be
+supplied as a scalar or as a reference to a hash of the form
+<tt class="literal">{ TYPE =&gt; &amp;DBI::SQL_TYPE }</tt> where
+`<tt class="literal">SQL_TYPE</tt>' is the type of the
+parameter. As of the time of this writing the (undocumented) SQL
+types supported by DBI are <tt class="literal">SQL_CHAR</tt>,
+<tt class="literal">SQL_NUMERIC</tt>, <tt class="literal">SQL_DECIMAL</tt>,
+<tt class="literal">SQL_INTEGER</tt>, <tt class="literal">SQL_SMALLINT</tt>,
+<tt class="literal">SQL_FLOAT</tt>, <tt class="literal">SQL_REAL</tt>,
+<tt class="literal">SQL_DOUBLE,</tt> and <tt class="literal">SQL_VARCHAR</tt>. It
+is not documented how these correspond to the actual types used by
+DBD::mSQL and DBD::Mysql. However, <a href="ch21_02.htm#ch21-12693">Table 21-1</a>
+contains a list of the corresponding types as of the time of this
+writing. The function returns <tt class="literal">undef</tt> if the
+substitution is unsuccessful.</p><a name="ch21-12693" /><h4 class="objtitle">Table 21-1. Example</h4><table border="1">
+
+
+
+
+<tr>
+<th>
+<p><b class="emphasis-bold">DBI</b></p></th>
+<th>
+<p>MSQL</p></th>
+<th>
+<p>MySQL</p></th>
+</tr>
+
+
+
+
+
+
+
+
+
+
+<tr>
+<td>
+<p>SQL_CHAR</p></td>
+<td>
+<p>CHAR_TYPE</p>
+
+
+
+
+
+<p>IDENT_TYPE</p>
+
+
+
+
+
+<p>NULL_TYPE</p>
+
+
+
+
+
+<p>DATE_TYPE</p>
+
+
+
+
+
+<p>MONEY_TYPE</p>
+
+
+
+
+
+<p>TIME_TYPE</p>
+
+
+
+
+
+<p>IDX_TYPE</p>
+
+
+
+
+
+<p>SYSVAR_TYPE</p>
+
+
+
+
+
+<p>ANY_TYPE</p></td>
+<td>
+<p>FIELD_TYPE_CHAR</p>
+
+
+
+
+
+<p>FIELD_TYPE_DATE</p>
+
+
+
+
+
+<p>FIELD_TYPE_DATETIME</p>
+
+
+
+
+
+<p>FIELD_TYPE_NULL</p>
+
+
+
+
+
+<p>FIELD_TYPE_TIMESTAMP</p>
+
+
+
+
+
+<p>FIELD_TYPE_TIME</p></td>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p>SQL_NUMERIC</p></td>
+<td />
+<td>
+<p>FIELD_TYPE_LONG</p>
+
+
+
+
+
+<p>FIELD_TYPE_LONGLONG</p>
+
+
+
+
+
+<p>FIELD_TYPE_SHORT</p></td>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p>SQL_DECIMAL</p></td>
+<td />
+<td>
+<p>FIELD_TYPE_DECIMAL</p></td>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p>SQL_INTEGER</p></td>
+<td>
+<p>INT_TYPE</p></td>
+<td>
+<p>FIELD_TYPE_INT24</p></td>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p>SQL_SMALLINT</p></td>
+<td>
+<p>UINT_TYPE</p></td>
+<td>
+<p>FIELD_TYPE_INT24</p></td>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p>SQL_FLOAT</p></td>
+<td />
+<td>
+<p>FIELD_TYPE_FLOAT</p></td>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p>SQL_REAL</p></td>
+<td>
+<p>REAL_TYPE</p>
+
+
+
+
+
+<p>LAST_REAL_TYPE</p></td>
+<td>
+<p>FIELD_TYPE_DOUBLE</p></td>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p>SQL_DOUBLE</p></td>
+<td />
+<td>
+<p>FIELD_TYPE_DOUBLE</p></td>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p>SQL_VARCHAR</p></td>
+<td>
+<p>TEXT_TYPE</p></td>
+<td>
+<p>FIELD_TYPE_TINY_BLOB</p>
+
+
+
+
+
+<p>FIELD_TYPE_MEDIUM_BLOB</p>
+
+
+
+
+
+<p>FIELD_TYPE_BLOB</p>
+
+
+
+
+
+<p>FIELD_TYPE_LONG_BLOB</p>
+
+
+
+
+
+<p>FIELD_TYPE_VAR_STRING</p>
+
+
+
+
+
+<p>FIELD_TYPE_STRING</p></td>
+</tr>
+
+
+
+
+
+</table>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('DBD:msql:mydata','me','mypass');
+my $statement = $db-&gt;prepare(
+"SELECT name, date FROM myothertable WHERE name like ? OR name like ?");
+
+$statement-&gt;bind_param(1,'J%','SQL_CHAR');
+$statement-&gt;bind_param(2,'%oe%', { TYPE =&gt; &amp;DBI::SQL_CHAR });
+# The statement will now be:
+# SELECT name, date FROM myothertable WHERE name like 'J%' or name like '%oe%'</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1951" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::connect</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$db = DBI-&gt;connect($data_source, $username, $password);
+$db = DBI-&gt;connect($data_source, $username, $password, \%attributes);
+</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::connect</tt> requires at least three arguments,
+with an optional fourth, and returns a handle to the requested
+database. It is through this handle that you perform all of the
+transactions with the database server. The first argument is a data
+source. A list of available data sources can be obtained using
+<tt class="literal">DBI::data_sources</tt>. For mSQL and MySQL the format
+of the data sources is
+'<tt class="literal">DBI:mSQL:$database:$hostname:$port</tt>' and
+'<tt class="literal">DBI:mysql:$database:$hostname:$port</tt>'
+respectively. You may leave the ':$port' extension off to connect to
+the standard port. Also, you may leave the ':$hostname:$port'
+extension off to connect to a server on the local host using a
+Unix-style socket. A database name must be supplied.</p><p>The second and third arguments are the username and password of the
+user connecting to the database. For mSQL, these should both be
+`<tt class="literal">undef</tt>'. If they are
+`<tt class="literal">undef</tt>' for MySQL, the user running
+the program must have permission to access the requested databases.</p><p>The final argument is optional and is a reference to an associative
+array. Using this hash you may preset certain attributes for the
+connection. Currently, the only supported attributes are PrintError,
+RaiseError, and AutoCommit. These can be set to
+for off and some true value for on. The defaults for PrintError and
+AutoCommit are on and the default for RaiseError is off. Because mSQL
+and MySQL both do not currently support transactions, the AutoCommit
+attribute must be set to on (see <a href="ch21_02.htm#ch21-15020">Reference 21.28</a> for
+more details).</p><p>If the connection fails, an undefined value <tt class="literal">undef</tt>
+is returned and the error is placed in
+<tt class="literal">$DBI::errstr</tt>.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+
+my $db1 = DBI-&gt;connect('DBI:mSQL:mydata',undef,undef);
+# $db1 is now connected to the local mSQL server using the database 'mydata'.
+
+my $db2 = DBI-&gt;connect('DBI:mysql:mydata:myserver.com','me','mypassword');
+# $db2 is now connected to the MySQL server on the default port of 
+# 'myserver.com' using the database 'mydata'. The connection was made with
+# the username 'me' and the password 'mypassword'.
+
+My $db3 = DBI-&gt;connect('DBI:mSQL:mydata',undef,undef, {
+				RaiseError =&gt; 1
+});
+# $db3 is now connected the same way as $db1 except the 'RaiseError'
+# attribute has been set to true.</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1952" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::data_sources</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>@data_sources = DBI-&gt;data_sources($dbd_driver);</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::data_sources</tt> takes the name of a DBD module
+as its argument and returns all of the available databases for that
+driver in a format suitable for use as a data source in the
+<tt class="literal">DBI::connect</tt> function. The program will die with
+an error message if an invalid DBD driver name is supplied. In the
+current Msql-Mysql modules distribution, the driver for mSQL is named
+`mSQL' and the driver for MySQL is named
+`mysql'.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+
+my @msql_data_sources = DBI-&gt;data_sources('mSQL');
+my @mysql_data_sources = DBI-&gt;data_sources('mysql');
+# Both DBD::mSQL and DBD::mysql had better be installed or
+# the program will die.
+
+print "mSQL databases:\n" . join("\n",@msql_data_sources) . "\n\n";
+print "MySQL databases:\n" . join("\n",@mysql_data_sources) . "\n\n";</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1953" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::do</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$rows_affected  = $db-&gt;do($statement);
+$rows_affected  = $db-&gt;do($statement, \%unused);
+$rows_affected  = $db-&gt;do($statement, \%unused, @bind_values);</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::do</tt> directly performs a
+non-<tt class="literal">SELECT</tt> SQL statement and returns the number of
+rows affected by the statement. This is faster than a
+<tt class="literal">DBI::prepare/DBI::execute </tt>pair which requires two
+function calls. The first argument is the SQL statement itself. The
+second argument is unused in DBD::mSQL and DBD::mysql, but can hold a
+reference to a hash of attributes for other DBD modules. The final
+argument is an array of values used to replace
+`placeholders,' which are indicated with a
+`?' in the statement. The values of the array are
+substituted for the placeholders from left to right. As an additional
+bonus, <tt class="literal">DBI::do</tt> will automatically quote string
+values before substitution.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('DBI:mSQL:mydata',undef,undef);
+
+my $rows_affected = $db-&gt;do("UPDATE mytable SET name='Joe' WHERE name='Bob'");
+print "$rows_affected Joe's were changed to Bob's\n";
+
+my $rows_affected2 = $db-&gt;do("INSERT INTO mytable (name) VALUES (?)",
+				{}, ("Sheldon's Cycle"));
+# After quoting and substitution, the statement:
+# INSERT INTO mytable (name) VALUES ('Sheldon's Cycle')
+# was sent to the database server.</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1954" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::disconnect</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$result  = $db-&gt;disconnect;</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::disconnect</tt> disconnects the database handle
+from the database server. With mSQL and MySQL, this is largely
+unnecessary because the databases do not support transactions and an
+unexpected disconnect will do no harm. However, databases that do
+support transactions need to be explicitly disconnected. Therefore,
+for portable code you should always call disconnect before exiting
+the program. If there is an error while attempting to disconnect, a
+nonzero value will be returned and the error will be set in
+<tt class="literal">$DBI::errstr</tt>.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db1 = DBI-&gt;connect('DBI:mSQL:mydata',undef,undef);
+my $db2 = DBI-&gt;connect('DBI:mSQL:mydata2',undef,undef);
+...
+$db1-&gt;disconnect;
+# The connection to 'mydata' is now severed. The connection to 'mydata2'
+# is still alive.</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1955" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::dump_results</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$neat_rows = DBI::dump_results($statement_handle);
+$neat_rows = DBI::dump_results($statement_handle, $maxlen);
+$neat_rows = DBI::dump_results($statement_handle, $maxlen, $line_sep);
+$neat_rows = DBI::dump_results($statement_handle, $maxlen, $line_sep, 
+             $field_sep);
+$neat_rows = DBI::dump_results($statement_handle, $maxlen, $line_sep, 
+             $field_sep, $file_handle);</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::dump_results</tt> prints the contents of a
+statement handle in a neat and orderly fashion by calling
+<tt class="literal">DBI::neat_string</tt> on each row of data. This is
+useful for quickly checking the results of queries while you write
+your code. The only required argument is the statement handle to
+print out. If a second argument is present, it is used as the maximum
+length of each field in the table. The default is 35. A third
+argument is the string used to separate each line of data. The
+default is <tt class="literal">\n</tt>. The fourth argument is the string
+used to join the fields in a row. The default is a comma. The final
+argument is a reference to a filehandle glob. The results are printed
+to this filehandle. The default is <tt class="literal">STDOUT</tt>. If the
+statement handle cannot be read, an undefined value <tt class="literal">undef
+</tt>is returned.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('DBI:mSQL:mydata',undef,undef);
+my $query = "SELECT name, date FROM myothertable";
+my $myothertable_output = $db-&gt;prepare($query);
+$myothertable_output-&gt;execute;
+
+print DBI::dump_results($myothertable_output);
+# Print the output in a neat table.
+
+open(MYOTHERTABLE,"&gt;&gt;myothertable");
+print DBI::dump_results($myothertable_output,undef,undef,undef,\*MYOTHERTABLE);
+# Print the output again into the file 'myothertable'.</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1956" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>$DBI::err</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$error_code  = $handle-&gt;err;</pre></td><td align="right" /></tr></table><p><tt class="literal">$DBI::err </tt>returns the error code for the last DBI
+error encountered. This error number corresponds to the error message
+returned from <tt class="literal">$DBI::errstr</tt>. The variable
+<tt class="literal">$DBI::err</tt> performs the same function. This
+function is available from both database and statement handles.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('DBI:mysql:mydata','webuser','super_secret_squirrel');
+
+# There is a parse error in this query...
+my $output = $db-&gt;prepare('SLECT * from mydata');
+$output-&gt;execute;
+
+if (not $output) {
+				print "Error $DBI:err: $DBI:errstr\n";
+}</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1957" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>$DBI::errstr</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$error = $handle-&gt;errstr;</pre></td><td align="right" /></tr></table><p><tt class="literal">$DBI::errstr</tt> returns the error message for the
+last DBI error encountered. The value remains until the next error
+occurs, at which time it is replaced. If no error has occurred during
+your session, the function returns <tt class="literal">undef</tt>. The
+variable <tt class="literal">$DBI::errstr</tt> performs the same function.
+This function is available from both database and statement handles.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">Use DBI;
+my $db = DBI-&gt;connect('DBI:mysql:mydata','webuser','super_secret_squirrel');
+...
+my $error = $db-&gt;errstr;
+warn("This is your most recent DBI error: $error");</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1958" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::execute</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$rows_affected = $statement_handle-&gt;execute;
+$rows_affected = $statement_handle-&gt;execute(@bind_values);</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::execute</tt> executes the SQL statement held in
+the statement handle. For a non-<tt class="literal">SELECT</tt> query, the
+function returns the number of rows affected. The function returns
+`-1' if the number of rows is not known. For a
+<tt class="literal">SELECT</tt> query, some true value is returned upon
+success. If arguments are provided, they are used to fill in any
+placeholders in the statement (see <a href="ch21_02.htm#ch21-36766">Reference 21.22</a>).</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('DBI:mSQL:mydata',undef,undef);
+my $statement_handle = $db-&gt;prepare("SELECT * FROM mytable");
+my $statement_handle2 = $db-&gt;prepare("SELECT name, date FROM myothertable
+   WHERE name like ?");
+
+$statement_handle-&gt;execute;
+# The first statement has now been performed. The values can now be accessed
+# through the statement handle.
+
+$statement_handle-&gt;execute("J%");
+# The second statement has now been executed as the following:
+# SELECT name, date FROM myothertable WHERE name like 'J%'</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1959" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::fetchall_arrayref</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$ref_of_array_of_arrays = $statement_handle-&gt;fetchall_arrayref;</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::fetchall_arrayref</tt> returns all of the
+remaining data in the statement handle as a reference to an array.
+Each row of the array is a reference to another array that contains
+the data in that row. The function returns an undefined value
+<tt class="literal">undef</tt> if there is no data in the statement handle.
+If any previous
+<tt class="literal">DBI::fetchrow_</tt><b class="function">*</b>  functions
+were called on this statement handle,
+<tt class="literal">DBI::fetchall_arrayref</tt> returns all of the data
+after the last
+<tt class="literal">DBI::fetchrow_</tt><b class="function">*</b>  call.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('DBI:mSQL:mydata',undef,undef);
+my $query = "SELECT name, date FROM myothertable";
+my $output = $db-&gt;prepare($query);
+$output-&gt;execute;
+
+my $data = $output-&gt;fetchall_arrayref;
+# $data is not a reference to an array of arrays. The each element of the
+# `master' array is itself an array that contains a row of data.
+
+print "The fourth date in the table is: " . $data-&gt;[3][1] . "\n";
+# data.
+# Element 1 of that array is the date.</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1960" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::fetchrow_array</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>@row_of_data = $statement_handle-&gt;fetchrow;</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::fetchrow</tt> returns the next row of data from a
+statement handle generated by <tt class="literal">DBI::execute</tt>. Each
+successive call to <tt class="literal">DBI::fetchrow</tt> returns the next
+row of data. When there is no more data, the function returns an
+undefined value <tt class="literal">undef</tt>. The elements in the
+resultant array are in the order specified in the original query. If
+the query was of the form <tt class="literal">SELECT</tt> * <tt class="literal">FROM
+</tt>. . ., the elements are ordered in the same sequence as the
+fields were defined in the table.</p>
+<h4 class="refsect1"><b class="function">Example</b> </h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('DBI:mSQL:mydata',undef,undef);
+my $query = "SELECT name, date FROM myothertable WHERE name LIKE 'Bob%'";
+my $myothertable_output = $db-&gt;prepare($query);
+$myothertable_output-&gt;execute;
+
+my ($name, $date);
+
+# This is the first row of data from $myothertable_output.
+($name, $date) = $myothertable_output-&gt;fetchrow_array;
+# This is the next row...
+($name, $date) = $myothertable_output-&gt;fetchrow_array;
+# And the next...
+my @name_and_date = $myothertable_output-&gt;fetchrow_array;
+# etc...</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1961" /><a name="INDEX-1962" /><a name="INDEX-1963" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>
+DBI::fetchrow_arrayref, DBI::fetch</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$array_reference = $statement_handle-&gt;fetchrow_arrayref;
+$array_reference = $statement_handle-&gt;fetch;</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI:: fetchrow_arrayref</tt> and its alias,
+<tt class="literal">DBI::fetch</tt>, work exactly like
+<tt class="literal">DBI::fetchrow_array</tt> except that they return a
+reference to an array instead of an actual array.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('DBI:mSQL:mydata',undef,undef);
+my $query = "SELECT name, date FROM myothertable WHERE name LIKE 'Bob%'";
+my $myothertable_output = $db-&gt;prepare($query);
+$myothertable_output-&gt;execute;
+
+my $name1 = $myothertable_output-&gt;fetch-&gt;[0]
+# This is the 'name' field from the first row of data.
+my $date2 = $myothertable_output-&gt;fetch-&gt;[1]
+# This is the 'date' from from the *second* row of data.
+my ($name3, $date3) = @{$myothertable_output-&gt;fetch};
+# This is the entire third row of data. $myothertable_output-&gt;fetch returns a
+# reference to an array. We can 'cast' this into a real array with the @{}
+# construct.</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1964" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::fetchrow_hashref</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$hash_reference = $statement_handle-&gt;fetchrow_hashref;</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::fetchrow_hashref</tt> works exactly like
+<tt class="literal">DBI::fetchrow_arrayref</tt> except that it returns a
+reference to an associative array instead of a regular array. The
+keys of the hash are the names of the fields and the values are the
+values of that row of data.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('DBI:mSQL:mydata',undef,undef);
+my $query = "SELECT * FROM mytable";
+my $mytable_output = $db-&gt;prepare($query);
+$mytable_output-&gt;execute;
+
+my %row1 = $mytable_ouput-&gt;fetchrow_hashref;
+my @field_names = keys %row1;
+# @field_names now contains the names of all of the fields in the query.
+# This needs to be set only once. All future rows will have the same fields.
+my @row1 = values %row1;</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1965" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::finish</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$result = $statement_handle-&gt;finish;</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::finish</tt> releases all data in the statement
+handle so that the handle may be destroyed or prepared again. Some
+database servers require this in order to free the appropriate
+resources. DBD::mSQL and DBD::mysql do not need this function, but
+for portable code, you should use it after you are done with a
+statement handle. The function returns an undefined value
+<tt class="literal">undef</tt> if the handle cannot be freed.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('DBI:mysql:mydata','me','mypassword');
+my $query = "SELECT * FROM mytable";
+my $mytable_output = $db-&gt;prepare($query);
+$mytable_output-&gt;execute;
+...
+$mytable_output-&gt;finish;
+# You can now reassign $mytable_output or prepare another statement for it.</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1966" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::func</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>
+$handle-&gt;func(@func_arguments, $func_name);
+@dbs = $db-&gt;func("$hostname", '_ListDBs');
+@dbs = $db-&gt;func("$hostname:$port", '_ListDBs');
+@tables = $db-&gt;func('_ListTables');
+$result = $drh-&gt;func( $database, '_CreateDB' );
+$result = $drh-&gt;func( $database, '_DropDB' );
+</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::func</tt> calls specialized nonportable functions
+included with the various DBD drivers. It can be used with either a
+database or a statement handle depending on the purpose of the
+specialized function. If possible, you should use a portable DBI
+equivalent function. When using a specialized function, the function
+arguments are passed as a scalar first followed by the function name.
+DBD::mSQL and DBD::mysql implement the following functions:</p><dl>
+<dt><b><tt class="literal">_ListDBs</tt></b></dt>
+<dd><p>The <tt class="literal">_ListDBs</tt> function takes a hostname and
+optional port number and returns a list of the databases available on
+that server. It is better to use the portable function
+<tt class="literal">DBI::data_sources</tt>.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">_ListTables</tt></b></dt>
+<dd><p>The <tt class="literal">_ListTables</tt> function returns a list of the
+tables present in the current database.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">_CreateDB</tt></b></dt>
+<dd><p>The <tt class="literal">_CreateDB</tt> function takes the name of a
+database as its argument and attempts to create that database on the
+server. You must have permission to create databases for this
+function to work. The function returns -1 on failure and
+on success.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">_DropDB</tt></b></dt>
+<dd><p>The <tt class="literal">_DropDB</tt> function takes the name of a database
+as its argument and attempts to delete that database from the server.
+This function does not prompt the user in any way, and if successful,
+the database will be irrevocably gone forever. You must have
+permission to drop databases for this function to work. The function
+returns -1 on failure and
+on success.</p></dd>
+
+</dl>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('DBI:mysql:mydata','me','mypassword');
+
+my @tables = $db-&gt;func('_ListTables');
+# @tables now has a list of the tables in 'mydata'.</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1967" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::neat</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$neat_string = DBI::neat($string);
+$neat_string = DBI::neat($string, $maxlen);</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::neat</tt> takes as its arguments a string and an
+optional length. The string is then formatted to print out neatly.
+The entire string is enclosed in single quotes. All unprintable
+characters are replaced with periods. If the length argument is
+present, are characters after the maximum length are removed and the
+string is terminated with three periods (<tt class="literal">...</tt>). If
+no length is supplied, 400 is used as the default length.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+
+my $string = "This is a very, very, very long string with lots of stuff in it.";
+my $neat_string = DBI::neat($string,14);
+# $neat_string is now: 'This is a very...</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1968" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::neat_list</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$neat_string = DBI::neat_list(\@listref, $maxlen);
+$neat_string = DBI::neat_list(\@listref, $maxlen, $field_seperator);</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::neat_list</tt> takes three arguments and returns a
+neatly formatted string suitable for printing. The first argument is
+a reference to a list of values to print. The second argument is the
+maximum length of each field. The final argument is a string used to
+join the fields. <tt class="literal">DBI::neat</tt> is called for each
+member of the list using the maximum length given. The resulting
+strings are then joined using the last argument. If the final
+argument is not present, a comma is used as the separator.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+
+my @list = (`Bob', `Joe', `Frank');
+my $neat_string = DBI::neat_list(\@list, 3);
+# $neat_string is now: 'Bob', 'Joe', 'Fra...</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1969" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::prepare</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$statement_handle = $db-&gt;prepare($statement);
+$statement_handle = $db-&gt;prepare($statement, \%unused);</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::prepare</tt> takes as its argument an SQL
+statement, which some database modules put into an internal compiled
+form so that it runs faster when <tt class="literal">DBI::execute </tt>is
+called. These DBD modules (not DBD::mSQL or DBD::mysql) also accept a
+reference to a hash of optional attributes. The mSQL and MySQL server
+do not currently implement the concept of "preparing," so
+<tt class="literal">DBI::prepare</tt> merely stores the statement. You may
+optionally insert any number of `?' symbols into your
+statement in place of data values. These symbols are known as
+"placeholders." The <tt class="literal">DBI::bind_param</tt>
+function is used to substitute the actual values for the
+placeholders. The function returns <tt class="literal">undef</tt> if the
+statement cannot be prepared for some reason.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('DBI:mysql:mydata','me','mypassword');
+
+my $statement_handle = $db-&gt;prepare('SELECT * FROM mytable');
+# This statement is now ready for execution.
+
+My $statement_handle = $db-&gt;prepare(
+'SELECT name, date FROM myothertable WHERE name like ?');
+# This statement will be ready for exececuting once the placeholder is filled
+# in using the DBI::bind_param function.</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1970" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::quote</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$quoted_string = $db-&gt;quote($string);</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::quote</tt> takes a string intended for use in an
+SQL query and returns a copy that is properly quoted for insertion in
+the query. This includes placing the proper outer quotes around the
+string.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db1 = DBI-&gt;connect('DBI:mSQL:mydata',undef,undef);
+my $db2 = DBI-&gt;connect('DBI:mysql:myotherdata','me','mypassword');
+
+my $string = "Sheldon's Cycle";
+
+my $qs1 = $db1-&gt;quote($string);
+# $qs1 is: 'Sheldon\'s Cycle' (including the outer quotes)
+my $qs2 = $db2-&gt;quote($string);
+# $qs2 is: 'Sheldon's Cycle' (including the outer quotes)
+# Both strings are now suitable for use in a statement for their respective
+# database servers.</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1971" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::rows</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$number_of_rows = $statement_handle-&gt;rows;</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::rows</tt> returns the number of rows of data
+contained in the statement handle. With DBD::mSQL and DBD::mysql,
+this function is accurate for all statements, including
+<tt class="literal">SELECT</tt> statements. For many other drivers which do
+not hold of the results in memory at once, this function is only
+reliable for non-<tt class="literal">SELECT</tt> statements. This should be
+taken into account when writing portable code. The function returns
+`-1' if the number of rows is unknown for some reason.
+The variable <tt class="literal">$DBI::rows</tt> provides the same
+functionality.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('DBI:mSQL:mydata',undef,undef);
+my $query = "SELECT name, date FROM myothertable WHERE name='Bob'";
+my $myothertable_output = $db-&gt;prepare($query);
+$myothertable_output-&gt;execute;
+
+my $rows = $myothertable_output-&gt;rows;
+print "There are $rows 'Bob's in 'myothertable'.\n";</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1972" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::state</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$sql_error  = $handle-&gt;state;</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::state</tt> returns the <tt class="literal">SQLSTATE</tt>
+SQL error code for the last error DBI encountered. Currently both
+DBD::mSQL and DBD::mysql report `S1000' for all errors.
+This function is available from both database and statement handles.
+The variable <tt class="literal">$DBI::state</tt> performs the same
+function.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">Use DBI;
+my $db = DBI-&gt;connect('DBI:mysql:mydata','webuser','super_secret_squirrel');
+...
+my $sql_error = $db-&gt;state;
+warn("This is your most recent DBI SQL error: $sql_error");</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1973" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>DBI::trace</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>DBI-&gt;trace($trace_level)
+DBI-&gt;trace($trace_level, $trace_file)
+$handle-&gt;trace($trace_level);
+$handle-&gt;trace($trace_level, $trace_file);</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::trace</tt> is useful mostly for debugging
+purposes. If the trace level is set to 2, full debugging information
+will be displayed. Setting the trace level to
+disables the trace. If <tt class="literal">DBI-&gt;trace</tt> is used,
+tracing is enabled for all handles. If
+<tt class="literal">$handle-&gt;trace</tt> is used, tracing is enabled for
+that handle only. This works for both database and statement handles.
+If a second argument is present for either
+<tt class="literal">DBI-&gt;trace</tt> or
+<tt class="literal">$handle-&gt;trace</tt><b class="function">,</b>  the
+debugging information for all handles is appended to that file. You
+can turn on tracing also by setting the environment variable
+<tt class="literal">DBI_TRACE</tt>. If the environment variable is defined
+as a number (0 or 2, currently) tracing for all handles is enabled at
+that level. With any other definition, the trace level is set to 2
+and the value of the environment variable is used as the filename for
+outputting the trace information.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db1 = DBI-&gt;connect('DBI:mysql:mydata','webuser','super_secret_squirrel');
+my $db2 = DBI-&gt;connect('DBI:mSQL:myotherdata',undef,undef);
+
+DBI-&gt;trace(2);
+# Tracing is now enabled for all handles at level 2.
+$db2-&gt;trace(0);
+# Tracing is now disabled for $db2, but it is still enabled for $db1
+$db1-&gt;trace(2,'DBI.trace');
+# Tracing is now enabled for all handles at level 2, with the output being
+# sent to the file 'DBI.trace'.</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1974" /><a name="INDEX-1975" /><a name="INDEX-1976" /><a name="INDEX-1977" /><a name="INDEX-1978" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>
+
+DBI::commit, DBI::rollback, DBI::ping</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$result = $db-&gt;commit;
+$result = $db-&gt;rollback;
+$result = $db-&gt;ping;</pre></td><td align="right" /></tr></table><p><tt class="literal">DBI::commit</tt> and <tt class="literal">DBI::rollback</tt>
+are useful only with database servers that support transactions. They
+have no effect when used with DBD::mSQL and DBD::mysql.
+<tt class="literal">DBD::ping</tt> attempts to verify if the database
+server is running. It is not implemented and has no effect with
+DBD::mSQL and DBD::mysql.</p></div>
+
+<div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>Attributes</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>$db-&gt;{AutoCommit}
+$handle-&gt;{ChopBlanks}
+$handle-&gt;{CompatMode}
+$handle-&gt;{InactiveDestroy}
+$handle-&gt;{LongReadLen}
+$handle-&gt;{LongTruncOk}
+$handle-&gt;{PrintError}
+$handle-&gt;{RaiseError}
+$handle-&gt;{Warn}
+$statement_handle-&gt;{CursorName}
+$statement_handle-&gt;{insertid} (MySQL only)
+$statement_handle-&gt;{is_blob} (MySQL only)
+$statement_handle-&gt;{is_key} (MySQL only)
+$statement_handle-&gt;{is_not_null}
+$statement_handle-&gt;{is_num}
+$statement_handle-&gt;{is_pri_key} (MySQL and mSQL 1.x only)
+$statement_handle-&gt;{length}
+$statement_handle-&gt;{max_length} (MySQL only)
+$statement_handle-&gt;{NAME}
+$statement_handle-&gt;{NULLABLE}
+$statement_handle-&gt;{NUM_OF_FIELDS}
+$statement_handle-&gt;{NUM_OF_PARAMS}
+$statement_handle-&gt;{table}
+$statement_handle-&gt;{type}</pre></td><td align="right" /></tr></table><p>The DBI.pm API defines several attributes that may be set or read at
+any time. Assigning a value to an attribute that can be set changes
+the behavior of the current connection in some way. Assigning any
+true value to an attribute will set that attribute on. Assigning
+to an attribute sets it off. Some values are defined only for
+particular databases and are not portable. The following are
+attributes that are present for both database and statement handles.</p><dl>
+<dt><b><tt class="literal">$db-&gt;{AutoCommit}</tt></b></dt>
+<dd><p>This attribute affects the behavior of database servers that support
+transactions. For mSQL and MySQL, they must always be set to
+`on' (the default). Attempting to change this will kill
+the program.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$handle-&gt;{ChopBlanks}</tt></b></dt>
+<dd><p>If this attribute is on, any data returned from a query (such as
+<tt class="literal">DBI::fetchrow</tt> call) will have any leading or
+trailing spaces chopped off. Any handles deriving from the current
+handle inherit this attribute. The default for this attribute is
+`off.'</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$handle-&gt;{InactiveDestroy}</tt></b></dt>
+<dd><p>This attribute is designed to enable handles to survive a
+`fork' so that a child can make use of a parent's
+handle. You should enable this attribute in either the parent or the
+child but not both. The default for this attribute is
+`off.'</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$handle-&gt;{PrintError}</tt></b></dt>
+<dd><p>If this attribute is on, all warning messages will be displayed to
+the user. If this attribute is off, the errors are available only
+through <tt class="literal">$DBI::errstr</tt>. Any handles deriving from
+the current handle inherit this attribute. The default for this
+attribute is `on.'</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$handle-&gt;{RaiseError}</tt></b></dt>
+<dd><p>If this attribute is on, any errors will raise an exception in the
+program, killing the program if no
+`<tt class="literal">__DIE__</tt>' handler is defined. Any
+handles deriving from the current handle inherit this attribute. The
+default for this attribute is `off.'</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$handle-&gt;{Warn}</tt></b></dt>
+<dd><p>If this attribute is on, warning messages for certain bad programming
+practices (most notably holdovers from Perl 4) will be displayed.
+Turning this attribute off disables DBI warnings and should be used
+only if you are really confident in your programming skills. Any
+handles deriving from the current handle (such as a statement handle
+resulting from a database handle query) inherit this attribute. The
+default for this attribute is `on.'</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$statement_handle-&gt;{insertid}</tt></b></dt>
+<dd><p>This is a nonportable attribute that is defined only for DBD::mysql.
+The attribute returns the current value of the
+<tt class="literal">auto_increment</tt> field (if there is one) in the
+table. If no <tt class="literal">auto_increment</tt> field exists, the
+attribute returns <tt class="literal">undef</tt>.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$statement_handle-&gt;{is_blob}</tt></b></dt>
+<dd><p>This is a nonportable attribute which is defined only for DBD::mysql.
+The attribute returns a reference to an array of boolean values
+indicating if each of the fields contained in the statement handle is
+of a <tt class="literal">BLOB</tt> type. For a statement handle that was
+not returned by a <tt class="literal">SELECT</tt> statement,
+<tt class="literal">$statement_handle-&gt;{is_blob}</tt> returns
+<tt class="literal">undef</tt>.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$statement_handle-&gt;{is_key}</tt></b></dt>
+<dd><p>This is a nonportable attribute which is defined only for DBD::mysql.
+The attribute returns a reference to an array of boolean values
+indicating if each of the fields contained in the statement handle
+were defined as a <tt class="literal">KEY</tt>. For a statement handle that
+was not returned by a <tt class="literal">SELECT</tt> statement,
+<tt class="literal">$statement_handle-&gt;{is_key}</tt> returns
+<tt class="literal">undef</tt>.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$statement_handle-&gt;{is_not_null}</tt></b></dt>
+<dd><p>This is a nonportable attribute which is
+defined only for DBD::mSQL and DBD::mysql. The attribute returns a
+reference to a list of boolean values indicating if each of the
+fields contained in the statement handle are defined
+`<tt class="literal">NOT</tt> <tt class="literal">NULL</tt>'. For a
+statement handle that was not returned by a <tt class="literal">SELECT</tt>
+statement, <tt class="literal">$statement_handle-&gt;{is_not_null}</tt>
+returns <tt class="literal">undef</tt>. The same effect of this attribute
+can be accomplished in a portable manner by using
+<tt class="literal">$statement_handle-&gt;{NULLABLE}</tt>.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$statement_handle-&gt;{is_num}</tt></b></dt>
+<dd><p>This is a nonportable attribute which is defined only for DBD::mSQL
+and DBD::mysql. The attribute returns a reference to an array of
+boolean values indicating if each of the fields contained in the
+statement handle is a number type. For a statement handle that was
+not returned by a <tt class="literal">SELECT</tt> statement,
+<tt class="literal">$statement_handle-&gt;{is_num}</tt> returns
+<tt class="literal">undef</tt>.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$statement_handle-&gt;{is_pri_key}</tt></b></dt>
+<dd><p>This is a nonportable attribute which is defined only for DBD::mSQL
+and DBD::mysql. When used with DBD::mSQL it has effect only in
+conjunction with mSQL 1.x servers, because mSQL 2.x does not use
+primary keys. The attribute returns a reference to a list of boolean
+values indicating if each of the fields contained in the statement
+handle is a primary key. For a statement handle that was not returned
+by a <tt class="literal">SELECT</tt> statement,
+<tt class="literal">$statement_handle-&gt;{is_pri_key}</tt> returns
+<tt class="literal">undef</tt>.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$statement_handle-&gt;{length}</tt></b></dt>
+<dd><p>This is a nonportable attribute which is defined only for DBD::mysql
+and DBD::mSQL. The attribute returns a reference to a list of the
+maximum possible length of each field contained in the statement
+handle. For a statement handle that was not returned by a
+<tt class="literal">SELECT</tt> statement,
+<tt class="literal">$statement_handle-&gt;{length}</tt> returns
+<tt class="literal">undef</tt>.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$statement_handle-&gt;{max_length}</tt></b></dt>
+<dd><p>This is a nonportable attribute which is defined only for DBD::mysql.
+The attribute returns a reference to a list of the actual maximum
+length of each field contained in the statement handle. For a
+statement handle that was not returned by a <tt class="literal">SELECT</tt>
+statement, <tt class="literal">$statement_handle-&gt;{max_length}</tt>
+returns <tt class="literal">undef</tt>.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$statement_handle-&gt;{NAME}</tt></b></dt>
+<dd><p>This attribute returns a reference to a list of the names of the
+fields contained in the statement handle. For a statement handle that
+was not returned by a <tt class="literal">SELECT</tt> statement,
+<tt class="literal">$statement_handle-&gt;{NAME}</tt> returns
+<tt class="literal">undef</tt>.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$statement_handle-&gt;{NULLABLE}</tt></b></dt>
+<dd><p>This attribute returns a reference to a list of boolean values
+indicating if each of the fields contained in the statement handle
+can have a <tt class="literal">NULL</tt> value. A field defined with
+`<tt class="literal">NOT NULL</tt>' will have a value of
+in the list. All other fields will have a value of 1. For a statement
+handle that was not returned by a <tt class="literal">SELECT</tt>
+statement, <tt class="literal">$statement_handle-&gt;{NULLABLE}</tt>
+returns <tt class="literal">undef</tt>.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$statement_handle-&gt;{NUM_OF_FIELDS}</tt></b></dt>
+<dd><p>This attribute returns the number of columns of data contained in the
+statement handle. For a statement handle that was not returned by a
+<tt class="literal">SELECT</tt> statement,
+<tt class="literal">$statement_handle-&gt;{NUM_OF_FIELDS}</tt> returns 0.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$statement_handle-&gt;{NUM_OF_PARAMS}</tt></b></dt>
+<dd><p>This attribute returns the number of "placeholders" in
+the statement handle. Placeholders are indicated with a
+`?' in the statement. The <tt class="literal">DBI::bind_values
+</tt>function is used to replace the placeholders with the
+proper values.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$statement_handle-&gt;{table}</tt></b></dt>
+<dd><p>This is a nonportable attribute which is defined only for DBD::mSQL
+and DBD::mysql. The attribute returns a reference to a list of the
+names of the tables accessed in the query. This is particularly
+useful in conjunction with a JOINed SELECT that uses multiple tables.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$statement_handle-&gt;{type}</tt></b></dt>
+<dd><p>This is a nonportable attribute which is defined only for DBD::mSQL
+and DBD::mysql. The attribute returns a reference to a list of the
+types of the fields contained in the statement handle. For a
+statement handle that was not returned by a SELECT statement,
+<tt class="literal">$statement_handle-&gt;{max_length}</tt> returns
+<tt class="literal">undef</tt>. The values of this list are integers that
+correspond to an enumeration in the mysql_com.h C header file found
+in the MySQL distribution. There is currently no method to access the
+names of these types from within DBI. But the types are accessible
+via the<tt class="literal"> &amp;Mysql::FIELD_TYPE_*</tt> function in
+Mysql.pm. There is also an undocumented attribute in DBD::mysql
+called <tt class="literal">$statement_handle-&gt;{format_type_name}</tt>
+which is identical to <tt class="literal">$statement_handle-&gt;{type}</tt>
+except that it returns the SQL names of the types instead of
+integers. <em class="emphasis">It should be stressed that this is an
+undocumented attribute and the author of DBD::mysql has stated his
+intention to remove it should DBI implement the same
+functionality</em>.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">$statement_handle-&gt;{CursorName}</tt></b></dt>
+<dt><b><tt class="literal">$handle-&gt;{LongReadLen}</tt></b></dt>
+<dt><b><tt class="literal">$handle-&gt;{LongTruncOk}</tt></b></dt>
+<dt><b><tt class="literal">$handle-&gt;{CompatMode}</tt></b></dt>
+<dd><p>All of these attributes are unsupported in DBD::mSQL and DBD::mysql.
+Assigning to them will do nothing and reading them will return a
+or <tt class="literal">undef</tt>. The exception is
+<tt class="literal">$statement_handle-&gt;{CursorName}</tt>. Currently,
+accessing this attribute in any way will cause the program to die.</p></dd>
+
+</dl>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">use DBI;
+my $db = DBI-&gt;connect('mysql:mydata','me','mypassword');
+
+$db-&gt;{RAISE_ERROR} = 1;
+# Now, any DBI/DBD errors will kill the program.
+
+my $statement_handle = $db-&gt;prepare('SELECT * FROM mytable');
+$statement_handle-&gt;execute;
+
+my @fields = @{$statement_handle-&gt;{NAME}};
+# @fields now contains an array of all of the field names in 'mytable'.</pre></blockquote>
+
+
+
+
+
+
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch21_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch21_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">21. Perl Reference</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">21.3. 
+Msql.pm API</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

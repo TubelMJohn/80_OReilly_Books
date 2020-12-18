@@ -1,0 +1,286 @@
+<html><head><title>Tk::MacProgressBar (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appc_07.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="appc_09.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">C.8. Tk::MacProgressBar</h2>
+
+<p>MacProgressBar is a widget designed to resemble a Macintosh progress
+bar. See <a href="ch15_07.htm#mastperltk-CHP-15-FIG-7">Figure 15-7</a> for a demonstration.
+</p>
+
+<blockquote><pre class="code">$Tk::MacProgressBar::VERSION = '1.0';
+
+package Tk::MacProgressBar;
+
+use base qw/Tk::Frame/;
+use vars qw/$BASE $CAP $H $OTLW $W/;
+use strict;
+
+Construct Tk::Widget 'MacProgressBar';
+
+$OTLW = 1 + 1;			# inner black and outter grey outline width
+$BASE = 2;			# left base segment width
+$CAP = 6;			# right cap width
+$H = 10;			# progress bar height
+
+sub Populate {
+
+    # Create an instance of a MacProgressBar.  Instance variable are:
+    #
+    # {photow} = Photo image width, including base and end cap.
+
+    my($self, $args) = @_;
+
+    $self-&gt;SUPER::Populate($args);
+
+    my $w = $args-&gt;{-width};
+    $w ||= 100;
+    $self-&gt;{photow} = $w = $w + $BASE + $CAP;
+    my $h = 2 * $OTLW + $H;
+
+    # The MacProgressbar Label and its surrounding top/left/right/bottom
+    # Frames, plus an empty Photo for the Label's image.  Pack things nicely.
+
+    my $tf = $self-&gt;Frame;
+    my $lf = $self-&gt;Frame;
+    my $lb = $self-&gt;Label;
+    my $rf = $self-&gt;Frame;
+    my $bf = $self-&gt;Frame;
+
+    my $i = $lb-&gt;Photo(-width =&gt; $w, -height =&gt; $h);
+    $lb-&gt;configure(-image =&gt; $i);
+
+    $tf-&gt;pack(qw/-fill both -expand 1 -side top/);
+    $bf-&gt;pack(qw/-fill both -expand 1 -side bottom/);
+    $lf-&gt;pack(qw/-fill both -expand 1 -side left/);
+    $lb-&gt;pack(qw/-fill both -expand 1 -side left -ipadx 6/);
+    $rf-&gt;pack(qw/-fill both -expand 1 -side left/);
+
+    # Draw the outer and inner image outlines.
+
+    my $left_top_outter = '#adadad';
+    my $right_bottom_outter = '#ffffff';
+
+    $i-&gt;put($left_top_outter,     -to =&gt;      0,      0, $w - 0,      1);
+    $i-&gt;put('#000000',            -to =&gt;      1,      1, $w - 1,      2);
+    $i-&gt;put($left_top_outter,     -to =&gt;      0,      0,      1, $h - 0);
+    $i-&gt;put('#000000',            -to =&gt;      1,      1,      2, $h - 1);
+
+    $i-&gt;put($right_bottom_outter, -to =&gt;      0, $h - 0, $w - 0, $h - 1);
+    $i-&gt;put('#000000',            -to =&gt;      1, $h - 1, $w - 1, $h - 2);
+    $i-&gt;put($right_bottom_outter, -to =&gt; $w - 1, $h - 0, $w - 0,      1);
+    $i-&gt;put('#000000',            -to =&gt; $w - 2, $h - 1, $w - 1,      1);
+
+    # Advertise important user subwidgets. All mega-widget configuration
+    # requests default to the Label. Define a handler that will delete the
+    # MacProgressBar image upon widget destruction.
+
+    $self-&gt;Advertise('tframe' =&gt; $tf);
+    $self-&gt;Advertise('lframe' =&gt; $lf);
+    $self-&gt;Advertise('label'  =&gt; $lb);
+    $self-&gt;Advertise('rframe' =&gt; $rf);
+    $self-&gt;Advertise('bframe' =&gt; $bf);
+
+    $self-&gt;ConfigSpecs(DEFAULT =&gt; [$lb]);
+
+    $self-&gt;OnDestroy([$self =&gt; 'free_photo']);
+
+} # end Populate
+
+sub free_photo {
+
+    # Free the MacProgressBar image.
+
+    $_[0]-&gt;Subwidget('label')-&gt;cget(-image)-&gt;delete;
+
+} # end free_photo
+
+sub set {
+
+    # This is the meat of the MacProgressBar mega-widget, where we
+    # first "blank" the image by filling it with the background color,
+    # then paint the base, a progress bar of the desired width, and
+    # the end cap.
+
+    my($self, $percent) = @_;
+
+    warn "Tk::MacProgressBar: percent ($percent) &gt; 100." if $percent &gt; 100;
+    my $l = $self-&gt;Subwidget('label');
+    return unless defined $l;	# Destroy in progress
+    my $i = $l-&gt;cget(-image);
+    my $w = ( $self-&gt;{photow} - ( $BASE + $CAP ) ) / 100 * $percent;
+    if ($w &gt;= $self-&gt;{photow} - $CAP) {
+        $w = $self-&gt;{photow} - $CAP - 1;
+    }
+    my $h = 2 * $OTLW + $H;
+
+    # Clear image with background color.
+
+    $i-&gt;put('#bdbdbd',
+        -to =&gt; $OTLW + 0, $OTLW + 0, $self-&gt;{photow} - $OTLW, $h - $OTLW);
+
+    # Draw the two-pixel-wide progress bar base.
+  
+    $i-&gt;put('#6363ce', -to =&gt; $OTLW + 0, $OTLW + 0, $OTLW + 1, $h - $OTLW);
+    $i-&gt;put([
+        '#6363ce', '#9c9cff', '#ceceff',
+        '#efefef', '#efefef', '#efefef',
+        '#ceceff', '#9c9cff', '#6363ce', '#31319c',
+    ], -to =&gt; $OTLW + 1, $OTLW + 0, $OTLW + 2, $h - $OTLW);
+
+    # Draw an appropriately wide progress bar.
+
+    $i-&gt;put([
+        '#30319d', '#6563cd', '#9c9cff',
+        '#ceceff', '#f0f0f0', '#ceceff',
+        '#9c9cff', '#6563cd', '#30319d', '#020152',
+    ], -to =&gt; $OTLW + $BASE, $OTLW, $OTLW + $BASE + $w, $h - $OTLW);
+
+    # Draw the six-pixel-wide progress bar end cap.
+
+    my $x = 0;
+    foreach my $pixels (
+          ['#31319c', '#6363ce', '#9c9cff', '#ceceff', '#ceceff',
+           '#ceceff', '#9c9cff', '#6363ce', '#31319c', '#000082'],
+          ['#31319c', '#6363ce', '#31319c', '#31319c', '#31319c',
+           '#31319c', '#31319c', '#31319c', '#31319c', '#000052'],
+          ['#31319c', '#000052', '#000052', '#000052', '#000052',
+           '#000052', '#000052', '#000052', '#000052', '#000052'],
+          ['#000000', '#000000', '#000000', '#000000', '#000000',
+           '#000000', '#000000', '#000000', '#000000', '#000000'],
+          ['#525252', '#525252', '#525252', '#525252', '#525252',
+           '#525252', '#525252', '#525252', '#525252', '#525252'],
+          ['#8c8c8c', '#8c8c8c', '#8c8c8c', '#8c8c8c', '#8c8c8c',
+           '#8c8c8c', '#8c8c8c', '#8c8c8c', '#8c8c8c', '#8c8c8c'],
+        ) {
+	$i-&gt;put($pixels,    
+		-to =&gt; $OTLW + $BASE + $x + $w,          $OTLW,
+		       $OTLW + $BASE + $x + $w + 1, $h - $OTLW);
+	$x++;
+    }
+
+    $self-&gt;update;
+  
+} # end set
+
+1;
+
+__END__
+
+=head1 NAME
+
+Tk::MacProgressBar - a blue, 3-D Macintosh progress bar.
+
+=head1 SYNOPSIS
+
+S&lt;    &gt;I&lt;$pb&gt; = I&lt;$parent&gt;-E&lt;gt&gt;B&lt;MacProgressBar&gt;(I&lt;-option&gt; =E&lt;gt&gt; I&lt;value&gt;);
+
+=head1 DESCRIPTION
+
+This widget provides a dynamic image that looks just like a Mac OS 9
+progress bar.  Packed around it are four Frames, north, south, east and
+west, within which you can stuff additional widgets. For example, see
+how MacCopy uses several Labels and a CollapsableFrame widget to create
+a reasonable facsimile of a Macintosh copy dialog.
+
+The following option/value pairs are supported:
+
+=over 4
+
+=item B&lt;-width&gt;
+
+The maximun width of the MacProgressbar.
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item B&lt;set($percent)&gt;
+
+Sets the width of the progress bar, as a percentage of -width.
+
+=back
+
+=head1 ADVERTISED WIDGETS
+
+Component subwidgets can be accessed via the B&lt;Subwidget&gt; method.
+Valid subwidget names are listed below.
+
+=over 4
+
+=item Name:  label, Class:  Label
+
+  Widget reference of the Label containing the MacProgressBar
+  Photo image.
+
+=item Name:  tframe, Class:  Frame
+
+  Widget reference of the Frame north the MacProgressBar.
+
+=item Name:  bframe, Class:  Frame
+
+  Widget reference of the Frame south the MacProgressBar.
+
+=item Name:  lframe, Class:  Frame
+
+  Widget reference of the Frame west the MacProgressBar.
+
+=item Name:  rframe, Class:  Frame
+
+  Widget reference of the Frame east the MacProgressBar.
+
+=back
+
+=head1 EXAMPLE
+
+ use Tk;
+ use Tk::MacProgressBar;
+ use strict;
+
+ my $mw = MainWindow-&gt;new;
+ my $pb = $mw-&gt;MacProgressBar(-width =&gt; 150, -bg =&gt; 'cyan')-&gt;pack;
+
+ while (1) {
+     my $w = rand(100);
+     $pb-&gt;set($w);
+     $mw-&gt;update;
+     $mw-&gt;after(250);
+ }
+
+=head1 AUTHOR and COPYRIGHT
+
+Stephen.O.Lidie@Lehigh.EDU
+
+Copyright (C) 2000 - 2001, Stephen O.Lidie.
+
+This program is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
+
+=head1 KEYWORDS
+
+MacProgressBar
+
+=cut</pre></blockquote>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appc_07.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="appc_09.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">C.7. tkhp16c</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">C.9. TclRobots.pm</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

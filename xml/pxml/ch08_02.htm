@@ -1,0 +1,619 @@
+<html><head><title>XPath (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch08_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">8.2. XPath</h2>
+
+<p>Imagine<a name="INDEX-679" />
+<a name="INDEX-680" /> that
+you have an army of monkeys at your disposal. You say to them,
+"I want you to get me a banana frappe from the ice
+cream parlor on Massachusetts Avenue just north of Porter
+Square." Not being very smart monkeys, they go out
+and bring back every beverage they can find, leaving you to taste
+them all to figure out which is the one you wanted. To retrain them,
+you send them out to night school to learn a rudimentary language,
+and in a few months you repeat the request. Now the monkeys follow
+your directions, identify the exact item you want, and return with
+it.
+</p>
+
+<p>We've just described the kind of problem XPath was
+designed to solve. XPath is one of the most useful technologies
+supporting XML. It provides an interface to find nodes in a purely
+descriptive way, so you don't have to write code to
+hunt them down yourself. You merely specify the kind of nodes that
+interest you and an XPath parser will retrieve them for you.
+Suddenly, XML goes from becoming a vast, confusing pile of nodes to a
+well-indexed filing cabinet of data.
+</p>
+
+<p>Consider the XML document in <a href="ch08_02.htm#perlxml-CHP-8-EX-4">Example 8-4</a>. </p>
+
+<a name="perlxml-CHP-8-EX-4" /><div class="example">
+<h4 class="objtitle">Example 8-4. A preferences file </h4>
+<blockquote><pre class="code">&lt;plist&gt;
+  &lt;dict&gt;
+    &lt;key&gt;DefaultDirectory&lt;/key&gt;
+    &lt;string&gt;/usr/local/fooby&lt;/string&gt;
+    &lt;key&gt;RecentDocuments&lt;/key&gt;
+    &lt;array&gt;
+      &lt;string&gt;/Users/bobo/docs/menu.pdf&lt;/string&gt;
+      &lt;string&gt;/Users/slappy/pagoda.pdf&lt;/string&gt;
+      &lt;string&gt;/Library/docs/Baby.pdf&lt;/string&gt;
+    &lt;/array&gt;
+    &lt;key&gt;BGColor&lt;/key&gt;
+    &lt;string&gt;sage&lt;/string&gt;
+  &lt;/dict&gt;
+&lt;/plist&gt;</pre></blockquote>
+</div>
+
+<p>This document is a typical preferences file for a program with a
+series of data keys and values. Nothing in it is too complex. To
+obtain the value of the key <tt class="literal">BGColor</tt>,
+you'd have to locate the
+<tt class="literal">&lt;key&gt;</tt> element containing the word
+"BGColor" and step ahead to the
+next element, a <tt class="literal">&lt;string&gt;</tt>. Finally, you would
+read the value of the text node inside. In DOM, you might do it as
+shown in <a href="ch08_02.htm#perlxml-CHP-8-EX-5">Example 8-5</a>.
+</p>
+
+<a name="perlxml-CHP-8-EX-5" /><div class="example">
+<h4 class="objtitle">Example 8-5. Program to get a preferred color </h4>
+<blockquote><pre class="code">sub get_bgcolor {
+    my @keys = $doc-&gt;getElementsByTagName( 'key' );
+    foreach my $key ( @keys ) {
+        if( $key-&gt;getFirstChild-&gt;getData eq 'BGColor' ) {
+            return $key-&gt;getNextSibling-&gt;getData;
+        }
+    }
+    return;
+}</pre></blockquote>
+</div>
+
+<p>Writing one routine like this isn't too bad, but
+imagine if you had to do hundreds of queries like it. And this
+program was for a relatively simple document -- imagine how
+complex the code could be for one that was many levels deep. It would
+be nice to have a shorthand way of doing the same thing, say, on one
+line of code. Such a syntax would be much easier to read, write, and
+debug. This is where XPath comes in.
+</p>
+
+<p>XPath is a language for expressing a path to a node or set of nodes
+anywhere in a document. It's simple, expressive, and
+standard (backed by the W3C, the folks who brought you
+XML).<a href="#FOOTNOTE-28">[28]</a> You'll see it used in XSLT for matching
+rules to nodes, and in XPointer, a technology for linking XML
+documents to resources. You can also find it in many Perl modules, as
+we'll show you soon.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-28" /><p>[28]The recommendation is on the Web at <a href="http://www.w3.org/TR/xpath.html">http://www.w3.org/TR/xpath.html</a>.</p>
+</blockquote>
+
+<p>An XPath <a name="INDEX-681" />expression is called a
+<em class="emphasis">location path</em><a name="INDEX-682" /> and consists of some
+number of path <em class="emphasis">steps</em> that extend the path a
+little bit closer to the goal. Starting from an absolute, known
+position (for example, the root of the document), the steps
+"walk" across the document tree to
+arrive at a node or set of nodes. The syntax looks much like a
+filesystem path, with steps separated by slash characters
+<a name="INDEX-683" /> <a name="INDEX-684" />(/).
+</p>
+
+<p>This location path shows how to find that color value in our last
+example:
+</p>
+
+<blockquote><pre class="code">/plist/dict/key[text()='BGColor']/following-sibling::*[1]/text( )</pre></blockquote>
+
+<p>A location path is processed by starting at an absolute location in
+the document and moving to a new
+<a name="INDEX-685" />node
+(or nodes) with each step. At any point in the search,
+a<a name="INDEX-686" /> <em class="emphasis">current node</em>
+serves as the context for the next step. If multiple nodes match the
+next step, the search branches and the processor maintains a set of
+current nodes. Here's how the location path shown
+above would be processed:
+</p>
+
+<ul><li>
+<p>Start at the root node (one level above the root element). </p>
+</li><li>
+<p>Move to a <tt class="literal">&lt;plist&gt;</tt><a name="INDEX-687" />
+element that is a child of the current node.
+</p>
+</li><li>
+<p>Move to a <tt class="literal">&lt;dict&gt;</tt><a name="INDEX-688" />
+element that is a child of the current node.
+</p>
+</li><li>
+<p>Move to a <tt class="literal">&lt;key&gt;</tt><a name="INDEX-689" />
+element that is a child of the current node and that has the value
+<tt class="literal">BGColor</tt>.
+</p>
+</li><li>
+<p>Find the next element after the current node. </p>
+</li><li>
+<p>Return any text nodes belonging to the current node. </p>
+</li></ul>
+<p>Because node searches can branch if multiple nodes match, we
+sometimes have to add a test condition to a step to restrict the
+eligible candidates. Adding a test condition was necessary for the
+<tt class="literal">&lt;key&gt;</tt> sampling step where multiple nodes
+would have matched, so we added a test condition requiring the value
+of the element to be <tt class="literal">BGColor</tt>. Without the test, we
+would have received all text nodes from all siblings immediately
+following a <tt class="literal">&lt;key&gt;</tt> element.
+</p>
+
+<p>This location path matches all <tt class="literal">&lt;key&gt;</tt>
+elements in the document:
+</p>
+
+<blockquote><pre class="code">/plist/dict/key</pre></blockquote>
+
+<p>Of the many kinds of test conditions, all result in a boolean
+true/false answer. You can test the position (where a node is in the
+list), existence of children and attributes, numeric comparisons, and
+all kinds of boolean expressions using AND and OR operators.
+Sometimes a test consists of only a number, which is shorthand for
+specifying an index into a node list, so the test
+<tt class="literal">[1]</tt> says, "stop at the first node
+that matches."
+</p>
+
+<p>You can link multiple tests inside the brackets with
+<a name="INDEX-690" />boolean operations. Alternatively, you can
+chain tests with multiple sets of brackets, functioning as an AND
+operator. Every path step has an implicit test that prunes the search
+tree of blind alleys. If at any point a step turns up zero matching
+nodes, the search along that branch terminates.
+</p>
+
+<p>Along with boolean tests, you can shape a location path with
+directives called <em class="emphasis">axes</em>. An axis is like a
+compass needle that tells the processor which direction to travel.
+Instead of the default, which is to descend from the current node to
+its children, you can make it go up to the parent and ancestors or
+laterally among its siblings. The axis is written as a prefix to the
+step with a <a name="INDEX-691" /> <a name="INDEX-692" />double
+colon (<tt class="literal">::</tt>). In our last example, we used the axis
+<tt class="literal">following-sibling</tt> to jump from the current node to
+its next-door neighbor.
+</p>
+
+<p>A step is not limited to frolicking with elements. You can specify
+different kinds of nodes, including attributes, text, processing
+instructions, and comments, or leave it generic with a selector for
+any node type. You can specify the node type in many ways, some of
+which are listed here:
+</p>
+
+<a name="ch08-3-fm2xml" /><table border="1">
+
+
+
+<tr>
+<th>
+<p>Symbol</p>
+</th>
+<th>
+<p>Matches</p>
+</th>
+</tr>
+
+
+<tr>
+<td>
+<p><tt class="literal">node( )</tt><a name="INDEX-693" />
+</p>
+</td>
+<td>
+<p>Any node</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">text( )</tt><a name="INDEX-694" />
+</p>
+</td>
+<td>
+<p>A text node</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">element::foo</tt></p>
+</td>
+<td>
+<p>An element named <tt class="literal">foo</tt></p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">foo</tt></p>
+</td>
+<td>
+<p>An element named <tt class="literal">foo</tt></p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">attribute::foo</tt></p>
+</td>
+<td>
+<p>An attribute named <tt class="literal">foo</tt></p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">@foo</tt></p>
+</td>
+<td>
+<p>An attribute named <tt class="literal">foo</tt></p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">@*</tt></p>
+</td>
+<td>
+<p>Any attribute</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">*</tt></p>
+</td>
+<td>
+<p>Any element</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">.</tt></p>
+</td>
+<td>
+<p>This element</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">..</tt></p>
+</td>
+<td>
+<p>The parent element</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">/</tt></p>
+</td>
+<td>
+<p>The root node</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">/*</tt></p>
+</td>
+<td>
+<p>The root element</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">//foo</tt></p>
+</td>
+<td>
+<p>An element <tt class="literal">foo</tt> at any level</p>
+</td>
+</tr>
+
+</table><p>
+
+<p>Since the thing you're most likely to select in a
+location path step is an element, the default node type is an
+element. But there are reasons why you should use another node type.
+In our example location path, we used <tt class="literal">text( )</tt> to
+return just the text node for the <tt class="literal">&lt;value&gt;</tt>
+element.
+</p>
+
+<p>Most steps are<a name="INDEX-695" /> <em class="emphasis">relative
+locators</em><a name="INDEX-696" /> because they define where to go relative
+to the previous locator. Although locator paths are comprised mostly
+of relative locators, they always start with
+an<a name="INDEX-697" />
+<em class="emphasis">absolute locator</em>, which describes a definite
+point in the document. This locator comes in two flavors:
+<tt class="literal">id( )</tt><a name="INDEX-698" />, which starts at an element with a given
+ID attribute, and <tt class="literal">root( )</tt><a name="INDEX-699" />, which starts at the root node of the
+document (an abstract node that is the parent of the document
+element). You will frequently see the shorthand
+"<tt class="literal">/</tt>" starting a
+path indicating that <tt class="literal">root( )</tt> is being used.
+</p>
+
+<p>Now that we've trained our monkeys to understand
+XPath, let's give it a whirl with Perl. The
+<tt class="literal">XML::XPath</tt><a name="INDEX-700" /> module, written by Matt
+<a name="INDEX-701" />Sergeant
+of<a name="INDEX-702" />
+<tt class="literal">XML::LibXML</tt> fame, is a solid implementation of
+XPath. We've written a program in <a href="ch08_02.htm#perlxml-CHP-8-EX-6">Example 8-6</a> that takes two command-line arguments: a file
+and an XPath locator path. It prints the text value of all nodes it
+finds that match the path.
+</p>
+
+<a name="perlxml-CHP-8-EX-6" /><div class="example">
+<h4 class="objtitle">Example 8-6. A program that uses XPath </h4>
+<blockquote><pre class="code">use XML::XPath;
+use XML::XPath::XMLParser;
+
+# create an object to parse the file and field XPath queries
+my $xpath = XML::XPath-&gt;new( filename =&gt; shift @ARGV );
+
+# apply the path from the command line and get back a list matches
+my $nodeset = $xpath-&gt;find( shift @ARGV );
+
+# print each node in the list
+foreach my $node ( $nodeset-&gt;get_nodelist ) {
+  print XML::XPath::XMLParser::as_string( $node ) . "\n";
+}</pre></blockquote>
+</div>
+
+<p>That example was simple. Now we need a datafile. Check out <a href="ch08_02.htm#perlxml-CHP-8-EX-7">Example 8-7</a>. 
+</p>
+
+<a name="perlxml-CHP-8-EX-7" /><div class="example">
+<h4 class="objtitle">Example 8-7. An XML datafile </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+&lt;!DOCTYPE inventory [
+  &lt;!ENTITY poison "&lt;note&gt;danger: poisonous!&lt;/note&gt;"&gt;
+  &lt;!ENTITY endang "&lt;note&gt;endangered species&lt;/note&gt;"&gt;
+]&gt;
+&lt;!-- Rivenwood Arboretum inventory --&gt;
+&lt;inventory date="2001.9.4"&gt;
+  &lt;category type="tree"&gt;
+    &lt;item id="284"&gt;
+      &lt;name style="latin"&gt;Carya glabra&lt;/name&gt;
+      &lt;name style="common"&gt;Pignut Hickory&lt;/name&gt;
+      &lt;location&gt;east quadrangle&lt;/location&gt;
+      &amp;endang;
+    &lt;/item&gt;
+    &lt;item id="222"&gt;
+      &lt;name style="latin"&gt;Toxicodendron vernix&lt;/name&gt;
+      &lt;name style="common"&gt;Poison Sumac&lt;/name&gt;
+      &lt;location&gt;west promenade&lt;/location&gt;
+      &amp;poison;
+    &lt;/item&gt;
+  &lt;/category&gt;
+  &lt;category type="shrub"&gt;
+    &lt;item id="210"&gt;
+      &lt;name style="latin"&gt;Cornus racemosa&lt;/name&gt;
+      &lt;name style="common"&gt;Gray Dogwood&lt;/name&gt;
+      &lt;location&gt;south lawn&lt;/location&gt;
+    &lt;/item&gt;
+    &lt;item id="104"&gt;
+      &lt;name style="latin"&gt;Alnus rugosa&lt;/name&gt;
+      &lt;name style="common"&gt;Speckled Alder&lt;/name&gt;
+      &lt;location&gt;east quadrangle&lt;/location&gt;
+      &amp;endang;
+    &lt;/item&gt;
+  &lt;/category&gt;
+&lt;/inventory&gt;</pre></blockquote>
+</div>
+
+<p>The first test uses the path
+<tt class="literal">/inventory/category/item/name</tt>:
+</p>
+
+<blockquote><pre class="code">&gt; <tt class="userinput"><b>grabber.pl data.xml "/inventory/category/item/name"</b></tt>
+&lt;name style="latin"&gt;Carya glabra&lt;/name&gt;
+&lt;name style="common"&gt;Pignut Hickory&lt;/name&gt;
+&lt;name style="latin"&gt;Toxicodendron vernix&lt;/name&gt;
+&lt;name style="common"&gt;Poison Sumac&lt;/name&gt;
+&lt;name style="latin"&gt;Cornus racemosa&lt;/name&gt;
+&lt;name style="common"&gt;Gray Dogwood&lt;/name&gt;
+&lt;name style="latin"&gt;Alnus rugosa&lt;/name&gt;
+&lt;name style="common"&gt;Speckled Alder&lt;/name&gt;</pre></blockquote>
+
+<p>Every <tt class="literal">&lt;name&gt;</tt> element was found and printed.
+Let's get more specific with the path
+<tt class="literal">/inventory/category/item/name[@style='latin']</tt>:
+</p>
+
+<blockquote><pre class="code">&gt; <tt class="userinput"><b>grabber.pl data.xml "/inventory/category/item/name[@style='latin']"</b></tt>
+&lt;name style="latin"&gt;Carya glabra&lt;/name&gt;
+&lt;name style="latin"&gt;Toxicodendron vernix&lt;/name&gt;
+&lt;name style="latin"&gt;Cornus racemosa&lt;/name&gt;
+&lt;name style="latin"&gt;Alnus rugosa&lt;/name&gt;</pre></blockquote>
+
+<p>Now let's use an ID attribute as a starting point
+with the path <tt class="literal">//item[@id='222']/note</tt>. (If we had
+defined the attribute <tt class="literal">id</tt> in a DTD,
+we'd be able to use the path
+<tt class="literal">id('222')/note</tt>. We didn't, but
+this alternate method works just as well.)
+</p>
+
+<blockquote><pre class="code">&gt; <tt class="userinput"><b>grabber.pl data.xml "//item[@id='222']/note"</b></tt>
+&lt;note&gt;danger: poisonous!&lt;/note&gt;</pre></blockquote>
+
+<p>How about ditching the element tags? To do so, use this: </p>
+
+<blockquote><pre class="code">&gt; <tt class="userinput"><b>grabber.pl data.xml "//item[@id='222']/note/text( )"</b></tt>
+danger: poisonous!</pre></blockquote>
+
+<p>When was this inventory last updated? </p>
+
+<blockquote><pre class="code">&gt; <tt class="userinput"><b>grabber.pl data.xml "/inventory/@date"</b></tt>
+ date="2001.9.4"</pre></blockquote>
+
+<p>With XPath, you can go hog wild! Here's the path a
+silly monkey might take through the tree:
+</p>
+
+<blockquote><pre class="code">&gt; <tt class="userinput"><b>grabber.pl data.xml "//*[@id='104']/parent::*/preceding-sibling::*/child::*[2]/
+name[not(@style='latin')]/node( )"</b></tt>
+Poison Sumac</pre></blockquote>
+
+<p>The monkey started on the element with the attribute
+<tt class="literal">id='104'</tt>, climbed up a level, jumped to the
+previous element, climbed down to the second child element, found a
+<tt class="literal">&lt;name&gt;</tt> whose
+<tt class="literal">style</tt><a name="INDEX-703" /> attribute was not set to
+<tt class="literal">'latin'</tt>, and hopped on the child of that element,
+which happened to be the text node with the value <tt class="literal">Poison
+Sumac</tt>.
+</p>
+
+<p>We have just seen how to use XPath expressions to locate and return a
+set of nodes. The implementation we are about to see is even more
+powerful. <tt class="literal">XML::Twig</tt>, an ingenious module by Michel
+Rodriguez, is quite Perlish in the way it uses XPath expressions. It
+uses a hash to map them to subroutines, so you can have functions
+called automatically for certain types of nodes.
+</p>
+
+<p>The program in <a href="ch08_02.htm#perlxml-CHP-8-EX-8">Example 8-8</a> shows how this works.
+When you initialize the <tt class="literal">XML::Twig</tt> object, you can
+set a bunch of handlers in a hash, where the keys are XPath
+expressions. During the parsing stage, as the tree is built, these
+handlers are called for appropriate nodes.
+</p>
+
+<p>As you look at <a href="ch08_02.htm#perlxml-CHP-8-EX-8">Example 8-8</a>, you'll
+notice that <a name="INDEX-704" /> <a name="INDEX-705" />at-sign (<tt class="literal">@</tt>)
+characters are escaped. This is because <tt class="literal">@</tt> can
+cause a little confusion with XPath expressions living in a Perl
+context. In XPath, <tt class="literal">@foo</tt> refers to an attribute
+named <tt class="literal">foo</tt>, not an array named
+<tt class="literal">foo</tt>. Keep this distinction in mind when going over
+the XPath examples in this book and when writing your own XPath for
+Perl to use -- you must escape the <tt class="literal">@</tt> characters
+so Perl doesn't try to interpolate arrays in the
+middle of your expressions.
+</p>
+
+<p>If your code does so much work with Perl arrays and XPath attribute
+references that it's unclear which
+<tt class="literal">@</tt> characters are which, consider referring to
+attributes in longhand, using the
+"attribute" XPath axis:
+<tt class="literal">attribute::foo</tt>. This raises the issue of the
+double colon and its different meanings in Perl and XPath. Since
+XPath has only a few hardcoded axes, however, and
+they're always expressed in lowercase,
+they're easier to tell apart at a glance.
+</p>
+
+<a name="perlxml-CHP-8-EX-8" /><div class="example">
+<h4 class="objtitle">Example 8-8. How twig handlers work </h4>
+<blockquote><pre class="code">use XML::Twig;
+
+# buffers for holding text
+my $catbuf = '';
+my $itembuf = '';
+
+# initialize parser with handlers for node processing
+my $twig = new XML::Twig( TwigHandlers =&gt; { 
+                             "/inventory/category"    =&gt; \&amp;category,
+                             "name[\@style='latin']"  =&gt; \&amp;latin_name,
+                             "name[\@style='common']" =&gt; \&amp;common_name,
+                             "category/item"          =&gt; \&amp;item,
+                                          });
+
+# parse, handling nodes on the way
+$twig-&gt;parsefile( shift @ARGV );
+
+# handle a category element
+sub category {
+  my( $tree, $elem ) = @_;
+  print "CATEGORY: ", $elem-&gt;att( 'type' ), "\n\n", $catbuf;
+  $catbuf = '';
+}
+
+# handle an item element
+sub item {
+  my( $tree, $elem ) = @_;
+  $catbuf .= "Item: " . $elem-&gt;att( 'id' ) . "\n" . $itembuf . "\n";
+  $itembuf = '';
+}
+
+# handle a latin name
+sub latin_name {
+  my( $tree, $elem ) = @_;
+  $itembuf .= "Latin name: " . $elem-&gt;text . "\n";
+}
+
+# handle a common name
+sub common_name {
+  my( $tree, $elem ) = @_;
+  $itembuf .= "Common name: " . $elem-&gt;text . "\n";
+}</pre></blockquote>
+</div>
+
+<p>Our program takes a datafile like the one shown in <a href="ch08_02.htm#perlxml-CHP-8-EX-7">Example 8-7</a> and outputs a summary report. Note that since
+a handler is called only after an element is completely built, the
+overall order of handler calls may not be what you expect. The
+handlers for children are called before their parent. For that
+reason, we need to buffer their output and sort it out at the
+appropriate time.
+</p>
+
+<p>The result comes out like this: </p>
+
+<blockquote><pre class="code">CATEGORY: tree
+
+Item: 284
+Latin name: Carya glabra
+Common name: Pignut Hickory
+
+Item: 222
+Latin name: Toxicodendron vernix
+Common name: Poison Sumac
+
+CATEGORY: shrub
+
+Item: 210
+Latin name: Cornus racemosa
+Common name: Gray Dogwood
+
+Item: 104
+Latin name: Alnus rugosa
+Common name: Speckled Alder</pre></blockquote>
+
+<p>XPath makes the task of locating nodes in a document and describing
+types of nodes for processing ridiculously simple. It cuts down on
+the amount of code you have to write because climbing around the tree
+to sample different parts is all taken care of. It's
+easier to read than code too. We're happy with it,
+and because it is a standard, we'll be seeing more
+uses for it in many<a name="INDEX-706" /> <a name="INDEX-707" /> modules to come.
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch08_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">8. Beyond Trees: XPath, XSLT, and More</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">8.3. XSLT</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

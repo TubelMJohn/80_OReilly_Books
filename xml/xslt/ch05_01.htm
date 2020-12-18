@@ -1,0 +1,368 @@
+<html><head><title>Creating Links and Cross-References (XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Doug Tidwell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596000537L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_09.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch05_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+  <h1 class="chapter">Chapter 5. Creating Links and Cross-References</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#INDEX-427">Generating Links with the id() Function</a><br />
+<a href="ch05_02.htm">Generating Links with the key() Function</a><br />
+<a href="ch05_03.htm">Generating Links in Unstructured Documents</a><br />
+<a href="ch05_04.htm">Summary</a><br /></p></div>
+  <p>
+<a name="INDEX-422" /></a>
+<a name="INDEX-423" /></a>
+<a name="INDEX-424" /></a>
+<a name="INDEX-425" /></a>
+<a name="INDEX-426" /></a>
+
+If you're creating a web site, publishing a book, or creating an XML transaction, chances are many pieces of information will refer to other things. This chapter discusses a several ways to link XML elements. It reviews three techniques:</p>
+  <ul>
+    <li>
+      <p>Using the <tt class="literal">id()</tt> function </p>
+    </li>
+    <li>
+      <p>Doing more advanced linking with the <tt class="literal">key()</tt> function</p>
+    </li>
+    <li>
+      <p>Generating links in unstructured documents</p>
+    </li>
+  </ul>
+  <div class="sect1">
+    <h2 class="sect1">5.1. Generating Links with the id() Function</h2>
+    <p>
+
+<a name="INDEX-427" /></a>
+<a name="INDEX-428" /></a>
+<a name="INDEX-429" /></a>
+
+
+Our first attempt at linking will be with the XPath <tt class="literal">id()</tt> function. </p>
+    <div class="sect2">
+      <h3 class="sect2">5.1.1. The ID, IDREF, and IDREFs Datatypes</h3>
+      <p>
+<a name="INDEX-430" /></a>
+<a name="INDEX-431" /></a>
+<a name="INDEX-432" /></a>
+<a name="INDEX-433" /></a>
+<a name="INDEX-434" /></a>
+
+Three of the basic datatypes supported by XML Document Type Definitions (DTDs) are <tt class="literal">ID</tt>, <tt class="literal">IDREF</tt>, and <tt class="literal">IDREFS</tt>. Here's a simple DTD that illustrates these datatypes:</p>
+      <blockquote><pre class="code">
+&lt;!--glossary.dtd--&gt;
+&lt;!--The containing tag for the entire glossary--&gt;
+&lt;!ELEMENT glossary  (glentry+) &gt;
+
+&lt;!--A glossary entry--&gt;
+&lt;!ELEMENT glentry  (term,defn+) &gt;
+
+&lt;!--The word being defined--&gt;
+&lt;!ELEMENT term  (#PCDATA) &gt;
+
+&lt;!--The id is used for cross-referencing, and the 
+    xreftext is the text used by cross-references.--&gt;
+&lt;!ATTLIST term
+               id  ID    #REQUIRED 
+               xreftext  CDATA    #IMPLIED  &gt;
+
+&lt;!--The definition of the term--&gt;
+&lt;!ELEMENT defn  (#PCDATA | xref | seealso)* &gt;
+
+&lt;!--A cross-reference to another term--&gt;
+&lt;!ELEMENT xref   EMPTY  &gt;
+
+&lt;!--refid is the ID of the referenced term--&gt;
+&lt;!ATTLIST xref
+               refid  IDREF    #REQUIRED &gt;
+
+&lt;!--seealso refers to one or more other definitions--&gt;
+&lt;!ELEMENT seealso EMPTY&gt;
+&lt;!ATTLIST seealso
+                  refids   IDREFS  #REQUIRED &gt;</pre></blockquote>
+      <p>In this DTD, each <tt class="literal">&lt;term&gt;</tt> element is required to have an <tt class="literal">id</tt> attribute, and each <tt class="literal">&lt;xref&gt;</tt> element must have an <tt class="literal">refid</tt> attribute. The <tt class="literal">ID</tt> and <tt class="literal">IDREF</tt> datatypes work according to two rules:</p>
+      <ul>
+        <li>
+          <p>Each value of the <tt class="literal">id</tt> attribute must be unique. </p>
+        </li>
+        <li>
+          <p>Each value of the <tt class="literal">refid</tt> attribute must match a value of an <tt class="literal">id</tt> attribute elsewhere in the document.</p>
+        </li>
+      </ul>
+      <p>To round out our example, the <tt class="literal">&lt;seealso&gt;</tt> element contains an attribute of type <tt class="literal">IDREFS</tt>. This datatype contains one or more values, each of which must match a value of an <tt class="literal">ID</tt> elsewhere in the document. Multiple values, if present, are separated by whitespace.</p>
+      <p>There are some complications of <tt class="literal">ID</tt> and related datatypes, but we'll discuss them later. For now, we'll focus on how the <tt class="literal">id()</tt> function works. </p>
+    </div>
+    <div class="sect2">
+      <h3 class="sect2">5.1.2. An XML Document in Need of Links</h3>
+      
+<p>To illustrate the value of linking, we'll use a small glossary written in XML. The glossary contains some <tt class="literal">&lt;glentry&gt;</tt> elements, each of which contains a single <tt class="literal">&lt;term&gt;</tt> and one or more <tt class="literal">&lt;defn&gt;</tt> elements. In addition, a definition is allowed to contain a cross-reference (<tt class="literal">&lt;xref&gt;</tt>) to another <tt class="literal">&lt;term&gt;</tt>. Here's a short sample document:</p>
+      <blockquote><pre class="code">
+&lt;?xml version="1.0" ?&gt;
+&lt;!DOCTYPE glossary SYSTEM "glossary.dtd"&gt;
+&lt;glossary&gt;
+  &lt;glentry&gt;
+    &lt;term id="applet"&gt;applet&lt;/term&gt;
+    &lt;defn&gt;
+      An application program,
+      written in the Java programming language, that can be 
+      retrieved from a web server and executed by a web browser. 
+      A reference to an applet appears in the markup for a web 
+      page, in the same way that a reference to a graphics
+      file appears; a browser retrieves an applet in the same 
+      way that it retrieves a graphics file. 
+      For security reasons, an applet's access rights are limited
+      in two ways: the applet cannot access the file system of the 
+      client upon which it is executing, and the applet's 
+      communication across the network is limited to the server 
+      from which it was downloaded. 
+      Contrast with &lt;xref refid="servlet"/&gt;.
+      &lt;seealso refids="wildcard-char DMZlong pattern-matching"/&gt;
+    &lt;/defn&gt;
+  &lt;/glentry&gt;
+
+  &lt;glentry&gt;
+    &lt;term id="DMZlong" xreftext="demilitarized zone"&gt;demilitarized 
+      zone (DMZ)&lt;/term&gt;
+    &lt;defn&gt;
+      In network security, a network that is isolated from, and 
+      serves as a neutral zone between, a trusted network (for example, 
+      a private intranet) and an untrusted network (for example, the
+      Internet). One or more secure gateways usually control access 
+      to the DMZ from the trusted or the untrusted network.
+    &lt;/defn&gt;
+  &lt;/glentry&gt;
+
+  &lt;glentry&gt;
+    &lt;term id="DMZ"&gt;DMZ&lt;/term&gt;
+    &lt;defn&gt;
+      See &lt;xref refid="DMZlong"/&gt;.
+    &lt;/defn&gt;
+  &lt;/glentry&gt;
+
+  &lt;glentry&gt;
+    &lt;term id="pattern-matching"&gt;pattern-matching character&lt;/term&gt;
+    &lt;defn&gt;
+      A special character such as an asterisk (*) or a question mark 
+      (?) that can be used to represent zero or more characters. 
+      Any character or set of characters can replace a pattern-matching 
+      character.
+    &lt;/defn&gt;
+  &lt;/glentry&gt;
+
+  &lt;glentry&gt;
+    &lt;term id="servlet"&gt;servlet&lt;/term&gt;
+    &lt;defn&gt;
+      An application program, written in the Java programming language, 
+      that is executed on a web server. A reference to a servlet 
+      appears in the markup for a web page, in the same way that a 
+      reference to a graphics file appears. The web server executes
+      the servlet and sends the results of the execution (if there are
+      any) to the web browser. Contrast with &lt;xref refid="applet" /&gt;.
+    &lt;/defn&gt;
+  &lt;/glentry&gt;
+
+  &lt;glentry&gt;
+    &lt;term id="wildcard-char"&gt;wildcard character&lt;/term&gt;
+    &lt;defn&gt;
+      See &lt;xref refid="pattern-matching"/&gt;.
+    &lt;/defn&gt;
+  &lt;/glentry&gt;
+&lt;/glossary&gt;</pre></blockquote>
+      <p>In this XML listing, each <tt class="literal">&lt;term&gt;</tt> element has an <tt class="literal">id</tt> attribute that identifies it uniquely. Many <tt class="literal">&lt;xref&gt;</tt> elements also refer to other terms in the listing. Notice that each time we refer to another term, we don't use the actual text of the referenced term. When we write our stylesheet, we'll use the XPath <tt class="literal">id</tt> function to retrieve the text of the referenced term; if the name of a term changes (as buzzwords go in and out of fashion, some marketing genius might want to rename the "pattern-matching character," for example), we can rerun our stylesheet and be confident that all references to the new term contain the correct text. </p>
+      <p>Finally, some <tt class="literal">&lt;term&gt;</tt> elements have an <tt class="literal">xreftext</tt> element because some of the actual terms are longer than we'd like to use in a cross-reference. When we have an <tt class="literal">&lt;xref&gt;</tt> to the term ASCII (American Standard Code for Information Interchange), it would get pretty tedious if the entire text of the term appeared throughout our document. For this term, we'll use the <tt class="literal">xreftext</tt> attribute's value, ensuring that the cross-reference contains the less-intimidating text <tt class="literal">ASCII</tt>. </p>
+    </div>
+    <div class="sect2">
+      <h3 class="sect2">5.1.3. A Stylesheet That Uses the id() Function</h3>
+      <p>
+<a name="INDEX-435" /></a>
+<a name="INDEX-436" /></a>
+
+
+Let's look at our desired output. What we want is an HTML document, such as that shown in <a href="ch05_01.htm#xslt-CHP-5-FIG-1">Figure 5-1</a>, that displays the various definitions in an easy-to-read format, with the cross-references formatted as hyperlinks.</p>
+      
+      <p>In the HTML document, we'll need to address several things in our stylesheet:</p>
+      <ul>
+        <li>
+          <p>The <tt class="literal">&lt;title&gt;</tt> and the <tt class="literal">&lt;h1&gt;</tt> contain the first and last terms in the glossary. We can use XPath expressions to generate that information.</p>
+        </li>
+        <li>
+          <p>The <tt class="literal">&lt;xref&gt;</tt> elements have been replaced with the <tt class="literal">xreftext</tt> attribute of the referenced <tt class="literal">&lt;term&gt;</tt> element, if there is one. If that attribute doesn't exist, <tt class="literal">&lt;xref&gt;</tt> is replaced by the text of the <tt class="literal">&lt;term&gt;</tt> element. We'll use the <tt class="literal">id()</tt> function to find the referenced <tt class="literal">&lt;term&gt;</tt>, and we'll use XSLT's control elements to check if the <tt class="literal">xreftext</tt> attribute exists.</p>
+        </li>
+        <li>
+          <p>The hyperlinks generated from the <tt class="literal">&lt;xref&gt;</tt> elements refer to a named anchor point elsewhere in the HTML document. If <tt class="literal">&lt;xref&gt;</tt> elements refer to a given <tt class="literal">&lt;term&gt;</tt>, we have to create a named anchor (<tt class="literal">&lt;a name="..."&gt;</tt>) at the location of the referenced <tt class="literal">&lt;term&gt;</tt>. To simplify things, we'll generate a named anchor for each term automatically, using the <tt class="literal">id</tt> attribute (required to be unique by our DTD) as the name of the anchor. </p>
+        </li>
+        <li>
+          <p>We need to process any <tt class="literal">&lt;seealso&gt;</tt> elements, as well. These elements are handled similarly to the <tt class="literal">&lt;xref&gt;</tt> elements, the main difference being that the <tt class="literal">refids</tt> attribute of the <tt class="literal">&lt;seealso&gt;</tt> element can refer to more than one glossary entry.</p>
+        </li>
+      </ul> 
+<a name="xslt-CHP-5-FIG-1" /></a><div class="figure"><img height="428" alt="Figure 5-1" src="figs/xslt.0501.gif" width="481" /></div><h4 class="objtitle">Figure 5-1. HTML document with generated cross-references</h4>
+
+      <p>Here's the template that takes care of our first task, generating the HTML <tt class="literal">&lt;title&gt;</tt> and the <tt class="literal">&lt;h1&gt;</tt>:</p>
+      <blockquote><pre class="code">
+&lt;xsl:template match="glossary"&gt;
+  &lt;html&gt;
+    &lt;head&gt;
+      &lt;title&gt;
+        &lt;xsl:text&gt;Glossary Listing: &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="glentry[1]/term"/&gt;
+        &lt;xsl:text&gt; - &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="glentry[last()]/term"/&gt;
+      &lt;/title&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+      &lt;h1&gt;
+        &lt;xsl:text&gt;Glossary Listing: &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="glentry[1]/term"/&gt;
+        &lt;xsl:text&gt; - &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="glentry[last()]/term"/&gt;
+      &lt;/h1&gt;
+      &lt;xsl:apply-templates select="glentry"/&gt;
+    &lt;/body&gt;
+  &lt;/html&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+      <p>We generate the <tt class="literal">&lt;title&gt;</tt> and <tt class="literal">&lt;h1&gt;</tt> using the XPath expressions <tt class="literal">glentry[1]/term</tt> for the first <tt class="literal">&lt;term&gt;</tt> in the document, and using <tt class="literal">glentry[last()]/term</tt> for the last term. </p>
+      <p>Our next step is to process all the <tt class="literal">&lt;glentry&gt;</tt> elements. We'll generate an HTML paragraph for each one, and then we'll generate a named anchor point, using the <tt class="literal">id</tt> attribute as the name of the anchor. Here's the template:</p>
+      <blockquote><pre class="code">
+&lt;xsl:template match="glentry"&gt;
+  &lt;p&gt;
+    &lt;b&gt;
+      &lt;a name="{@id}"/&gt;
+      &lt;xsl:value-of select="term"/&gt;
+      &lt;xsl:text&gt;: &lt;/xsl:text&gt;
+    &lt;/b&gt;
+    &lt;xsl:apply-templates select="defn"/&gt;
+  &lt;/p&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+      <p>
+<a name="INDEX-437" /></a>
+
+In this template, we're using an <em class="emphasis">attribute value template</em> to generate the <tt class="literal">name</tt> attribute of the HTML <tt class="literal">&lt;a&gt;</tt> element. The XPath expression <tt class="literal">@id</tt> retrieves the <tt class="literal">id</tt> attribute of the <tt class="literal">&lt;glentry&gt;</tt> element we're currently processing. We use this attribute to generate a named anchor. We then write the term itself in bold and apply the template for the <tt class="literal">&lt;defn&gt;</tt> element. In our output document, each glossary entry contains a paragraph with the highlighted term and its definition.</p>
+      <p>The <tt class="literal">name</tt> attribute of this HTML <tt class="literal">&lt;a&gt;</tt> element is generated with an attribute value template. See <a href="ch03_03.htm#xslt-CHP-3-SECT-3">Section 3.3, "Attribute Value Templates"</a> for more information.</p>
+      <p>Our next step is to process the cross-reference. Here's the template for the <tt class="literal">&lt;xref&gt;</tt> element:</p>
+      <blockquote><pre class="code">
+&lt;xsl:template match="xref"&gt;
+  &lt;a href="#{@refid}"&gt;
+    &lt;xsl:choose&gt;
+      &lt;xsl:when test="id(@refid)/@xreftext"&gt;
+        &lt;xsl:value-of select="id(@refid)/@xreftext"/&gt;
+      &lt;/xsl:when&gt;
+      &lt;xsl:otherwise&gt;
+        &lt;xsl:value-of select="id(@refid)"/&gt;
+      &lt;/xsl:otherwise&gt;
+    &lt;/xsl:choose&gt;
+  &lt;/a&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+      <p>We create the <tt class="literal">&lt;a&gt;</tt> element in two steps:</p>
+      <ul>
+        <li>
+          <p>Create the <tt class="literal">href</tt> attribute. It must refer to the correctly named anchor in the HTML document.</p>
+        </li>
+        <li>
+          <p>Create the text of the link. This text is the word or phrase that appears in the browser; clicking on the link should take the user to the referenced term. </p>
+        </li>
+      </ul>
+      <p>
+<a name="INDEX-438" /></a>
+<a name="INDEX-439" /></a>
+
+For the first step, we know that the <tt class="literal">href</tt> attribute must contain a hash mark (<tt class="literal">#</tt>) followed by the name of the anchor point. Because we generated all the named anchors from the <tt class="literal">id</tt> attributes of the various <tt class="literal">&lt;glentry&gt;</tt> elements, we know the name of the anchor point is the same as the <tt class="literal">id</tt>. </p>
+      <p>Now all that's left is for us to retrieve the text. This retrieval is the most complicated part of the process (relatively speaking, anyway). Remember that we want to use the <tt class="literal">xreftext</tt> attribute of the <tt class="literal">&lt;term&gt;</tt> element, if there is one, and use the text of the <tt class="literal">&lt;term&gt;</tt> element, otherwise. To implement an if-then-else statement, we use the <tt class="literal">&lt;xsl:choose&gt;</tt> element. In the previous sample, we used a <tt class="literal">test</tt> expression of <tt class="literal">id(@refid)/@xreftext</tt> to see if the <tt class="literal">xreftext</tt> attribute exists. (Remember, an empty node-set is considered false. If the attribute doesn't exist, the node-set will be empty and the <tt class="literal">&lt;xsl:otherwise&gt;</tt> element will be evaluated.)  If the <tt class="literal">test</tt> is true, we use <tt class="literal">id(@refid)/@xreftext</tt> to retrieve the cross-reference text. The first part of the XPath expression (<tt class="literal">id(@refid)</tt>) returns the node that has an <tt class="literal">ID</tt> that matches the value <tt class="literal">@refid</tt>; the second part (<tt class="literal">@xreftext</tt>) retrieves the <tt class="literal">xreftext</tt> attribute of that node. We insert the text of the <tt class="literal">xreftext</tt> attribute inside the <tt class="literal">&lt;a&gt;</tt> element. </p>
+
+      <p>Finally, we handle any <tt class="literal">&lt;seealso&gt;</tt> elements. The difference here is that the <tt class="literal">refids</tt> attribute can reference any number of glossary terms, so we'll use the <tt class="literal">id()</tt> function differently. Here's the template for <tt class="literal">&lt;seealso&gt;</tt>:</p>
+      <blockquote><pre class="code">
+&lt;xsl:template match="seealso"&gt;
+  &lt;b&gt;
+    &lt;xsl:text&gt;See also: &lt;/xsl:text&gt;
+  &lt;/b&gt;
+  &lt;xsl:for-each select="id(@refids)"&gt;
+    &lt;a href="#{@id}"&gt;
+      &lt;xsl:choose&gt;
+        &lt;xsl:when test="@xreftext"&gt;
+          &lt;xsl:value-of select="@xreftext"/&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:otherwise&gt;
+          &lt;xsl:value-of select="."/&gt;
+        &lt;/xsl:otherwise&gt;
+      &lt;/xsl:choose&gt;
+    &lt;/a&gt;
+    &lt;xsl:if test="not(position()=last())"&gt;
+      &lt;xsl:text&gt;, &lt;/xsl:text&gt;
+    &lt;/xsl:if&gt;
+  &lt;/xsl:for-each&gt;
+  &lt;xsl:text&gt;. &lt;/xsl:text&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+      <p>There are a couple of important differences here. First, we call the <tt class="literal">id()</tt> function in an <tt class="literal">&lt;xsl:for-each&gt;</tt> element. Calling the <tt class="literal">id()</tt> function with an attribute of type <tt class="literal">IDREFS</tt> returns a node-set; each node in the node-set is the match for one of the <tt class="literal">ID</tt>s in the attribute. </p>
+      <p>The second difference is that referencing the correctly named anchor is more difficult. When we processed the <tt class="literal">&lt;xref&gt;</tt> element, we knew that the correct anchor name was the value of the <tt class="literal">refid</tt> attribute. When processing <tt class="literal">&lt;seealso&gt;</tt>, the <tt class="literal">refids</tt> attribute doesn't do us any good because it may contain any number of <tt class="literal">ID</tt>s. All is not lost, however. What we did previously was use the <tt class="literal">id</tt> attribute of each node returned by the <tt class="literal">id()</tt> function -- a minor inconvenience, but another difference in processing an attribute of type <tt class="literal">IDREFS</tt> instead of <tt class="literal">IDREF</tt>. </p>
+      <p>The final difference is that we want to add commas after all items except the last. The <tt class="literal">&lt;xsl:if&gt;</tt> element shown previously does just this. If the <tt class="literal">position()</tt> of the current item is the last, we don't output the comma and space (defined here with the <tt class="literal">&lt;xsl:text&gt;</tt> element). We formatted all references here as a sentence; as an exercise, feel free to process the items in a more sophisticated way. For example, you could generate an HTML list from the <tt class="literal">IDREFS</tt>, or maybe format things differently if the <tt class="literal">refids</tt> attribute only contains a single <tt class="literal">ID</tt>.</p>
+
+      <p>We've done several useful things with the <tt class="literal">id()</tt> function. We've been able to use attributes of type <tt class="literal">ID</tt> to discover the links between related pieces of information, and we've converted the XML into HTML links, renderable in an ordinary household browser. If this is the only kind of linking and referencing you need to do, that's great. Unfortunately, there are times when we need to do more, and on those occasions, the <tt class="literal">id()</tt> function doesn't quite cut it. We'll mention the limitations of the <tt class="literal">id()</tt> function briefly, then we'll discuss XSLT functions that let us overcome them.
+<a name="INDEX-440" /></a>
+<a name="INDEX-441" /></a>
+
+</p>
+    </div>
+    <div class="sect2">
+      <h3 class="sect2">5.1.4. Limitations of IDs</h3>
+      <p>
+<a name="INDEX-442" /></a>
+<a name="INDEX-443" /></a>
+
+To this point, we've been able to generate cross-references easily. There are some limitations of the <tt class="literal">ID</tt> datatype and the <tt class="literal">id()</tt> function, though:</p>
+      <ul>
+        <li>
+          <p>If you want to use the <tt class="literal">ID</tt> datatype, you have to declare the attributes that use that datatype in your DTD or schema. Unfortunately, if your DTD is defined externally to your XML document, the XML parser isn't required to read it. If the DTD isn't read, then the parser has no idea that a given attribute is of type <tt class="literal">ID</tt>. </p>
+        </li>
+        <li>
+          <p>You must define the <tt class="literal">ID</tt> and <tt class="literal">IDREF</tt> relationship in the XML document. It would be nice to have the XML document define the data only, with the relationships between parts of the document defined externally (say, in a stylesheet). That way, if you needed to define a new relationship between parts of the document, you could do it by creating a new stylesheet, and you wouldn't have to modify your XML document. Requiring the XML document structure to change every time you need to define a new relationship between parts of the document will become unwieldy quickly. </p>
+        </li>
+        <li>
+          <p>An element can have at most one attribute of type <tt class="literal">ID</tt>. If you'd like to refer to the same element in more than one way, you can't use the <tt class="literal">id()</tt> function.</p>
+        </li>
+        <li>
+          <p>Any given <tt class="literal">ID</tt> value can be found on at most one element. If you'd like to refer to more than one element with a single value, you can't use the <tt class="literal">id()</tt> function for that, either.</p>
+        </li>
+        <li>
+          <p>Only one set of <tt class="literal">ID</tt>s exists for the entire document. In other words, if you declare the attributes <tt class="literal">customer_number</tt>, <tt class="literal">part_number</tt>, and <tt class="literal">order_number</tt> to be of type <tt class="literal">ID</tt>, the value of a <tt class="literal">customer_number</tt> must be unique across all the attributes of type <tt class="literal">ID</tt>. It is illegal in this case for a <tt class="literal">customer_number</tt> to be the same as a <tt class="literal">part_number</tt>, even though those attributes might belong to different elements. </p>
+        </li>
+
+        <li>
+          <p>An <tt class="literal">ID</tt> can only be an attribute of an XML element. The only way you can use the <tt class="literal">id()</tt> function to refer to another element is through its attribute of type <tt class="literal">ID</tt>. If you want to find another element based on an attribute that isn't an <tt class="literal">ID</tt>, based on the element's content, based on the element's children, etc., the <tt class="literal">id()</tt> function is of no use whatsoever.</p>
+        </li>
+        <li>
+          <p>The value of an <tt class="literal">ID</tt> must be an XML name. In other words, it can't contain spaces, it can't start with a number, and it's subject to the other restrictions of XML names. (Section 2.3 of the XML Recommendation defines these restrictions; see <a href="http://www.w3.org/TR/REC-xml">http://www.w3.org/TR/REC-xml</a> if you'd like more information.)</p>
+        </li>
+      </ul>
+      <p>
+
+<a name="INDEX-444" /></a>
+To get around all of these limitations, XSLT defines the <tt class="literal">key()</tt> function. We'll discuss that function in the next section.
+<a name="INDEX-445" /></a>
+<a name="INDEX-446" /></a>
+<a name="INDEX-447" /></a>
+
+</p>
+    </div>
+  </div>
+  
+  
+  
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_09.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch05_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4.9. Summary</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">5.2. Generating Links with the key() Function</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+      </map>
+
+</body></html>

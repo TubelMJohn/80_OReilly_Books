@@ -1,0 +1,132 @@
+<html><head><title>Using Filehandles (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch11_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">11.4. Using Filehandles</h2>
+
+<p>Once a
+<a name="INDEX-784" />filehandle
+is open for reading, you can read lines from it just like you can
+read from standard input with <tt class="literal">STDIN</tt>. So, for
+example, to read lines from the Unix password file:
+</p>
+
+<blockquote><pre class="code">open PASSWD, "/etc/passwd"
+  or die "How did you get logged in? ($!)";
+
+while (&lt;PASSWD&gt;) {
+  chomp;
+  if (/^root:/) {  # found root entry...
+    ...;
+  }
+}</pre></blockquote>
+
+<p>In this example, the <tt class="literal">die</tt> message uses
+parentheses around <tt class="literal">$!</tt>. Those are merely
+parentheses around the message in the output. (Sometimes a
+punctuation mark is just a punctuation mark.) As you can see, what
+we've been calling the "<a name="INDEX-785" />line-input operator" is really
+made of two components; the angle brackets (the
+<em class="emphasis">real</em> line-input operator) are around an input
+filehandle. Each line of input is then tested to see if it begins
+with <tt class="literal">root</tt> followed by a colon, triggering unseen
+actions.
+</p>
+
+<p>A filehandle open for writing or appending may be used with
+<tt class="literal">print</tt><a name="INDEX-786" />
+or <tt class="literal">printf</tt><a name="INDEX-787" />,
+appearing immediately after the keyword but before the list of
+arguments:
+</p>
+
+<blockquote><pre class="code">print LOG "Captain's log, stardate 3.14159\n";  # output goes to LOG
+printf STDERR "%d percent complete.\n", $done/$total * 100;</pre></blockquote>
+
+<p>Did you notice that there's no comma between the filehandle and
+the items to be printed?<a href="#FOOTNOTE-259">[259]</a> This looks especially
+weird if you use parentheses. Either of these forms is correct:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-259" /><p>[259]If you got straight
+A's in freshman English or Linguistics, when we say that this
+is called "indirect object syntax," you may say
+"Ah, of course! I see why there's no comma after the
+filehandle name -- it's an indirect object!" We
+didn't get straight A's; we don't understand why
+there's no comma; we merely omit it because Larry told us that
+we should omit the comma.</p> </blockquote>
+
+<blockquote><pre class="code">printf (STDERR "%d percent complete.\n", $done/$total * 100);
+printf STDERR ("%d percent complete.\n", $done/$total * 100);</pre></blockquote>
+
+<a name="lperl3-CHP-11-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">11.4.1. Changing the Default Output Filehandle</h3>
+
+<p>By default, if you don't give a
+<a name="INDEX-788" />
+<a name="INDEX-789" />filehandle to
+<tt class="literal">print</tt> (or to <tt class="literal">printf</tt>, as
+everything we say here about one applies equally well to the other),
+the output will go to
+<tt class="literal">STDOUT</tt><a name="INDEX-790" />. But that default may be changed
+with the <tt class="literal">select</tt><a name="INDEX-791" /> operator. Here we'll send some
+output lines to <tt class="literal">BEDROCK</tt>:
+</p>
+
+<blockquote><pre class="code">select BEDROCK;
+print "I hope Mr. Slate doesn't find out about this.\n";
+print "Wilma!\n";</pre></blockquote>
+
+<p>Once you've selected a filehandle as the default for output, it
+will stay that way. But it's generally a bad idea to confuse
+the rest of the program, so you should generally set it back to
+<tt class="literal">STDOUT</tt> when you're done.<a href="#FOOTNOTE-260">[260]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-260" /><p>[260]In
+the unlikely case that <tt class="literal">STDOUT</tt> might not be the
+selected filehandle, you could save and restore the filehandle, using
+the technique shown in the documentation for
+<tt class="literal">select</tt> in the <em class="emphasis">perlfunc</em>
+manpage. And as long as we're sending you to that manpage, we
+may as well tell you that there are actually <em class="emphasis">two</em>
+builtin functions in Perl named <tt class="literal">select</tt>,
+and both covered in the <em class="emphasis">perlfunc</em> manpage. The
+other <tt class="literal">select</tt> always has four arguments, so
+it's sometimes called "four-argument
+<tt class="literal">select</tt>". </p> </blockquote>
+
+<p>Also by default, the output to each filehandle is buffered. Setting
+the special <tt class="literal">$|</tt> variable to <tt class="literal">1</tt>
+will set the currently selected filehandle (that is, the one selected
+at the time that the variable is modified) to always flush the
+<a name="INDEX-792" />buffer after each output operation. So if
+you wanted to be sure that the <a name="INDEX-793" />logfile gets its entries at
+once, in case you might be reading the log to monitor progress of
+your long-running program, you could use something like this:
+</p>
+
+<blockquote><pre class="code">select LOG;
+$| = 1;  # don't keep LOG entries sitting in the buffer
+select STDOUT;
+# ... time passes, babies learn to walk, tectonic plates shift, and then...
+print LOG "This gets written to the LOG at once!\n";</pre></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch11_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">11.3. Fatal Errors with die</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">11.5. Reopening a Standard Filehandle</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

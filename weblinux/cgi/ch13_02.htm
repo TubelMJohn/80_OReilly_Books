@@ -1,0 +1,303 @@
+<?label 13.2. Outputting Image Data?><html><head><title>Outputting Image Data (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch13_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">13.2. Outputting Image Data</h2>
+
+
+<p>There are a few specific issues we <a name="INDEX-2532" /> <a name="INDEX-2,533" />encounter when outputting <a name="INDEX-2,534" /> <a name="INDEX-2,535" />image data that we do not normally
+encounter when we generate HTML. So before we look at how we can
+create our own images, let's take a look at these issues.</p>
+
+
+<a name="ch13-6-fm2xml" /><div class="sect2">
+<h3 class="sect2">13.2.1. An Example</h3>
+
+
+<p><a href="ch13_02.htm#ch13-17384">Example 13-1</a> shows a <a name="INDEX-2536" /> <a name="INDEX-2,537" />CGI script that returns a
+<a name="INDEX-2538" />random image each time it is called.</p>
+
+
+<p></p>
+
+
+<a name="ch13-17384" /><div class="example">
+<h4 class="objtitle">Example 13-1. random_image.cgi </h4>
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use CGI;
+use CGI::Carp;
+
+use constant BUFFER_SIZE     =&gt; 4_096;
+use constant IMAGE_DIRECTORY =&gt; "/usr/local/apache/data/random-images";
+
+my $q = new CGI;
+my $buffer = "";
+
+my $image = random_file( IMAGE_DIRECTORY, '\\.(png|jpg|gif)$' );
+my( $type ) = $image =~ /\.(\w+)$/;
+$type eq "jpg" and $type = "jpeg";
+
+print $q-&gt;header( -type =&gt; "image/$type", -expires =&gt; "-1d" );
+binmode STDOUT;
+
+local *IMAGE;
+open IMAGE, IMAGE_DIRECTORY . "/$image" or die "Cannot open file $image: $!";
+while ( read( IMAGE, $buffer, BUFFER_SIZE ) ) {
+    print $buffer;
+}
+close IMAGE;
+
+
+# Takes a path to a directory and an optional filename mask regex
+# Returns the name of a random file from the directory
+sub random_file {
+    my( $dir, $mask ) = @_;
+    my $i = 0;
+    my $file;
+    local *DIR, $_;
+    
+    opendir DIR, $dir or die "Cannot open $dir: $!";
+    while ( defined ( $_ = readdir DIR ) ) {
+        /$mask/o or next if defined $mask;
+        rand ++$i &lt; 1 and $file = $_;
+    }
+    closedir DIR;
+    return $file;
+}</pre></blockquote>
+</div>
+
+
+<p>This CGI script starts like our other CGI scripts, but the
+<tt class="function">random_file</tt> function requires a little
+explanation. We pass the <tt class="function">random_file</tt> function
+the path to our image directory and a regular expression that matches
+GIF, PNG, and JPEG files extensions. The
+<a name="INDEX-2539" />algorithm that
+<tt class="function">random_file</tt> uses is adopted from an algorithm
+for selecting a random line from a <a name="INDEX-2540" />
+<a name="INDEX-2541" />text file that appears
+in the <em class="citetitle">perlfaq5</em> manpage (it originally
+appeared in <em class="citetitle">Programming Perl </em>):</p>
+
+
+<blockquote><pre class="code">rand($.) &gt; 1 &amp;&amp; ( $line = $_ ) while &lt;&gt;;</pre></blockquote>
+
+
+<p>This code selects a line from a text file, by reading the file only
+once, and needing to store only two lines in memory at a time. It
+always sets <tt class="literal">$line</tt> to the first line, then there is
+a one in two chance that it will set it to the second line, a one in
+three chance for the third line, etc. The probabilities always
+balance out, no matter how many lines are in the file.</p>
+
+
+<p>Likewise, we apply this technique to reading files in a directory. We
+first discard any files that do not match our mask if we supplied a
+mask. We then apply the algorithm to determine whether to store the
+current filename. The last filename we happen to store is what we
+ultimately return.</p>
+
+
+<p>Now we return to the body of our CGI script and use the extension of
+the file to determine the media type of our image. Because the
+<a name="INDEX-2542" />media type for
+JPEG files (<em class="emphasis">image/jpeg</em>) differs
+from the common extension for JPEGs (<em class="emphasis">.jpg</em>), we
+convert these.</p>
+
+
+<p>Next we print our header with the corresponding media type for our
+image as well as an
+<em class="emphasis">Expires</em>
+<a name="INDEX-2543" />
+<a name="INDEX-2544" /> <a name="INDEX-2,545" /> header to discourage the
+browser from caching this response. Unfortunately, this header does
+not always work; we will discuss this further in a moment.</p>
+
+
+<a name="ch13-7-fm2xml" /><div class="sect3">
+<h3 class="sect3">13.2.1.1. binmode</h3>
+
+
+<p>After printing our header, we use Perl's built-in function
+<tt class="function">binmode</tt>
+<a name="INDEX-2546" />
+<a name="INDEX-2547" /> to indicate that we are
+outputting binary data. This is important. On
+<a name="INDEX-2548" />
+<a name="INDEX-2549" />Unix systems,<tt class="function">
+binmode</tt> does nothing (thus on these systems it can be
+omitted), but on Windows, MacOS, and other operating systems that do
+not use a single newline as an <a name="INDEX-2550" />end-of-line character, it disables
+automatic end-of-line translation that may otherwise corrupt binary
+output.</p>
+
+
+<p>Finally, we <a name="INDEX-2551" />read and output the image data. Note that
+because it is a binary file, there are no standard line endings, so
+we must use <tt class="function">read</tt> instead of
+<tt class="literal">&lt;&gt;</tt> used <a name="INDEX-2552" /> <a name="INDEX-2,553" />on text files.</p>
+</div>
+</div>
+
+
+
+
+<a name="ch13-8-fm2xml" /><div class="sect2">
+<h3 class="sect2">13.2.2. Including Dynamic Images in HTML</h3>
+
+
+<p>You <a name="INDEX-2554" /> <a name="INDEX-2,555" /> <a name="INDEX-2,556" /> <a name="INDEX-2,557" />can include a dynamic image in one of your
+HTML documents the same way you include standard images: via a URL.
+For example, the following tag displays a random image using our
+previous example:</p>
+
+
+<blockquote><pre class="code">&lt;IMG SRC="/cgi/random_image.cgi" &gt;</pre></blockquote>
+
+
+<a name="ch13-9-fm2xml" /><div class="sect3">
+<h3 class="sect3">13.2.2.1. Redundant path information</h3>
+
+
+<p>Unfortunately, there are some browsers (specifically some versions of
+Internet Explorer) that sometimes pay more attention to the extension
+of a resource they are fetching than to the HTTP media type header.
+According to the HTTP standard, this is wrong of course, and probably
+an accidental bug, but if you want to accommodate users of these
+browsers, you may wish to append redundant path information onto URLs
+to provide an acceptable file extension:</p>
+
+
+<blockquote><pre class="code">&lt;IMG SRC="/cgi/survey_graph.cgi/survey.png" &gt;</pre></blockquote>
+
+
+<p>The web server will still execute
+<em class="filename">survey_graph.cgi</em>, which generates the image
+while ignoring the additional <em class="emphasis">/survey.png</em> path information.</p>
+
+
+<p>Incidentally, adding false path information like this
+<em class="emphasis">is</em> a good idea whenever your CGI script is
+generating content that you expect users to save, because browsers
+generally default to the filename of the resource they requested, and
+the user probably would rather the file be saved as
+<em class="filename">survey.png</em> than
+<em class="filename">survey_graph.cgi</em>.</p>
+
+
+<p>For CGI scripts like <em class="filename">random_image.cgi</em> that
+determine the filename and/or extension dynamically, you can still
+accomplish this with redirection. For example, we could replace the
+line that sets <tt class="literal">$image</tt> in
+<em class="filename">random_image.cgi</em> (<a href="ch13_02.htm#ch13-17384">Example 13-1</a>)
+with the following lines:</p>
+
+
+<blockquote><pre class="code">my( $image ) = $q-&gt;path_info =~ /(\w+\.\w+)$/;
+
+unless ( defined $image and -e IMAGE_DIRECTORY . "/$image" ) {
+    $image = random_file( IMAGE_DIRECTORY, '\\.(png|jpg|gif)$' );
+    print $q-&gt;redirect( $q-&gt;script_name . "/$image" );
+    exit;
+}</pre></blockquote>
+
+
+<p>The first time this script is accessed, there is no additional path
+information, so it fetches a new image from our
+<tt class="function">random_file</tt> function and redirects to itself
+with the filename appended as path information. When this second
+request arrives, the script retrieves the filename from the path
+information and uses this if the filename matches our regular
+expression and it exists. If it isn't a valid filename, the
+script acts as if no path had been passed and generates a new
+filename.</p>
+
+
+<p>Note that our filename regular expression,
+<tt class="literal">/(\w+\.\w+)$/</tt>, prevents any images in our image
+directory that have characters not matched by <tt class="literal">\w</tt>
+from being displayed, including images that contain hyphens.
+Depending on the filenames you are using, you may need to adjust this
+pattern.</p>
+</div>
+
+
+
+<a name="ch13-10-fm2xml" /><div class="sect3">
+<h3 class="sect3">13.2.2.2. Preventing caching</h3>
+
+
+<p>In <a href="ch13_02.htm#ch13-17384">Example 13-1</a>, we generated an
+<em class="emphasis">Expires</em> HTTP header in order to discourage
+caching. Unfortunately, not all browsers respect this header, so it
+is quite possible for a user to get a stale image instead of a
+dynamic one. Some browsers also try to determine whether a resource
+is generated dynamically by something such as a CGI script or whether
+it is static; these browsers seem to assume that images are static,
+especially if you append additional path information as we just
+discussed.</p>
+
+
+<p>There is a way to force browsers not to cache images, but this
+requires that the tag for the image also be dynamically generated. In
+these circumstances, you can add a value that constantly changes,
+such as the time in seconds, to the URL:</p>
+
+
+<blockquote><pre class="code">my $time = time;
+print $q-&gt;img( { -src =&gt; "/cgi/survey_graph.cgi/$time/survey.png" } );</pre></blockquote>
+
+
+<p>By adding the time to the additional path information, the browser
+views each request (more than a second apart) as a new resource.
+However, this technique does fill the browser's cache with
+duplicate images, so use it sparingly, and always combine this with
+an <em class="emphasis">Expires</em> header for the sake of browsers that
+support it. Adding a value like this to the query string also works:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;img( { -src =&gt; "/cgi/survey_graph.cgi/survey.png?random=$time" } );</pre></blockquote>
+
+
+<p>If nothing else on the HTML page is dynamic, and you do not wish to
+convert it to a CGI script, then you can also accomplish this via a
+server-side include (see <a href="ch06_01.htm">Chapter 6, "HTML Templates"</a>):</p>
+
+
+<blockquote><pre class="code">&lt;!--#config timefmt="%d%m%y%H%M%S" --&gt;
+&lt;IMG SRC="/cgi/survey_graph.cgi/&lt;!--#echo var="DATE_LOCAL"--&gt;/survey.png"&gt;</pre></blockquote>
+
+
+<p>Although this is a little hard to read and is syntactically invalid
+HTML, the SSI tag will be parsed by an SSI-enabled server and
+replaced with a number representing the current date and time before
+it is <a name="INDEX-2558" />
+<a name="INDEX-2559" />sent to
+the <a name="INDEX-2560" />
+<a name="INDEX-2561" />user.</p>
+</div>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch13_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">13. Creating Graphics on the Fly</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">13.3. Generating PNGs with GD</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

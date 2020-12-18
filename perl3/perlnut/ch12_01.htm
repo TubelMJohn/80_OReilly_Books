@@ -1,0 +1,169 @@
+<html><head><title>Databases and Perl (Perl in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Stephen Spainhour" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002416L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="part5.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch12_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 12. Databases and Perl</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#perlnut2-CHP-12-SECT-1">DBM Databases and DBM Hashes</a><br />
+<a href="ch12_02.htm">Design of DBI</a><br />
+<a href="ch12_03.htm">DBI Methods</a><br />
+<a href="ch12_04.htm">DBI Environment Variables</a><br /></p></div>
+
+<p>Since one of Perl's greatest strengths is working
+with text, a genuine concern is how to store data. Flat files are one
+possibility, but they don't scale very well for
+large amounts of data. When working with lots of data,
+you'll likely need database software to satisfy your
+capacity and performance requirements.
+</p>
+
+<p><a name="INDEX-1742" /></a>There
+are two general solutions to using databases with Perl. For simple
+database purposes, Database Management (DBM) will serve your needs.
+DBM is a library supported by many (if not all) Unix systems and many
+non-Unix systems as well. DBM is more efficient than flat text files
+because of how it packs records into the database files and the
+(large) size of data it can store and retrieve efficiently.
+Perl's interface to your system's
+DBM is based on a hash, so you can add, store, and delete data by
+key.
+</p>
+
+<p>When you need to store a larger variety of data and need other
+goodies such as searchability on multiple records,
+you'll probably need to use a database that supports
+SQL. To this end, you can buy a prepackaged database product such as
+Oracle or Sybase, or a shareware equivalent such as MySQL or
+PostgreSQL. For these larger database projects, you should use
+<a name="INDEX-1743" /></a><a name="INDEX-1744" /></a>DBI and DBD. DBI is a module that
+provides a consistent interface for database solutions. DBD is a
+database-specific driver that translates DBI calls as needed for that
+database.
+</p>
+
+<p>In this chapter, we'll cover DBM and talk at length
+about DBI/DBD.
+</p>
+<div class="sect1"><a name="perlnut2-CHP-12-SECT-1" /></a>
+<h2 class="sect1">12.1. DBM Databases and DBM Hashes</h2>
+
+<p><a name="INDEX-1745" /></a><a name="INDEX-1746" /></a>DBM is a simple
+database management facility for Unix systems. It allows programs to
+store a collection of key/value pairs in binary form, thus providing
+rudimentary database support for Perl. Practically all Unix systems
+ship with built-in DBM support, some with a separate libdb and others
+with DBM calls built into libc. In the absence of DBM support on your
+system, you can use gdbm from GNU, which is an extension to vanilla
+DBM or BerkeleyDB-3.x from <a href="http://www.sleepycat.com/">http://www.sleepycat.com/</a>.
+</p>
+
+<p>To use DBM databases in Perl, you can associate a hash with a DBM
+database through the AnyDBM module that uses <tt class="literal">tie(
+)</tt>. This hash (called a DBM array) is then used to access
+and modify the DBM database.
+<a name="INDEX-1747" /></a>Previously, you
+could use <tt class="literal">dbmopen( )</tt> to open, read, write, and
+delete a database, but while <tt class="literal">dbmopen( )</tt> remains
+available, you should use the AnyDBM module that's
+always suited to your underlying DBM implementation.<a href="#FOOTNOTE-6">[6]</a> </p><blockquote class="footnote">
+<a name="FOOTNOTE-6" /></a><p> [6]If you're using BerkeleyDB-2.x or newer, you
+should not use AnyDBM_File, but should instead install and use the
+BerkeleyDB module.</p> </blockquote>
+
+<p>For example, with AnyDBM:
+</p>
+
+<blockquote><pre class="code">#!/usr/local/bin/perl -w
+
+    use AnyDBM_File;
+    use Fcntl; # needed for O_ thingies
+
+    my %h;
+    my $db_name = 'perl_in_a_nutshell2.dbmx';
+
+    # tie %h. will fail if $db_name can't be created and $db_name can't be 
+    # written
+    tie(%h, 'AnyDBM_File', $db_name, O_RDWR|O_CREAT, 0640)
+        or die("can't create \%h: $!");
+
+    # Populate %h
+    foreach my $letter ('a' .. 'z') {
+        $h{$letter} = uc($letter);
+    }
+
+    while(my($key, $value) = each(%h)) {
+        print "$key -&gt; $value\n";
+    }
+
+    untie(%h);</pre></blockquote>
+
+<p>The <tt class="literal">%ARRAYNAME</tt> parameter is a Perl hash. (If it
+already has values, the values are discarded under DBM_File modules,
+although you can have multiple keys under BerkeleyDB-2.x and newer.)
+<tt class="literal">%ARRAYNAME</tt> is tied to a DBM database called
+<tt class="literal">$db_name</tt>. This database may be stored on disk as a
+single file, or as two files called <em class="emphasis">$db_name.dir</em>
+and <em class="emphasis">$db_name.pag</em>, depending on the DBM
+implementation.
+</p>
+
+<p>The <tt class="literal">$mode</tt> parameter is a number that controls the
+permissions of the pair of files if the files need to be created. The
+number is in octal, so make sure that you use permissions such as
+<tt class="literal">0640</tt> instead of <tt class="literal">640</tt>, which are
+different numbers in octal. If the files already exist,
+<tt class="literal">$mode</tt> has no effect. For example:
+</p>
+
+<blockquote><pre class="code">tie(%BOOKS, "bookdb", O_RDWR|O_CREAT, 0666); # Open %BOOKS onto bookdb</pre></blockquote>
+
+<p><a name="INDEX-1748" /></a>This invocation associates the hash
+<tt class="literal">%BOOKS</tt> with the disk files
+<em class="emphasis">bookdb.dir</em> and <em class="emphasis">bookdb.pag</em>
+in the current directory. If the files don't already
+exist, they are created with a mode of <tt class="literal">0666</tt>,
+modified by the current <em class="emphasis">umask</em>.
+</p>
+
+<p><tt class="literal">tie( )</tt> returns <tt class="literal">undef</tt> upon any
+failure in opening the <tt class="literal">$db_name</tt> and sets
+<tt class="literal">$!</tt>.
+</p>
+
+<p>Once the database is opened, anything you do to the DBM hash is
+immediately written to the database. See <a href="ch04_01.htm">Chapter 4, "The Perl Language"</a>
+for more information on hashes.
+</p>
+
+<blockquote><pre class="code">tie(%BOOKS, "bookdb", O_RDWR|O_CREAT, 0666)
+    or die("can't open bookdb: $!"); # Open %BOOKS onto bookdb
+    $BOOKS{"1-56592-286-7"} = "Perl in a Nutshell";</pre></blockquote>
+
+<p>The DBM array stays open throughout the program. When the program
+termi- nates, the association is terminated. You can also break the
+association in a manner similar to closing a filehandle by using
+<tt class="literal">untie( )</tt>. See <a href="ch05_01.htm">Chapter 5, "Function Reference"</a> for
+more information on <tt class="literal">tie</tt>. <a name="INDEX-1749" /></a><a name="INDEX-1750" /></a>
+</p>
+
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="part5.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch12_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">V. Databases</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">12.2. Design of DBI</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+      </map>
+
+</body></html>

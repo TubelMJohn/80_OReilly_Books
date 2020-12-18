@@ -1,0 +1,324 @@
+<html><head><title>Variable-length (Text) Databases (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch16_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch16_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">16.4. Variable-length (Text) Databases</h2>
+
+<p><a name="INDEX-1067" /> <a name="INDEX-1068" /> <a name="INDEX-1069" />Many simple databases are merely text
+files written in a format that allows a program to read and maintain
+them. For example, a configuration file for some program might be a
+text file, with one configuration parameter being set on each line.
+Or maybe the file is a mailing list, with one name and address on
+each line (probably with the components of the name and address
+separated by tab characters).
+</p>
+
+<p>Updating text files is more difficult than it probably seems at
+first. But that's only because we're used to seeing text
+files rendered as pages (or screens) of text. If you could see the
+file as it is written in the filesystem, the difficulty is more
+apparent. Since we can't show you the file as it's
+actually written without opening up a disk drive, here's our
+rendition of a piece of a text file<a href="#FOOTNOTE-356">[356]</a>:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-356" /><p>[356]Of course, the
+real file wouldn't have lines at all; it's one long
+stream of text. And the newline character should really be a
+single-character code. But these differences don't hurt this as
+an example.</p> </blockquote>
+
+<blockquote><pre class="code">He had bought a large map representing the sea,\n  Without the l
+east vestige of land:\nAnd the crew were much pleased when they 
+found it to be\n  A map they could all understand.\n\n"What's th
+e good of Mercator's North Poles and Equators,\n  Tropics, Zones
+, and Meridian Lines?"\nSo the Bellman would cry: and the crew w
+ould reply\n  "They are merely conventional signs!\n\n"Other map
+s are such shapes, with their islands and capes!\n  But we've go
+t our brave Captain to thank:"\n(So the crew would protest) "tha
+t he's bought us the best-\n  A perfect and absolute blank!"\n\n</pre></blockquote>
+
+<p>If you had this file open in your text editor, it would be easy to
+change a word, add a comma, or fix a misspelling. If your editor is
+powerful enough, in fact, you could change the indentation of each
+line with a single command. But the text file is a stream of bytes;
+if you wanted to add even a single comma, the remainder of the text
+file (possibly thousands or millions of bytes) would have to move
+over to make room. Nearly every tiny change would mean lots of slow
+copying operations on the file. So how can we edit the file
+efficiently?
+</p>
+
+<p>The most common way of programmatically updating a text file is by
+writing an entirely new file that looks similar to the old one, but
+making whatever changes we need as we go along. As you'll see,
+this technique gives nearly the same result as updating the file
+itself, but it has some beneficial side effects as well.
+</p>
+
+<p>In this example, we've got hundreds of files with a similar
+format. One of them is <em class="filename">fred03.dat</em>, and
+it's full of lines like these:
+</p>
+
+<blockquote><pre class="code">Program name: granite
+Author: Gilbert Bates
+Company: RockSoft
+Department: R&amp;D
+Phone: +1 503 555-0095
+Date: Tues March 9, 1999
+Version: 2.1
+Size: 21k
+Status: Final beta</pre></blockquote>
+
+<p>We need to fix this file so that it has some different information.
+Here's roughly what this one should look like when we're
+done:
+</p>
+
+<blockquote><pre class="code">Program name: granite
+Author: Randal L. Schwartz
+Company: RockSoft
+Department: R&amp;D
+Date: June 12, 2002 6:38 pm
+Version: 2.1
+Size: 21k
+Status: Final beta</pre></blockquote>
+
+<p>In short, we need to make three changes. The name of the
+<tt class="literal">Author</tt> should be changed; the
+<tt class="literal">Date</tt> should be updated to today's date, and
+the <tt class="literal">Phone</tt> should be removed completely. And we
+have to make these changes in hundreds of similar files as well.
+</p>
+
+<p>Perl supports a way of in-place editing of
+<a name="INDEX-1070" />files with a little extra help from
+the <a name="INDEX-1071" />diamond operator
+("<tt class="literal">&lt;&gt;</tt>"). Here's a program
+to do what we want, although it may not be obvious how it works at
+first. This program's only new feature is the special variable
+<tt class="literal">$^I</tt>; ignore that for now, and we'll come
+back to it:
+</p>
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+
+use strict;
+
+chomp(my $date = `date`);
+@ARGV = glob "fred*.dat" or die "no files found";
+$^I = ".bak";
+
+while (&lt;&gt;) {
+  s/^Author:.*/Author: Randal L. Schwartz/;
+  s/^Phone:.*\n//;
+  s/^Date:.*/Date: $date/;
+  print;
+}</pre></blockquote>
+
+<p>Since we need today's date, the program starts by using the
+system <i class="command">date</i><a name="INDEX-1072" /> command. A better way to get the date
+(in a slightly different format) would almost surely be to use
+Perl's own
+<tt class="literal">localtime</tt><a name="INDEX-1073" /> function in a scalar context:
+</p>
+
+<blockquote><pre class="code">my $date = localtime;</pre></blockquote>
+
+<p>To get the list of files for the diamond operator, we read them from
+a glob. The next line sets <tt class="literal">$^I</tt>, but keep ignoring
+that for the moment.
+</p>
+
+<p>The main loop reads, updates, and prints one line at a time. (With
+what you know so far, that means that all of the files' newly
+modified contents will be dumped to your terminal, scrolling
+furiously past your eyes, without the files being changed at all. But
+stick with us.) Note that the second substitution can replace the
+entire line containing the phone number with an empty
+string -- leaving not even a newline -- so when that's
+printed, nothing comes out, and it's as if the
+<tt class="literal">Phone</tt> never existed. Most input lines won't
+match any of the three patterns, and those will be unchanged in the
+output.
+</p>
+
+<p>So this result is close to what we want, except that we haven't
+shown you how the updated information gets back out on to the disk.
+The answer is in the variable
+<tt class="literal">$^I</tt><a name="INDEX-1074" />. By default it's
+<tt class="literal">undef</tt>, and everything is normal. But when
+it's set to some string, it makes the diamond operator
+("<tt class="literal">&lt;&gt;</tt>") even more magical than
+usual.
+</p>
+
+<p>We already know about much of the diamond's magic -- it will
+automatically open and close a series of files for you, or read from
+the standard-input stream if there aren't any filenames given.
+But when there's a string in <tt class="literal">$^I</tt>, that
+string is used as a backup filename's extension. Let's
+see that in action.
+</p>
+
+<p>Let's say it's time for the diamond to open our file
+<em class="filename">fred03.dat</em>. It opens it like before, but now it
+renames it, calling it <em class="filename">fred03.dat.bak</em>.<a href="#FOOTNOTE-357">[357]</a> We've
+still got the same file open, but now it has a different name on the
+disk. Next, the diamond creates a new file and gives it the name
+<em class="filename">fred03.dat</em>. That's okay; we weren't
+using that name any more. And now the diamond selects the new file as
+the default for output, so that anything that we print will go into
+that file.<a href="#FOOTNOTE-358">[358]</a>
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-357" /><p>[357]Some of the details of this procedure will vary on non-Unix
+systems, but the end result should be nearly the same. See the
+release notes for your port of Perl.</p> </blockquote><blockquote class="footnote"> <a name="FOOTNOTE-358" /><p>[358]The diamond also tries to duplicate the
+original file's permission and ownership settings as much as
+possible; for example, if the old one was world-readable, the new one
+should be, as well.</p> </blockquote>
+
+<p>So now the <tt class="literal">while</tt> loop will read a line from the
+old file, update that, and print it out to the new file. This program
+can update hundreds of files in a few seconds on a typical machine.
+Pretty powerful, huh?
+</p>
+
+<p>Once the program has finished, what does the user see? The user says,
+"Ah, I see what happened! Perl edited my file
+<em class="filename">fred03.dat</em>, making the changes I needed, and
+saved me a copy of the original in the <a name="INDEX-1075" />backup file
+<em class="filename">fred03.dat.bak</em> just to be helpful!" But we
+now know the truth: Perl didn't really edit any file. It made a
+modified copy, said "Abracadabra!", and switched the
+files around while we were watching sparks come out of the magic
+wand. Tricky.
+</p>
+
+<p>Some folks use a <a name="INDEX-1076" />
+<a name="INDEX-1077" />tilde
+("<tt class="literal">~</tt>") as the value for
+<tt class="literal">$^I</tt>, since that resembles what
+<i class="command">emacs</i> does for backup files. Another possible
+value for <tt class="literal">$^I</tt> is the empty string. This enables
+in-place editing, but doesn't save the original data in a
+backup file. But since a small typo in your pattern could wipe out
+all of the old data, using the empty string is recommended only if
+you want to find out how good your backup tapes are. It's easy
+enough to delete the backup files when you're done. And when
+something goes wrong and you need to rename the backup files to their
+original names, you'll be glad that you know how to use Perl to
+do that (see the multiple-file rename example in <a href="ch13_01.htm">Chapter 13, "Manipulating Files and Directories"</a>).
+</p>
+
+<a name="lperl3-CHP-16-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">16.4.1. In-place Editing from the Command Line</h3>
+
+<p><a name="INDEX-1078" /> <a name="INDEX-1079" />A program like the example
+from the previous section is fairly easy to write. But Larry decided
+it wasn't easy enough.
+</p>
+
+<p>Imagine that you need to update hundreds of files that have the
+misspelling <tt class="literal">Randal</tt> instead of the
+one-<tt class="literal">l</tt> name <tt class="literal">Randal</tt>. You could
+write a program like the one in the previous section. Or you could do
+it all with a one-line program, right on the command line:
+</p>
+
+<blockquote><pre class="code">$ <tt class="userinput"><b>perl -p -i.bak -w -e 's/Randal/Randal/g' fred*.dat</b></tt></pre></blockquote>
+
+<p>Perl has a whole slew of command-line options that can be used to
+build a complete program in a few keystrokes.<a href="#FOOTNOTE-359">[359]</a>
+Let's see what these few do.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-359" /><p>[359]See
+the<a name="INDEX-1080" /> <em class="emphasis">perlrun</em>manpage for the complete list.</p> </blockquote>
+
+<p>Starting the command with <tt class="literal">perl</tt> does something like
+putting <tt class="literal">#!/usr/bin/perl</tt> at the top of a file does:
+it says to use the program <em class="filename">perl</em> to process what
+follows.
+</p>
+
+<p>The <tt class="literal">-p</tt><a name="INDEX-1081" /> option tells Perl to write a program for
+you. It's not much of a program, though; it looks something
+like this:<a href="#FOOTNOTE-360">[360]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-360" /><p>[360]Actually, the <tt class="literal">print</tt>
+occurs in a <tt class="literal">continue</tt> block. See the
+<em class="emphasis">perlsyn</em>and
+<em class="emphasis">perlrun</em>manpages for more
+information.</p> </blockquote>
+
+<blockquote><pre class="code">while (&lt;&gt;) { print; }. </pre></blockquote>
+
+<p>If you want even less, you could use
+<tt class="literal">-n</tt><a name="INDEX-1082" /> instead; that leaves out the
+<tt class="literal">print</tt> statement. (Fans of <i class="command">awk</i>
+will recognize <tt class="literal">-p</tt> and <tt class="literal">-n</tt>.)
+Again, it's not much of a program, but it's pretty good
+for the price of a few keystrokes.
+</p>
+
+<p>The next option is
+<tt class="literal">-i.bak</tt><a name="INDEX-1083" />, which you might have guessed sets
+<tt class="literal">$^I</tt> to <tt class="literal">".bak"</tt> before the
+program starts. If you don't want a backup file, you can use
+<tt class="literal">-i</tt> alone, with no extension.
+</p>
+
+<p>We've seen <tt class="literal">-w</tt><a name="INDEX-1084" /> before -- it turns on warnings.
+</p>
+
+<p>The <tt class="literal">-e</tt><a name="INDEX-1085" /> option says "executable code
+follows." That means that the
+<tt class="literal">s/Randal/Randal/g</tt> string is treated as Perl code.
+Since we've already got a <tt class="literal">while</tt> loop (from
+the <tt class="literal">-p</tt> option), this code is put inside the loop,
+before the <tt class="literal">print</tt>. For technical reasons, the last
+semicolon in the <tt class="literal">-e</tt> code is optional. But if you
+have more than one <tt class="literal">-e</tt>, and thus more than one
+chunk of code, only the semicolon at the end of the last one may
+safely be omitted.
+</p>
+
+<p>The last command-line parameter is <tt class="literal">fred*.dat</tt>,
+which says that <tt class="literal">@ARGV</tt> should hold the list of
+filenames that match that glob. Put the pieces all together, and
+it's as if we had written a program like this:
+</p>
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+
+@ARGV = glob "fred*.dat";
+$^I = ".bak";
+
+while (&lt;&gt;) {
+  s/Randal/Randal/g;
+  print;
+}</pre></blockquote>
+
+<p>Compare this program to the one we used in the previous section.
+It's pretty similar. These command-line options are pretty
+handy, aren't they?<a name="INDEX-1086" /> <a name="INDEX-1087" /> <a name="INDEX-1088" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch16_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch16_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">16.3. Fixed-length Random-access Databases</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">16.5. Exercises</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

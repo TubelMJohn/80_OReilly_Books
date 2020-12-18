@@ -1,0 +1,183 @@
+<?label 14.4. Per-Request Information?><html><head><title>Per-Request Information (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch14_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch14_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">14.4. Per-Request Information</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-1234" /> <a name="INDEX-1235" /> <a name="INDEX-1236" />The core ensures that the right information is available to the
+modules at the right time by matching requests to the appropriate
+virtual server and directory information before invoking the various
+functions in the modules. This, and other information, is packaged in
+a <tt class="literal">request_rec </tt>
+<a name="INDEX-1237" />structure, defined in
+<em class="filename">httpd.h</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">struct request_rec {
+  ap_pool *pool;
+  conn_rec *connection;
+  server_rec *server;
+
+  request_rec *next;          /* If we wind up getting redirected,
+                               * pointer to the request we redirected to.
+                               */
+  request_rec *prev;          /* If this is an internal redirect,
+                               * pointer to where we redirected *from*.
+                               */
+  
+  request_rec *main;          /* If this is a subrequest (see request.h), 
+                               * pointer back to the main request.
+                               */
+  /* Info about the request itself... we begin with stuff that only
+   * protocol.c should ever touch...
+   */
+  
+  char *the_request;          /* First line of request, so we can log it */
+  int assbackwards;           /* HTTP/0.9, "simple" request */
+  int proxyreq;               /* A proxy request (calculated during
+                               * post_read_request or translate_name) */
+  int header_only;            /* HEAD request, as opposed to GET */
+  char *protocol;             /* Protocol, as given to us, or HTTP/0.9 */
+  int proto_num;              /* Number version of protocol; 1.1 = 1001 */
+  const char *hostname;       /* Host, as set by full URI or Host: */
+
+  time_t request_time;        /* When the request started */
+
+  char *status_line;          /* Status line, if set by script */
+  int status;                 /* In any case */
+  
+ /* Request method, two ways; also, protocol, etc. Outside of protocol.c,
+  * look, but don't touch.
+  */
+  
+  char *method;              /* GET, HEAD, POST, etc. */
+  int method_number;         /* M_GET, M_POST, etc. */
+
+  /*
+    allowed is a bitvector of the allowed methods.
+    A handler must ensure that the request method is one that
+    it is capable of handling. Generally modules should DECLINE
+    any request methods they do not handle. Prior to aborting the
+    handler like this, the handler should set r-&gt;allowed to the list
+    of methods that it is willing to handle. This bitvector is used
+    to construct the "Allow:" header required for OPTIONS requests,
+    and METHOD_NOT_ALLOWED and NOT_IMPLEMENTED status codes.
+    Since the default_handler deals with OPTIONS, all modules can
+    usually decline to deal with OPTIONS. TRACE is always allowed;
+    modules don't need to set it explicitly.
+    Since the default_handler will always handle a GET, a
+    module which does *not* implement GET should probably return
+    METHOD_NOT_ALLOWED. Unfortunately, this means that a Script GET
+    handler can't be installed by mod_actions.
+  */
+  int allowed;                /* Allowed methods - for 405, OPTIONS, etc. */
+
+  int sent_bodyct;            /* Byte count in stream is for body */
+  long bytes_sent;            /* Body byte count, for easy access */
+  time_t mtime;               /* Time the resource was last modified */
+
+  /* HTTP/1.1 connection-level features */
+
+  int chunked;                /* Sending chunked transfer-coding */
+  int byterange;              /* Number of byte ranges */
+  char *boundary;             /* Multipart/byteranges boundary */
+  const char *range;          /* The Range: header */
+  long clength;               /* The "real" content length */
+
+  long remaining;             /* Bytes left to read */
+  long read_length;           /* Bytes that have been read */
+  int read_body;              /* How the request body should be read */
+  int read_chunked;           /* Reading chunked transfer-coding */
+
+ /* MIME header environments, in and out. Also, an array containing
+  * environment variables to be passed to subprocesses, so people can
+  * write modules to add to that environment.
+  *
+  * The difference between headers_out and err_headers_out is that the
+  * latter are printed even on error and persist across internal redirects
+  * (so the headers printed for ErrorDocument handlers will have them).
+  *
+  * The 'notes' table is for notes from one module to another, with no
+  * other set purpose in mind...
+  */
+  
+  table *headers_in;
+  table *headers_out;
+  table *err_headers_out;
+  table *subprocess_env;
+  table *notes;
+
+  /* content_type, handler, content_encoding, content_language, and all
+   * content_languages MUST be lowercased strings. They may be pointers
+   * to static strings; they should not be modified in place.
+   */
+  char *content_type;         /* Break these out --- we dispatch on 'em */
+  char *handler;              /* What we *really* dispatch on           */
+
+  char *content_encoding;
+  char *content_language;
+  array_header *content_languages;	/* Array of (char*) */
+
+  int no_cache;
+  int no_local_copy;
+
+  /* What object is being requested (either directly, or via include
+   * or content-negotiation mapping).
+   */
+  char *unparsed_uri;         /* The URI without any parsing performed */
+  char *uri;                  /* The path portion of the URI */
+  char *filename;
+  char *path_info;
+  char *args;                 /* QUERY_ARGS, if any */
+  struct stat finfo;          /* ST_MODE set to zero if no such file */
+  uri_components parsed_uri;  /* Components of URI, dismantled */
+  
+  /* Various other config info, which may change with .htaccess files.
+   * These are config vectors, with one void* pointer for each module
+   * (the thing pointed to being the module's business).
+   */
+  
+  void *per_dir_config;       /* Options set in config files, etc. */
+  void *request_config;       /* Notes on *this* request */
+/*
+ * A linked list of the configuration directives in the .htaccess files
+ * accessed by this request.
+ * N.B. Always add to the head of the list, _never_ to the end.
+ * That way, a subrequest's list can (temporarily) point to a parent's
+ * list.
+ */
+  const struct htaccess_result *htaccess;
+};<a name="INDEX-1238" />
+<a name="INDEX-1239" />
+<a name="INDEX-1240" />
+<a name="INDEX-1241" />
+<a name="INDEX-1242" />
+<a name="INDEX-1243" /></pre></blockquote>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch14_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch14_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">14.3. Per-Directory Configuration</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">14.5. Access to Configuration and Request Information</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

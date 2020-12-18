@@ -1,0 +1,264 @@
+<html><head><title>XSLT as a Code Generator (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch08_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">8.5. XSLT as a Code Generator</h2>
+
+<p><a name="INDEX-1009" />For performance reasons,
+<a name="INDEX-1010" />EJB components typically return
+<em class="emphasis">dependent objects</em><a name="INDEX-1011" /> rather than many individual fields.
+These are implemented as read-only classes that encapsulate a group
+of related fields. Borrowing an example from <em class="emphasis">Enterprise
+JavaBeans</em> by Richard Monson-Haefel (O'Reilly), <a href="ch08_05.htm#javaxslt-CHP-8-EX-13">Example 8-13</a> shows a typical dependent
+object.<a name="INDEX-1012" />
+<a name="INDEX-1013" />
+</p>
+
+<a name="javaxslt-CHP-8-EX-13" /><div class="example">
+<h4 class="objtitle">Example 8-13. Address.java </h4>
+<blockquote><pre class="code">public class Address implements java.io.Serializable {
+
+    private String street;
+    private String city;
+    private String state;
+    private String zip;
+
+    /**
+     * Construct a new dependent object instance.
+     */
+    public Address(String street, String city, String state, String zip) {
+        this.street = street;
+        this.city = city;
+        this.state = state;
+        this.zip = zip;
+
+    }
+    
+    public String getStreet( ) {
+        return this.street;
+    }
+    
+    public String getCity( ) {
+        return this.city;
+    }
+    
+    public String getState( ) {
+        return this.state;
+    }
+    
+    public String getZip( ) {
+        return this.zip;
+    }
+}</pre></blockquote>
+</div>
+
+<p>Now, rather than containing numerous fine-grained methods, an entity
+bean can provide a single method to retrieve an instance of
+<tt class="literal">Address</tt>. This reduces load on the network and
+database and makes the code somewhat easier to understand. As you can
+see, the <tt class="literal">Address</tt> class is very straightforward. It
+has a constructor that initializes all fields and a series of get
+methods.
+</p>
+
+<p>Although <tt class="literal">Address</tt> is small, some dependent objects
+may have dozens of fields. These are tedious to write at best,
+resulting in a typing exercise rather than programming creativity.
+XSLT can help by acting as a simple code generator, minimizing the
+tedious part of the programmer's job.
+<em class="filename">AddressDO.xml</em>, shown in <a href="ch08_05.htm#javaxslt-CHP-8-EX-14">Example 8-14</a>, contains the data that will feed into our
+code
+generator.<a name="INDEX-1014" />
+</p>
+
+<a name="javaxslt-CHP-8-EX-14" /><div class="example">
+<h4 class="objtitle">Example 8-14. AddressDO.xml </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;dependentObject class="Address"&gt;
+    &lt;property name="street" type="String" getter="getStreet"/&gt;
+    &lt;property name="city" type="String" getter="getCity"/&gt;
+    &lt;property name="state" type="String" getter="getState"/&gt;
+    &lt;property name="zip" type="String" getter="getZip"/&gt;
+&lt;/dependentObject&gt;</pre></blockquote>
+</div>
+
+<p>The XML data is obviously much shorter than the generated code, and
+the difference is magnified for larger dependent objects with many
+fields. The <tt class="literal">&lt;dependentObject&gt;</tt> element
+contains a list of <tt class="literal">&lt;property&gt;</tt> elements, each
+of which defines the field name, datatype, and get method name. Now
+that the data is captured in a well-defined XML format, a DTD or
+Schema can be used to perform validation. A really ambitious
+programmer might want to create a simple GUI front-end that allows
+graphical editing of the <tt class="literal">&lt;dependentObject&gt;</tt>
+structure.
+</p>
+
+<p><a name="INDEX-1015" />An XSLT
+stylesheet performs the actual code generation. The output method
+should be set to <tt class="literal">text</tt>, and particular attention
+must be given to whitespace. With HTML or XHTML output, whitespace is
+largely irrelevant. Since browsers collapse multiple spaces and
+linefeeds into a single space, the XSLT stylesheet can be indented
+and spaced however you like. But with a code generator, formatting is
+a much higher priority. This can lead to stylesheets that are much
+harder to read, which is the main drawback of using XSLT as a code
+generator. <a href="ch08_05.htm#javaxslt-CHP-8-EX-15">Example 8-15</a> shows the dependent object
+code generator
+stylesheet.<a name="INDEX-1016" />
+</p>
+
+<a name="javaxslt-CHP-8-EX-15" /><div class="example">
+<h4 class="objtitle">Example 8-15. dependentObject.xslt </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+
+&lt;xsl:stylesheet version="1.0" 
+        xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+    <tt class="userinput"><b>&lt;xsl:output method="text"/&gt;
+    &lt;xsl:variable name="className" select="/dependentObject/@class"/&gt;</b></tt>
+    &lt;!--
+    ********************************************************************
+    ** Generate the class skeleton. Other templates will generate
+    ** portions of the class.
+    *****************************************************************--&gt;
+    &lt;xsl:template match="/dependentObject"&gt;public class &lt;xsl:value-of
+             select="$className"/&gt;
+       <tt class="userinput"><b>&lt;xsl:text&gt; implements java.io.Serializable {
+&lt;/xsl:text&gt;</b></tt>
+    &lt;xsl:apply-templates select="property" mode="generateField"/&gt;
+    &lt;xsl:text&gt;
+
+    /**
+     * Construct a new dependent object instance.
+     */
+    public &lt;/xsl:text&gt;
+            &lt;xsl:value-of select="$className"/&gt;(&lt;xsl:apply-templates 
+                 select="property" mode="generateConstructorParam"/&gt;
+            &lt;xsl:text&gt;) {
+&lt;/xsl:text&gt;
+            &lt;xsl:apply-templates select="property" 
+                 mode="generateInitializers"/&gt;
+    }
+
+    &lt;xsl:apply-templates select="property" mode="generateGetter"/&gt;
+}
+    &lt;/xsl:template&gt;
+
+    &lt;!--
+    *****************************************************************
+    ** Generate a private field declaration.
+    **************************************************************--&gt;
+    &lt;xsl:template match="property" mode="generateField"&gt;
+    <tt class="userinput"><b>private &lt;xsl:value-of select="@type"/&gt;
+    &lt;xsl:text&gt; &lt;/xsl:text&gt;
+    &lt;xsl:value-of select="@name"/&gt;;&lt;/xsl:template&gt;</b></tt>
+    
+    &lt;!--
+    *****************************************************************
+    ** Generate a "get" method for a property.
+    **************************************************************--&gt;
+    &lt;xsl:template match="property" mode="generateGetter"&gt;
+    public &lt;xsl:value-of select="@type"/&gt;
+    &lt;xsl:text&gt; &lt;/xsl:text&gt;
+    &lt;xsl:value-of select="@getter"/&gt;( ) {
+        return this.&lt;xsl:value-of select="@name"/&gt;;
+    }
+    &lt;/xsl:template&gt;
+    
+    &lt;!--
+    *****************************************************************
+    ** Generate one of the constructor parameters.
+    **************************************************************--&gt;
+    &lt;xsl:template match="property" mode="generateConstructorParam"&gt;
+        &lt;xsl:text xml:space="preserve"/&gt;
+        &lt;xsl:value-of select="@type"/&gt;
+        &lt;xsl:text&gt; &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="@name"/&gt;
+        &lt;xsl:if test="position() != last( )"&gt;, &lt;/xsl:if&gt;
+    &lt;/xsl:template&gt;
+    
+    &lt;!--
+    *****************************************************************
+    ** Generate the initialization code inside of the constructor.
+    **************************************************************--&gt;
+    &lt;xsl:template match="property" mode="generateInitializers"&gt;
+        &lt;xsl:text xml:space="preserve"&gt;        this.&lt;/xsl:text&gt;
+        &lt;xsl:value-of select="@name"/&gt;
+        &lt;xsl:text&gt; = &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="@name"/&gt;;
+    &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+</div>
+
+<p>This stylesheet produces the code for
+<tt class="literal">Address.java</tt>. It starts by setting the output
+method to <tt class="literal">text</tt> and creating a variable for the
+class name. The variable allows us to avoid typing
+<tt class="literal">&lt;xsl:value-of
+select="/dependentObject/@class"/&gt;</tt> whenever the class
+name is needed.
+</p>
+
+<p>The <tt class="literal">&lt;xsl:text&gt;</tt><a name="INDEX-1017" />
+<a name="INDEX-1018" /> element is used
+frequently in code-generator stylesheets because it allows for more
+control over whitespace. In several places, this element is used to
+introduce linefeeds in the output. For instance:
+</p>
+
+<blockquote><pre class="code">       &lt;xsl:text&gt; implements java.io.Serializable {
+&lt;/xsl:text&gt;</pre></blockquote>
+
+<p>Because the closing tag is on the next line, the linefeed character
+will be preserved faithfully. <tt class="literal">&lt;xsl:text&gt;</tt> is
+also used to introduce individual spaces:
+</p>
+
+<blockquote><pre class="code">private &lt;xsl:value-of select="@type"/&gt;<tt class="userinput"><b>
+&lt;xsl:text&gt; &lt;/xsl:text&gt;</b></tt>
+&lt;xsl:value-of select="@name"/&gt;;&lt;/xsl:template&gt;</pre></blockquote>
+
+<p>By default, XSLT processors ignore whitespace between two XSLT
+elements unless some nonwhitespace characters are also present. The
+<tt class="literal">private</tt>  text shown just before
+<tt class="literal">&lt;xsl:value-of select="@type"/&gt;</tt>, for example,
+contains nonwhitespace text followed by a space. In this case, the
+space after the word <tt class="literal">private</tt> will be preserved.
+But the space between the two <tt class="literal">&lt;xsl:value-of&gt;</tt>
+elements will be ignored unless it is explicitly preserved with
+<tt class="literal">&lt;xsl:text&gt; &lt;/xsl:text&gt;</tt>.
+</p>
+
+<p>Getting everything to indent and line up is challenging but is not an
+insurmountable problem. It usually boils down to a lot of XSLT
+tweaking until everything looks just right. Using a
+<a name="INDEX-1019" />code
+beautifier is another option. Products such as
+<a name="INDEX-1020" />JIndent (<a href="http://www.jindent.com">http://www.jindent.com</a>) can automatically
+clean up Java code by wrapping long lines, inserting spaces, and
+putting braces at the correct locations. If you are fortunate enough
+to have access to a tool like this, you can ignore most whitespace
+issues in the XSLT and rely on JIndent to fix formatting problems
+later on.<a name="INDEX-1021" /> 
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch08_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">8.4. Servlet Filters</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">8.6. Internationalization with XSLT</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

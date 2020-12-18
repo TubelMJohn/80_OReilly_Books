@@ -1,0 +1,411 @@
+<html><head><title>Filters and Writers (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch04_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">4.3. Filters and Writers</h2>
+
+<p>At this point, I want to diverge from the beaten path. So far,
+I've detailed everything that's in a
+"standard" SAX application, from the reader to the
+callbacks to the handlers. However, there are a lot of additional
+features in SAX that can really turn you into a power developer, and
+take you beyond the confines of "standard" SAX. In this
+section, I'll introduce you to two of these: SAX filters and
+writers. Using classes both in the standard SAX distribution and
+available separately from the SAX web site (<a href="http://www.megginson.com/SAX">http://www.megginson.com/SAX</a>), you can add
+some fairly advanced behavior to your SAX applications. This will
+also get you in the mindset of using SAX as a pipeline of events,
+rather than a single layer of processing. I'll explain this
+concept in more detail, but suffice it to say that it really is the
+key to writing efficient and modular SAX code.
+</p>
+
+<a name="javaxml2-CHP-4-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">4.3.1. XMLFilters</h3>
+
+<p><a name="INDEX-408" /> <a name="INDEX-409" /> <a name="INDEX-410" />
+<a name="INDEX-411" />First
+on the list is a class that comes in the basic SAX download from
+David Megginson's site, and should be included with any parser
+distribution supporting SAX 2.0. The class in question here is
+<tt class="literal">org.xml.sax.XMLFilter</tt>. This class extends the
+<tt class="literal">XMLReader</tt> interface, and adds two new
+<a name="INDEX-412" />
+<a name="INDEX-413" />methods to that
+class:
+</p>
+
+<blockquote><pre class="code">public void setParent(XMLReader parent);
+
+public XMLReader getParent( );</pre></blockquote>
+
+<p>It might not seem like there is much to say here; what's the
+big deal, right? Well, by allowing a hierarchy of
+<tt class="literal">XMLReader</tt><a name="INDEX-414" />s through this filtering
+mechanism, you can build up a processing chain, or
+<em class="emphasis">pipeline</em><a name="INDEX-415" />,
+of events. To understand what I mean by a pipeline, here's the
+normal flow of a SAX
+<a name="INDEX-416" />parse:
+</p>
+
+<ul><li>
+<p>Events in an XML document are passed to the SAX reader.</p>
+</li><li>
+<p>The SAX reader and registered handlers pass events and data to an
+application.
+</p>
+</li></ul>
+<p>What developers started realizing, though, is that it is simple to
+insert one or more additional links into this chain:
+</p>
+
+<ul><li>
+<p>Events in an XML document are passed to the SAX reader.</p>
+</li><li>
+<p>The SAX reader performs some processing and passes information to
+another SAX reader.
+</p>
+</li><li>
+<p>Repeat until all SAX processing is done.</p>
+</li><li>
+<p>Finally, the SAX reader and registered handlers pass events and data
+to an application.
+</p>
+</li></ul>
+<p>It's the middle steps that introduce a pipeline, where one
+reader that performed specific processing passes its information on
+to another reader, repeatedly, instead of having to lump all code
+into one reader. When this pipeline is set up with multiple readers,
+modular and efficient programming results. And that's what the
+<tt class="literal">XMLFilter</tt> class allows for: chaining of
+<tt class="literal">XMLReader</tt> implementations through filtering.
+Enhancing this even further is the class
+<tt class="literal">org.xml.sax.helpers.XMLFilterImpl</tt><a name="INDEX-417" />
+<a name="INDEX-418" />,
+which provides a helpful implementation of
+<tt class="literal">XMLFilter</tt>. It is the convergence of an
+<tt class="literal">XMLFilter</tt> and the
+<tt class="literal">DefaultHandler</tt> class I showed you in the last
+section; the <tt class="literal">XMLFilterImpl</tt> class implements
+<tt class="literal">XMLFilter</tt>, <tt class="literal">ContentHandler</tt>,
+<tt class="literal">ErrorHandler</tt>, <tt class="literal">EntityResolver</tt>,
+and <tt class="literal">DTDHandler</tt>, providing pass-through versions of
+each method of each handler. In other words, it sets up a pipeline
+for all SAX events, allowing your code to override any methods that
+need to insert processing into the pipeline.
+</p>
+
+<p>Let's use one of these filters. <a href="ch04_03.htm#javaxml2-CHP-4-EX-5">Example 4-5</a> is
+a working, ready-to-use filter. You're past the basics, so we
+will move through this rapidly.
+</p>
+
+<a name="javaxml2-CHP-4-EX-5" /><div class="example">
+<h4 class="objtitle">Example 4-5. NamespaceFilter class </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.XMLFilterImpl;
+
+public class NamespaceFilter extends XMLFilterImpl {
+    
+    /** The old URI, to replace */
+    private String oldURI;
+    
+    /** The new URI, to replace the old URI with */
+    private String newURI;
+
+    public NamespaceFilter(XMLReader reader, 
+                           String oldURI, String newURI) {
+        super(reader);
+        this.oldURI = oldURI;
+        this.newURI = newURI;
+    }
+    
+    public void startPrefixMapping(String prefix, String uri)
+        throws SAXException {
+            
+        // Change URI, if needed
+        if (uri.equals(oldURI)) {
+            super.startPrefixMapping(prefix, newURI);
+        } else {
+            super.startPrefixMapping(prefix, uri);
+        }        
+    }
+    
+    public void startElement(String uri, String localName,
+                             String qName, Attributes attributes)
+        throws SAXException {
+            
+        // Change URI, if needed
+        if (uri.equals(oldURI)) {
+            super.startElement(newURI, localName, qName, attributes);
+        } else {            
+            super.startElement(uri, localName, qName, attributes);
+        }       
+    }
+    
+    public void endElement(String uri, String localName, String qName)
+        throws SAXException {
+            
+        // Change URI, if needed
+        if (uri.equals(oldURI)) {
+            super.endElement(newURI, localName, qName);
+        } else {            
+            super.endElement(uri, localName, qName);
+        }
+    }
+}</pre></blockquote>
+</div>
+
+<p>I start out by extending <tt class="literal">XMLFilterImpl</tt>, so I
+don't have to worry about any events that I don't
+explicitly need to change; the <tt class="literal">XMLFilterImpl</tt> class
+takes care of them by passing on all events unchanged unless a method
+is overridden. I can get down to the business of what I want the
+filter to do; in this case, that's changing a namespace URI
+from one to another. If this task seems trivial, don't
+underestimate its usefulness. Many times in the last several years,
+the URI of a namespace for a specification (such as XML Schema or
+XSLT) has changed. Rather than having to hand-edit all of my XML
+documents or write code for XML that I receive, this
+<tt class="literal">NamespaceFilter</tt> takes care of the problem for me.
+</p>
+
+<p>Passing an <tt class="literal">XMLReader</tt> instance to the constructor
+sets that reader as its parent, so the parent reader receives any
+events passed on from the filter (which is all events, by virtue of
+the <tt class="literal">XMLFilterImpl</tt> class, unless the
+<tt class="literal">NamespaceFilter</tt> class overrides that behavior). By
+supplying two URIs, the original and the URI to replace it with, you
+set this filter up. The three overridden methods handle any needed
+interchanging of that URI. Once you have a filter like this in place,
+you supply a reader to it, and then operate upon the
+<em class="emphasis">filter</em>, not the <em class="emphasis">reader</em>.
+Going back to <em class="emphasis">contents.xml</em> and
+<tt class="literal">SAXTreeViewer</tt>, suppose that O'Reilly has
+informed me that my book's online URL is no longer <em class="emphasis">http://www.oreilly.com/javaxml2</em>, but
+<em class="emphasis">http://www.oreilly.com/catalog/javaxml2</em>.
+Rather than editing all my XML samples and uploading them, I can just
+use the <tt class="literal">NamespaceFilter</tt> class:
+</p>
+
+<blockquote><pre class="code">    public void buildTree(DefaultTreeModel treeModel, 
+                          DefaultMutableTreeNode base, String xmlURI) 
+        throws IOException, SAXException {
+
+        // Create instances needed for parsing
+        XMLReader reader = 
+            XMLReaderFactory.createXMLReader(vendorParserClass);
+        <tt class="userinput"><b>NamespaceFilter filter = 
+            new NamespaceFilter(reader, 
+                "http://www.oreilly.com/javaxml2",
+                "http://www.oreilly.com/catalog/javaxml2");</b></tt>
+        ContentHandler jTreeContentHandler = 
+            new JTreeContentHandler(treeModel, base, reader);
+        ErrorHandler jTreeErrorHandler = new JTreeErrorHandler( );
+
+        // Register content handler
+        <tt class="userinput"><b>filter</b></tt>.setContentHandler(jTreeContentHandler);
+
+        // Register error handler
+        <tt class="userinput"><b>filter</b></tt>.setErrorHandler(jTreeErrorHandler);
+            
+        // Register entity resolver
+        <tt class="userinput"><b>filter</b></tt>.setEntityResolver(new SimpleEntityResolver( ));
+
+        // Parse
+        InputSource inputSource = 
+            new InputSource(xmlURI);
+        <tt class="userinput"><b>filter</b></tt>.parse(inputSource);        
+    }</pre></blockquote>
+
+<p>Notice, as I said, that all operation occurs upon the filter, not the
+reader instance. With this filtering in place, you can compile both
+source files (<em class="filename">NamespaceFilter.java</em> and
+<em class="filename">SAXTreeViewer.java</em>), and run the viewer on the
+<em class="filename">contents.xml</em> file. You'll see that the
+O'Reilly namespace URI for my book is changed in every
+occurrence, shown in <a href="ch04_03.htm#javaxml2-CHP-4-FIG-2">Figure 4-2</a>.
+</p>
+
+<a name="javaxml2-CHP-4-FIG-2" /><div class="figure"><img height="360" alt="Figure 4-2" src="figs/javax_0402.gif" width="481" /></div><h4 class="objtitle">Figure 4-2. SAXTreeViewer on contents.xml with NamespaceFilter in place</h4>
+
+<p>Of course, you can chain these filters together as well, and use them
+as standard libraries. When I'm dealing with older XML
+documents, I often create several of these with old XSL and XML
+Schema URIs and put them in place so I don't have to worry
+about incorrect URIs:
+</p>
+
+<blockquote><pre class="code">        XMLReader reader = 
+            XMLReaderFactory.createXMLReader(vendorParserClass);
+        NamespaceFilter xslFilter = 
+            new NamespaceFilter(reader, 
+                "http://www.w3.org/TR/XSL",
+                "http://www.w3.org/1999/XSL/Transform");
+        NamespaceFilter xsdFilter = 
+            new NamespaceFilter(xslFilter, 
+                "http://www.w3.org/TR/XMLSchema",
+                "http://www.w3.org/2001/XMLSchema");</pre></blockquote>
+
+<p>Here, I'm building a longer pipeline to ensure that no old
+namespace URIs sneak by and cause my applications any trouble. Be
+careful not to build too long a pipeline; each new link in the chain
+adds some processing time. All the same, this is a great way to build
+reusable components for SAX.<a name="INDEX-419" /> <a name="INDEX-420" /> <a name="INDEX-421" /> <a name="INDEX-422" /> 
+</p>
+
+</div>
+<a name="javaxml2-CHP-4-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">4.3.2. XMLWriter</h3>
+
+<p>Now that you understand how filters work in SAX, I want to introduce
+you to a specific filter,
+<tt class="literal">XMLWriter</tt><a name="INDEX-423" />
+<a name="INDEX-424" />.
+This class, as well as a subclass of it,
+<tt class="literal">DataWriter</tt><a name="INDEX-425" />
+<a name="INDEX-426" />,
+can be downloaded from David Megginson's SAX site at
+<a href="http://www.megginson.com/SAX">http://www.megginson.com/SAX</a>.
+<tt class="literal">XMLWriter</tt> extends
+<tt class="literal">XMLFilterImpl</tt>, and <tt class="literal">DataWriter</tt>
+extends <tt class="literal">XMLWriter</tt>. Both of these filter classes
+are used to output XML, which may seem a bit at odds with what
+you've learned so far about SAX. However, just as you could
+insert statements that output to Java <tt class="literal">Writer</tt>s in
+SAX callbacks, so can this class. I'm not going to spend a lot
+of time on this class, because it's not really the way you want
+to be outputting XML in the general sense; it's much better to
+use DOM, JDOM, or another XML API if you want mutability. However,
+the <tt class="literal">XMLWriter</tt> class offers a valuable way to
+inspect what's going on in a SAX pipeline. By inserting it
+between other filters and readers in your pipeline, it can be used to
+output a snapshot of your data at whatever point it resides in your
+processing chain. For example, in the case where I'm changing
+namespace URIs, it might be that you want to actually store the XML
+document with the new namespace URI (be it a modified O'Reilly
+URI, a updated XSL one, or the XML Schema one) for later use. This
+becomes a piece of cake by using the <tt class="literal">XMLWriter</tt>
+class. Since you've already got
+<tt class="literal">SAXTreeViewer</tt> using the
+<tt class="literal">NamespaceFilter</tt>, I'll use that as an
+example. First, add import statements for
+<tt class="literal">java.io.Writer</tt> (for output), and the
+<tt class="literal">com.megginson.sax.XMLWriter</tt> class. Once
+that's in place, you'll need to insert an instance of
+<tt class="literal">XMLWriter</tt> between the
+<tt class="literal">NamespaceFilter</tt> and the
+<tt class="literal">XMLReader</tt> instances; this means output will occur
+after namespaces have been changed but before the visual events
+occur. Change your code as shown here:
+</p>
+
+<blockquote><pre class="code">    public void buildTree(DefaultTreeModel treeModel, 
+                          DefaultMutableTreeNode base, String xmlURI) 
+        throws IOException, SAXException {
+
+        // Create instances needed for parsing
+        XMLReader reader = 
+            XMLReaderFactory.createXMLReader(vendorParserClass);        
+        <tt class="userinput"><b>XMLWriter writer =
+            new XMLWriter(reader, new FileWriter("snapshot.xml"));</b></tt>
+        NamespaceFilter filter = 
+            new NamespaceFilter(<tt class="userinput"><b>writer</b></tt>, 
+                "http://www.oreilly.com/javaxml2",
+                "http://www.oreilly.com/catalog/javaxml2");
+        ContentHandler jTreeContentHandler = 
+            new JTreeContentHandler(treeModel, base, reader);
+        ErrorHandler jTreeErrorHandler = new JTreeErrorHandler( );
+
+        // Register content handler
+        filter.setContentHandler(jTreeContentHandler);
+
+        // Register error handler
+        filter.setErrorHandler(jTreeErrorHandler);
+            
+        // Register entity resolver
+        filter.setEntityResolver(new SimpleEntityResolver( ));
+
+        // Parse
+        InputSource inputSource = 
+            new InputSource(xmlURI);
+        filter.parse(inputSource);        
+    }</pre></blockquote>
+
+<p>Be sure you set the parent of the <tt class="literal">NamespaceFilter</tt>
+instance to be the <tt class="literal">XMLWriter</tt>, not the
+<tt class="literal">XMLReader</tt>. Otherwise, no output will actually
+occur. Once you've got these changes compiled in, run the
+example. You should get a <em class="emphasis">snapshot.xml</em> file created in the directory
+you're running the example from; an excerpt from that document
+is shown here:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0" standalone="yes"?&gt;
+
+&lt;book xmlns="http://www.oreilly.com/catalog/javaxml2"&gt;
+  &lt;title ora:series="Java" 
+         xmlns:ora="http://www.oreilly.com"&gt;Java and XML&lt;/title&gt;
+  
+
+  &lt;contents&gt;
+    &lt;chapter title="Introduction" number="1"&gt;
+      &lt;topic name="XML Matters"&gt;&lt;/topic&gt;
+      &lt;topic name="What's Important"&gt;&lt;/topic&gt;
+      &lt;topic name="The Essentials"&gt;&lt;/topic&gt;
+      &lt;topic name="What's Next?"&gt;&lt;/topic&gt;
+    &lt;/chapter&gt;
+    &lt;chapter title="Nuts and Bolts" number="2"&gt;
+      &lt;topic name="The Basics"&gt;&lt;/topic&gt;
+      &lt;topic name="Constraints"&gt;&lt;/topic&gt;
+      &lt;topic name="Transformations"&gt;&lt;/topic&gt;
+      &lt;topic name="And More..."&gt;&lt;/topic&gt;
+      &lt;topic name="What's Next?"&gt;&lt;/topic&gt;
+    &lt;/chapter&gt;
+    &lt;!-- Other content... --&gt;
+
+  &lt;/contents&gt;
+&lt;/book&gt;</pre></blockquote>
+
+<p>Notice that the namespace, as changed by
+<tt class="literal">NamespaceFilter</tt>, is modified here. Snapshots like
+this, created by <tt class="literal">XMLWriter</tt> instances, can be great
+tools for debugging and logging of SAX events.
+</p>
+
+<p>Both <tt class="literal">XMLWriter</tt> and <tt class="literal">DataWriter</tt>
+offer a lot more in terms of methods to output XML, both in full and
+in part, and you should check out the Javadoc included with the
+downloaded package. I do not encourage you to use these classes for
+general output. In my experience, they are most useful in the case
+demonstrated here.
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch04_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4.2. More Handlers</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">4.4. Even More Handlers</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

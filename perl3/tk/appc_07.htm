@@ -1,0 +1,573 @@
+<html><head><title>tkhp16c (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appc_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="appc_08.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">C.7. tkhp16c</h2>
+
+<p><em class="emphasis">tkhp16c</em> is an RPN calculator we used for a
+splash screen example in <a href="ch15_01.htm">Chapter 15, "Anatomy of the MainLoop"</a>. See <a href="ch15_07.htm#mastperltk-CHP-15-FIG-6">Figure 15-6</a>.
+</p>
+
+<blockquote><pre class="code">package Tk;
+
+use Tk::bindDump;
+
+# M A I N
+
+package main;
+
+use Tk;
+use Tk::MacProgressBar;
+use Tk::Splashscreen;
+use Tk::widgets qw/Compound ROText/;
+use subs qw/build_button_rows build_calculator build_help_window end splash/;
+use strict;
+
+my $mw = MainWindow-&gt;new;
+$mw-&gt;withdraw;
+$mw-&gt;title('Hewlett-Packard 16C Computer Scientist RPN Calculator');
+$mw-&gt;iconname('HP 16C');
+$mw-&gt;configure(-background =&gt; $GRAY_LIGHTEST);
+
+my $splash = splash;		# build Splashscreen
+$splash-&gt;Splash;		# show Splashscreen
+
+build_help_window;
+build_calculator;
+
+$MAC_PB-&gt;set($MAC_PB_P = 100);
+$splash-&gt;Destroy;		# tear down Splashscreen
+
+$mw-&gt;deiconify;			# show calculator
+ 
+MainLoop;
+
+# Miscellaneous subroutines.
+
+sub build_button_rows {
+
+    my ($parent, $button_descriptions) = @_;
+
+    foreach my $row (@$button_descriptions) {
+        my $frame = $parent-&gt;Frame(-background =&gt; $GRAY_LIGHTEST);
+        foreach my $buttons (@$row) {
+            my ($p1, $p2, $p3, $color, $func) = @$buttons;
+
+            $frame-&gt;Key(
+            topl       =&gt; $p2,
+                    -butl       =&gt; $p1,
+                    -botl       =&gt; $p3,
+                    -background =&gt; $color,
+                    -command    =&gt; $func,
+                );
+        }
+        $frame-&gt;pack(qw/-side top -expand 1 -fill both/);
+        $MAC_PB-&gt;set($MAC_PB_P += 10);
+    }
+
+} # end build_button_rows
+
+sub build_calculator {
+
+    &amp;on; &amp;on;			# on/off kluge to initialize HP stack
+
+    # LED display, help button, and HP logo.
+
+    my $tf = $mw-&gt;Frame(-background =&gt; $SILVER);
+    $tf-&gt;pack(qw/-side top -fill both -expand 1/);
+
+    $tf-&gt;Label(
+        -relief       =&gt; 'sunken',
+        -borderwidth  =&gt; 10, 
+        -background   =&gt; 'honeydew4',
+        -width        =&gt; 30,
+        -foreground   =&gt; 'black',
+        -font         =&gt; ['arial', 14, 'bold'],
+        -textvariable =&gt; \$XV,
+        -anchor       =&gt; 'w',
+    )-&gt;pack(qw/-side left -expand 1 -fill x -padx 70/);
+
+    my $hp = $tf-&gt;Button(-text =&gt; $MODEL, -relief =&gt; 'raised',
+			-command =&gt; sub {$ONOFF = 1; &amp;on; &amp;exit});
+    $hp-&gt;pack(qw/-side right -expand 1 -fill both -padx 20 -pady 10/);
+    $hp-&gt;bind('&lt;Enter&gt;' =&gt; sub {$_[0]-&gt;configure(-text =&gt; "Quit\n--\n16C")});
+    $hp-&gt;bind('&lt;Leave&gt;' =&gt; sub {$_[0]-&gt;configure(-text =&gt; $MODEL)});
+
+    # Horizontal black and silver lines + vertical left/right silver lines.
+
+    $mw-&gt;Frame(qw/-background black -height 10/)-&gt;pack(qw/-fill x -expand 1/);
+    $mw-&gt;Frame(-bg =&gt; $SILVER, -height =&gt; 5)-&gt;pack(qw/-fill x -expand 1/);
+
+    my $frame0 = $mw-&gt;Frame(-background =&gt; $GRAY_LIGHTEST);
+    $frame0-&gt;pack(qw/-side top   -fill both -expand 1/);
+
+    $frame0-&gt;Frame(-width =&gt; 5, -bg =&gt; $SILVER)-&gt;
+        pack(qw/-side left -expand 1 -fill y/);
+    $frame0-&gt;Frame(-width =&gt; 5, -bg =&gt; $SILVER)-&gt;
+        pack(qw/-side right -expand 1 -fill y/);
+
+    # These frames hold all the calculator keys.
+
+    my $frame1 = $frame0-&gt;Frame-&gt;pack(qw/-side top   -fill both -expand 1/);
+    my $frame2 = $frame0-&gt;Frame-&gt;pack(qw/-side left  -fill both -expand 1/);
+    my $frame3 = $frame0-&gt;Frame-&gt;pack(qw/-side right -fill both -expand 1/);
+
+    # Bottom finishing detail.
+
+    $mw-&gt;Frame(
+        -background =&gt; $SILVER,
+        -width      =&gt; 20,
+        -height     =&gt; 25,
+    )-&gt;pack(qw/-side left -expand 0/);   
+    $mw-&gt;Label(
+        -text       =&gt; ' H E W L E T T . P A C K A R D ',
+        -font       =&gt; ['courier', 14, 'bold'],		       
+        -foreground =&gt; $SILVER,
+        -background =&gt; $GRAY_LIGHTEST,
+    )-&gt;pack(qw/-side left -expand 0/);
+    $mw-&gt;Frame(
+        -background =&gt; $SILVER,
+        -height     =&gt; 25,
+    )-&gt;pack(qw/-side left -expand 1 -fill x/);   
+    my $quest = $mw-&gt;Button(
+        -text               =&gt; '?',
+	-font                   =&gt; '6x9',
+        -relief             =&gt; 'flat',
+	-highlightthickness     =&gt; 0,
+	-background              =&gt; $SILVER,	
+        -borderwidth        =&gt; 0,
+        -pady               =&gt; 0,
+        -command            =&gt;
+            sub {
+		$HELP-&gt;deiconify;
+	    },
+    )-&gt;pack(qw/-side left -expand 0 -fill y/);
+    $quest-&gt;bind('&lt;2&gt;' =&gt; sub {
+	my (@register) = ('(X)', '(Y)', '(Z)', '(T)');
+	print "\n";
+        for (my $i = $#STACK; $i &gt;= 0; $i--) {
+	    print "stack+$i $register[$i] : '", $STACK[$i], "'\n";
+	}
+    });
+    $mw-&gt;Frame(
+        -background =&gt; $SILVER,
+	-width      =&gt; 5,
+        -height     =&gt; 25,
+    )-&gt;pack(qw/-side left -expand 0/);   
+
+    # Create special Compound images for certain keys.
+
+    my $rolu = $mw-&gt;Compound;
+    my (@cargs) = (-foreground =&gt; $BLUE, -background =&gt; $GRAY);
+    $rolu-&gt;Text(-text =&gt; 'R', -foreground =&gt; $BLUE);
+    $rolu-&gt;Image(-image =&gt; $mw-&gt;Bitmap(-data =&gt; &lt;&lt; 'END', @cargs));
+#define up2_width 11
+#define up2_height 12
+static unsigned char up2_bits[] = {
+  0x00, 0x00, 0x20, 0x00, 0x70, 0x00, 0xf8, 0x00, 0xfc, 0x01, 0xfe, 0x03,
+  0x70, 0x00, 0x70, 0x00, 0x70, 0x00, 0x70, 0x00, 0x70, 0x00, 0x00, 0x00,
+  };
+END
+
+    my $rold = $mw-&gt;Compound;
+    @cargs = (-foreground =&gt; 'white', -background =&gt; $GRAY);
+    $rold-&gt;Text(-text =&gt; 'R', -foreground =&gt; 'white');
+    $rold-&gt;Image(-image =&gt; $mw-&gt;Bitmap(-data =&gt; &lt;&lt; 'END', @cargs));
+#define down2_width 11
+#define down2_height 12
+static unsigned char down2_bits[] = {
+  0x00, 0x00, 0x70, 0x00, 0x70, 0x00, 0x70, 0x00, 0x70, 0x00, 0x70, 0x00,
+  0xfe, 0x03, 0xfc, 0x01, 0xf8, 0x00, 0x70, 0x00, 0x20, 0x00, 0x00, 0x00,
+  };
+END
+
+    my $swap = $mw-&gt;Compound;
+    $swap-&gt;Text(-text =&gt; 'X', -foreground =&gt; 'white');
+    $swap-&gt;Image(-image =&gt; $mw-&gt;Bitmap(-data =&gt; &lt;&lt; 'END', @cargs));
+#define swap_width 8
+#define swap_height 15
+static unsigned char swap_bits[] = {
+  0x00, 0x00, 0x00, 0x06, 0x18, 0x60, 0x18, 0x06, 0x00, 0x60, 0x18, 0x06,
+  0x18, 0x60, 0x00, };
+END
+    $swap-&gt;Text(-text =&gt; 'Y', -foreground =&gt; 'white');
+
+    # Build the first 2 rows of the calculator, 10 calculator keys per row.
+
+    my $dv = sub {$_[1] / $_[0]}; # division
+    my $xr = sub {$_[1] ^ $_[0]}; # exclusive OR
+    my $dd = sub {$_[1] / $_[0]}; # double divide
+
+    my $sq = sub {sqrt $_[0]};	  # square root
+    my $rp = sub {1 / $_[0]};	  # reciprocal
+
+    my $ml = sub {$_[1] * $_[0]}; # multiplication
+    my $an = sub {$_[1] &amp; $_[0]}; # AND
+    my $dm = sub {$_[1] * $_[0]}; # double multiply
+
+    build_button_rows $frame1, [
+        [
+            ['A',   'SL',      'LJ',   $GRAY,   \&amp;err],
+            ['B',   'SR',      'ASR',  $GRAY,   \&amp;err],
+            ['C',   'RL',      'RLC',  $GRAY,   \&amp;err],
+            ['D',   'RR',      'RRC',  $GRAY,   \&amp;err],
+            ['E',   'RLn',     'RLCn', $GRAY,   \&amp;err],
+            ['F',   'RRn',     'RRCn', $GRAY,   \&amp;err],
+            ['7',   'MASKL',   '#B',   $GRAY,   [\&amp;key, '7']],
+            ['8',   'MASKR',   'ABS',  $GRAY,   [\&amp;key, '8']],
+            ['9',   'RMD',     'DBLR', $GRAY,   [\&amp;key, '9']],
+            ['/',   'XOR',     'DBL/', $GRAY,   [\&amp;math3, $dv, $xr, $dd]],
+        ],
+        [
+            ['GSB', 'x&gt;&lt;(i)',  'RTN',  $GRAY,   \&amp;err],
+            ['GTO', 'x&gt;&lt;I',    'LBL',  $GRAY,   \&amp;err],
+            ['HEX', 'Show',    'DSZ',  $GRAY,   \&amp;err],
+            ['DEC', 'Show',    'ISZ',  $GRAY,   \&amp;err],
+            ['OCT', 'Show',    'sqrt', $GRAY,   [\&amp;gmath, $sq]],
+            ['BIN', 'Show',    '1/x',  $GRAY,   [\&amp;gmath, $rp]],
+            ['4',   'SB',      'SF',   $GRAY,   [\&amp;key, '4']],
+            ['5',   'CB',      'CF',   $GRAY,   [\&amp;key, '5']],
+            ['6',   'B?',      'F?',   $GRAY,   [\&amp;key, '6']],
+            ['*',   'AND',     'DBLx', $GRAY,   [\&amp;math3, $ml, $an, $dm]],
+        ],
+    ];
+
+    # Build the leftmost 5 calculator keys of the last 2 rows.
+
+    build_button_rows $frame2, [
+        [
+            ['R/S', '(i)',     'p/r',  $GRAY,   \&amp;err],
+            ['SST', 'I',       'BST',  $GRAY,   \&amp;err],
+            [$rold, 'cPRGM',   $rolu,  $GRAY,   \&amp;roll_stack],
+            [$swap, 'cREG',    'PSE',  $GRAY,   \&amp;swapxy],
+            ['BSP', 'cPREFIX', 'CLx',  $GRAY,   \&amp;bspclrx],
+        ],
+        [
+            ['ON',   '',       '',     $GRAY,   \&amp;on],
+            ['f',    '',       '',     $ORANGE, \&amp;f],
+            ['g',    '',       '',     $BLUE,   \&amp;g],
+            ['STO', 'WSIZE',   '&lt;',    $GRAY,   \&amp;err],
+            ['RCL', 'FLOAT',   '&gt;',    $GRAY,   \&amp;err],
+        ],
+    ];
+
+    # The 2 column high ENTER key divides the last 2 rows of calculator keys.
+
+    my $enter = $frame0-&gt;Key(
+        -topl       =&gt; 'WINDOW',
+        -butl       =&gt; "E\nN\nT\nE\nR",
+        -botl       =&gt; 'LSTx',
+        -background =&gt; $GRAY,
+        -command    =&gt; \&amp;enter,
+        -height     =&gt; 6,
+    );
+    $enter-&gt;pack(qw/-side left -expand 1 -fill both/);
+
+    # Build the rightmost 4 calculator keys of the last two rows.
+
+    my $sb = sub {$_[1] - $_[0]}; # subtraction
+
+    my $ad = sub {$_[1] + $_[0]}; # addition
+    my $io = sub {$_[1] | $_[0]}; # inclusive OR
+
+    build_button_rows $frame3, [
+        [
+            ['1',    '1\'S',   'X&lt;=y', $GRAY,   [\&amp;key, '1']],
+            ['2',    '2\'S',   'x&lt;0',  $GRAY,   [\&amp;key, '2']],
+            ['3',    'UNSGN',  'x&gt;y',  $GRAY,   [\&amp;key, '3']],
+            ['-',    'NOT',    'x&gt;0',  $GRAY,   [\&amp;math3, $sb, undef, undef]],
+        ],
+        [
+            ['0',   'MEM',     'x!=y', $GRAY,   [\&amp;key, '0']],
+            ['.',   'STATUS',  'x!=0', $GRAY,   [\&amp;key, '.']],
+            ['CHS', 'EEX',     'x=y',  $GRAY,   \&amp;chs],
+            ['+',   'OR',      'x=0',  $GRAY,   [\&amp;math3, $ad, $io, undef]],
+        ],
+    ];
+
+    # Now establish key bindings for the digits and common arithmetic
+    # operation, including keypad keys, delete, etcetera.
+
+    foreach my $key ( qw/0 1 2 3 4 5 6 7 8 9/ ) {
+        $mw-&gt;bind( "&lt;Key-$key&gt;" =&gt; [\&amp;key, $key] );
+        $mw-&gt;bind( "&lt;KP_$key&gt;"  =&gt; [\&amp;key, $key] );
+    }
+
+    foreach my $key ( qw/period KP_Decimal/ ) {
+        $mw-&gt;bind( "&lt;$key&gt;"     =&gt; [\&amp;key, '.'] );
+    }
+
+    foreach my $key ( qw/Return KP_Enter/ ) {
+        $mw-&gt;bind( "&lt;$key&gt;"     =&gt;  \&amp;enter );
+    }
+
+    foreach my $key ( qw/plus KP_Add/ ) {
+        $mw-&gt;bind( "&lt;$key&gt;"     =&gt; [\&amp;math3, $ad, $io,   undef] );
+    }
+
+    foreach my $key ( qw/minus KP_Subtract/ ) {
+        $mw-&gt;bind( "&lt;$key&gt;"     =&gt; [\&amp;math3, $sb, undef, undef] );
+    }
+
+    foreach my $key ( qw/asterisk KP_Multiply/ ) {
+        $mw-&gt;bind( "&lt;$key&gt;"     =&gt; [\&amp;math3, $ml, $an,     $dm] );
+    }
+
+    foreach my $key ( qw/slash KP_Divide/ ) {
+        $mw-&gt;bind( "&lt;$key&gt;"     =&gt; [\&amp;math3, $dv, $xr,     $dd] );
+    }
+
+    $mw-&gt;bind( '&lt;Delete&gt;'       =&gt; \&amp;bspclrx );
+  
+    $MAC_PB-&gt;set($MAC_PB_P = 90);
+
+} # end build_calculator
+
+sub build_help_window {
+
+    $MAC_PB-&gt;set($MAC_PB_P = 10);
+
+    $HELP = $mw-&gt;Toplevel(-tile =&gt; $mw-&gt;Photo(-file =&gt; 'hp16c-tile.gif'));
+    $HELP-&gt;withdraw;
+    $MAC_PB-&gt;set($MAC_PB_P = 15);
+    $HELP-&gt;title('HP 16C Help');
+    $HELP-&gt;protocol('WM_DELETE_WINDOW' =&gt; sub {});
+
+    $MAC_PB-&gt;set($MAC_PB_P = 20);
+
+    my $frame = $HELP-&gt;Frame-&gt;pack(qw/-padx 70 -pady 40/);
+    $frame-&gt;Button(
+        -text             =&gt; 'Close', 
+        -command          =&gt; sub {$HELP-&gt;withdraw},
+        -background       =&gt; $BLUE_DARKER,
+        -activebackground =&gt; $BLUE,			   
+    )-&gt;pack(qw/-expand 1 -fill both/);
+    $frame-&gt;Label(
+        -text =&gt; '? &lt;B2&gt; prints the stack.',
+    )-&gt;pack(qw/-expand 1 -fill both/);
+
+    $MAC_PB-&gt;set($MAC_PB_P = 25);
+
+    $frame-&gt;Label(-image =&gt; $mw-&gt;Photo(-file =&gt; 'hp16c-help.gif'))-&gt;pack;
+
+    $MAC_PB-&gt;set($MAC_PB_P = 30);
+
+    $frame-&gt;Label(
+        -text =&gt; ' ',
+    )-&gt;pack(qw/-expand 1 -fill both/);
+
+    $MAC_PB-&gt;set($MAC_PB_P = 35);
+
+} # end build_help_window
+
+sub splash {
+    
+    my $splash = $mw-&gt;Splashscreen(-milliseconds =&gt; 3000);
+    $splash-&gt;Label(-text =&gt; 'Building your HP 16C ...', -bg =&gt; $BLUE)-&gt;
+        pack(qw/-fill both -expand 1/);
+    $MAC_PB = $splash-&gt;MacProgressBar(-width =&gt; 300);
+    $MAC_PB-&gt;pack(qw/-fill both -expand 1/);
+    $splash-&gt;Label(-image =&gt; $mw-&gt;Photo(-file =&gt; 'hp16c-splash.gif'))-&gt;pack;
+
+    $splash-&gt;bindDump;
+
+    return $splash;
+
+} # end_splash
+
+# Calculator key processors.
+
+sub bspclrx {
+    return unless $ONOFF;
+    if ($F_PRESSED) {
+        $mw-&gt;bell;
+        end;
+        return;
+    }
+
+    if ($G_PRESSED) {		# clrX
+        $STACK[0] = 0;
+        $CLRX = 1;
+        $PUSHX = 0;
+    } else {
+        if (length($STACK[0]) &lt;= 2) { # BKSP
+            $STACK[0] = 0;
+            $CLRX = 1;
+            $PUSHX = 0;
+        } else {
+            chop $STACK[0];
+        }
+    }
+    end;
+}
+
+sub chs {			# change sign
+    my $s = substr($STACK[0], 0, 1);
+    substr($STACK[0], 0, 1) = ($s eq '-') ? ' ' : '-';
+    end;
+}
+
+sub end {			# key cleanup
+    $F_PRESSED = $G_PRESSED = 0;
+    $XV = $STACK[0];
+}
+
+sub enter {			# enter key
+    unshift @STACK, $STACK[0];
+    $#STACK = $STACKM if $#STACK &gt; $STACKM;
+    $CLRX = 1;
+    $PUSHX = 0;
+    end;
+}
+                           
+sub err {$mw-&gt;bell if $ONOFF}	# error
+
+sub f {$F_PRESSED = 1};		# F key
+
+sub g {$G_PRESSED = 1};		# G key
+
+sub gmath {			# G key arithmetic operations
+
+    # gmath( ) expects one code reference to an anonymous subroutine, which
+    # expects one argument, X from the RPN stack. 
+
+    if (not $G_PRESSED) {
+        $mw-&gt;bell;
+        end;
+        return;
+    }
+
+    $STACK[0] = &amp;{$_[0]}($STACK[0]);
+    $STACK[0] = " $STACK[0]" if substr($STACK[0], 0, 1) ne '-';
+    $CLRX = $PUSHX = 1;
+    end;
+}
+
+sub hpshift {			# empty HP stack
+    $#STACK = $STACKM if $#STACK &gt; $STACKM;
+    my $v = shift @STACK;
+    $STACK[$STACKM] = $STACK[$STACKM - 1] if $#STACK == ($STACKM - 1);
+    end;
+    return $v;
+}
+
+sub key {			# process generic key clicks
+
+    shift if ref $_[0];		# toss bind( ) object
+    my $key = $_[0];
+    return unless $ONOFF;
+    if ($F_PRESSED or $G_PRESSED) {
+        $mw-&gt;bell;
+        end;
+        return;
+    }
+
+    &amp;enter if $PUSHX;
+    $STACK[0] = ' ' if $CLRX;
+
+    $STACK[0] .= $key;
+    $CLRX = $PUSHX = 0;
+    end;
+} # end key
+
+sub math3 {			# tri-arithmetic keys
+
+    # math3( ) expects three code references to anonymous subroutines, each
+    # of which expects two arguments, X and Y from the RPN stack. 
+    #
+    # $_[0] = normal button press
+    # $_[1] = "f" qualified button press
+    # $_[2] = "g" qualified button press
+
+    shift if ref $_[0];		# toss bind( ) object
+    my $math = $_[0];
+    $math = $_[1] if $F_PRESSED;
+    $math = $_[2] if $G_PRESSED;
+    if (not defined $math) {
+        $mw-&gt;bell;
+        end;
+        return;
+    }
+
+    my $x = &amp;hpshift;
+    my $y = $STACK[0];
+    $STACK[0] = &amp;{$math}($x, $y);
+    $STACK[0] = " $STACK[0]" if substr($STACK[0], 0, 1) ne '-';
+    $CLRX = $PUSHX = 1;
+    end;
+}
+
+sub on {			# power on/off
+    if ($ONOFF) {
+        $ONOFF = 0;
+        if (open(RC, "&gt;$RCFILE")) {
+            foreach (reverse @STACK) {
+            print RC "$_\n";
+            }
+            close RC;
+        }
+        end;
+        $XV = '';
+    } else {
+        $ONOFF = 1;
+        if (open(RC, $RCFILE)) {
+            @STACK = ( ) if -s $RCFILE;
+            while ($_ = &lt;RC&gt;) {
+            chomp;
+            unshift @STACK, $_;
+            }
+            close RC;
+        }
+        $CLRX = $PUSHX = 1;
+        end;
+    }
+} # end on
+
+sub roll_stack {
+    return unless $ONOFF;
+    if ($F_PRESSED) {
+        $mw-&gt;bell;
+        end;
+        return;
+    }
+
+    if ($G_PRESSED) {
+        unshift @STACK, pop @STACK; # roll stack up
+    } else {
+        push @STACK, shift @STACK;  # roll stack down
+    }
+    end;
+}
+
+sub swapxy {
+    return unless $ONOFF;
+    if ($F_PRESSED or $G_PRESSED) {
+        $mw-&gt;bell;
+        end;
+        return;
+    }
+
+    (@STACK[0, 1]) = (@STACK[1, 0]);
+    end;
+}</pre></blockquote>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appc_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="appc_08.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">C.6. Tk::Trace</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">C.8. Tk::MacProgressBar</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

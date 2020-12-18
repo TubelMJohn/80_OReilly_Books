@@ -1,0 +1,258 @@
+<?label 5.11. Using .htaccess Files?><html><head><title>Using .htaccess Files (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_10.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch05_12.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">5.11. Using .htaccess Files</h2>
+
+
+
+
+
+<p>We experimented with putting configuration directives in a file
+called <em class="filename">... /htdocs/.htaccess</em>
+<a name="INDEX-688" /> <a name="INDEX-689" /> <a name="INDEX-690" /> rather than in
+<em class="filename">httpd.conf</em>. It worked, but how do you decide
+whether to do things this way rather than the other?</p>
+
+
+
+
+
+<p>The point of the <em class="emphasis">.htaccess</em> mechanism is that you
+can change configuration directives without having to restart the
+server. This is especially valuable on a site where a lot of people
+are maintaining their own home pages but are not authorized to bring
+the server down or, indeed, to modify its Config files. The drawback
+to the <em class="emphasis">.htaccess</em> method is that the files are
+parsed for each access to the server, rather than just once at
+startup, so there is a substantial performance penalty.</p>
+
+
+
+
+
+<p>The <em class="filename">httpd.conf</em> (from <em class="filename">...
+/site.htaccess</em>) file contains the following:</p>
+
+
+
+
+
+<blockquote><pre class="code">User webuser
+Group webgroup
+ServerName www.butterthlies.com
+AccessFilename .myaccess
+
+ServerAdmin sales@butterthlies.com
+DocumentRoot /usr/www/site.htaccess/htdocs/customers
+ErrorLog /usr/www/site.htaccess/logs/customers/error_log
+TransferLog /usr/www/site.htaccess/logs/customers/access_log
+ScriptAlias /cgi-bin /usr/www/cgi-bin
+
+&lt;VirtualHost sales.butterthlies.com&gt;
+ServerAdmin sales_mgr@butterthlies.com
+DocumentRoot /usr/www/site.htaccess/htdocs/salesmen
+ServerName sales.butterthlies.com
+ErrorLog /usr/www/site.htaccess/logs/salesmen/error_log
+TransferLog /usr/www/site.htaccess/logs/salesmen/access_log
+ScriptAlias /cgi-bin /usr/www/cgi-bin
+
+#&lt;Directory /usr/www/site.htaccess/htdocs/salesmen&gt;
+#AuthType Basic
+#AuthName darkness
+
+#AuthUserFile /usr/www/ok_users/sales
+#AuthGroupFile /usr/www/ok_users/groups
+
+#require valid-user
+#require group cleaners
+#&lt;/Directory&gt;
+
+&lt;Directory /usr/www/cgi-bin&gt;
+AuthType Basic
+AuthName darkness
+AuthUserFile /usr/www/ok_users/sales
+AuthGroupFile /usr/www/ok_users/groups
+#either flat files - above - or DBM below
+#AuthDBMUserFile /usr/www/ok_dbm/sales
+#AuthDBMGroupFile /usr/www/ok_dbm/groups
+&lt;/Directory&gt;
+&lt;/VirtualHost&gt;</pre></blockquote>
+
+
+
+
+
+<p>Notice that the security part of the salespeople's section has
+been commented out in <em class="filename">... /httpd.conf</em>. The
+following lines, which were part of it, are found in <em class="filename">...
+/htdocs/salesmen/.myaccess:</em></p>
+
+
+
+
+
+<blockquote><pre class="code">AuthType Basic
+AuthName darkness
+AuthUserFile /usr/www/ok_users/sales
+AuthGroupFile /usr/www/ok_users/groups
+#require valid-user
+require group cleaners</pre></blockquote>
+
+
+
+
+
+<p>If you run the site with <tt class="literal">./go</tt> and access
+<em class="emphasis">http://sales.butterthlies.com/</em>, you are asked
+for an ID and a password in the usual way. You had better be
+<em class="filename">daphne</em> or <em class="filename">sonia </em>if you want
+to get in, because only members of the group
+<em class="filename">cleaners</em> are allowed. It has to be said, though,
+that Netscape got into a tremendous muddle over passwords, and the
+only reliable way to make sure that it was really doing what it
+claimed was to exit and reload it before each test.</p>
+
+
+
+
+
+<p>Now, if by way of playfulness, we rename <em class="filename">...
+/htdocs/salesmen/.myaccess</em> to
+<em class="filename">.noaccess</em> and retry,
+<em class="emphasis">without</em> restarting Apache, we should find that
+password control has disappeared. This makes the point that Apache
+parses this file each time the directory is accessed, not just at
+startup.</p>
+
+
+
+
+
+<p>If you decide to go this route, there are a number of things that can
+be done to make the way smoother. For example, the name of the
+control file can be changed (as we did earlier) with the
+<tt class="literal">AccessFileName</tt> directive in the file
+<em class="filename">httpd.conf</em>.</p>
+
+
+
+
+
+<a name="ch05-22-fm2xml" /><div class="sect2">
+<h3 class="sect2">5.11.1. AccessFileName</h3>
+
+
+
+
+
+<blockquote><pre class="code"><a name="INDEX-691" />AccessFileName <em class="replaceable">filename, filename ...</em>
+Server config, virtual host</pre></blockquote>
+
+
+
+
+
+<p><tt class="literal">AccessFileName</tt> gives authority to the files
+specified. Include the following line in
+<em class="filename">httpd.conf</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">AccessFileName .myaccess1, myaccess2 ...</pre></blockquote>
+
+
+
+
+
+<p>Restart Apache (since the <tt class="literal">AccessFileName</tt> has to be
+read at startup) and then restart your browser to get rid of password
+caching. When you reaccess the site, password control has reappeared.</p>
+
+
+
+
+
+<p>You might expect that you could limit
+<tt class="literal">AccessFileName</tt> to <em class="emphasis">.myaccess</em>
+in some particular directory, but not elsewhere. You
+can't -- it is global (well, more global than
+per-directory). Try editing <em class="filename">... /conf/httpd.conf</em>
+to read:</p>
+
+
+
+
+
+<blockquote><pre class="code">&lt;Directory /usr/www/site.htaccess/htdocs/salesmen&gt;
+AccessFileName .myaccess
+&lt;/Directory&gt;</pre></blockquote>
+
+
+
+
+
+<p>Apache complains:</p>
+
+
+
+
+
+<blockquote><pre class="code">Syntax error on line 2 of /usr/www/conf/srm.conf: AccessFileName not allowed here</pre></blockquote>
+
+
+
+
+
+<p>As we have said, this file is found and parsed on each access, and
+this takes time. When a client requests access to a file
+<em class="filename">/usr/www/site.htaccess/htdocs/salesmen/index.html,
+</em>Apache searches for the following:</p>
+
+
+
+
+
+<ul><li><p><em class="filename">/.myaccess</em></p></li><li><p><em class="filename">/usr/.myaccess</em></p></li><li><p><em class="filename">/usr/www/.myaccess</em></p></li><li><p><em class="filename">/usr/www/site.htaccess/.myaccess</em></p></li><li><p><em class="filename">/usr/www/site.htaccess/htdocs/.myaccess</em></p></li><li><p><em class="filename">/usr/www/site.htaccess/htdocs/salesmen/.myaccess</em></p></li></ul>
+<p>This multiple search also slows business down. You can turn multiple
+searching off, and make a noticeable difference to Apache's
+speed, with the following directive:</p>
+
+
+
+
+
+<blockquote><pre class="code">&lt;Directory /&gt;
+AllowOverride none
+&lt;/Directory&gt;</pre></blockquote>
+
+
+
+
+
+<p>It is important to understand that "/" means the real,
+root directory (because that is where Apache starts searching) and
+not the URL.<a name="INDEX-692" /></p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_10.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch05_12.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">5.10. Automatic User Information</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">5.12. Overrides</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

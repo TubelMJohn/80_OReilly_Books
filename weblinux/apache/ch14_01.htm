@@ -1,0 +1,355 @@
+<?label 14. The Apache API?><html><head><title>The Apache API (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_09.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch14_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 14. The Apache API</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch14_01.htm">Pools</a><br />
+<a href="ch14_02.htm">Per-Server Configuration</a><br />
+<a href="ch14_03.htm">Per-Directory Configuration</a><br />
+<a href="ch14_04.htm">Per-Request Information</a><br />
+<a href="ch14_05.htm">Access to Configuration and Request Information</a><br />
+<a href="ch14_06.htm">Functions</a><br /></p></div>
+
+
+
+
+
+
+
+
+
+
+<p>
+<a name="INDEX-1220" />
+<a name="INDEX-1221" />Apache provides an application programming interface (API) to modules
+in order to insulate them from the mechanics of the HTTP protocol and
+from each other. In this chapter, we explore the main concepts of the
+API and provide a detailed listing of the functions available to the
+module author.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch14-11452" />
+<h2 class="sect1">14.1. Pools</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-1222" />
+<a name="INDEX-1223" />The most important thing to understand about the Apache API is the
+idea of a <em class="emphasis">pool</em>. This is a grouped collection of
+resources (i.e., file handles, memory, child programs, sockets,
+pipes, and so on) that are released when the pool is destroyed.
+Almost all resources used within Apache reside in pools, and their
+use should only be avoided with careful thought.</p>
+
+
+
+
+
+<p>An interesting feature of pool resources is that many of them can be
+released only by destroying the pool. Pools may contain subpools, and
+subpools may contain subsubpools, and so on. When a pool is
+destroyed, all its subpools are destroyed with it.</p>
+
+
+
+
+
+<p>Naturally enough, Apache creates a pool at startup, from which all
+other pools are derived. Configuration information is held in this
+pool (so it is destroyed and created anew when the server is
+restarted with a <tt class="literal">kill</tt>). The next level of pool is
+created for each connection Apache receives and is destroyed at the
+end of the connection. Since a connection can span several requests,
+a new pool is created (and destroyed) for each request. In the
+process of handling a request, various modules create their own
+pools, and some also create subrequests, which are pushed through the
+API machinery as if they were real requests. Each of these pools can
+be accessed through the corresponding structures (i.e., the connect
+structure, the request structure, and so on).</p>
+
+
+
+
+
+<p>With this in mind, we can more clearly state when you should not use
+a pool: when the lifetime of the resource in question does not match
+the lifetime of a pool. If you need temporary storage (or files, or
+whatever), you can create a subpool of a convenient pool (the request
+pool is the most likely candidate) and destroy it when you are done,
+so having a lifetime that is shorter than the pool's is not
+normally a good enough excuse. The only example we can think of where
+there is no appropriate pool is the code for handling listeners
+(<tt class="literal">copy_listeners()</tt>
+<a name="INDEX-1224" />
+<a name="INDEX-1225" /> and
+<tt class="literal">close_unused_listeners()</tt> in
+<em class="filename">http_main.c</em>), which have a lifetime longer than
+the topmost pool!</p>
+
+
+
+
+
+<p>There are a number of advantages to this approach, the most obvious
+being that modules can use resources without having to worry about
+when and how to release them. This is particularly useful when Apache
+handles an error condition. It simply bails out, destroying the pool
+associated with the erroneous request, confident that everything will
+be neatly cleaned up. Since each instance of Apache may handle many
+requests, this functionality is vital to the reliability of the
+server. Unsurprisingly, pools come into almost every aspect of
+Apache's API, as we shall see in this chapter. They are defined
+in <em class="filename">alloc.h </em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">typedef struct pool pool;</pre></blockquote>
+
+
+
+
+
+<p>The actual definition of <tt class="literal">struct</tt>
+<tt class="literal">pool</tt> can be found in <em class="filename">alloc.c</em>,
+but no module should ever need to use it. All modules ever see of a
+pool is a pointer to it, which they then hand on to the pool APIs.</p>
+
+
+
+
+
+<p>Like many other aspects of Apache, pools are configurable, in the
+sense that you can add your own resource management to a pool, mainly
+by registering cleanup functions (see the pool API later in this
+chapter).</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_09.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch14_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">13.9. SSL and CGI</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">14.2. Per-Server Configuration</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

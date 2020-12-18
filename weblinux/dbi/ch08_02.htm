@@ -1,0 +1,758 @@
+<?label 8.2. Database Proxying ?><html><head><title>Database Proxying  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="appa_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">8.2. Database Proxying </h2>
+
+
+
+<p>Database <a name="INDEX-917" />proxying
+<a name="INDEX-918" />is <a name="INDEX-919" />the <a name="INDEX-920" />ability to forward database queries
+to a database, using an intermediate piece of software, the proxy,
+and return the results from those queries without the <a name="INDEX-921" />client program
+having any database drivers installed.</p>
+
+
+
+<p>For example, a common use for a database proxy is for a client
+program located on a Unix machine to query a Microsoft Access
+database located on a Windows machine. Suppose the Unix machine has
+no ODBC software or drivers installed and thus doesn't know
+anything about ODBC. This means that it needs to forward any queries
+to a <a name="INDEX-922" />proxy server that does know about ODBC
+and the Access database. The proxy server then issues the query and
+gathers the results, which it then passes back to the client program
+for processing.</p>
+
+
+
+<p>This functionality is extremely powerful, as it allows us to access
+databases on virtually any operating system from any other operating
+system, provided that they are both running Perl and the DBI. There
+is an additional benefit in terms of software distribution: if client
+PCs used Perl scripts to access an Oracle database located on a
+central Unix server, you don't have to undergo a potentially
+complex Oracle client software installation. DBI proxy capabilities
+make this client software unnecessary.</p>
+
+
+
+<p>Furthermore, you can automatically add ``network
+awareness'' to types of databases that could never
+otherwise support such a thing. For example, with the DBI proxy
+capabilities, you could run a Perl script on a Windows machine that
+queries data from a CSV file over the network.</p>
+
+
+
+<p>Finally, the DBI proxy architecture allows for on-the-fly compression
+of query and result data, and also encryption of that data. These two
+facilities make DBI a powerful tool for pulling large results sets of
+data over slow network links such as a modem. It also makes DBI a
+secure tool for querying sensitive data. We shall discuss these two
+topics in greater detail in a later section.</p>
+
+
+
+<a name="ch08-ch08_the_0" /><div class="sect2">
+<h3 class="sect2">8.2.1. The Database Proxy Architecture </h3>
+
+
+
+<p>The DBI supports database proxying through two modules,
+<tt class="literal">DBD::Proxy</tt>
+<a name="INDEX-923" /> and
+<tt class="literal">DBI::ProxyServer</tt>
+<a name="INDEX-924" />. <tt class="literal">DBD::Proxy</tt> is used
+by client programs to talk to a proxy server that is implemented with
+the <tt class="literal">DBI::ProxyServer</tt> module. <a href="ch08_02.htm#ch08-29753">Figure 8-1</a> illustrates the
+<a name="INDEX-925" />architecture.</p>
+
+
+
+<a name="ch08-29753" /><div class="figure"><img width="502" src="figs/dbi.0801.gif" height="246" alt="Figure 8-1" /></div><h4 class="objtitle">Figure 8-1. DBI proxy architecture</h4>
+
+<p>Because the <tt class="literal">DBI::ProxyServer</tt> module uses the
+underlying database drivers to actually interface with the databases,
+any type of database can be queried and manipulated via proxy,
+including CSV files and XBase (DBF) files. The DBI proxy architecture
+does not restrict you to using high-end databases such as Oracle or
+Informix.</p>
+
+
+
+<p>So how do we use this proxy server? Let's look at the common
+example of a Perl program running on a Unix box that wants to query a
+Microsoft Access database running on a Windows machine.</p>
+
+
+
+<a name="ch08-ch08_setting_0" /><div class="sect3">
+<h3 class="sect3">8.2.1.1. Setting up a proxy server </h3>
+
+
+
+<p>The <a name="INDEX-926" />DBI
+<a name="INDEX-927" />proxy server
+is simply a layer on top of the DBI; it can only be a server for the
+data sources that the underlying DBI is able to connect to. So,
+before we get involved in setting up the proxy server to accept proxy
+client connections, we must install any database drivers that its
+clients may need. For our example of connecting to an Access
+database, we'll need to install the
+<tt class="literal">DBD::ODBC</tt> module.<a href="#FOOTNOTE-69">[69]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-69" /><p>[69]If you have a
+compiler, you can get the source from CPAN and build it yourself, or,
+on Windows, just fetch and install a pre-built version using the PPM
+tool supplied with ActiveState Perl.</p>
+
+
+</blockquote>
+
+
+
+<p>You will also need to configure your ODBC data source within the
+Windows ODBC Control Panel. For our megalithic database, let's
+call the ODBC data source <tt class="literal">archaeo</tt>.</p>
+
+
+
+<p>We can test that this data source is correctly configured using the
+DBI Shell <tt class="literal">dbish</tt> locally on the Windows machine:</p>
+
+
+
+<blockquote><pre class="code">dbish dbi:ODBC:archaeo</pre></blockquote>
+
+
+
+<p>or via a short script that can be run on your Windows machine:</p>
+
+
+
+<blockquote><pre class="code">use DBI;
+$dbh = DBI-&gt;connect( "dbi:ODBC:archaeo", "username", "password" );
+$dbh-&gt;disconnect(  );</pre></blockquote>
+
+
+
+<p>If <tt class="literal">dbish</tt> connects, or if no errors occur when
+executing the script, it looks like everything's installed and
+configured correctly.</p>
+
+
+
+<p>The easiest way to set up a DBI proxy server is to use the script
+called <tt class="literal">dbiproxy</tt>
+<a name="INDEX-928" />, which is distributed with the core DBI
+module. The <tt class="literal">DBI::ProxyServer</tt> module, used by
+<tt class="literal">dbiproxy</tt>, has a few prerequisite modules that must
+be installed in order for it to work:
+<tt class="literal">PlRPC</tt>
+<a name="INDEX-929" /> and
+<tt class="literal">Net::Daemon</tt>
+<a name="INDEX-930" />. These can be downloaded and installed
+from <a name="INDEX-931" />CPAN using:</p>
+
+
+
+<blockquote><pre class="code">perl -MCPAN -e 'install Bundle::DBI'</pre></blockquote>
+
+
+
+<p>Or, if you are running the <a name="INDEX-932" />ActiveState Perl for Windows, you can
+install these modules separately via <a name="INDEX-933" />PPM (since PPM currently does
+not currently support bundles).</p>
+
+
+
+<p>The crucial information required by <tt class="literal">dbiproxy</tt> is
+the port number to which the proxy server should listen for incoming
+proxy client connections. If the port number is
+<tt class="literal">3333</tt>, we can run the proxy server with the
+following command:</p>
+
+
+
+<blockquote><pre class="code">dbiproxy --localport 3333</pre></blockquote>
+
+
+
+<p>This will start up the server; it's now waiting for
+connections. If you want to verify that the server is indeed up and
+running, you can run it with the <tt class="literal">--debug</tt> flag and
+the optional <tt class="literal">--logfile</tt> flag to specify where the
+debug output will go.</p>
+
+
+
+<p>For example:</p>
+
+
+
+<blockquote><pre class="code">dbiproxy --localport 3333 --debug</pre></blockquote>
+
+
+
+<p>will produce debug output either in the command prompt window on a
+Windows machine, and or via <tt class="literal">syslog(1)</tt> on a Unix
+machine. On Unix workstations, you can redirect the output to the
+current terminal with:</p>
+
+
+
+<blockquote><pre class="code">dbiproxy --localport 3333 --debug --logfile /dev/tty</pre></blockquote>
+
+
+
+<p>This should behave correctly under most modern Unix platforms.</p>
+</div>
+
+
+
+
+
+<a name="ch08-ch08_connecting_0" /><div class="sect3">
+<h3 class="sect3">8.2.1.2. Connecting to the proxy server </h3>
+
+
+
+<p>Now <a name="INDEX-934" />that we have configured our proxy server to
+sit and wait on port <tt class="literal">3333</tt> on our Windows machine,
+we need to tell the client Perl program on the Unix machine to use
+that proxy server instead of attempting to make a direct database
+connection itself.</p>
+
+
+
+<p>For example, the ODBC test script above connects directly via the
+<tt class="literal">DBD::ODBC</tt> module with the following
+<tt class="literal">DBI-</tt>&gt;<tt class="literal">connect( )</tt> call:</p>
+
+
+
+<blockquote><pre class="code">$dbh = DBI-&gt;connect( "dbi:ODBC:archaeo", "username", "password" );</pre></blockquote>
+
+
+
+<p>This is fine for local connections, but how do we translate that into
+something the proxy server can use?</p>
+
+
+
+<p><tt class="literal">DBD::Proxy</tt>
+<a name="INDEX-935" /> makes liberal use of the optional
+arguments that can be added to a DSN when specifying which database
+to connect to. <tt class="literal">DBD::Proxy</tt> allows you to specify
+the <em class="emphasis">hostname</em> of the machine upon which the proxy
+server is running, the <em class="emphasis">port number</em> that the
+proxy server is listening to, and the <em class="emphasis">data
+source</em> of the database that you wish the proxy server to
+connect to.</p>
+
+
+
+<p>Therefore, to connect to the ODBC database called
+<tt class="literal">archaeo</tt> on the Windows machine
+<tt class="literal">fowliswester</tt> with a proxy server running on port
+<tt class="literal">3333</tt>, you should use the following
+<tt class="literal">DBI-</tt>
+<a name="INDEX-936" />
+<a name="INDEX-937" />&gt;<tt class="literal">connect(
+)</tt> syntax:</p>
+
+
+
+<blockquote><pre class="code">$dsn   = "dbi:ODBC:archaeo";
+$proxy = "hostname=fowliswester;port=3333";
+$dbh = DBI-&gt;connect( "dbi:Proxy:$proxy;dsn=$dsn", '', '' );</pre></blockquote>
+
+
+
+<p>This looks quite long-winded, but it's a very compact and
+portable way to make a pass-through connection to a remote database
+by proxy.</p>
+
+
+
+<p>Once you have connected to the proxy server and it connects to the
+desired data source, a valid database handle will be returned,
+allowing you to issue queries exactly as if you had connected
+directly to that database. Therefore, when using a proxy server, only
+the <tt class="literal">DBI-</tt>&gt;<tt class="literal">connect( )</tt> call
+will vary -- which is exactly the same behavior as changing from
+one database to another.</p>
+
+
+
+<p>Having said that, it's even possible to use the proxy without
+editing your programs at all. You just need to set the
+<tt class="literal">DBI_AUTOPROXY</tt>
+<a name="INDEX-938" /> environment variable and
+the DBI will do the rest. For the example above, you can leave the
+<tt class="literal">connect( )</tt> statement referring to
+<tt class="literal">dbi:ODBC:archaeo</tt> and just set the
+<tt class="literal">DBI_AUTOPROXY</tt> environment variable to:</p>
+
+
+
+<blockquote><pre class="code">dbi:Proxy:hostname=fowliswester;port=3333</pre></blockquote>
+
+
+
+<p>The value contained within the <tt class="literal">DBI_AUTOPROXY</tt> value
+has the DSN specified in the
+<tt class="literal">DBI-</tt>&gt;<tt class="literal">connect( )</tt> call
+concatenated to it to produce the correct proxy DSN. For example:</p>
+
+
+
+<blockquote><pre class="code">$ENV{DBI_AUTOPROXY} = 'dbi:Proxy:hostname=fowliswester;port=3333';
+$dbh = DBI-&gt;connect( "dbi:ODBC:archaeo", "username", "password" );</pre></blockquote>
+
+
+
+<p>would result in the script attempting a connection to the DSN of:</p>
+
+
+
+<blockquote><pre class="code">dbi:Proxy:hostname=fowliswester;port=3333;dsn=dbi:ODBC:archaeo</pre></blockquote>
+
+
+
+<p>The other important point to stress regarding the client is that you
+do not need to install any database drivers whatsoever. The database
+drivers are used only by the proxy server.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch08-ch08_advanced_0" /><div class="sect2">
+<h3 class="sect2">8.2.2. Advanced Topics </h3>
+
+
+
+<p>The DBI <a name="INDEX-939" />proxy architecture is implemented on top
+of a couple of lower-level Perl networking modules such as
+<tt class="literal">PlRPC</tt>
+<a name="INDEX-940" /> and, in the case of
+<tt class="literal">DBI::ProxyServer</tt>
+<a name="INDEX-941" />,
+<tt class="literal">Net::Daemon</tt>
+<a name="INDEX-942" />. As such, these modules have a lot of
+features that are inherited into the DBI proxy architecture, such as
+powerful access-list configuration and on-the-fly compression and
+ciphering.</p>
+
+
+
+<p>We shall look at each of these topics in more detail and explain how
+they can be used effectively in your software.</p>
+
+
+
+<a name="ch08-ch08_access_0" /><div class="sect3">
+<h3 class="sect3">8.2.2.1. Access configuration </h3>
+
+
+
+<p>The <tt class="literal">Net::Daemon</tt>, <tt class="literal">RPC::PlServer</tt>,
+and <tt class="literal">DBI::ProxyServer</tt> modules share a common
+<a name="INDEX-943" /> <a name="INDEX-944" />configuration filesystem because
+of the ways that <tt class="literal">RPC::PlServer</tt> inherits from
+<tt class="literal">Net::Daemon</tt> and
+<tt class="literal">DBI::ProxyServer</tt> inherits from
+<tt class="literal">RPC::PlServer</tt>.<a href="#FOOTNOTE-70">[70]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-70" /><p>[70]All these modules,
+including <tt class="literal">DBD::Proxy</tt> were designed and
+ implemented by a single author,
+Jochen Wiedmann. Thank you, Jochen.</p>
+
+
+</blockquote>
+
+
+
+<p>The configuration files for these modules are expressed as Perl
+scripts in which various options are set. The most useful options are
+those that allow you to specify access lists. Access lists allow you
+to control which machines may connect to the proxy server, and the
+mode that the network transport between these machines and the proxy
+server operates in.</p>
+
+
+
+<p>For example, if you had a secure corporate LAN containing a database
+server and client PCs, you might say that the client PCs could
+connect to the central database via a proxy server without any
+authentication or encryption. That is, a PC connected to the LAN is
+<em class="emphasis">trusted</em>.</p>
+
+
+
+<p>However, computers in employees' houses that need access to the
+database are not trusted, as the data flowing across the phone line
+might be somehow intercepted by competitors. Therefore, the network
+transport between these machines and the central database server is
+encrypted.</p>
+
+
+
+<p>A sample configuration file for the proxy server might look like:</p>
+
+
+
+<blockquote><pre class="code">{
+    facility =&gt; 'daemon',
+    pidfile  =&gt; '/var/dbiproxy/dbiproxy.pid',
+    user  =&gt; 'nobody',
+    group =&gt; 'nobody',
+    localport =&gt; '3333',
+    mode      =&gt; 'fork',
+
+    # Access control
+    clients =&gt; [
+        # Accept the local LAN ( 192.168.1.* )
+        {
+            mask   =&gt; '^192\.168\.1\.\d+$',
+            accept =&gt; 1
+        },
+        # Accept our off-site machines ( 192.168.2.* ) but with a cipher
+        {
+            mask   =&gt; '^192\.168\.2\.\d+$',
+            accept =&gt; 1,
+            # We'll discuss secure encryption ciphers shortly
+            cipher =&gt; Crypt::IDEA-&gt;new( 'be39893df23f98a2' )
+        },
+        # Deny everything else
+        {
+            mask   =&gt; '.*',
+            accept =&gt; 0
+        }
+    ]
+}</pre></blockquote>
+
+
+
+<p>The <tt class="literal">dbiproxy</tt>
+<a name="INDEX-945" /> script can be started with this custom
+configuration file in the following way:</p>
+
+
+
+<blockquote><pre class="code">dbiproxy --configfile &lt;filename&gt;</pre></blockquote>
+
+
+
+<p>For example, if we had saved the above configuration file as
+<tt class="literal">proxy.config</tt>, we could start up
+<tt class="literal">dbiproxy</tt> with the command:</p>
+
+
+
+<blockquote><pre class="code">dbiproxy --configfile proxy.config</pre></blockquote>
+
+
+
+<p>Furthermore, the <tt class="literal">DBI::ProxyServer</tt> configuration
+file also allows us to apply access lists to individual types of
+statements. For example, you might want the workstations of sales
+operators to be able to query data, but not change it in any way.
+This can be done using the following configuration options:</p>
+
+
+
+<blockquote><pre class="code"># Only allow the given SELECT queries from sales 
+# workstations ( 192.168.3.* )
+clients =&gt; [
+    {
+        mask   =&gt; '^192\.168\.3\.\d+$',
+        accept =&gt; 1,
+        sql    =&gt; {
+            select =&gt; 'SELECT name, mapref FROM megaliths WHERE name = ?'
+        }
+    },
+]</pre></blockquote>
+
+
+
+<p>The other statement restriction keys that you can use are
+<tt class="literal">insert</tt>, <tt class="literal">update</tt>, and
+<tt class="literal">delete</tt>. For example, if you wished to allow only
+particular <tt class="literal">DELETE</tt> statements to be executed, you
+could write the following access control:</p>
+
+
+
+<blockquote><pre class="code">sql =&gt; {
+    delete =&gt; 'DELETE FROM megaliths WHERE id = ?'
+}</pre></blockquote>
+
+
+
+<p>This control would refuse any <tt class="literal">DELETE</tt> statements
+that did not conform to the given control mask, such as someone
+maliciously executing <tt class="literal">DELETE</tt>
+<tt class="literal">FROM</tt> <tt class="literal">megaliths</tt>.</p>
+
+
+
+<p>Therefore, the access control functionality inherent in
+<tt class="literal">DBI::ProxyServer</tt> and its parent modules can be
+used to build complex (yet flexible) networked database systems
+quickly and <a name="INDEX-946" />easily.<a name="INDEX-947" /> <a name="INDEX-948" /></p>
+</div>
+
+
+
+
+
+<a name="ch08-ch08_compression_0" /><div class="sect3">
+<h3 class="sect3">8.2.2.2. Compression </h3>
+
+
+
+<p>In the previous example, we discussed the possibility of a user
+querying the database via a modem line and proxy server. Suppose the
+user executes a query that returns 100,000 rows of data, each row
+being around 1 KB. That's a lot of information to pull across a
+slow network connection.</p>
+
+
+
+<p>To speed things up, you could configure the proxy server to use
+on-the-fly <a name="INDEX-949" />compression
+<a name="INDEX-950" />
+<a name="INDEX-951" />(via
+the
+<tt class="literal">Compress::Zlib</tt>
+<a name="INDEX-952" /> module) to clients querying the database
+over dial-up connection. This will radically reduce the quantity of
+data being transferred across the modem link. You can do this by
+running the <tt class="literal">dbiproxy</tt> script with the additional
+arguments of:</p>
+
+
+
+<blockquote><pre class="code">--compression gzip</pre></blockquote>
+
+
+
+<p>which specifies that the GNU <tt class="literal">gzip</tt> compression
+method should be used.</p>
+
+
+
+<p>In order for your client to be able to send and receive compressed
+data from the DBI proxy server, you also must tell the proxy driver
+to use a compressed data stream. This is done by specifying the
+additional DSN key/value pair of <tt class="literal">compression=gzip</tt>
+when connecting to the database. For example:</p>
+
+
+
+<blockquote><pre class="code">$proxyloc = 'hostname=fowliswester;port=3333';
+$compression = 'compression=gzip';
+$dsn = 'dbi:ODBC:archaeo';
+$dbh = DBI-&gt;connect( "dbi:Proxy:$proxyloc;$compression;dsn=$dsn", 
+                     "username", "password" );</pre></blockquote>
+
+
+
+<p>The trade-off is the cost in CPU time for the proxy server and proxy
+client to compress and decompress the data, respectively. From a
+client perspective, this is probably not an issue, but the proxy
+server might be affected, especially if several large queries are
+being executed simultaneously, with each requiring compression.</p>
+
+
+
+<p>However, compression is a useful and transparent feature that can
+increase the efficiency of your networks and databases when using DBI
+proxying.</p>
+</div>
+
+
+
+
+
+<a name="ch08-ch08_ciphers_0" /><div class="sect3">
+<h3 class="sect3">8.2.2.3. Ciphers </h3>
+
+
+
+<p>The final configuration topic that we will cover for the DBI proxy
+architecture is that of on-the-fly <a name="INDEX-953" />encryption of data.</p>
+
+
+
+<p>This functionality is useful if you are implementing a secure
+networked database environment where database operations might be
+occurring over nonsecure network links, such as a phone line through
+a public ISP. For example, an employee at home might use his or her
+own ISP to access a secure company database. Or you might wish to
+make an e-commerce transaction between two participating financial
+institutions.</p>
+
+
+
+<p>Both of these examples are prime candidates for using the <a name="INDEX-954" /> <a name="INDEX-955" />cipher mechanism in
+<tt class="literal">DBI::ProxyServer</tt>. Ciphering is implemented within
+the
+<tt class="literal">RPC::PlClient</tt>
+<a name="INDEX-956" /> and
+<tt class="literal">RPC::PlServer</tt>
+<a name="INDEX-957" /> modules. This allows
+<tt class="literal">DBD::Proxy</tt> and <tt class="literal">DBI::ProxyServer</tt>
+
+<a name="INDEX-958" />to use those mechanisms by means of
+inheritance. The actual ciphering mechanism uses external modules
+such as <tt class="literal">Crypt::IDEA</tt>
+<a name="INDEX-959" /> or
+<tt class="literal">Crypt::DES</tt>
+<a name="INDEX-960" /> for key generation and
+comparison.<a href="#FOOTNOTE-71">[71]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-71" /><p>[71]The technical differences and ins and
+outs of these algorithms are way beyond the scope of this book. You
+should consult the documentation for these modules for pointers to
+texts discussing the various cryptographic algorithms.</p>
+
+
+</blockquote>
+
+
+
+<p>The very basic premise of an
+<a name="INDEX-961" />encrypted data
+stream is that the client and server generate
+<em class="emphasis">keys</em>, which are then sent to each other. When
+the client wishes to transmit data to the server, it encrypts the
+<a name="INDEX-962" />data
+with the server's key. Similarly, if the server wishes to send
+data to the client, it uses the client's key to encrypt it
+first. This system allows the client and server to decode the
+incoming data safely. Since the data is encrypted before transmission
+and decoded after receipt, anyone snooping on the network will see
+only encrypted data.</p>
+
+
+
+<p>Therefore, to support encryption via DBI proxying, we need to
+configure both the client connecting to the proxy server to use
+encryption and also configure the server to use the same encryption.</p>
+
+
+
+<p>The configuration of the client is trivial and is simply a case of
+specifying additional arguments to the
+<tt class="literal">DBI-</tt>&gt;<tt class="literal">connect( )</tt> call. For
+example, to use <tt class="literal">Crypt::IDEA</tt> as the underlying
+ciphering method, we can write:</p>
+
+
+
+<blockquote><pre class="code">use Crypt::IDEA;
+
+### The key is a random, but long, hexadecimal number!
+$key = 'b3a6d83ef3187ac4';
+
+### Connect to the proxy server
+$dbh = DBI-&gt;connect( "dbi:Proxy:cipher=IDEA;key=$key;...", '', '' );</pre></blockquote>
+
+
+
+<p>The actual key creation occurs by instantiating a new object of the
+given cipher type (in this case <tt class="literal">Crypt::IDEA</tt>) with
+the given key value. This cipher object is then passed to the proxy
+server. We could have used the <tt class="literal">Crypt::DES</tt> module
+to provide the underlying encryption services by simply changing
+<tt class="literal">cipher=IDEA</tt> to
+<tt class="literal">cipher=DES</tt>.<a href="#FOOTNOTE-72">[72]</a>
+This demonstrates the configurability of the DBI proxy encryption
+mechanisms.</p><blockquote>
+
+
+<a name="FOOTNOTE-72" /><p>[72]We would also need to
+change the <tt class="literal">use</tt> <tt class="literal">Crypt::IDEA;</tt>  line
+accordingly.</p>
+
+
+</blockquote>
+
+
+
+<p>For example, if we were transmitting sensitive but not confidential
+data from our internal database to someone's home PC, we might
+wish to use the relatively low-grade encryption offered by
+<tt class="literal">Crypt::DES</tt>. However, if more confidential data was
+being transmitted, we might wish to switch over to using the stronger
+but slower encryption of <tt class="literal">Crypt::IDEA</tt>.</p>
+
+
+
+<p>Configuring the <a name="INDEX-963" />proxy
+server is equally straightforward and is achieved by specifying the
+encryption rules within the proxy server configuration file. For
+example, a simple proxy server configuration that encrypts all
+traffic with <tt class="literal">Crypt::IDEA</tt> can be written as:</p>
+
+
+
+<blockquote><pre class="code">require Crypt::IDEA;
+
+### The key to encrypt data with
+$key = 'b3a6d83ef3187ac4';
+
+{
+    clients =&gt; [ {
+        'accept' =&gt; 1,
+        'cipher' =&gt; IDEA-&gt;new( pack( "H*", $key ) )
+      } ]
+}</pre></blockquote>
+
+
+
+<p>The important aspect of this configuration file is that the key being
+used to create the <tt class="literal">Crypt::IDEA</tt>
+
+<a name="INDEX-964" />object matches that used by the
+client programs connecting to this proxy server. If the keys do not
+match, no connection will be made, as the client and server will not
+be able to <a name="INDEX-965" />decode <a name="INDEX-966" /> <a name="INDEX-967" />data <a name="INDEX-968" />flowing
+<a name="INDEX-969" />over
+<a name="INDEX-970" />the
+<a name="INDEX-971" />network <a name="INDEX-972" />connection.<a name="INDEX-973" /></p>
+</div>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="appa_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">8. DBI Shell and Database Proxying </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">A. DBI Specification </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

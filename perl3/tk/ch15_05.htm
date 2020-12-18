@@ -1,0 +1,211 @@
+<html><head><title>Tracing Perl/Tk Variables (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch15_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">15.5. Tracing Perl/Tk Variables</h2>
+
+<p><a name="INDEX-2463" />This
+is something of an oddball topic for this Anatomy lesson, but it
+introduces background information we'll use later. Plus, it
+lets us do some neat things.
+</p>
+
+<p><a name="INDEX-2464" /><a name="INDEX-2465" /><a name="INDEX-2466" /><a name="INDEX-2467" /><a name="INDEX-2468" /><a name="INDEX-2469" />The Perl way to trace (or set
+watchpoints upon) a variable is by using the built-in
+<tt class="literal">tie</tt> function or the CPAN module Tie::Watch. Tcl
+has three commands associated with variable tracing:
+<tt class="literal">trace</tt> <tt class="literal">variable</tt>,
+<tt class="literal">trace</tt> <tt class="literal">vdelete</tt>, and
+<tt class="literal">trace</tt> <tt class="literal">vinfo</tt>. We'll
+examine sample code that uses three similar Perl subroutines, then
+briefly illustrate how our new Trace module is implemented.
+</p>
+
+<p><a name="INDEX-2470" /><a name="INDEX-2471" /><a name="INDEX-2472" /><a name="INDEX-2473" />First we need to define three new
+commands, the analogs of the Tcl/Tk Trace commands. They are
+<tt class="literal">traceVariable</tt> (start tracing a variable),
+<tt class="literal">traceVinfo</tt> (show trace information), and
+<tt class="literal">traceVdelete</tt> (stop tracing a variable). Using
+these commands, we can write a program that animates an analog dial
+via a Scale widget (see <a href="ch15_05.htm#mastperltk-CHP-15-FIG-5">Figure 15-5</a>).
+</p>
+
+<a name="mastperltk-CHP-15-FIG-5" /><div class="figure"><img src="figs/mptk.1505.gif" alt="Figure 15-5" width="178" height="178" /></div><h4 class="objtitle">Figure 15-5. Animating a meter</h4>
+
+<p>The dial is actually a fat Canvas line item with an arrow on one end.
+The Scale goes from 0 to 100, with the dial pointing straight up when
+it reads 50. The Scale's value is updated in the variable
+<tt class="literal">$v</tt>.
+</p>
+
+<blockquote><pre class="code">my $c = $mw-&gt;Canvas(qw/-width 200 -height 110 -bd 2 -relief sunken/)-&gt;grid;
+$c-&gt;createLine(qw/ 100 100 10 100  -tag meter -arrow last -width 5/);
+my $s = $mw-&gt;Scale(qw/-orient h -from 0 -to 100 -variable/ =&gt; \my $v)-&gt;grid;
+$mw-&gt;Label(-text =&gt; 'Slide Me for &gt; 5 Seconds')-&gt;grid;</pre></blockquote>
+
+<p>The idea is to define a callback that's invoked whenever the
+Scale's variable <tt class="literal">$v</tt> changes value. The
+callback then redraws the dial appropriately.
+<tt class="literal">traceVariable</tt> expects three arguments: a reference
+to the traced variable; a letter from the set <tt class="literal">rwu</tt>
+that selects <tt class="literal">read</tt>, <tt class="literal">write</tt>, or
+<tt class="literal">undef</tt> (destroy) operations; and a standard Perl/Tk
+callback.
+</p>
+
+<p><a name="INDEX-2474" />Here
+we call <tt class="literal">update_meter</tt> whenever
+<tt class="literal">$v</tt> is written.
+</p>
+
+<blockquote><pre class="code">$mw-&gt;traceVariable(\$v, 'w' =&gt; [\&amp;update_meter, $c, $s]);</pre></blockquote>
+
+<p><a name="INDEX-2475" /><a name="INDEX-2476" />This code demonstrates the other Trace
+commands. After five seconds, we display trace information, then
+delete the trace. Once the trace is cleared, the dial stops moving.
+(This explains why the Scale's value does not correspond to the
+dial position in <a href="ch15_05.htm#mastperltk-CHP-15-FIG-5">Figure 15-5</a>.)
+</p>
+
+<blockquote><pre class="code">$mw-&gt;after(5000 =&gt; sub {
+    print "Untrace time ...\n";
+    my %vinfo = $s-&gt;traceVinfo(\$v);
+    print "Watch info  :\n  ", join("\n  ", @{$vinfo{-legible}}), "\n";
+    $c-&gt;traceVdelete(\$v);
+});
+
+MainLoop;</pre></blockquote>
+
+<p>Here's the output from <tt class="literal">traceVinfo</tt>. It shows
+the variable being traced, two internal flags, the variable's
+value, and the three callbacks associated with the
+<tt class="literal">u</tt> (undef), <tt class="literal">r</tt> (read), and
+<tt class="literal">w</tt> (write) operations. Trace supplies default
+callbacks for any that we don't provide.
+</p>
+
+<blockquote><pre class="code">Untrace time ...
+Watch info  :
+  variable  : SCALAR(0x82a5178)
+  debug     : '0'
+  shadow    : '1'
+  value     : '56'
+  destroy   : ARRAY(0x82fd14c)
+  fetch     : ARRAY(0x82fd224)
+  store     : ARRAY(0x82fd110)</pre></blockquote>
+
+<p><tt class="literal">update_meter</tt>, as with any Trace callback, is
+invoked with three automatically provided arguments:
+</p>
+
+<blockquote><pre class="code">$_[0]        = undef for a scalar, index/key for array/hash
+$_[1]        = variable's current (read), new (write), final (undef) value
+$_[2]        = operation (r, w, or u)
+$_[3 .. $#_] = optional user callback arguments</pre></blockquote>
+
+<p>In our case, the fourth and fifth arguments are the Canvas and Scale
+widget references, respectively.
+</p>
+
+<p><a name="INDEX-2477" />A Trace
+callback is responsible for returning the traced variable's new
+value, so you can choose to keep the proper value or change it. Our
+callback just needs to peek at the value to adjust the dial, so it
+keeps the value unchanged. The callback first checks the operation
+code and returns if the variable is being destroyed. Otherwise, it
+computes the dial's new position and redraws it.
+</p>
+
+<blockquote><pre class="code">sub update_meter {
+    my($index, $value, $op, @args) = @_;
+    return if $op eq 'u';
+    my($c, $s) = @args[0,1];    # Canvas and Scale widgets
+    my($min, $max) = ($s-&gt;cget(-from), $s-&gt;cget(-to));
+    my $pos = $value / abs($max - $min);
+    my $x = 100.0 - 90.0 * (cos( $pos * PI ));
+    my $y = 100.0 - 90.0 * (sin( $pos * PI ));
+    $c-&gt;coords(qw/meter 100 100/, $x, $y);
+    return $value;
+}</pre></blockquote>
+
+<p>The Trace module is not a mega-widget. It's a plain old
+Exporter module, and a tad complicated at that. For the complete
+listing, see <a href="appc_01.htm">Appendix C, "Complete Program Listings"</a>. Trace is a wrapper around
+Tie::Watch, giving us a super-simple interface, at the expense of
+some loss of functionality. Let's see what Tie::Watch gives us,
+since we'll be using it in the future.
+</p>
+
+<a name="mastperltk-CHP-15-SECT-5.1" /><div class="sect2">
+<h3 class="sect2">15.5.1. Tie::Watch</h3>
+
+<p><a name="INDEX-2478" /><a name="INDEX-2479" /><a name="INDEX-2480" /><a name="INDEX-2481" /><a name="INDEX-2482" />Tie::Watch is an object-oriented
+interface to Perl's built-in <tt class="literal">tie</tt> function,
+which lets us define a variable's implementation. The
+implementation is carried out using subroutines of our own devising
+that are invoked as the variable is operated upon. For a Perl scalar,
+there are only three operations: <tt class="literal">fetch</tt>,
+<tt class="literal">store</tt>, and <tt class="literal">destroy</tt>.
+Here's how to watch a scalar:
+</p>
+
+<blockquote><pre class="code">$watch = Tie::Watch-&gt;new(
+    -variable =&gt; \$v,
+    -fetch    =&gt; [\&amp;fetch, 'arg1', 'arg2', ..., 'argn'],
+    -store    =&gt; \&amp;store,
+    -destroy  =&gt; sub {print "Final value=$v.\n"},
+}</pre></blockquote>
+
+<p><a name="INDEX-2483" />The only required argument is
+<tt class="literal">-variable</tt>. We can provide behavior for any or all
+of the operations, or none at all. <tt class="literal">fetch</tt> and
+<tt class="literal">store</tt> callbacks look like this:
+</p>
+
+<blockquote><pre class="code">sub fetch{
+    my($self) = @_;
+    $self-&gt;Fetch;
+};
+
+sub store {
+    my($self, $new_val) = @_;
+    $self-&gt;Store($new_val);
+};</pre></blockquote>
+
+<p><a name="INDEX-2484" /><a name="INDEX-2485" />These callbacks return the
+variable's new value by calling the underlying
+<tt class="literal">tie</tt> method. If you really want to confuse someone,
+make the traced variable read-only with this <tt class="literal">store</tt>
+callback:
+</p>
+
+<blockquote><pre class="code">sub store {
+    my($self, $new_val) = @_;
+    $self-&gt;Store($self-&gt;Fetch);
+};</pre></blockquote>
+
+<p>Tie::Watch can also watch arrays and hashes, but watching scalars is
+sufficient for our current needs.<a name="INDEX-2486" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch15_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">15.4. Executing Nonblocking System Commands</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">15.6. Nonblocking Wait Activities</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

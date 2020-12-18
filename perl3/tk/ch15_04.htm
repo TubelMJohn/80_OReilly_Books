@@ -1,0 +1,602 @@
+<html><head><title>Executing Nonblocking System Commands (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch15_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">15.4. Executing Nonblocking System Commands</h2>
+
+<p><a name="INDEX-2439" /><a name="INDEX-2440" />One of the most common requests seen on
+the <em class="emphasis">comp.lang.perl.tk</em> newsgroup is how to
+execute a system command and display its output in a Text widget. The
+typical response is some variation of <i class="command">tktail</i>,
+which uses <tt class="literal">fileevent</tt> to signal that output data is
+available without blocking the application.
+</p>
+
+<p>Here's the program:</p>
+
+<blockquote><pre class="code">open(H, "tail -f -n 25 $ARGV[0]|") or die "Nope: $!";
+
+my $t = $mw-&gt;Text(-width =&gt; 80, -height =&gt; 25, -wrap =&gt; 'none');
+$t-&gt;pack(-expand =&gt; 1);
+$mw-&gt;fileevent(\*H, 'readable', [\&amp;fill_text_widget, $t]);
+MainLoop;
+
+sub fill_text_widget {
+
+    my($widget) = @_;
+
+    $_ = &lt;H&gt;;
+    $widget-&gt;insert('end', $_);
+    $widget-&gt;yview('end');
+
+}</pre></blockquote>
+
+<p><a name="INDEX-2441" /><a name="INDEX-2442" />The
+standard way to keep Perl/Tk programs from blocking is to use
+<em class="emphasis">multiple processes</em>. Here we use Perl's
+<tt class="literal">open</tt> function to create a separate process that
+sends its output to a pipe. <tt class="literal">fileevent</tt> then defines
+a callback that gets invoked whenever the file handle
+<tt class="literal">H</tt> has data available to read. The callback appends
+one line to the Text widget and uses <tt class="literal">yview</tt> to
+ensure that we always see the end of the file.
+</p>
+
+<p>There's a problem here. The statement <tt class="literal">$_</tt>
+<tt class="literal">=</tt> <tt class="literal">&lt;H&gt;</tt> expects to read an
+entire line, one that's newline terminated. If only a partial
+line were available, the read would block, and so would
+<i class="command">tktail</i>. To be rigorous, we should use
+<tt class="literal">sysread</tt> for our I/O, which handles partial lines:
+</p>
+
+<blockquote><pre class="code">sub fill_text_widget {
+
+    my($widget) = @_;
+
+    <tt class="userinput"><b>my($stat, $data);</b></tt>
+<tt class="userinput"><b>    $stat = sysread H, $data, 4096;</b></tt>
+<tt class="userinput"><b>    die "sysread error:  $!" unless defined $stat;</b></tt>
+<tt class="userinput"><b>    $widget-&gt;insert('end', $data);</b></tt>
+    $widget-&gt;yview('end');
+
+}</pre></blockquote>
+
+<p>Later we take this simple example and turn it into a first-class
+mega-widget that's more powerful and flexible.
+</p>
+
+<a name="mastperltk-CHP-15-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">15.4.1. fileevent Syntax</h3>
+
+<p><a name="INDEX-2443" />The syntax
+for <tt class="literal">fileevent</tt> is as follows:
+</p>
+
+<blockquote><pre class="code">$mw-&gt;fileevent(<em class="replaceable"><tt>handle</em>, <em class="replaceable">operation</em> =&gt; <em class="replaceable">callback</tt></em>);</pre></blockquote>
+
+<p><em class="replaceable"><tt>handle</tt></em> is a Perl file handle, which may be
+a reference to a glob (<tt class="literal">\*STDIN</tt>), the return value
+from IO::Handle, etc.
+</p>
+
+<p><em class="replaceable"><tt>operation</tt></em> may be
+<tt class="literal">readable</tt> or <tt class="literal">writable</tt>.
+</p>
+
+<p><em class="replaceable"><tt>callback</tt></em> is a standard callback or the
+empty string <tt class="literal">""</tt>. The callback is invoked when the
+file is readable/writable. If <em class="replaceable"><tt>callback</tt></em> is
+the empty string, the callback is canceled.
+</p>
+
+<p>Please refer to <a href="ch19_01.htm">Chapter 19, "Interprocess Communicationwith Pipes and Sockets"</a> for more information on
+<tt class="literal">fileevent</tt>.
+</p>
+
+</div>
+<a name="mastperltk-CHP-15-SECT-4.2" /><div class="sect2">
+<h3 class="sect2">15.4.2. Tk::ExecuteCommand</h3>
+
+<p><a name="INDEX-2444" />Tk::ExecuteCommand runs a command yet
+still allows Tk events to flow. All command output and errors are
+displayed in a window. This ExecuteCommand mega-widget is composed of
+a LabEntry widget for command entry, a "Do It" Button
+that initiates command execution, and a ROText widget that collects
+command execution output. While the command is executing, the
+"Do It" Button changes to a "Cancel" Button
+that can prematurely kill the executing command.
+</p>
+
+<p>We start with a typical Frame-based mega-widget prologue, fully
+detailed in <a href="ch14_01.htm">Chapter 14, "Creating Custom Widgets in Pure Perl/Tk"</a>. As with the previous
+example, it depends on <tt class="literal">fileevent</tt> to keep the
+application from blocking.
+</p>
+
+<blockquote><pre class="code">$Tk::ExecuteCommand::VERSION = '1.1';
+
+package Tk::ExecuteCommand;
+
+use IO::Handle;
+use Proc::Killfam;
+use Tk::widgets qw/ROText/;
+use base qw/Tk::Frame/;
+use strict;
+
+Construct Tk::Widget 'ExecuteCommand';</pre></blockquote>
+
+<p><a name="INDEX-2445" /><a name="INDEX-2446" /><a name="INDEX-2447" /><a name="INDEX-2448" />The
+<tt class="literal">Populate</tt> subroutine in the next example defines
+the widget pictured in <a href="ch15_04.htm#mastperltk-CHP-15-FIG-1">Figure 15-1</a>. Type the command
+(or commands) to execute in the Entry widget and start it running by
+clicking the "Do It" Button. Once pressed, "Do
+It" changes to "Cancel." The subroutine
+<tt class="literal">_reset_doit_button</tt> ensures that the Button is
+properly configured to begin command execution. The leading
+underscore in the method name indicates a
+<em class="emphasis">private</em> method, one that the widget's
+users should not call. The <tt class="literal">OnDestroy</tt> call ensures
+that any running command is terminated when the widget goes away.
+</p>
+
+<a name="mastperltk-CHP-15-FIG-1" /><div class="figure"><img src="figs/mptk.1501.gif" alt="Figure 15-1" width="481" height="228" /></div><h4 class="objtitle">Figure 15-1. Tk::ExecuteCommand in action</h4>
+
+<p><a name="INDEX-2449" />The
+instance variable <tt class="literal">$self-&gt;{-finish}</tt> is true when
+it's time to kill the command. It can be set either by clicking
+the "Cancel" button or when the
+<tt class="literal">fileevent</tt> handler has sensed end-of-file. The
+widget's -<tt class="literal">command</tt> option is stored in
+another instance variable, <tt class="literal">$self-&gt;{-command}</tt>.
+</p>
+
+<blockquote><pre class="code">sub Populate {
+
+    my($self, $args) = @_;
+
+    $self-&gt;SUPER::Populate($args);
+
+    my $f1 = $self-&gt;Frame-&gt;pack;
+    $f1-&gt;LabEntry(
+        -label =&gt; 'Command to Execute',
+        -labelPack =&gt; [qw/-side left/],
+        -textvariable =&gt; \$self-&gt;{-command},
+    )-&gt;pack(qw/-side left/);
+
+    my $doit = $f1-&gt;Button(-text =&gt; 'Do It!')-&gt;pack(qw/-side left/);
+    $self-&gt;Advertise('doit' =&gt; $doit);
+    $self-&gt;_reset_doit_button;
+
+    $self-&gt;Frame-&gt;pack(qw/pady 10/);
+    $self-&gt;Label(-text =&gt; 'Command\'s stdout and stderr')-&gt;pack;
+
+    my $text = $self-&gt;Scrolled('ROText', -wrap =&gt; 'none');
+    $text-&gt;pack(qw/-expand 1 -fill both/); 
+    $self-&gt;Advertise('text' =&gt; $text);
+    $self-&gt;OnDestroy([$self =&gt; 'kill_command']);
+
+    $self-&gt;{-finish} = 0;
+
+    $self-&gt;ConfigSpecs(
+        -command =&gt; [qw/METHOD command Command/, 'sleep 5; pwd'],
+    );
+
+} # end Populate
+
+sub command {
+
+    my($self, $command) = @_;
+    $self-&gt;{-command} = $command;
+
+} # end command</pre></blockquote>
+
+<p>When the "Do It" Button is pressed, it begins flashing
+and continues to do so until the command has completed or is
+canceled. We use a Tcl/Tk idiom of rescheduling a timer callback that
+alternates the Button's background color. The first time
+through, the Button's background color is
+<tt class="literal">$val1</tt>, but the subsequent <tt class="literal">after</tt>
+callback reverses the colors so that <tt class="literal">$interval</tt>
+milliseconds later, the background changes to
+<tt class="literal">$val2</tt>. When the command finishes, no further timer
+callbacks are queued, and the flashing ceases.
+</p>
+
+<blockquote><pre class="code">sub _flash_doit {
+
+    # Flash "Do It" by alternating its background color.
+
+    my($self, $option, $val1, $val2, $interval) = @_;
+
+    if ($self-&gt;{-finish} == 0) {
+			$self-&gt;Subwidget('doit')-&gt;configure($option =&gt; $val1);
+			$self-&gt;idletasks;
+			$self-&gt;after($interval, [\&amp;_flash_doit, $self, $option, $val2,
+            $val1, $interval]);
+    }
+
+} # end _flash_doit</pre></blockquote>
+
+<p>Here's a private method that reads command output and inserts
+it into the Text widget. It calls <tt class="literal">kill_command</tt> to
+perform cleanup operations when the command completes or the user
+clicks on the "Cancel" Button.
+</p>
+
+<blockquote><pre class="code">sub _read_stdout {
+
+    # Called when input is available for the output window.  Also checks
+    # to see if the user has clicked Cancel.
+
+    my($self) = @_;
+
+    if ($self-&gt;{-finish}) {
+			$self-&gt;kill_command;
+    } else {
+			my $h = $self-&gt;{-handle};
+			if ( sysread $h, $_, 4096 ) {
+			    my $t = $self-&gt;Subwidget('text');
+			    $t-&gt;insert('end', $_);
+			    $t-&gt;yview('end');
+			} else {
+			    $self-&gt;{-finish} = 1;
+			}
+    }
+			
+} # end _read_stdout</pre></blockquote>
+
+<p>The private method <tt class="literal">_reset_doit_button</tt> ensures that
+the "Do It" button is properly configured to start a new
+command. Besides setting the Button's text and appearance, it
+also configures the callback so that, once pressed, the Button is
+disabled (preventing a possible race condition), and command
+execution begins.
+</p>
+
+<p>Notice it's not sufficient to use <tt class="literal">cget</tt> to
+fetch the background color, because the Button may have been flashing
+by alternating its background color. The only sure-fire way is to use
+<tt class="literal">configure</tt> and fetch the original default color
+from the configuration specifications. All Tk options are described
+by a five element array containing the option name, resource database
+name, class name, default value, and current value. The "Do
+It" Button's specifications might look like this:
+</p>
+
+<blockquote><pre class="code">-background background Background #d9d9d9 cyan
+
+sub _reset_doit_button {
+
+    # Establish normal "Do It" button parameters.
+
+    my($self) = @_;
+
+    my $doit = $self-&gt;Subwidget('doit');
+    my $doit_bg = ($doit-&gt;configure(-background))[3];
+
+    $doit-&gt;configure(
+        -text       =&gt; 'Do It',
+        -relief     =&gt; 'raised',
+        -background =&gt; $doit_bg,
+        -state      =&gt; 'normal',
+        -command    =&gt; [sub {
+            my($self) = @_;
+            $self-&gt;{-finish} = 0;
+            $self-&gt;Subwidget('doit')-&gt;configure(
+                -text   =&gt; 'Working ...',
+                -relief =&gt; 'sunken',
+                -state  =&gt; 'disabled'
+            );
+            $self-&gt;execute_command;
+        }, $self],
+    );
+
+} # end _reset_doit_button</pre></blockquote>
+
+<p>Here are all the public methods. <tt class="literal">execute_command</tt>
+creates a new file handle and stores it in an instance variable. Then
+it uses a pipe-open to execute the command, redirecting STDERR to
+STDOUT. If the <tt class="literal">open</tt> fails, the error is posted in
+the Text widget. The file handle is unbuffered, so data can be read
+as quickly as possible, and the readable <tt class="literal">fileevent</tt>
+is created. The "Do It" button is reconfigured into the
+"Cancel" button, and we start it flashing.
+</p>
+
+<blockquote><pre class="code">sub execute_command {
+
+    # Execute the command and capture stdout/stderr.
+
+    my($self) = @_;
+    
+    my $h = IO::Handle-&gt;new;
+    die "IO::Handle-&gt;new failed." unless defined $h;
+    $self-&gt;{-handle} = $h;
+
+    $self-&gt;{-pid} = open $h, $self-&gt;{-command} . ' 2&gt;&amp;1 |';
+    if (not defined $self-&gt;{-pid}) {
+			$self-&gt;Subwidget('text')-&gt;insert('end',
+                 "'" . $self-&gt;{-command} . "' : $!\n");
+			$self-&gt;kill_command;
+			return;
+    }
+    $h-&gt;autoflush(1);
+    $self-&gt;fileevent($h, 'readable' =&gt; [\&amp;_read_stdout, $self]);
+
+    my $doit = $self-&gt;Subwidget('doit');
+    $doit-&gt;configure(
+        -text    =&gt; 'Cancel',
+        -relief  =&gt; 'raised',
+        -state   =&gt; 'normal',
+        -command =&gt; [\&amp;kill_command, $self],
+    );
+
+    my $doit_bg = ($doit-&gt;configure(-background))[3];
+    $self-&gt;_flash_doit(-background =&gt; $doit_bg, qw/cyan 500/);
+    
+} # end execute_command</pre></blockquote>
+
+<p><tt class="literal">kill_command</tt> sets the finish flag so that the
+flash and <tt class="literal">fileevent</tt> handlers know to quit. It
+releases resources by clearing the <tt class="literal">fileevent</tt>
+handler, killing the command and all its children, and closing the
+file handle. Then it resets "Do It."
+</p>
+
+<p><a name="INDEX-2450" /><a name="INDEX-2451" />The <tt class="literal">killfam</tt> command is
+an extension to the CPAN module Proc::ProcessTable. It accepts the
+same arguments as the Perl built-in <tt class="literal">kill</tt> command,
+but recursively kills subchildren. For the code, as well as the POD
+for this module, see <a href="appc_01.htm">Appendix C, "Complete Program Listings"</a>.
+</p>
+
+<a name="INDEX-2452" /><blockquote><pre class="code">sub kill_command {
+    
+    # A click on the blinking Cancel button resumes normal operations.
+
+    my($self) = @_;
+
+    $self-&gt;{-finish} = 1;
+    my $h = $self-&gt;{-handle};
+    return unless defined $h;
+    $self-&gt;fileevent($h, 'readable' =&gt; ''); # clear handler
+    killfam 'TERM', $self-&gt;{-pid} if defined $self-&gt;{-pid};
+    close $h;
+    $self-&gt;_reset_doit_button;
+
+} # end kill_command
+
+1;</pre></blockquote>
+
+</div>
+<a name="mastperltk-CHP-15-SECT-4.3" /><div class="sect2">
+<h3 class="sect2">15.4.3. An MPG Player&#x2014;tkmpg123</h3>
+
+<p><a name="INDEX-2453" /><a name="INDEX-2454" /><a name="INDEX-2455" /><a name="INDEX-2456" />Using
+<tt class="literal">fileevent</tt>, the mpg123 library, and its Perl
+interface, Audio::Play::MPG123, we can write a Tk program to play our
+favorite tunes. Audio::Play::MPG123 sports an object-oriented syntax
+and methods that load, play, and pause a song.
+</p>
+
+<p>Besides playing the music, our program needs a user interface. In
+this case, we've become extremely lazy and taken the skin from
+Apple's <i class="command">iTunes</i> application and used it as a
+basis for our own. Briefly, we took a screenshot of the original
+application, shown in <a href="ch15_04.htm#mastperltk-CHP-15-FIG-2">Figure 15-2</a>, and placed that
+over the entire area of a Canvas. Then widgets and images were
+overlaid at key hot spots, which we bound to actions. For instance,
+the play and pause buttons are actually tiny images, which are
+selectively placed over the original play/pause button (see <a href="ch15_04.htm#mastperltk-CHP-15-FIG-3">Figure 15-3</a>).
+</p>
+
+<p>The images, of course, we excised from <i class="command">iTunes</i>
+while it was running.
+</p>
+
+<a name="mastperltk-CHP-15-FIG-2" /><div class="figure"><img src="figs/mptk.1502.gif" alt="Figure 15-2" width="481" height="320" /></div><h4 class="objtitle">Figure 15-2. Apple's iTunes Player</h4>
+
+<p>As for the remainder of the interface, we've essentially
+ignored it, preferring to concentrate on listening to tunes instead.
+For instance, instead of an oval display and status window, we use a
+simple Frame. Instead of a multicolumn play list, we use a Scrolled
+Listbox. The complete program listing appears in <a href="appc_01.htm">Appendix C, "Complete Program Listings"</a>.
+</p>
+
+<a name="mastperltk-CHP-15-FIG-3" /><div class="figure"><img src="figs/mptk.1503.gif" alt="Figure 15-3" width="60" height="24" /></div><h4 class="objtitle">Figure 15-3. Play and pause images</h4>
+
+<p>We start by creating an Audio::Play::MPG123 instance,
+<tt class="literal">$player</tt>, and retrieving the player's input
+file handle, <tt class="literal">$phand</tt>, which we'll tie to a
+<tt class="literal">fileevent</tt> handler. The mpg123 library has its own
+event loop, and when <tt class="literal">$phand</tt> is readable, we must
+empty the mpg123 event queue in order to keep the music playing.
+</p>
+
+<blockquote><pre class="code">$player = Audio::Play::MPG123-&gt;new;
+$phand = $player-&gt;IN;</pre></blockquote>
+
+<p>Here we create the Canvas, overlay the <i class="command">iTunes</i>
+skin, and configure the Canvas' width and height to match the
+dimensions of the skin. See <a href="ch17_01.htm">Chapter 17, "Images and Animations"</a> for details
+on images.
+</p>
+
+<blockquote><pre class="code">    $c = $mw-&gt;Canvas(
+        -width  =&gt; 1,
+        -height =&gt; 1,
+        -background =&gt; 'dark slate gray',
+    )-&gt;pack;
+    my $itunes = $c-&gt;Photo(-file =&gt; 'images/itunes.gif');
+    $c-&gt;createImage(0, 0,
+        -image =&gt; $itunes,
+        -tag   =&gt; 'itunes',
+        -anchor =&gt; 'nw',
+    );
+    $c-&gt;configure(-width =&gt; $itunes-&gt;width, -height =&gt; $itunes-&gt;height);</pre></blockquote>
+
+<p>Overlay the play button image on top of the static background button
+and tag it with the string <tt class="literal">'play-image'</tt>. Create a
+Canvas item button-1 binding that invokes the
+<tt class="literal">pause</tt> subroutine. Subroutine
+<tt class="literal">pause</tt> toggles the player's pause state, as
+well as the play/pause image.
+</p>
+
+<blockquote><pre class="code">    $paus = $c-&gt;Photo(-file =&gt; 'images/paus.gif');
+    $play = $c-&gt;Photo(-file =&gt; 'images/play.gif');
+
+    $c-&gt;createImage(80, 40, -image =&gt; $play, -tag =&gt; 'play-image');
+    $c-&gt;bind('play-image', '&lt;1&gt;' =&gt; \&amp;pause);</pre></blockquote>
+
+<p>Every song has optional data associated with it, such as the title,
+artist, and album. We can display this data in a simple Label widget,
+using a timer event to rotate through the information list and update
+the Label's <tt class="literal">-textvariable</tt>,
+<tt class="literal">$infov</tt>.
+</p>
+
+<p>Similarly, we use another Label to display the song's elapsed
+and total playing time, in minutes and seconds.
+</p>
+
+<blockquote><pre class="code">    $infov = '';
+    my $info = $f-&gt;Label(
+        -textvariable =&gt; \$infov,
+        -font         =&gt; $font,
+        -background   =&gt; $green,			 
+    );
+    $info-&gt;pack(-side =&gt; 'top');
+
+    $timev = 'Elapsed Time: 0:00';
+    my $time = $f-&gt;Label(
+        -textvariable =&gt; \$timev,
+        -font         =&gt; $font,
+        -background   =&gt; $green,			 
+    );
+    $time-&gt;pack(-side =&gt; 'top');</pre></blockquote>
+
+<p>Create the Listbox and populate it with songs from the current
+directory. The button bindings says call subroutine
+<tt class="literal">play</tt> with the name of the song under the cursor as
+its one argument.
+</p>
+
+<blockquote><pre class="code">    my $mpgs = $f2-&gt;Scrolled('Listbox')-&gt;pack(-fill =&gt; 'y', -expand =&gt; 1);
+    foreach my $mpg (&lt;*.mpg&gt;, &lt;*.mp3&gt;) {
+        $mpgs-&gt;insert('end', $mpg);
+    }
+    $mpgs-&gt;bind('&lt;1&gt;' =&gt; sub {play $mpgs-&gt;get( $mpgs-&gt;nearest($Tk::event-&gt;y)  )});</pre></blockquote>
+
+<p>When the play/pause button image is clicked, subroutine
+<tt class="literal">pause</tt> is called. It first toggles the
+player's state, pausing it if it was playing or resuming play
+if it was paused. Then the play/pause image is updated appropriately.
+</p>
+
+<blockquote><pre class="code">sub pause {
+    $player-&gt;pause;
+    $c-&gt;itemconfigure('play-image',
+        -image =&gt; ($player-&gt;state == 1) ? $paus : $play
+    );
+}</pre></blockquote>
+
+<p>We get here after a button click on a song name, where we load the
+song and start it playing. <tt class="literal">@info</tt> holds the title,
+artist, and album data (any of which may be
+<tt class="literal">undef</tt>).
+</p>
+
+<blockquote><pre class="code">sub play {
+    my $song = shift;
+    if (defined $song) {
+        $player-&gt;load($song);
+        @info = map {$player-&gt;$_} qw/title artist album/;
+        start_play;
+    }
+}</pre></blockquote>
+
+<p>Subroutine <tt class="literal">start_play</tt> does three things:</p>
+
+<ul><li>
+<p>Creates a timer event to display each song's title, artist, and
+album over and over again
+</p>
+</li><li>
+<p>Creates another timer event that updates the song's elapsed
+playing time
+</p>
+</li><li>
+<p>Creates a <tt class="literal">fileevent</tt> read handler to empty
+mpg123's event queue
+</p>
+</li></ul>
+<p>The code for <tt class="literal">start_play</tt> is:</p>
+
+<blockquote><pre class="code">sub start_play {
+
+    my $info_tid = $mw-&gt;repeat(5000 =&gt; sub {
+	$infov = $info[0];
+	 unshift @info, pop @info;
+    });
+
+    my $time_tid = $mw-&gt;repeat(1000 =&gt; sub {
+        my(@toks) = split ' ', $player-&gt;stat;
+        $timev = sprintf( "Elapsed Time: %s of %s\n",
+            &amp;ctm($toks[3]), &amp;ctm($toks[3] + $toks[4]) );
+    });</pre></blockquote>
+
+<p>At last, the heart of <tt class="literal">Tkmpg123</tt>, a single
+<tt class="literal">fileevent</tt> call pointing to an anonymous, readable
+subroutine. The subroutine calls <tt class="literal">poll</tt> in
+nonblocking mode (with 0 as its argument) to empty the mpg123 event
+queue, then <tt class="literal">update</tt> to empty Tk's event
+queue. This sequence repeats until the <tt class="literal">state</tt>
+method reports zero, meaning the song has ended. The
+<tt class="literal">stop</tt> method unloads the song, the
+<tt class="literal">fileevent</tt> is cleared, and the two timers are
+canceled. <a name="INDEX-2457" /><a name="INDEX-2458" />
+</p>
+
+<blockquote><pre class="code">    my $in_hand = sub {
+	$player-&gt;poll(0);
+	$mw-&gt;update;
+	if ($player-&gt;state == 0) {
+	    $player-&gt;stop;
+	    $mw-&gt;fileevent(\$phand, 'readable' =&gt; '');
+	    $mw-&gt;afterCancel($info_tid);
+	    $mw-&gt;afterCancel($time_tid);
+	}
+    };
+    $mw-&gt;fileevent(\$phand, 'readable' =&gt; $in_hand);
+
+}</pre></blockquote>
+
+<p><a href="ch15_04.htm#mastperltk-CHP-15-FIG-4">Figure 15-4</a> shows the <em class="emphasis">tkmpg123</em>
+program in action.<a name="INDEX-2459" /><a name="INDEX-2460" /><a name="INDEX-2461" /><a name="INDEX-2462" />
+</p>
+
+<a name="mastperltk-CHP-15-FIG-4" /><div class="figure"><img src="figs/mptk.1504.gif" alt="Figure 15-4" width="481" height="231" /></div><h4 class="objtitle">Figure 15-4. tkmpg123 playing a tune</h4>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch15_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">15.3. The bindtags Command</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">15.5. Tracing Perl/Tk Variables</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

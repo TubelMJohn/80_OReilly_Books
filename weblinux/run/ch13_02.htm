@@ -1,0 +1,610 @@
+<?label 13.2. Makefiles?><html><head><title>Makefiles (Running Linux)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Running Linux" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm" /></td><td width="172" valign="top" align="right"><a href="ch13_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">13.2. Makefiles</h2>
+
+<p><a name="INDEX-2671" />
+<a name="INDEX-2672" />
+Sometime during your life with Linux you will probably have to deal
+with <tt class="command">make</tt>, even if you don't plan to do any programming.
+It's likely you'll want to patch and rebuild the kernel and that
+involves running <tt class="command">make</tt>.  If you're lucky, you won't have to
+muck with the makefiles--but we've tried to direct this book toward
+unlucky people as well.  So in this section, we'll explain enough of
+the subtle syntax of <tt class="command">make</tt> so that you're not intimidated by
+a makefile.</p>
+
+<p>For some of our examples, we'll draw on the current makefile for the
+Linux kernel.  It exploits a lot of extensions in the powerful <span class="acronym">GNU</span>
+version of <tt class="command">make</tt>, so we'll describe some of those as well as
+
+the standard <tt class="command">make</tt> features.  A good introduction to
+<tt class="command">make</tt> is provided in <em class="emphasis">Managing Projects
+with make</em> by Andrew Oram and Steve Talbott.
+<span class="acronym">GNU</span> extensions are well documented by the
+<span class="acronym">GNU</span> <tt class="command">make</tt> manual.</p>
+
+<p><a name="INDEX-2673" />
+<a name="INDEX-2674" />
+Most users see <tt class="command">make</tt> as a way to build object files and
+libraries from sources and to build executables from object files.
+More conceptually, <tt class="command">make</tt> is a general-purpose program that builds
+<em class="emphasis">targets</em> from <em class="emphasis">prerequisites</em>.
+The target can be a program executable, a PostScript document, or
+whatever.  The prerequisites can be C code, a TeX text file, and so on.</p>
+
+<p>While you can write simple shell scripts to execute <tt class="command">gcc</tt>
+commands that build an executable program, <tt class="command">make</tt> is special in
+that it knows which targets need to be rebuilt and which don't.  An
+object file needs to be recompiled only if its corresponding source
+has changed.</p>
+
+<p>For example, say you have a program that consists of three C source
+files. If you were to build the executable using the command:</p>
+
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>gcc -o foo foo.c bar.c baz.c</b></tt></pre></blockquote>
+
+<p>each time you changed any of the source files, all three would be
+recompiled and relinked into the executable. If you only changed one
+source file, this is a real waste of time (especially if the program
+in question is much larger than a handful of sources). What you really
+want to do is recompile only the one source file that changed into an
+object file and relink all of the object files in the program to form
+the executable.  <tt class="command">make</tt> can automate this process for you.
+<a name="INDEX-2675" /></p>
+
+<?troff .wcon_off?><div class="sect2">
+<h3 class="sect2">13.2.1. What make Does</h3>
+
+<p><a name="INDEX-2676" />
+The basic goal of <tt class="command">make</tt> is to let you build a file in small steps.  If
+a lot of source files make up the final executable, you can change one
+and rebuild the executable without having to recompile everything.
+In order to give you this flexibility, <tt class="command">make</tt> records what
+files you need to do your build.</p>
+
+<p>Here's a trivial makefile.  Call it <em class="filename">makefile</em> or
+<em class="filename">Makefile</em> and keep it in the same directory as the source
+files:</p>
+
+<blockquote><pre class="code">edimh: main.o edit.o 
+        gcc -o edimh main.o edit.o  
+
+main.o: main.c 
+        gcc -c main.c 
+
+edit.o: edit.c 
+        gcc -c edit.c</pre></blockquote>
+
+<p>This file builds a program named <em class="filename">edimh</em> from two source files
+named <em class="filename">main.c</em> and <em class="filename">edit.c</em>.  You aren't restricted to C
+programming in a makefile; the commands could be anything.</p>
+
+<p><a name="INDEX-2677" />
+Three entries appear in the file.  Each contains a <em class="emphasis">dependency
+line</em> that shows how a file is built.  Thus the first line says that 
+<em class="filename">edimh</em> (the name before the colon) is built from the two object
+files <em class="filename">main.o</em> and <em class="filename">edit.o</em> (the names after the colon).
+What this line tells <tt class="command">make</tt> is that it should execute the
+following <tt class="command">gcc</tt> line whenever one of those object files
+change.  The lines containing commands have to begin with tabs (not
+spaces).</p>
+
+<p>The command:</p>
+
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>make edimh</b></tt></pre></blockquote>
+
+<p>executes the <tt class="command">gcc</tt> line if there isn't currently any file
+named <em class="filename">edimh</em>.  But the <tt class="command">gcc</tt> line also executes if
+<em class="filename">edimh</em> exists, but one of the object files is newer.
+Here, <em class="filename">edimh</em> is called a <em class="emphasis">target</em>.  The files after the
+colon are called either <em class="emphasis">dependents</em> or <em class="emphasis">prerequisites</em>.</p>
+
+<p>The next two entries perform the same service for the object files.
+<em class="filename">main.o</em> is built if it doesn't exist or if the associated source
+file <em class="filename">main.c</em> is newer.  <em class="filename">edit.o</em> is built from
+<em class="filename">edit.c</em>.</p>
+
+<p>How does <tt class="command">make</tt> know if a file is new?  It looks at the
+time stamp, which the filesystem associates with every file.  You can
+see time stamps by issuing the <tt class="command">ls -l</tt> command.  Since the
+time stamp is accurate to one second, it reliably tells <tt class="command">make</tt>
+whether you've edited a source file since the latest compilation or have
+compiled an object file since the executable was last built.</p>
+
+<p>Let's try out the makefile and see what it does:</p>
+
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>make edimh</b></tt> 
+gcc -c main.c 
+gcc -c edit.c 
+gcc -o edimh main.o edit.o</pre></blockquote>
+
+<p>If we edit <em class="filename">main.c</em> and reissue the command, it rebuilds only the
+necessary files, saving us some time:</p>
+
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>make edimh</b></tt> 
+gcc -c main.c 
+gcc -o edimh main.o edit.o</pre></blockquote>
+
+<p>It doesn't matter what order the three entries are within the makefile.
+<tt class="command">make</tt> figures out which files depend on which and executes
+all the commands in the right order.  Putting the entry for
+<em class="filename">edimh</em> first is convenient, because that becomes the file built
+by default.  In other words, typing <tt class="literal">make</tt> is the same as typing
+<tt class="literal">make edimh</tt>.</p>
+
+<p>Here's a more extensive makefile.  See if you can figure out what it
+does:</p>
+
+<blockquote><pre class="code">install: all 
+        mv edimh /usr/local 
+        mv readimh /usr/local 
+
+all: edimh readimh 
+
+readimh: read.o edit.o 
+        gcc -o readimh main.o read.o
+
+edimh: main.o edit.o 
+        gcc -o edimh main.o edit.o 
+
+main.o: main.c 
+        gcc -c main.c 
+
+edit.o: edit.c 
+        gcc -c edit.c 
+
+read.o: read.c 
+        gcc -c read.c</pre></blockquote>
+
+<p><a name="INDEX-2678" />
+<a name="INDEX-2679" />
+First we see the target <tt class="literal">install</tt>.  This is never going to
+generate a file; it's called a <em class="emphasis">phony target</em> because it exists
+just so you can execute the commands listed under it.  But before <tt class="literal">install</tt> runs, <tt class="literal">all</tt> has to run, because <tt class="literal">install</tt> depends on
+<tt class="literal">all</tt>.  (Remember, the order of the entries in the file doesn't
+matter.)</p>
+
+<p>So <tt class="command">make</tt> turns to the <tt class="literal">all</tt> target.  There are no
+commands under it (this is perfectly legal), but it
+depends on <tt class="literal">edimh</tt> and <tt class="literal">readimh</tt>.  These are real files;
+each is an executable program.  So <tt class="command">make</tt> keeps tracing back
+through the list of dependencies until it arrives at the <em class="filename">.c</em>
+files, which don't depend on anything else.  Then it painstakingly
+rebuilds each of the targets.</p>
+
+<p>Here is a sample run (you
+may need <b class="emphasis-bold">root</b> privilege to install the files in the <em class="filename">/usr/local</em>
+directory):</p>
+
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>make install</b></tt> 
+gcc -c main.c 
+gcc -c edit.c 
+gcc -o edimh main.o edit.o 
+gcc -c read.c 
+gcc -o readimh main.o read.o 
+mv edimh /usr/local 
+mv readimh /usr/local</pre></blockquote>
+
+<p>So the effect of this makefile is to do a complete build and install.
+First it builds the files needed to create <em class="filename">edimh</em>.  Then it
+builds the additional object file it needs to create
+<em class="filename">readmh</em>.  With those two executables created, the <tt class="literal">all</tt>
+target is satisfied.  Now <tt class="command">make</tt> can go on to build the <tt class="literal">install</tt> target, which means moving the two executables to their final
+home.</p>
+
+<p>Many makefiles, including the ones that build Linux, contain a
+variety of phony targets to do routine activities.  For instance, the
+makefile for the Linux kernel includes commands to remove temporary
+files:</p>
+
+<blockquote><pre class="code">clean:  archclean 
+        rm -f kernel/ksyms.lst 
+        rm -f core `find .  -name '*.[oas]' -print` 
+        . 
+        . 
+        .</pre></blockquote>
+
+<p>and to create a list of object files and the header files they depend
+on (this is a complicated but important task; if a header file changes,
+you want to make sure the files that refer to it are recompiled):</p>
+
+<blockquote><pre class="code">depend dep: 
+      touch tools/version.h 
+      for i in init/*.c;do echo -n "init/";$(CPP) -M $$i;done &gt; .tmpdep
+      . 
+      . 
+      .</pre></blockquote>
+
+<p>Some of these shell commands get pretty complicated; we'll look at
+makefile commands later in this chapter, in the section
+"<a href="ch13_02.htm#x-100-3-prog-make-command">Section 13.2.5, "Multiple Commands"</a>."</p>
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">13.2.2. Some Syntax Rules</h3>
+
+<p><a name="INDEX-2680" />
+The hardest thing about maintaining makefiles, at least if you're new
+to them, is getting the syntax right.  OK, let's be straight about it,
+the syntax of <tt class="command">make</tt> is really stupid.  If you use spaces
+where you're supposed to use tabs or vice versa, your makefile blows
+up.  And the error messages are really confusing.</p>
+
+<p>
+<img src="figs/bomb.gif">&nbsp;&nbsp;Always put a tab at the beginning of a command--not spaces.  And
+don't use a tab before any other line.
+<a name="INDEX-2681" /></p>
+
+<p><a name="INDEX-2682" />
+<a name="INDEX-2683" />
+You can place a hash mark (#) anywhere on a line to start a comment.
+Everything after the hash mark is ignored.</p>
+
+<p> 
+If you put a backslash at the end of a line, it continues on
+the next line.  That works for long commands and other types of
+makefile lines too.</p>
+
+<p>Now let's look at some of the powerful features of <tt class="command">make</tt>,
+which form a kind of programming language of their own.</p>
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">13.2.3. Macros</h3>
+
+<p><a name="INDEX-2684" />
+When people use a filename or other string more than once in a
+makefile, they tend to assign it to a macro.  That's simply a string
+that <tt class="command">make</tt> expands to another string.  For instance, you
+could change the beginning of our trivial makefile to read:</p>
+
+<blockquote><pre class="code">OBJECTS = main.o edit.o 
+
+edimh: $(OBJECTS) 
+        gcc -o edimh $(OBJECTS)</pre></blockquote>
+
+<p>When <tt class="command">make</tt> runs, it simply plugs in <tt class="literal">main.o edit.o</tt>
+wherever you specify <tt class="literal">$(OBJECTS)</tt>.  If you have to add another
+object file to the project, just specify it on the first line of
+the file.  The dependency line and command will then be updated
+correspondingly.</p>
+
+<p>Don't forget the parentheses when you refer to <tt class="literal">$(OBJECTS)</tt>.
+Macros may resemble shell variables like <tt class="literal">$HOME</tt> and <tt class="literal">$PATH</tt>, but they're not the same.</p>
+
+<p>One macro can be defined in terms of another macro, so you could say
+something like:</p>
+
+<blockquote><pre class="code">ROOT = /usr/local
+HEADERS = $(ROOT)/include
+SOURCES = $(ROOT)/src</pre></blockquote>
+
+<p>In this case, <tt class="literal">HEADERS</tt> evaluates to the directory
+<em class="filename">/usr/local/include</em> and <tt class="literal">SOURCES</tt> to <em class="filename">/usr/local/src</em>.
+If you are installing this package on your system and don't want it to
+be in <em class="filename">/usr/local</em>, just choose another name and change the line
+that defines <tt class="literal">ROOT</tt>.</p>
+
+<p>By the way, you don't have to use uppercase names for macros, but
+that's a universal convention.</p>
+
+<p> 
+An extension in <span class="acronym">GNU</span> <tt class="command">make</tt> allows
+you to add to the definition of a
+macro.  This uses a <tt class="literal">:=</tt> string in place of an equal sign:</p>
+
+<blockquote><pre class="code">DRIVERS        =drivers/block/block.a 
+
+ifdef CONFIG_SCSI 
+DRIVERS := $(DRIVERS) drivers/scsi/scsi.a 
+endif</pre></blockquote>
+
+<p>The first line is a normal macro definition, setting the
+<tt class="literal">DRIVERS</tt> macro to the filename
+<tt class="literal">drivers/block/block.a</tt>.  The next definition adds
+the filename <tt class="literal">drivers/scsi/scsi.a</tt>.  But it takes
+effect only if the macro <tt class="literal">CONFIG_SCSI</tt> is defined.
+The full definition in that case becomes:</p>
+
+<blockquote><pre class="code">drivers/block/block.a drivers/scsi/scsi.a</pre></blockquote>
+
+<?troff .Nd 10?><p>So how do you define <tt class="literal">CONFIG_SCSI</tt>?  You could put it in the
+makefile, assigning any string you want:</p>
+
+<blockquote><pre class="code">CONFIG_SCSI = yes</pre></blockquote>
+
+<p>But you'll probably find it easier to define it on the <tt class="command">make</tt>
+command line.  Here's how to do it:</p>
+
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>make CONFIG_SCSI=yes</b></tt> <em class="replaceable">target_name</em></pre></blockquote>
+
+<p>One subtlety of using macros is that you can leave them undefined.  If
+no one defines them, a null string is substituted (that is, you
+end up with nothing where the macro is supposed to be).  But this also
+give you the option of defining the macro as an environment variable.
+For instance, if you don't define <tt class="literal">CONFIG_SCSI</tt> in the makefile,
+you could put this in your <em class="filename">.bashrc</em> file, for use with the
+<tt class="command">bash</tt> shell:</p>
+
+<blockquote><pre class="code">export CONFIG_SCSI=yes</pre></blockquote>
+
+<p>Or put this in <em class="filename">.cshrc</em> if you use <tt class="command">csh</tt> or <tt class="command">tcsh</tt>:</p>
+
+<blockquote><pre class="code">setenv CONFIG_SCSI yes</pre></blockquote>
+
+<p>All your builds will then have <tt class="literal">CONFIG_SCSI</tt> defined.</p>
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">13.2.4. Suffix Rules and Pattern Rules</h3>
+
+<p><a name="INDEX-2685" />
+For something as routine as building an object file from a source
+file, you don't want to specify every single dependency in your
+makefile.  And you don't have to.  Unix compilers enforce a simple
+standard (compile a file ending in the suffix <em class="filename">.c</em> to create a
+file ending in the suffix <em class="filename">.o</em>) and <tt class="command">make</tt> provides a
+feature called suffix rules to cover all such files.</p>
+
+<p>Here's a simple suffix rule to compile a C source file, which you
+could put in your makefile:</p>
+
+<blockquote><pre class="code">.c.o: 
+        gcc -c $(CFLAGS) $&lt;</pre></blockquote>
+
+<p>The <tt class="literal">.c.o:</tt> line means "use a <em class="filename">.c</em> prerequisite to build a
+<em class="filename">.o</em> file."  <tt class="literal">CFLAGS</tt> is a
+macro into which you can plug any
+compiler options you want: <span class="option">-g</span> for debugging, for instance, or
+<span class="option">-O</span> for optimization.  The string <tt class="literal">$&lt;</tt> is a cryptic way of
+saying "the prerequisite."  So the name of your <em class="filename">.c</em> file is
+plugged in when <tt class="command">make</tt> executes this
+<?troff \p?> command.</p>
+
+<p>Here's a sample run using this suffix rule.  The command line passes
+both the <span class="option">-g</span> option and the <span class="option">-O</span> option:</p>
+
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>make CFLAGS="-O -g" edit.o</b></tt> 
+gcc -c -O -g edit.c</pre></blockquote>
+
+<p>You actually don't have to specify this suffix rule in your makefile,
+because something very similar is already built into <tt class="command">make</tt>.
+It even uses <tt class="literal">CFLAGS</tt>, so you can determine the options used for
+compiling just by setting that variable.  The makefile used to build
+the Linux kernel currently contains the following definition, a whole
+slew of <tt class="command">gcc</tt> options:</p>
+
+<blockquote><pre class="code">CFLAGS = -Wall -Wstrict-prototypes -O2 -fomit-frame-pointer -pipe</pre></blockquote>
+
+<p>While we're discussing compiler flags, one set is seen so often that
+it's worth a special mention.  This is the <span class="option">-D</span> option, which
+is used to define symbols in the source code.  Since there are all
+kinds of commonly used symbols appearing in <tt class="literal">#ifdefs</tt>, you may 
+need to pass lots of such options to your makefile, such as
+<span class="option">-DDEBUG</span> or <span class="option">-DBSD</span>.  If you do this on the
+<tt class="command">make</tt> command line, be sure to put quotation marks or
+apostrophes around the whole set.   This is because you want the shell
+to pass the set to your makefile as one argument:</p>
+
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>make CFLAGS="-DDEBUG -DBSD" &#133;</b></tt></pre></blockquote>
+
+<p><a name="INDEX-2686" />
+<span class="acronym">GNU</span> <tt class="command">make</tt> offers something called
+<em class="emphasis">pattern rules</em>, which are
+even better than suffix rules.  A pattern rule uses a percent sign to
+mean "any string."  So C source files would be compiled using a rule
+like the following:</p>
+
+<blockquote><pre class="code">%.o: %.c
+        gcc -c -o $@ $(CFLAGS) $&lt;</pre></blockquote>
+
+<p>Here the output file <em class="filename">%.o</em> comes first, and the prerequisite
+<em class="filename">%.c</em> comes after a colon.  In short, a pattern rule is just like
+a regular dependency line, but it contains percent signs instead of
+exact filenames.</p>
+
+<p><a name="INDEX-2687" />
+We see the <tt class="literal">$&lt;</tt> string to refer to the prerequisite, but we also see
+<tt class="literal">$@</tt>, which refers to the output file.  So the name of the
+<em class="filename">.o</em> file is plugged in there.  Both of these are built-in
+macros; <tt class="command">make</tt> defines them every time it executes an entry.</p>
+
+<p>Another common built-in macro is <tt class="literal">$*</tt>, which refers to the name of
+the prerequisite stripped of the suffix.  So if the prerequisite is
+<em class="filename">edit.c</em>, the string <tt class="literal">$*.s</tt> would evaluate to <em class="filename">edit.s</em>
+(an assembly language source file).</p>
+
+<p>Here's something useful you can do with a pattern rule that you can't
+do with a suffix rule: you add the string <tt class="literal">_dbg</tt> to the name of
+the output file, so that later you can tell that you compiled it with
+debugging information:</p>
+
+<blockquote><pre class="code">%_dbg.o: %.c 
+        gcc -c -g -o $@ $(CFLAGS) $&lt; 
+
+DEBUG_OBJECTS = main_dbg.o edit_dbg.o 
+
+edimh_dbg: $(DEBUG_OBJECTS) 
+        gcc -o $@ $(DEBUG_OBJECTS)</pre></blockquote>
+
+<p>Now you can build all your objects in two different ways: one with
+debugging information and one without.  They'll have different
+filenames, so you can keep them in one directory:</p>
+
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>make edimh_dbg</b></tt> 
+gcc -c -g -o main_dbg.o  main.c 
+gcc -c -g -o edit_dbg.o  edit.c 
+gcc -o edimh_dbg  main_dbg.o edit_dbg.o</pre></blockquote>
+</div>
+
+
+
+
+<a name="x-100-3-prog-make-command" /><div class="sect2">
+<h3 class="sect2">13.2.5. Multiple Commands</h3>
+
+<p><a name="INDEX-2688" />
+<a name="INDEX-2689" />
+Any shell commands can be executed in a makefile.  But things can get
+kind of complicated because <tt class="command">make</tt> executes each command in a
+separate shell.  So this would not work:</p>
+
+<blockquote><pre class="code">target: 
+        cd obj 
+        HOST_DIR=/home/e 
+        mv *.o $HOST_DIR</pre></blockquote>
+
+<p>
+<img src="figs/bomb.gif">&nbsp;&nbsp;Neither the <tt class="command">cd</tt> command nor the definition of the variable <tt class="literal">HOST_DIR</tt> have any effect on subsequent commands.  You have to string
+everything together into one command.  The shell uses a semicolon as
+a separator between commands, so you can combine them all on one line
+like this:</p>
+
+<blockquote><pre class="code">target: 
+        cd obj ; HOST_DIR=/home/e ; mv *.o $$HOST_DIR</pre></blockquote>
+
+<p>One more change: to define and use a shell variable within the
+command, you have to double the dollar sign.  This lets <tt class="command">make</tt>
+know that you mean it to be a shell variable, not a macro.</p>
+
+<p>You may find the file easier to read if you break 
+the semicolon-separated commands onto multiple
+lines, using backslashes so that <tt class="command">make</tt> considers them one
+line:</p>
+
+<blockquote><pre class="code">target:
+        cd obj ; \ 
+        HOST_DIR=/home/e ; \ 
+        mv *.o $$HOST_DIR</pre></blockquote>
+
+<p>Sometimes makefiles contain their own <tt class="command">make</tt> commands; this
+is called recursive <tt class="command">make</tt>.  It looks like this:</p>
+
+<blockquote><pre class="code">linuxsubdirs: dummy 
+        set -e; for i in $(SUBDIRS); do $(MAKE) -C $$i; done</pre></blockquote>
+
+<p>The macro <tt class="literal">$(MAKE)</tt> invokes <tt class="command">make</tt>.
+There are a few reasons for nesting makes.  One reason, which applies
+to this example, is to perform builds in multiple directories
+(each of these other directories has to contain its own makefile).
+Another reason is to define macros on the command line, so you can do
+builds with a variety of macro definitions.</p>
+
+<p><span class="acronym">GNU</span> <tt class="command">make</tt> offers another powerful interface to the shell as
+an extension.  You can issue a shell command and assign its output to
+a macro.  A couple of examples can be found in the Linux kernel makefile,
+but we'll just show a simple example here:</p>
+
+<blockquote><pre class="code">HOST_NAME = $(shell uname -n)</pre></blockquote>
+
+<p>This assigns the name of your network node--the output of the <tt class="command">uname -n</tt> command--to the macro <tt class="literal">HOST_NAME</tt>.</p>
+
+<p><a name="INDEX-2690" />
+<a name="INDEX-2691" />
+<tt class="command">make</tt> offers a couple of conventions you may occasionally
+want to use.  One is to put an at-sign before a command, which keeps
+<tt class="command">make</tt> from echoing the command when it's executed:</p>
+
+<blockquote><pre class="code">@if [ -x /bin/dnsdomainname ]; then \ 
+   echo #define LINUX_COMPILE_DOMAIN \"`dnsdomainname`\"; \ 
+else \ 
+   echo #define LINUX_COMPILE_DOMAIN \"`domainname`\"; \ 
+fi &gt;&gt; tools/version.h</pre></blockquote>
+
+<p><a name="INDEX-2692" />
+<a name="INDEX-2693" />
+Another convention is to put a hyphen before a command, which tells
+<tt class="command">make</tt> to keep going even if the command fails.  This may be useful if
+you want to continue after an <em class="filename">mv</em> or
+<em class="filename">cp</em> command fails:</p>
+
+<blockquote><pre class="code">- mv edimh /usr/local 
+- mv readimh /usr/local</pre></blockquote>
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">13.2.6. Including Other Makefiles</h3>
+
+<p>Large projects tend to break parts of their makefiles into separate
+files.  This makes it easy for different makefiles in different
+directories to share things, particularly macro definitions.  The line:</p>
+
+<blockquote><pre class="code">include <em class="replaceable">filename</em></pre></blockquote>
+
+<p>reads in the contents of <em class="replaceable">filename</em>.  You can see this in the
+Linux kernel makefile, for instance:</p>
+
+<blockquote><pre class="code">include .depend</pre></blockquote>
+
+<p>If you look in the file <em class="filename">.depend</em>, you'll find a bunch of
+makefile entries: to be exact, lines declaring that object files
+depend on header files.  (By the way, <em class="filename">.depend</em> might not exist
+yet; it has to be created by another entry in the makefile.)</p>
+
+<p>Sometimes <tt class="literal">include</tt> lines refer to macros instead of filenames, as in:</p>
+
+<blockquote><pre class="code">include ${INC_FILE}</pre></blockquote>
+
+<p>In this case, INC_FILE must be defined either as an environment
+variable or as a macro.  Doing things this way gives you more control
+over which file is used.</p>
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">13.2.7. Autoconf and Automake</h3>
+
+<p>Writing Makefiles for a larger project usually is a
+		boring and time-consuming task, especially if the programs are 
+		expected to be compiled on multiple platforms. From the GNU
+		project come two tools called <tt class="command">Autoconf</tt> and
+		<tt class="command">Automake</tt> that have a steep learning curve
+		but greatly simplify the task of creating portable makefiles
+		once mastered. In addition, <tt class="command">libtool</tt> helps a 
+		lot in creating shared libraries portably. Describing how to
+		use those programs is well beyond the scope of this book, but
+		you can get them from
+		ftp://ftp.gnu.org/gnu/.</p>
+</div>
+
+
+
+
+<a name="INDEX-2694" /><a name="INDEX-2695" />
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch13_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">13. Programming
+ Languages</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">13.3. Shell Programming</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

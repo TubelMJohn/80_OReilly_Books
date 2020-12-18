@@ -1,0 +1,153 @@
+#!/usr/bin/sh
+#
+# Install sample Web sites for Apache: The Definitive Guide edition 2
+#
+# Copyright (C) 1996,1998 Ben Laurie
+
+#set -x
+
+SDIR=`pwd`
+SITES_SRC=$SDIR/sites
+
+# Make sure we don't zap permissions
+
+umask 000
+
+echo "This script will install the sample Web sites."
+echo
+
+if [ X$OSTYPE = Xcygwin32 ]
+then
+	INSTFILE=installwin.conf
+else
+	INSTFILE=install.conf
+fi
+
+if [ $# != 1 ]
+then
+	echo "$0 <configuration file>"
+	echo
+	echo "Copy the configuration file '$INSTFILE' and edit it to suit"
+	echo "your needs."
+	exit
+fi
+
+# Sanity check - are we in the right place?
+
+if [ ! -d $SITES_SRC -o ! -d $SITES_SRC/site.simple -o ! -d install ]
+then
+	echo "This script must be run from the root of the CD-ROM! Installation ABORTED!"
+	exit
+fi
+
+. $1
+
+# Is the destination path absolute?
+
+case $SITES in
+	/*)
+		;;
+	*)
+		echo "The destination directory '$SITES' must be an absolute path. Installation ABORTED!"
+		exit
+		;;
+esac
+
+echo "Your configuration is as follows:"
+echo
+echo "Apache runs as user '$WEBUSER'"
+echo "Apache runs as group '$WEBGROUP'"
+echo "The first website has hostname '$S1NAME'"
+echo "The administrator of the first website is '$S1ADMIN'"
+echo "The second website has hostname '$S2NAME'"
+echo "The administrator of the second website is '$S2ADMIN'"
+echo "The IP-based website has hostname '$S3NAME'"
+echo "The installation directory is '$SITES'"
+echo
+echo "You should be logged in as the user who will own the files, which is NOT"
+echo "necessarily the user '$WEBUSER'."
+
+# Unfortunately, read doesn't work with cygwin32-b20
+
+if [ X$OSTYPE != Xcygwin32 ]
+then
+	echo
+	echo "If this is correct, then type 'yes' and we shall proceed."
+
+	read ANS
+
+	if [ X$ANS != Xyes ]
+	then
+		echo "OK, giving up."
+		exit
+	fi
+fi
+
+echo
+
+# Make sure destination doesn't exist
+
+if [ -f $SITES -o -d $SITES ]
+then
+	echo "The destination directory '$SITES' already exists. In order to"
+	echo "try to make this script as safe as possible, we require it to"
+	echo "not exist before starting installation. Either delete '$SITES'"
+	echo "or specify a different destination directory."
+	exit
+fi
+
+echo "Creating directory '$SITES'."
+mkdir $SITES
+
+if [ ! -d $SITES ]
+then
+	echo "Failed to create $SITES. Installation ABORTED!"
+	exit
+fi
+
+cd $SITES_SRC
+
+echo "Copying sites..."
+echo
+
+if [ X$OSTYPE = Xcygwin32 ]
+then
+	cp -Rv . $SITES
+else
+	find . -print | cpio -pdv $SITES
+fi
+
+echo
+echo "Copy complete."
+echo
+
+cd $SITES
+
+if [ X$SITES != X`pwd` -a $SITES != //c`pwd` ]
+then
+	echo "Can't cd to '$SITES' (I found myself in '`pwd`')! Installation ABORTED!"
+	exit
+fi
+
+find . ! -type d -print | while read X
+do
+	case $X in
+	*.jpg|*.gif|*.0)
+		echo "Skipping $X"
+		continue
+		;;
+	esac
+	echo "Processing $X"
+	sed	-e "s?webuser?$WEBUSER?" \
+		-e "s?webgroup?$WEBGROUP?" \
+		-e "s?www.butterthlies.com?$S1NAME?" \
+		-e "s?sales@butterthlies.com?$S2NAME?" \
+		-e "s?sales.buttherthlies.com?$S1ADMIN?" \
+		-e "s?sales_mgr@butterthlies.com?$S2ADMIN?" \
+		-e "s?sales-IP.butterthlies.com?$S3NAME?" \
+		-e "s?/usr/www?$SITES?" < $X > $X.xxx
+	mv $X.xxx $X
+done
+
+echo
+echo "Installation complete."

@@ -1,0 +1,261 @@
+<?label 7.4. ODBC from Perl ?><html><head><title>ODBC from Perl  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch07_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch07_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">7.4. ODBC from Perl </h2>
+
+
+
+<p>So we've established that the ODBC standard is a rather good
+thing, but how can you use it?</p>
+
+
+
+<p>To use <a name="INDEX-869" />
+<a name="INDEX-870" />
+<a name="INDEX-871" />ODBC from Perl, there are only two
+practical options: the <tt class="literal">Win32::ODBC</tt> module and the
+DBI with the <tt class="literal">DBD::ODBC</tt> module. We'll
+describe <tt class="literal">DBD::ODBC</tt> first and then take a deeper
+look at <tt class="literal">Win32::ODBC</tt>.</p>
+
+
+
+<a name="ch07-6-fm2xml" /><div class="sect2">
+<h3 class="sect2">7.4.1. DBD::ODBC </h3>
+
+
+
+<p>The <tt class="literal">DBD::ODBC</tt>
+<a name="INDEX-872" />
+<a name="INDEX-873" />
+module was written by Tim Bunce and Jeff Urlwin, based on original
+code by Thomas K. Wenrich. It's a Perl extension written in C
+and is not tied to Microsoft Win32 platforms. That makes it a good
+option for directly using ODBC on Unix, VMS, and other non-Windows
+systems.</p>
+
+
+
+<p>Being a DBI driver, the main goal of the <tt class="literal">DBD::ODBC</tt>
+module is to implement the functionality required by the DBI, not
+simply to give access to ODBC from Perl.</p>
+
+
+
+<p>The <tt class="literal">DBD::ODBC</tt> driver is described in more detail
+in <a href="appb_01.htm">Appendix B, "Driver and Database Characteristics "</a>.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch07-7-fm2xml" /><div class="sect2">
+<h3 class="sect2">7.4.2. Win32::ODBC </h3>
+
+
+
+<p>The <tt class="literal">Win32::ODBC</tt> module was written by Dave Roth,
+based on original code by Dan DeMaggio. It's a Perl extension
+written in C++ and is closely associated with the Win32 platform.</p>
+
+
+
+<p>The main goal of the <tt class="literal">Win32::ODBC</tt> module is to
+provide direct access to the ODBC functions. From that point of view,
+<tt class="literal">Win32::ODBC</tt> provides a fairly thin, low-level
+interface.</p>
+
+
+
+<p>Here's a sample of <tt class="literal">Win32::ODBC</tt> code:</p>
+
+
+
+<blockquote><pre class="code">use Win32::ODBC;
+
+### Connect to a data source
+$db = new Win32::ODBC("DSN=MyDataDSN;UID=me;PWD=secret")
+    or die Win32::ODBC::Error();
+
+### Prepare and Execute a statement
+if ($db-&gt;Sql("SELECT item, price FROM table")) {
+    print "SQL Error: " . $db-&gt;Error() . "\n";
+    $db-&gt;Close();
+    exit;
+}
+
+### Fetch row from data source
+while ($db-&gt;FetchRow) {
+    my ($item, $price) = $db-&gt;Data();  ### Get data values from the row
+    print "Item $item = $price\n";
+}
+
+### Disconnect
+$db-&gt;Close();</pre></blockquote>
+
+
+
+<p>The most significant disadvantages of
+<tt class="literal">Win32::ODBC</tt>
+<a name="INDEX-874" />
+compared to <tt class="literal">DBD::ODBC</tt> are:</p>
+
+
+
+<dl>
+<dt><b>There is no separate statement handle </b></dt>
+<dd><p>The database connection handle is used to store the details of the
+current statement. There is no separate statement handle, so only one
+statement can execute per database handle. But that's not as
+bad as it may seem, because it's possible to clone database
+handles so that more than one handle can share the same underlying
+ODBC database connection.</p></dd>
+
+
+
+<dt><b>There are no separate prepare and execute steps </b></dt>
+<dd><p>You cannot prepare a statement for execution later. The
+<tt class="literal">Sql()</tt>
+<a name="INDEX-875" />
+method, like the DBI <tt class="literal">do()</tt> method, combines both.</p></dd>
+
+
+
+<dt><b>Placeholders and bind parameters are not supported </b></dt>
+<dd><p>This is perhaps the most significant disadvantage of
+<tt class="literal">Win32::ODBC</tt>. All values must be passed as literal
+text values within the SQL statements.</p>
+
+
+
+<p>The lack of support for placeholders, especially when coupled with
+the inability to prepare statements, means that nontrivial
+applications based on <tt class="literal">Win32::ODBC</tt> tend to place a
+greater burden on database servers and thus run more slowly.</p>
+
+
+
+<p>It also causes problems when trying to insert binary data such as
+images.</p></dd>
+
+
+
+<dt><b>Fetching rows is a two-step process </b></dt>
+<dd><p>The
+<tt class="literal">FetchRow()</tt>
+<a name="INDEX-876" />
+method doesn't actually return any data to the script. To get
+the row of data values, you need to call either the
+<tt class="literal">Data()</tt>
+<a name="INDEX-877" />
+method to get a simple list (like
+<tt class="literal">fetchrow_array()</tt>
+<a name="INDEX-878" />
+<a name="INDEX-879" />),
+or the
+<tt class="literal">DataHash()</tt>
+<a name="INDEX-880" />
+method to get a hash (like
+<tt class="literal">fetchrow_hashref()</tt>
+<a name="INDEX-881" />
+<a name="INDEX-882" />).</p>
+
+
+
+<p>This is more of a nuisance than a significant disadvantage.
+It's also another reason why <tt class="literal">Win32::ODBC</tt> is
+a little slower than using DBI.</p></dd>
+
+
+
+<dt><b>There is no automatic error handling </b></dt>
+<dd><p>In ODBC, there is no equivalent to the DBI's
+<tt class="literal">RaiseError</tt> and <tt class="literal">PrintError</tt>
+mechanism. You need to explicitly test the return status of all
+<tt class="literal">Win32::ODBC</tt> method calls if you want to write a
+robust application.</p>
+
+
+
+<p>The lack of automatic error handling makes
+<tt class="literal">Win32::ODBC</tt> less suitable for nontrivial
+applications when application reliability is important. This is
+especially true where transactions are being used.</p></dd>
+
+
+
+<dt><b>Win32::ODBC is slightly slower than DBD::ODBC </b></dt>
+<dd><p>Even for simple queries, <tt class="literal">Win32::ODBC</tt> tends to be
+slightly slower than <tt class="literal">DBD::ODBC</tt> for the same
+platform and database. As always with benchmarks, your mileage may
+vary, so test it yourself if this is an issue for you.</p></dd>
+
+</dl>
+
+
+
+<p>There are plans to address some of these disadvantages in a later
+release. The most significant advantages of
+<tt class="literal">Win32::ODBC</tt> compared to
+<tt class="literal">DBD::ODBC</tt> are:</p>
+
+
+
+<dl>
+<dt><b>Most of the ODBC API is available to use </b></dt>
+<dd><p>
+<a name="INDEX-883" />This is
+currently the biggest advantage that <tt class="literal">Win32::ODBC</tt>
+has over <tt class="literal">DBD::ODBC</tt>.</p>
+
+
+
+<p>The remaining items in this list are really significant ODBC features
+rather than features of the <tt class="literal">Win32::ODBC</tt> module
+itself, but until <tt class="literal">DBD::ODBC</tt> supports them, they
+still count as advantages of <tt class="literal">Win32::ODBC</tt>.</p></dd>
+
+
+
+<dt><b>Attributes, options, and metadata are available</b></dt>
+<dd><p>These are described in the previous section. A wide range of metadata
+functions is available, along with functions for controlling many
+attributes and options.</p></dd>
+
+
+
+<dt><b>Scrolling cursors are supported </b></dt>
+<dd><p>Scrolling cursors let you read the rows of data returned by a query
+in any order. You can jump to the last row and read backwards. You
+can jump to any row either by absolute row number or relative to the
+current row. That's very handy for interactive browsing
+applications.
+<a name="INDEX-884" /> <a name="INDEX-885" /></p></dd>
+
+</dl>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch07_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch07_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">7.3. The Nuts and Bolts of ODBC </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">7.5. The Marriage of DBI and ODBC </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

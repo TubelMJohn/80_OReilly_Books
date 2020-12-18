@@ -1,0 +1,1136 @@
+<?label 15.4. A Complete Example?><html><head><title>A Complete Example (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch15_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch15_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">15.4. A Complete Example</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-1665" /> <a name="INDEX-1666" />We spent some time trying to think of
+an example of a module that uses all the available hooks. At the same
+time, we spent considerable effort tracking through the innards of
+Apache to find out what happened when. Then we suddenly thought of
+writing a module to show what happened when. And, presto,
+<em class="filename">mod_reveal.c</em> was born. This is not a module
+you'd want to include in a live Apache without modification,
+since it prints stuff to the standard error output (which ends up in
+the error log, for the most part). But rather than obscure the main
+functionality by including code to switch the monitoring on and off,
+we thought it best to keep it simple. Besides, even in this form the
+module is very useful; it's presented and explained in this
+section.</p>
+
+
+
+
+
+<a name="ch15-22-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.4.1. Overview</h3>
+
+
+
+
+
+<p>The module implements two commands,
+<tt class="literal">RevealServerTag</tt> and <tt class="literal">RevealTag</tt>.
+<tt class="literal">RevealServerTag</tt> names a server section and is
+stored in the per-server configuration. <tt class="literal">RevealTag</tt>
+names a directory (or location or file) section and is stored in the
+per-directory configuration. When per-server or per-directory
+configurations are merged, the resulting configuration is tagged with
+a combination of the tags of the two merged sections. The module also
+implements a handler, which generates HTML with interesting
+information about a URL.</p>
+
+
+
+
+
+<p>No self-respecting module starts without a copyright notice:</p>
+
+
+
+
+
+<blockquote><pre class="code">/*
+Reveal the order in which things are done.
+
+Copyright (C) 1996, 1998 Ben Laurie
+*/</pre></blockquote>
+
+
+
+
+
+<p>Note that the included <em class="filename">http_protocol.h</em> is only
+needed for the request handler, the other two are required by almost
+all modules:</p>
+
+
+
+
+
+<blockquote><pre class="code">#include "httpd.h"
+#include "http_config.h"
+#include "http_protocol.h"</pre></blockquote>
+
+
+
+
+
+<p>The per-directory configuration structure is:</p>
+
+
+
+
+
+<blockquote><pre class="code">typedef struct
+    {
+    char *szDir;
+    char *szTag;
+    } SPerDir;</pre></blockquote>
+
+
+
+
+
+<p>And the per-server configuration structure is:</p>
+
+
+
+
+
+<blockquote><pre class="code">typedef struct
+    {
+    char *szServer;
+    char *szTag;
+    } SPerServer;</pre></blockquote>
+
+
+
+
+
+<p>There is an unavoidable circular reference in most modules; the
+<tt class="literal">module</tt> structure is needed to access the
+per-server and per-directory configurations in the hook functions.
+But in order to construct the <tt class="literal">module</tt> structure, we
+need to know the hook functions. Since there is only one
+<tt class="literal">module</tt> structure and a lot of hook functions, it
+is simplest to forward reference the <tt class="literal">module</tt>
+structure:</p>
+
+
+
+
+
+<blockquote><pre class="code">extern module reveal_module;</pre></blockquote>
+
+
+
+
+
+<p>If a string is <tt class="literal">NULL</tt>, it may crash
+<tt class="literal">printf()</tt> on some systems, so we define a function
+to give us a stand-in for <tt class="literal">NULL</tt> strings:</p>
+
+
+
+
+
+<blockquote><pre class="code">static const char *None(const char *szStr)
+    {
+    if(szStr)
+	return szStr;
+    return "(none)";
+    }</pre></blockquote>
+
+
+
+
+
+<p>Since the server names and port numbers are often not known when the
+per-server structures are created, but are filled in by the time the
+initialization function is called, we rename them in the
+<tt class="literal">init</tt> function. Note that we have to iterate over
+all the servers, since <tt class="literal">init</tt> is only called with
+the "main" server structure. As we go, we print the old
+and new names so we can see what is going on. Just for completeness,
+we add a module version string to the server version string. Note
+that you would not normally do this for such a minor module:</p>
+
+
+
+
+
+<blockquote><pre class="code">static void SubRevealInit(server_rec *pServer,pool *pPool)
+    {
+    SPerServer *pPerServer=ap_get_module_config(pServer-&gt;module_config,
+                                                &amp;reveal_module);
+
+    if(pServer-&gt;server_hostname &amp;&amp;
+       (!strncmp(pPerServer-&gt;szServer,"(none):",7)
+        || !strcmp(pPerServer-&gt;szServer+strlen(pPerServer-&gt;szServer)
+                   -2,":0")))
+    {
+        char szPort[20];
+
+        fprintf(stderr,"Init        : update server name from %s\n",
+                pPerServer-&gt;szServer);
+        sprintf(szPort,"%d",pServer-&gt;port);
+        pPerServer-&gt;szServer=ap_pstrcat(pPool,pServer-&gt;server_hostname,":",
+                                        szPort,NULL);
+    }
+    fprintf(stderr,"Init        : host=%s port=%d server=%s tag=%s\n",
+            pServer-&gt;server_hostname,pServer-&gt;port,pPerServer-&gt;szServer,
+            None(pPerServer-&gt;szTag));
+    }
+
+static void RevealInit(server_rec *pServer,pool *pPool)
+    {
+    ap_add_version_component("Reveal/0.0");
+    for( ; pServer ; pServer=pServer-&gt;next)
+        SubRevealInit(pServer,pPool);
+    fprintf(stderr,"Init        : done\n");
+    }</pre></blockquote>
+
+
+
+
+
+<p>Here we create the per-server configuration structure. Since this is
+called as soon as the server is created,
+<tt class="literal">pServer-&gt;server_hostname</tt> and
+<tt class="literal">pServer-&gt;port</tt> may not have been initialized, so
+their values must be taken with a pinch of salt (but they get
+corrected later):</p>
+
+
+
+
+
+<blockquote><pre class="code">static void *RevealCreateServer(pool *pPool,server_rec *pServer)
+    {
+    SPerServer *pPerServer=ap_palloc(pPool,sizeof *pPerServer);
+    const char *szServer;
+    char szPort[20];
+
+    szServer=None(pServer-&gt;server_hostname);
+    sprintf(szPort,"%d",pServer-&gt;port);
+
+    pPerServer-&gt;szTag=NULL;
+    pPerServer-&gt;szServer=ap_pstrcat(pPool,szServer,":",szPort,NULL);
+
+    fprintf(stderr,"CreateServer: server=%s:%s\n",szServer,szPort);
+    return pPerServer;
+    }</pre></blockquote>
+
+
+
+
+
+<p>Here we merge two per-server configurations. The merged configuration
+is tagged with the names of the two configurations from which it is
+derived (or the string <tt class="literal">(none)</tt> if they
+weren't tagged). Note that we create a new per-server
+configuration structure to hold the merged information (this is the
+standard thing to do):</p>
+
+
+
+
+
+<blockquote><pre class="code">static void *RevealMergeServer(pool *pPool,void *_pBase,void *_pNew)
+    {
+    SPerServer *pBase=_pBase;
+    SPerServer *pNew=_pNew;
+    SPerServer *pMerged=ap_palloc(pPool,sizeof *pMerged);
+
+    fprintf(stderr,
+          "MergeServer : pBase: server=%s tag=%s pNew: server=%s tag=%s\n",
+          pBase-&gt;szServer,None(pBase-&gt;szTag),
+          pNew-&gt;szServer,None(pNew-&gt;szTag));
+
+    pMerged-&gt;szServer=ap_pstrcat(pPool,pBase-&gt;szServer,"+",pNew-&gt;szServer,
+                                 NULL);
+    pMerged-&gt;szTag=ap_pstrcat(pPool,None(pBase-&gt;szTag),"+",
+                              None(pNew-&gt;szTag),NULL);
+
+    return pMerged;
+    }</pre></blockquote>
+
+
+
+
+
+<p>Now we create a per-directory configuration structure. If
+<tt class="literal">szDir</tt> is <tt class="literal">NULL</tt>, we change it to
+<tt class="literal">(none)</tt> to ensure that later merges have something
+to merge! Of course, <tt class="literal">szDir</tt> is
+<tt class="literal">NULL</tt> once for each server. Notice that we
+don't log which server this was created for; that's
+because there is no legitimate way to find out. It is also worth
+mentioning that this will only be called for a particular directory
+(or location or file) if a <tt class="literal">RevealTag</tt> directive
+occurs in that section:</p>
+
+
+
+
+
+<blockquote><pre class="code">static void *RevealCreateDir(pool *pPool,char *_szDir)
+    {
+    SPerDir *pPerDir=ap_palloc(pPool,sizeof *pPerDir);
+    const char *szDir=None(_szDir);
+
+    fprintf(stderr,"CreateDir   : dir=%s\n",szDir);
+
+    pPerDir-&gt;szDir=ap_pstrdup(pPool,szDir);
+    pPerDir-&gt;szTag=NULL;
+
+    return pPerDir;
+    }</pre></blockquote>
+
+
+
+
+
+<p>Next we merge the per-directory structures. Again, we have no clue
+which server we are dealing with. In practice, you'll find this
+function is called a great deal:</p>
+
+
+
+
+
+<blockquote><pre class="code">static void *RevealMergeDir(pool *pPool,void *_pBase,void *_pNew)
+    {
+    SPerDir *pBase=_pBase;
+    SPerDir *pNew=_pNew;
+    SPerDir *pMerged=ap_palloc(pPool,sizeof *pMerged);
+
+    fprintf(stderr,"MergeDir    : pBase: dir=%s tag=%s "
+            "pNew: dir=%s tag=%s\n",pBase-&gt;szDir,None(pBase-&gt;szTag),
+            pNew-&gt;szDir,None(pNew-&gt;szTag));
+    pMerged-&gt;szDir=ap_pstrcat(pPool,pBase-&gt;szDir,"+",pNew-&gt;szDir,NULL);
+    pMerged-&gt;szTag=ap_pstrcat(pPool,None(pBase-&gt;szTag),"+",
+                              None(pNew-&gt;szTag),NULL);
+
+    return pMerged;
+    }</pre></blockquote>
+
+
+
+
+
+<p>Here is a helper function used by most of the other hooks to show the
+per-server and per-directory configurations currently in use.
+Although it caters to the situation in which there is no
+per-directory configuration, that should never happen:<a href="#FOOTNOTE-87">[87]</a></p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-87" /><p>[87]It happened while we were writing the module, because of a bug
+in the Apache core. We fixed the bug.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<blockquote><pre class="code">static void ShowRequestStuff(request_rec *pReq)
+    {
+    SPerDir *pPerDir=get_module_config(pReq-&gt;per_dir_config,
+               &amp;reveal_module);
+    SPerServer *pPerServer=get_module_config(pReq-&gt;server-&gt;
+               module_config,&amp;reveal_module);
+    SPerDir none={"(null)","(null)"};
+    SPerDir noconf={"(no per-dir config)","(no per-dir config)"};
+
+    if(!pReq-&gt;per_dir_config)
+        pPerDir=&amp;noconf;
+    else if(!pPerDir)
+        pPerDir=&amp;none;
+
+    fprintf(stderr," server=%s tag=%s dir=%s tag=%s\n",
+            pPerServer-&gt;szServer,pPerServer-&gt;szTag,pPerDir-&gt;szDir,
+               pPerDir-&gt;szTag);
+    }</pre></blockquote>
+
+
+
+
+
+<p>None of the following hooks does anything more than trace itself:</p>
+
+
+
+
+
+<blockquote><pre class="code">static int RevealTranslate(request_rec *pReq)
+    {
+    fprintf(stderr,"Translate   : uri=%s",pReq-&gt;uri);
+    ShowRequestStuff(pReq);
+    return DECLINED;
+    }
+
+static int RevealCheckUserID(request_rec *pReq)
+    {
+    fprintf(stderr,"CheckUserID :");
+    ShowRequestStuff(pReq);
+    return DECLINED;
+    }
+
+static int RevealCheckAuth(request_rec *pReq)
+    {
+    fprintf(stderr,"CheckAuth   :");
+    ShowRequestStuff(pReq);
+    return DECLINED;
+    }
+
+static int RevealCheckAccess(request_rec *pReq)
+    {
+    fprintf(stderr,"CheckAccess :");
+    ShowRequestStuff(pReq);
+    return DECLINED;
+    }
+
+static int RevealTypeChecker(request_rec *pReq)
+    {
+    fprintf(stderr,"TypeChecker :");
+    ShowRequestStuff(pReq);
+    return DECLINED;
+    }
+
+static int RevealFixups(request_rec *pReq)
+    {
+    fprintf(stderr,"Fixups      :");
+    ShowRequestStuff(pReq);
+    return DECLINED;
+    }
+
+static int RevealLogger(request_rec *pReq)
+    {
+    fprintf(stderr,"Logger      :");
+    ShowRequestStuff(pReq);
+    return DECLINED;
+    }
+
+static int RevealHeaderParser(request_rec *pReq)
+    {
+    fprintf(stderr,"HeaderParser:");
+    ShowRequestStuff(pReq);
+
+    return DECLINED;
+    }</pre></blockquote>
+
+
+
+
+
+<p>Next comes the child initialization function. This extends the server
+tag to include the PID of the particular server instance it is in.
+Note that, like the <tt class="literal">init</tt> function, it must iterate
+through all the server instances:</p>
+
+
+
+
+
+<blockquote><pre class="code">static void RevealChildInit(server_rec *pServer, pool *pPool)
+    {
+    char szPID[20];
+
+    fprintf(stderr,"Child Init  : pid=%d\n",(int)getpid());
+
+    sprintf(szPID,"[%d]",(int)getpid());
+    for( ; pServer ; pServer=pServer-&gt;next)
+        {
+        SPerServer *pPerServer=ap_get_module_config(pServer-&gt;module_config,
+                                                    &amp;reveal_module);
+        pPerServer-&gt;szServer=ap_pstrcat(pPool,pPerServer-&gt;szServer,szPID,
+                                        NULL);
+        }
+    }</pre></blockquote>
+
+
+
+
+
+<p>Then the last two hooks are simply logged:</p>
+
+
+
+
+
+<blockquote><pre class="code">static void RevealChildExit(server_rec *pServer, pool *pPool)
+    {
+    fprintf(stderr,"Child Exit  : pid=%d\n",(int)getpid());
+    }
+
+static int RevealPostReadRequest(request_rec *pReq)
+    {
+    fprintf(stderr,"PostReadReq : method=%s uri=%s protocol=%s",
+            pReq-&gt;method,pReq-&gt;unparsed_uri,pReq-&gt;protocol);
+    ShowRequestStuff(pReq);
+
+    return DECLINED;
+    }</pre></blockquote>
+
+
+
+
+
+<p>The following is the handler for the <tt class="literal">RevealTag</tt>
+directive. If more than one <tt class="literal">RevealTag</tt> appears in a
+section, they are glued together with a "-" separating
+them. A <tt class="literal">NULL</tt> is returned to indicate that there
+was no error:</p>
+
+
+
+
+
+<blockquote><pre class="code">static const char *RevealTag(cmd_parms *cmd, SPerDir *pPerDir, char *arg)
+    {
+    SPerServer *pPerServer=ap_get_module_config(cmd-&gt;server-&gt;module_config,
+                                                &amp;reveal_module);
+
+    fprintf(stderr,"Tag         : new=%s dir=%s server=%s tag=%s\n",
+            arg,pPerDir-&gt;szDir,pPerServer-&gt;szServer,
+            None(pPerServer-&gt;szTag));
+
+    if(pPerDir-&gt;szTag)
+        pPerDir-&gt;szTag=ap_pstrcat(cmd-&gt;pool,pPerDir-&gt;szTag,"-",arg,NULL);
+    else
+        pPerDir-&gt;szTag=ap_pstrdup(cmd-&gt;pool,arg);
+
+    return NULL;
+    }</pre></blockquote>
+
+
+
+
+
+<p>This code handles the <tt class="literal">RevealServerTag</tt> directive.
+Again, if more than one <tt class="literal">Reveal-ServerTag</tt> appears
+in a server section they are glued together with "-" in
+between:</p>
+
+
+
+
+
+<blockquote><pre class="code">static const char *RevealServerTag(cmd_parms *cmd, SPerDir *pPerDir,
+                                   char *arg)
+    {
+    SPerServer *pPerServer=ap_get_module_config(cmd-&gt;server-&gt;module_config,
+                                                &amp;reveal_module);
+
+    fprintf(stderr,"ServerTag   : new=%s server=%s stag=%s\n",arg,
+            pPerServer-&gt;szServer,None(pPerServer-&gt;szTag));
+
+    if(pPerServer-&gt;szTag)
+        pPerServer-&gt;szTag=ap_pstrcat(cmd-&gt;pool,pPerServer-&gt;szTag,"-",arg,
+                                     NULL);
+    else
+        pPerServer-&gt;szTag=ap_pstrdup(cmd-&gt;pool,arg);
+
+    return NULL;
+    }</pre></blockquote>
+
+
+
+
+
+<p>Here we bind the directives to their handlers. Note that
+<tt class="literal">RevealTag</tt> uses
+<tt class="literal">ACCESS_CONF|OR_ALL</tt> as its
+<tt class="literal">req_override</tt> so that it is legal wherever a
+&lt;<tt class="literal">Directory</tt>&gt; section occurs.
+<tt class="literal">RevealServerTag</tt> only makes sense outside
+<tt class="literal">&lt;Directory</tt>&gt; sections, so it uses
+<tt class="literal">RSRC_CONF</tt>:</p>
+
+
+
+
+
+<blockquote><pre class="code">static command_rec aCommands[]=
+    {
+{ "RevealTag", RevealTag, NULL, ACCESS_CONF|OR_ALL, TAKE1, "a tag for this
+    section"},
+{ "RevealServerTag", RevealServerTag, NULL, RSRC_CONF, TAKE1, "a tag for this
+    server" },
+{ NULL }
+    };</pre></blockquote>
+
+
+
+
+
+<p>These two helper functions simply output things as a row in a table:</p>
+
+
+
+
+
+<blockquote><pre class="code">static void TShow(request_rec *pReq,const char *szHead,const char *szItem)
+    {
+    rprintf(pReq,"&lt;TR&gt;&lt;TH&gt;%s&lt;TD&gt;%s\n",szHead,szItem);
+    }
+
+static void TShowN(request_rec *pReq,const char *szHead,int nItem)
+    {
+    rprintf(pReq,"&lt;TR&gt;&lt;TH&gt;%s&lt;TD&gt;%d\n",szHead,nItem);
+    }</pre></blockquote>
+
+
+
+
+
+<p>The following code is the request handler; it generates HTML
+describing the configurations that handle the URI:</p>
+
+
+
+
+
+<blockquote><pre class="code">static int RevealHandler(request_rec *pReq)
+    {
+    SPerDir *pPerDir=get_module_config(pReq-&gt;per_dir_config,
+               &amp;reveal_module);
+    SPerServer *pPerServer=get_module_config(pReq-&gt;server-&gt;
+               module_config,&amp;reveal_module);
+
+    pReq-&gt;content_type="text/html";
+    send_http_header(pReq);
+
+    rputs("&lt;CENTER&gt;&lt;H1&gt;Revelation of ",pReq);
+    rputs(pReq-&gt;uri,pReq);
+    rputs("&lt;/H1&gt;&lt;/CENTER&gt;&lt;HR&gt;\n",pReq);
+    rputs("&lt;TABLE&gt;\n",pReq);
+    TShow(pReq,"URI",pReq-&gt;uri);
+    TShow(pReq,"Filename",pReq-&gt;filename);
+    TShow(pReq,"Server name",pReq-&gt;server-&gt;server_hostname);
+    TShowN(pReq,"Server port",pReq-&gt;server-&gt;port);
+    TShow(pReq,"Server config",pPerServer-&gt;szServer);
+    TShow(pReq,"Server config tag",pPerServer-&gt;szTag);
+    TShow(pReq,"Directory config",pPerDir-&gt;szDir);
+    TShow(pReq,"Directory config tag",pPerDir-&gt;szTag);
+    rputs("&lt;/TABLE&gt;\n",pReq);
+
+    return OK;
+    }</pre></blockquote>
+
+
+
+
+
+<p>Here we associate the request handler with the handler string:</p>
+
+
+
+
+
+<blockquote><pre class="code">static handler_rec aHandlers[]=
+    {
+{ "reveal", RevealHandler },
+{ NULL },
+    };</pre></blockquote>
+
+
+
+
+
+<p>And finally, there is the <tt class="literal">module</tt> structure:</p>
+
+
+
+
+
+<blockquote><pre class="code">module reveal_module = {
+   STANDARD_MODULE_STUFF,
+   RevealInit,                  /* initializer */
+   RevealCreateDir,             /* dir config creater */
+   RevealMergeDir,              /* dir merger --- default is to override */
+   RevealCreateServer,          /* server config */
+   RevealMergeServer,           /* merge server configs */
+   aCommands,                   /* command table */
+   aHandlers,                   /* handlers */
+   RevealTranslate,             /* filename translation */
+   RevealCheckUserID,           /* check_user_id */
+   RevealCheckAuth,             /* check auth */
+   RevealCheckAccess,           /* check access */
+   RevealTypeChecker,           /* type_checker */
+   RevealFixups,                /* fixups */
+   RevealLogger,                /* logger */
+   RevealHeaderParser,          /* header parser */
+   RevealChildInit,             /* child init */
+   RevealChildExit,             /* child exit */
+   RevealPostReadRequest,       /* post read request */
+};</pre></blockquote>
+
+
+
+
+
+<p>The module can be included in Apache by specifying:</p>
+
+
+
+
+
+<blockquote><pre class="code">AddModule modules/extra/mod_reveal.o</pre></blockquote>
+
+
+
+
+
+<p>in <em class="filename">Configuration</em>. You might like to try it on
+your favorite server: just pepper the <em class="filename">httpd.conf</em>
+file with <tt class="literal">RevealTag</tt> and
+<tt class="literal">RevealServerTag</tt> directives. Because of the huge
+amount of logging this produces, it would be unwise to use it on a
+live server!</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-23-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.4.2. Example Output</h3>
+
+
+
+
+
+<p>To illustrate <em class="filename">mod_reveal.c</em> in use, we used the
+following configuration:</p>
+
+
+
+
+
+<blockquote><pre class="code">Listen 9001
+Listen 9000
+
+TransferLog /home/ben/www/book/logs/access_log
+ErrorLog /home/ben/www/book/logs/error_log
+RevealTag MainDir
+RevealServerTag MainServer
+&lt;LocationMatch /.reveal&gt;
+RevealTag Revealer
+SetHandler reveal
+&lt;/LocationMatch&gt;
+
+&lt;VirtualHost :9001&gt;
+DocumentRoot /home/ben/www/docs
+RevealTag H1Main
+RevealServerTag H1
+&lt;Directory /home/ben/www/docs/protected&gt;
+ RevealTag H1ProtectedDirectory
+&lt;/Directory&gt;
+&lt;Location /protected&gt;
+ RevealTag H1ProtectedLocation
+&lt;/Location&gt;
+&lt;/VirtualHost&gt;
+
+&lt;VirtualHost :9000&gt;
+DocumentRoot /home/camilla/WWW/docs
+RevealTag H2Main
+RevealServerTag H2
+&lt;/VirtualHost&gt;</pre></blockquote>
+
+
+
+
+
+<p>Note that the <tt class="literal">&lt;Directory&gt;</tt> and the
+<tt class="literal">&lt;Location&gt;</tt> sections in the first virtual
+host actually refer to the same place. This is to illustrate the
+order in which the sections are combined. Also note that the
+<tt class="literal">&lt;LocationMatch&gt;</tt> section doesn't have
+to correspond to a real file; looking at any location that ends with
+.<em class="filename">reveal</em> will invoke <em class="filename">mod_reveal.c
+</em>'s handler. Starting the server produces this on the
+screen:</p>
+
+
+
+
+
+<blockquote><pre class="code">bash$ httpd -d ~/www/book/
+CreateServer: server=(none):0
+CreateDir   : dir=(none)
+Tag         : new=MainDir dir=(none) server=(none):0 tag=(none)
+ServerTag   : new=MainServer server=(none):0 stag=(none)
+CreateDir   : dir=/.reveal
+Tag         : new=Revealer dir=/.reveal server=(none):0 tag=MainServer
+CreateDir   : dir=(none)
+CreateServer: server=(none):9001
+Tag         : new=H1Main dir=(none) server=(none):9001 tag=(none)
+ServerTag   : new=H1 server=(none):9001 stag=(none)
+CreateDir   : dir=/home/ben/www/docs/protected
+Tag         : new=H1ProtectedDirectory dir=/home/ben/www/docs/protected
+              server=(none):9001 tag=H1
+CreateDir   : dir=/protected
+Tag         : new=H1ProtectedLocation dir=/protected server=(none):9001
+              tag=H1
+CreateDir   : dir=(none)
+CreateServer: server=(none):9000
+Tag         : new=H2Main dir=(none) server=(none):9000 tag=(none)
+ServerTag   : new=H2 server=(none):9000 stag=(none)
+MergeServer : pBase: server=(none):0 tag=MainServer pNew: server=(none):9000
+              tag=H2
+MergeDir    : pBase: dir=(none) tag=MainDir pNew: dir=(none) tag=H2Main
+MergeServer : pBase: server=(none):0 tag=MainServer pNew: server=(none):9001
+              tag=H1
+MergeDir    : pBase: dir=(none) tag=MainDir pNew: dir=(none) tag=H1Main</pre></blockquote>
+
+
+
+
+
+<p>Notice that the <tt class="literal">&lt;Location&gt;</tt> and
+<tt class="literal">&lt;LocationMatch&gt;</tt> sections are treated as
+directories as far as the code is concerned. At this point,
+<tt class="literal">stderr</tt> is switched to the error log, and the
+following is logged:</p>
+
+
+
+
+
+<blockquote><pre class="code">Init        : update server name from (none):0
+Init        : host=freeby.ben.algroup.co.uk port=0
+              server=freeby.ben.algroup.co.uk:0 tag=MainServer
+Init        : update server name from (none):0+(none):9000
+Init        : host=freeby.ben.algroup.co.uk port=9000
+              server=freeby.ben.algroup.co.uk:9000 tag=MainServer+H2
+Init        : update server name from (none):0+(none):9001
+Init        : host=freeby.ben.algroup.co.uk port=9001
+              server=freeby.ben.algroup.co.uk:9001 tag=MainServer+H1
+Init        : done</pre></blockquote>
+
+
+
+
+
+<p>At this point, the first-pass initialization is complete, and Apache
+destroys the configurations and starts again (this double
+initialization is required because directives may change things such
+as the location of the initialization files):<a href="#FOOTNOTE-88">[88]</a></p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-88" /><p>[88]You
+could argue that this procedure could lead to an infinite sequence of
+reinitializations. Well, in theory, it could, but in real life,
+Apache initializes twice, and that is that.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<blockquote><pre class="code">CreateServer: server=(none):0
+CreateDir   : dir=(none)
+Tag         : new=MainDir dir=(none) server=(none):0 tag=(none)
+ServerTag   : new=MainServer server=(none):0 stag=(none)
+CreateDir   : dir=/.reveal
+Tag         : new=Revealer dir=/.reveal server=(none):0 tag=MainServer
+CreateDir   : dir=(none)
+CreateServer: server=(none):9001
+Tag         : new=H1Main dir=(none) server=(none):9001 tag=(none)
+ServerTag   : new=H1 server=(none):9001 stag=(none)
+CreateDir   : dir=/home/ben/www/docs/protected
+Tag         : new=H1ProtectedDirectory dir=/home/ben/www/docs/protected server=(none):9001 tag=H1
+CreateDir   : dir=/protected
+Tag         : new=H1ProtectedLocation dir=/protected server=(none):9001
+              tag=H1
+CreateDir   : dir=(none)
+CreateServer: server=(none):9000
+Tag         : new=H2Main dir=(none) server=(none):9000 tag=(none)
+ServerTag   : new=H2 server=(none):9000 stag=(none)</pre></blockquote>
+
+
+
+
+
+<p>Now we've created all the server and directory sections, and
+the top-level server is merged with the virtual hosts:</p>
+
+
+
+
+
+<blockquote><pre class="code">MergeServer : pBase: server=(none):0 tag=MainServer pNew: server=(none):9000
+              tag=H2
+MergeDir    : pBase: dir=(none) tag=MainDir pNew: dir=(none) tag=H2Main
+MergeServer : pBase: server=(none):0 tag=MainServer pNew: server=(none):9001
+              tag=H1
+MergeDir    : pBase: dir=(none) tag=MainDir pNew: dir=(none) tag=H1Main</pre></blockquote>
+
+
+
+
+
+<p>Now the <tt class="literal">init</tt> functions are called (which rename
+the servers now that their "real" names are known):</p>
+
+
+
+
+
+<blockquote><pre class="code">Init        : update server name from (none):0
+Init        : host=freeby.ben.algroup.co.uk port=0
+              server=freeby.ben.algroup.co.uk:0 tag=MainServer
+Init        : update server name from (none):0+(none):9000
+Init        : host=freeby.ben.algroup.co.uk port=9000
+              server=freeby.ben.algroup.co.uk:9000 tag=MainServer+H2
+Init        : update server name from (none):0+(none):9001
+Init        : host=freeby.ben.algroup.co.uk port=9001
+              server=freeby.ben.algroup.co.uk:9001 tag=MainServer+H1
+Init        : done</pre></blockquote>
+
+
+
+
+
+<p>Apache logs its startup message:</p>
+
+
+
+
+
+<blockquote><pre class="code">[Sun Jul 12 13:08:01 1998] [notice] Apache/1.3.1-dev (Unix) Reveal/0.0 configured -- resuming normal operations</pre></blockquote>
+
+
+
+
+
+<p><tt class="literal">Child</tt> <tt class="literal">init</tt>s are called:</p>
+
+
+
+
+
+<blockquote><pre class="code">Child Init  : pid=23287
+Child Init  : pid=23288
+Child Init  : pid=23289
+Child Init  : pid=23290
+Child Init  : pid=23291</pre></blockquote>
+
+
+
+
+
+<p>And Apache is ready to start handling requests. First, we request
+<em class="emphasis">http://host:9001/</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">PostReadReq : method=GET uri=/ protocol=HTTP/1.0
+              server=freeby.ben.algroup.co.uk:9001[23287] tag=MainServer+H1
+              dir=(none)+(none) tag=MainDir+H1Main
+Translate   : uri=/ server=freeby.ben.algroup.co.uk:9001[23287]
+              tag=MainServer+H1 dir=(none)+(none) tag=MainDir+H1Main
+HeaderParser: server=freeby.ben.algroup.co.uk:9001[23287] tag=MainServer+H1
+              dir=(none)+(none) tag=MainDir+H1Main
+CheckAccess : server=freeby.ben.algroup.co.uk:9001[23287] tag=MainServer+H1
+              dir=(none)+(none) tag=MainDir+H1Main
+TypeChecker : server=freeby.ben.algroup.co.uk:9001[23287] tag=MainServer+H1
+              dir=(none)+(none) tag=MainDir+H1Main
+Fixups      : server=freeby.ben.algroup.co.uk:9001[23287] tag=MainServer+H1
+              dir=(none)+(none) tag=MainDir+H1Main</pre></blockquote>
+
+
+
+
+
+<p>Because<em class="filename"> </em>"/" is a directory, Apache
+attempts to use <em class="filename">/index.html</em> instead (in this
+case, it didn't exist, but Apache still goes through the
+motions):</p>
+
+
+
+
+
+<blockquote><pre class="code">Translate   : uri=/index.html server=freeby.ben.algroup.co.uk:9001[23287]
+              tag=MainServer+H1 dir=(none)+(none) tag=MainDir+H1Main
+CheckAccess : server=freeby.ben.algroup.co.uk:9001[23287] tag=MainServer+H1
+              dir=(none)+(none) tag=MainDir+H1Main
+TypeChecker : server=freeby.ben.algroup.co.uk:9001[23287] tag=MainServer+H1
+              dir=(none)+(none) tag=MainDir+H1Main
+Fixups      : server=freeby.ben.algroup.co.uk:9001[23287] tag=MainServer+H1
+              dir=(none)+(none) tag=MainDir+H1Main
+Logger      : server=freeby.ben.algroup.co.uk:9001[23287] tag=MainServer+H1
+              dir=(none)+(none) tag=MainDir+H1Main
+Child Init  : pid=23351</pre></blockquote>
+
+
+
+
+
+<p>Pretty straightforward, but note that the configurations used are the
+merge of the main server's and the first virtual host's.
+Also notice the <tt class="literal">child</tt> <tt class="literal">init</tt> at
+the end: this is because Apache decided the load warranted starting
+another child to handle it.</p>
+
+
+
+
+
+<p>Rather than go on at length, here's the most complicated
+request we can make: <em class="emphasis">http://host:9001/protected/.reveal</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">PostReadReq : method=GET uri=/protected/.reveal protocol=HTTP/1.0
+              server=freeby.ben.algroup.co.uk:9001[23288] tag=MainServer+H1
+              dir=(none)+(none) tag=MainDir+H1Main</pre></blockquote>
+
+
+
+
+
+<p>After the Post Read Request phase, some merging is done on the basis
+of location:</p>
+
+
+
+
+
+<blockquote><pre class="code">MergeDir    : pBase: dir=(none)+(none) tag=MainDir+H1Main pNew: dir=/.reveal
+              tag=Revealer
+MergeDir    : pBase: dir=(none)+(none)+/.reveal tag=MainDir+H1Main+Revealer
+              pNew: dir=/protected tag=H1ProtectedLocation</pre></blockquote>
+
+
+
+
+
+<p>Then the URL is translated into a filename, using the newly merged
+directory configuration:</p>
+
+
+
+
+
+<blockquote><pre class="code">Translate   : uri=/protected/.reveal
+              server=freeby.ben.algroup.co.uk:9001[23288] tag=MainServer+H1
+              dir=(none)+(none)+/.reveal+/protected
+              tag=MainDir+H1Main+Revealer+H1ProtectedLocation</pre></blockquote>
+
+
+
+
+
+<p>Now that the filename is known, even more merging can be done. Notice
+that this time the section tagged as
+<tt class="literal">H1ProtectedDirectory</tt> is pulled in, too:</p>
+
+
+
+
+
+<blockquote><pre class="code">MergeDir    : pBase: dir=(none)+(none) tag=MainDir+H1Main pNew: dir=/home/
+              ben/www/docs/protected tag=H1ProtectedDirectory
+MergeDir    : pBase: dir=(none)+(none)+/home/ben/www/docs/protected
+              tag=MainDir+H1Main+H1ProtectedDirectory pNew: dir=/.reveal
+              tag=Revealer
+MergeDir    : pBase: dir=(none)+(none)+/home/ben/www/docs/protected+/.reveal
+              tag=MainDir+H1Main+H1ProtectedDirectory+Revealer pNew: dir=/
+              protected tag=H1ProtectedLocation</pre></blockquote>
+
+
+
+
+
+<p>And finally the request proceeds as usual:</p>
+
+
+
+
+
+<blockquote><pre class="code">HeaderParser: server=freeby.ben.algroup.co.uk:9001[23288] tag=MainServer+H1
+              dir=(none)+(none)+/home/ben/www/docs/protected+/.reveal+/
+              protected tag=MainDir+H1Main+H1ProtectedDirectory+ 
+              Revealer+H1ProtectedLocation
+CheckAccess : server=freeby.ben.algroup.co.uk:9001[23288] tag=MainServer+H1
+              dir=(none)+(none)+/home/ben/www/docs/protected+/.reveal+/
+              protected tag=MainDir+H1Main+H1ProtectedDirectory+
+              Revealer+H1ProtectedLocation
+TypeChecker : server=freeby.ben.algroup.co.uk:9001[23288] tag=MainServer+H1
+              dir=(none)+(none)+/home/ben/www/docs/protected+/.reveal+/
+              protected tag=MainDir+H1Main+H1ProtectedDirectory+
+              Revealer+H1ProtectedLocation
+Fixups      : server=freeby.ben.algroup.co.uk:9001[23288] tag=MainServer+H1
+              dir=(none)+(none)+/home/ben/www/docs/protected+/.reveal+/
+              protected tag=MainDir+H1Main+H1ProtectedDirectory+
+              Revealer+H1ProtectedLocation
+Logger      : server=freeby.ben.algroup.co.uk:9001[23288] tag=MainServer+H1
+              dir=(none)+(none)+/home/ben/www/docs/protected+/.reveal+/
+              protected tag=MainDir+H1Main+H1ProtectedDirectory+
+              Revealer+H1ProtectedLocation</pre></blockquote>
+
+
+
+
+
+<p>And there we have it. Although the merging of directories, locations,
+files, and so on gets rather hairy, Apache deals with it all for you,
+presenting you with a single server and directory configuration on
+which to base your code's decisions.<a name="INDEX-1667" /> <a name="INDEX-1668" /></p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch15_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch15_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">15.3. The Module Structure</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">15.5. General Hints</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

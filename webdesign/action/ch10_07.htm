@@ -1,0 +1,321 @@
+<html><head><title>Event Handler Scope (ActionScript: The Definitive Guide)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Colin Moock" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565928520L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="ActionScript: The Definitive Guide" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="ActionScript: The Definitive Guide" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch10_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm">ActionScript: The Definitive Guide</a></td><td align="right" valign="top" width="228"><a href="ch10_08.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+<hr width="684" align="left" />
+
+
+<h2 class="sect1">10.7. Event Handler Scope</h2>
+
+
+<p>As <a name="INDEX-1149" /> <a name="INDEX-1150" />with any function, the statements in
+an event handler execute within a predefined scope. Scope dictates
+where the interpreter looks to resolve the variables, subfunctions,
+objects, or properties referenced in an event handler's body.
+We'll consider event handler scope in relation to movie clip
+events, button events, and other object events.</p>
+
+
+<a name="ch10-12-fm2xml" /><div class="sect2">
+<h3 class="sect2">10.7.1. Movie Clip Event Handler Scope</h3>
+
+
+<p>Unlike regular functions, <a name="INDEX-1151" />
+<a name="INDEX-1152" />movie clip event handlers
+<em class="emphasis">do not define a local scope </em>! When we attach a
+handler to a clip, the scope of the handler is the clip, not just the
+event handler itself. This means that all variables are retrieved
+from the clip's timeline. For example, if we attach an
+<em class="filename">enterFrame</em> event handler to a clip named
+<tt class="literal">navigation</tt> and write
+<em class="emphasis">trace(x);</em> inside the handler, the interpreter
+looks for the value of <tt class="literal">x</tt> on
+<tt class="literal">navigation</tt>'s timeline:</p>
+
+
+<blockquote><pre class="code">onClipEvent (enterFrame) {
+  trace(x);  // Displays the value of navigation.x
+}</pre></blockquote>
+
+
+<p>The interpreter does not consult a local scope first because there is
+no local scope to consult. If we write <em class="emphasis">var y =
+10;</em> in our handler, <tt class="literal">y</tt> is defined on
+<tt class="literal">navigation</tt>'s timeline, even though the
+<em class="filename">var</em> keyword ordinarily declares a local variable
+when used in a function.</p>
+
+
+<p>The easiest way to remember the scope rules of a clip event handler
+is to treat the handler's statements as though they were
+attached to a frame of the handler's clip. For example, suppose
+we have a clip named <tt class="literal">ball</tt> that has a variable
+called <tt class="literal">xVelocity</tt> in it. To access
+<tt class="literal">xVelocity</tt> from inside a <tt class="literal">ball</tt>
+event handler, we simply refer to it directly, like this:</p>
+
+
+<blockquote><pre class="code">onClipEvent (mouseDown) {
+  xVelocity += 10;
+}</pre></blockquote>
+
+
+<p>We don't have to supply the path to the variable as
+<tt class="literal">_root.ball.xVelocity</tt> because the interpreter
+already assumes we mean the variable <tt class="literal">xVelocity</tt> in
+<tt class="literal">ball</tt>. The same is true of properties and methods;
+instead of using <tt class="literal">ball._x</tt>, we simply use
+<tt class="literal">_x</tt>, and instead of using
+<em class="emphasis">ball.gotoAndStop(5)</em>, we simply use
+<em class="emphasis">gotoAndStop(5)</em>. For example:</p>
+
+
+<blockquote><pre class="code">onClipEvent (enterFrame) {
+  _x += xVelocity;                 // Move the ball
+  gotoAndPlay(_currentframe - 1);  // Do a little loop
+}</pre></blockquote>
+
+
+<p>We can even define a function on <tt class="literal">ball</tt> using a
+function declaration statement in a handler, like this:</p>
+
+
+<blockquote><pre class="code">onClipEvent (load) {
+  function hideMe( ) {
+    _visibility = 0;
+  }
+}</pre></blockquote>
+
+
+<p>It's sometimes easy to forget that statements in clip event
+handlers are scoped to the <em class="emphasis">clip's
+timeline</em>, not the handler function's local scope and
+not the clip's <em class="emphasis">parent</em> timeline (the
+timeline upon which the clip resides).</p>
+
+
+<p>For example, suppose we place our <tt class="literal">ball</tt> clip on the
+main timeline of a movie, and the main timeline (not
+<tt class="literal">ball</tt>'s timeline) has a <em class="filename">moveBall(
+)</em> function defined on it. We may absent-mindedly call
+<em class="filename">moveBall( ) </em>from an event handler on
+<tt class="literal">ball</tt> like this:</p>
+
+
+<blockquote><pre class="code">onClipEvent (enterFrame) {
+  moveBall( );  // Does nothing! There's no <em class="replaceable">moveBall( )</em> function in <em class="replaceable">ball</em>.
+               // The <em class="replaceable">moveBall( )</em> function is defined on <em class="replaceable">_root</em>
+}</pre></blockquote>
+
+
+<p>We have to explicitly refer to the <em class="filename">moveBall( )</em>
+function on the main timeline using <tt class="literal">_root</tt> like
+this:</p>
+
+
+<blockquote><pre class="code">onClipEvent (enterFrame) {
+  _root.moveBall( );  // Now it works!
+}</pre></blockquote>
+
+
+<p>Occasionally, <a name="INDEX-1153" />we may need to refer to the
+current clip object explicitly from within an event handler. We can
+do so using the <tt class="literal">this</tt><a name="INDEX-1154" /> keyword,
+which refers to the current movie clip when used in an event handler.
+Hence, the following references are synonymous within a clip event
+handler:</p>
+
+
+<blockquote><pre class="code">this._x  // Same as next line
+_x
+
+this.gotoAndStop(12);  // Same as next line
+gotoAndStop(12);</pre></blockquote>
+
+
+<p>Use of <tt class="literal">this</tt> is most frequently required when
+we're dynamically generating the name of one of the current
+clip's properties (either a variable name or a nested clip).
+Here we tell one of the nested clips in the series
+<tt class="literal">ball.stripe1</tt>, <tt class="literal">ball.stripe2</tt>, . .
+. to start playing, depending on the current frame of the
+<tt class="literal">ball</tt> clip:</p>
+
+
+<blockquote><pre class="code">onClipEvent (enterFrame) {
+  this["stripe" + _currentframe].play( );  
+}</pre></blockquote>
+
+
+<p>The keyword <tt class="literal">this</tt> is also frequently used with
+movie clip methods that demand an explicit reference to a movie clip
+object upon invocation. Any movie clip method with the same name as
+an ActionScript global function must be used with an explicit clip
+reference. The <tt class="literal">this</tt> keyword is therefore necessary
+when invoking the following functions as methods inside an event
+handler:</p>
+
+
+<blockquote class="simplelist">
+
+<p><em class="filename">duplicateMovieClip( )</em></p>
+
+<p><em class="filename">loadMovie( )</em></p>
+
+<p><em class="filename">loadVariables( )</em></p>
+
+<p><em class="filename">print( )</em></p>
+
+<p><em class="filename">printAsBitmap( )</em></p>
+
+<p><em class="filename">removeMovieClip( )</em></p>
+
+<p><em class="filename">startDrag( )</em></p>
+
+<p><em class="filename">unloadMovie( )</em></p>
+
+</blockquote>
+
+
+<p>For example:</p>
+
+
+<blockquote><pre class="code">this.duplicateMovieClip("ball2", 1);
+this.loadVariables("vars.txt");
+this.startDrag(true);
+this.unloadMovie( );</pre></blockquote>
+
+
+<p>We'll learn all about the dual nature of these functions in
+<a href="ch13_08.htm#ch13-58072">Section 13.8.3.1, "Method versus global function overlap issues"</a>, in <a href="ch13_01.htm">Chapter 13, "Movie Clips"</a>.</p>
+
+
+<p>Note that the <tt class="literal">this</tt> keyword allows us to refer to
+the current clip even when that clip has no assigned instance name in
+the authoring tool or when we don't know the clip's name.
+In fact, using <tt class="literal">this</tt><a name="INDEX-1155" />, we may even pass the current clip
+as a reference to a function without ever knowing the current
+clip's name. Here's some quite legal (and quite elegant)
+code to demonstrate:</p>
+
+
+<blockquote><pre class="code"><tt class="userinput"><b>
+// CODE ON MAIN TIMELINE</b></tt>
+// Here is a generic function that moves any clip
+function move (clip, x, y) {
+  clip._x += x;
+  clip._ y += y;
+}
+<tt class="userinput"><b>
+// CODE ON CLIP</b></tt>
+// Call the main timeline function and tell it to move the 
+// current clip by passing a reference with the <em class="replaceable">this</em> keyword
+onClipEvent (enterFrame) {
+  _root.move(this, 10, 15);
+}</pre></blockquote>
+
+<a name="ch10-13-fm2xml" /><blockquote><h4>WARNING</h4>
+<p>In build 30 of the Flash 5 Player, a bug prevented
+<em class="filename">gotoAndStop( )</em> and <em class="filename">gotoAndPlay(
+)</em> from working inside a clip handler when used with string
+literal labels. Such commands were simply ignored. For example, this
+would not work: </p>
+<blockquote><pre class="code">onClipEvent(load) {
+   gotoAndStop("intro"); // Won't work in Flash 5
+r30
+}</pre></blockquote>
+
+<p>
+To work
+around the bug, use a self-reflexive clip reference, as in:</p>
+<blockquote><pre class="code">onClipEvent(load) {
+   this.gotoAndStop("intro");
+}</pre></blockquote></blockquote>
+<a name="INDEX-1156" />
+<a name="INDEX-1157" />
+</div>
+
+
+
+
+<a name="ch10-14-fm2xml" /><div class="sect2">
+<h3 class="sect2">10.7.2. Button Event Handler Scope</h3>
+
+
+<p>Button <a name="INDEX-1158" />
+<a name="INDEX-1159" />handlers are scoped to the timeline
+upon which the button resides. For example, if we place a button on
+the main timeline and declare the variable <tt class="literal">speed</tt>
+in a handler on that button, <tt class="literal">speed</tt> will be scoped
+to the main timeline ( <tt class="literal">_root</tt>):</p>
+
+
+<blockquote><pre class="code"><tt class="userinput"><b>
+// CODE FOR BUTTON HANDLER</b></tt>
+on (release) {
+  var speed = 10;  // Defines speed on _root
+}</pre></blockquote>
+
+
+<p>By contrast, if we place a movie clip, <tt class="literal">ball</tt>, on
+the main timeline and declare the variable <tt class="literal">speed</tt>
+in a handler of <tt class="literal">ball</tt>, <tt class="literal">speed</tt> is
+scoped to <tt class="literal">ball</tt>:</p>
+
+
+<blockquote><pre class="code"><tt class="userinput"><b>
+// CODE FOR ball HANDLER</b></tt>
+on (load) {
+  var speed = 10;  // Defines speed on <em class="replaceable">ball</em>, not _root
+}</pre></blockquote>
+
+
+<p>Inside a button handler, the <tt class="literal">this</tt> keyword refers
+to the timeline on which the button resides:</p>
+
+
+<blockquote><pre class="code">on (release) {
+  // Make the clip on which this button resides 50% transparent
+  this._alpha = 50;
+  // Move the clip on which this button resides 10 pixels to the right
+  this._x += 10;
+}</pre></blockquote>
+</div>
+
+
+
+
+<a name="ch10-15-fm2xml" /><div class="sect2">
+<h3 class="sect2">10.7.3. Other Object Event Handler Scope</h3>
+
+
+<p>Unlike <a name="INDEX-1160" /> <a name="INDEX-1161" /> <a name="INDEX-1162" />movie clip and button handlers, event
+handlers attached to instances of built-in classes such as
+<em class="filename">XML</em><a name="INDEX-1163" />
+<a name="INDEX-1164" /> and
+<em class="filename">XMLSocket</em> are scoped exactly like functions. An
+<em class="filename">XML</em> or <em class="filename">XMLSocket</em>
+object's event handler has a scope chain that is defined when
+the handler function is defined. Furthermore,
+<em class="filename">XML</em> and <em class="filename">XMLSocket</em> event
+handlers define a local scope. All the rules of function scope
+described in <a href="ch09_07.htm#ch09-39845">Section 9.7, "Function Scope"</a> in <a href="ch09_01.htm">Chapter 9, "Functions"</a>, apply directly to event handler functions
+attached to objects that are neither buttons nor movie <a name="INDEX-1165" /> <a name="INDEX-1166" />clips.</p>
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch10_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch10_08.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">10.6. Creating Event Handlers</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">10.8. Button Events</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="0,1,78,93" shape="rect" /><area href="../wdesign/index.htm" coords="80,2,155,96" shape="rect" /><area href="../xhtml/index.htm" coords="158,0,263,97" shape="rect" /><area href="../audio/index.htm" coords="265,1,335,97" shape="rect" /><area href="../css/index.htm" coords="338,1,434,93" shape="rect" /><area href="../action/index.htm" coords="439,0,540,102" shape="rect" /><area href="../infoarch/index.htm" coords="544,0,685,102" shape="rect" /></map>
+
+</body></html>

@@ -1,0 +1,264 @@
+<html><head><title>The Match Variables (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch09_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch09_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">9.5. The Match Variables</h2>
+
+<p><a name="INDEX-595" /> <a name="INDEX-596" />Do
+you remember the regular expression memories, which we used with
+backreferences in the previous chapter? Those memories are also
+available after the pattern match is done, after we return to Perl.
+They're strings, so they are kept in scalar variables with
+names like <tt class="literal">$1</tt> and <tt class="literal">$2</tt>. There are
+as many of these variables as there are pairs of memory parentheses
+in the pattern. As you'd expect, <tt class="literal">$4</tt> means
+the string matched by the fourth set of parentheses. This is the same
+string that <tt class="literal">\4</tt> referred to inside the pattern
+match.
+</p>
+
+<p>Why are there two different ways to refer to that same string?
+They're not really referring to the same string at the same
+time; <tt class="literal">$4</tt> means the fourth memory of an
+<em class="emphasis">already</em> <em class="emphasis">completed</em> pattern
+match, while <tt class="literal">\4</tt> is a backreference referring back
+to the fourth memory of the <em class="emphasis">currently</em>
+<em class="emphasis">matching</em> regular expression. Besides,
+backreferences work inside regular expressions only; once we're
+back in the world of Perl, we'll use <tt class="literal">$4</tt>.
+</p>
+
+<p>These match variables are a big part of the power of regular
+expressions, because they let us pull out the parts of a string:
+</p>
+
+<blockquote><pre class="code">$_ = "Hello there, neighbor";
+if (/\s(\w+),/) {             # memorize the word between space and comma
+  print "the word was $1\n";  # the word was there
+}</pre></blockquote>
+
+<p>Or you could use more than one memory at once:</p>
+
+<blockquote><pre class="code">$_ = "Hello there, neighbor";
+if (/(\S+) (\S+), (\S+)/) {
+  print "words were $1 $2 $3\n";
+}</pre></blockquote>
+
+<p>That tells us that the <tt class="literal">words were Hello there
+neighbor</tt>. Notice that there's no comma in the output
+(because the comma is outside of the memory parentheses). That leaves
+the comma out of memory two. Using this technique, we can choose
+exactly what we want in the memories, as well as what we want to
+leave out.
+</p>
+
+<p>You could even have an empty match variable,<a href="#FOOTNOTE-199">[199]</a> if that part of the
+pattern might be empty. That is, a match variable may contain the
+empty string:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-199" /><p>[199]As
+opposed to an undefined one. If you have three or fewer sets of
+parentheses in the pattern, <tt class="literal">$4</tt> will be
+<tt class="literal">undef</tt>.</p> </blockquote>
+
+<blockquote><pre class="code">my $dino = "I fear that I'll be extinct after 1000 years.";
+if ($dino =~ /(\d*) years/) {
+  print "That said '$1' years.\n";  # 1000
+}
+
+$dino = "I fear that I'll be extinct after a few million years.";
+if ($dino =~ /(\d*) years/) {
+  print "That said '$1' years.\n";  # empty string
+}</pre></blockquote>
+
+<a name="lperl3-CHP-9-SECT-5.1" /><div class="sect2">
+<h3 class="sect2">9.5.1. The Persistence of Memory</h3>
+
+<p>These match variables generally stay around until the next
+<em class="emphasis">successful</em> pattern match.<a href="#FOOTNOTE-200">[200]</a> That is, an
+unsuccessful match leaves the previous <a name="INDEX-597" />memories intact, but a successful
+one resets them all. But this correctly implies that you
+shouldn't use these match variables unless the match succeeded;
+otherwise, you could be seeing a memory from some previous pattern.
+The following (bad) example is supposed to print a word matched from
+<tt class="literal">$_</tt>. But if the match fails, it's using
+whatever leftover string happens to be found in
+<tt class="literal">$1</tt>:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-200" /><p>[200]The
+actual scoping rule is much more complex (see the documentation if
+you need it), but as long as you don't expect the match
+variables to be untouched many lines after a pattern match, you
+shouldn't have problems.</p> </blockquote>
+
+<blockquote><pre class="code">$wilma =~ /(\w+)/;  # BAD! Untested match result
+print "Wilma's word was $1... or was it?\n";</pre></blockquote>
+
+<p>This is another reason that a pattern match is almost always found in
+the conditional expression of an <tt class="literal">if</tt> or
+<tt class="literal">while</tt>:
+</p>
+
+<blockquote><pre class="code">if ($wilma =~ /(\w+)/) {
+  print "Wilma's word was $1.\n";
+} else {
+  print "Wilma doesn't have a word.\n";
+}</pre></blockquote>
+
+<p>Since these memories don't stay around forever, you
+shouldn't use a match variable like <tt class="literal">$1</tt> more
+than a few lines after its pattern match. If your maintenance
+programmer adds a new regular expression between your regular
+expression and your use of <tt class="literal">$1</tt>, you'll be
+getting the value of <tt class="literal">$1</tt> for the second match,
+rather than the first. For this reason, if you need a memory for more
+than a few lines, it's generally best to copy it into an
+ordinary variable. Doing this helps make the code more readable at
+the same time:
+</p>
+
+<blockquote><pre class="code">if ($wilma =~ /(\w+)/) {
+  my $wilma_word = $1;
+  ...
+}</pre></blockquote>
+
+<p>Later, in <a href="ch14_01.htm">Chapter 14, "Process Management"</a>, we'll see how to get
+the memory value <em class="emphasis">directly</em> into the variable at
+the same time as the pattern match happens, without having to use
+<tt class="literal">$1</tt> explicitly.
+</p>
+
+</div>
+<a name="lperl3-CHP-9-SECT-5.2" /><div class="sect2">
+<h3 class="sect2">9.5.2. The Automatic Match Variables</h3>
+
+<p>There are three more match variables that you get for free,<a href="#FOOTNOTE-201">[201]</a> whether
+the pattern has memory parentheses or not. That's the good
+news; the bad news is that these variables have weird names.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-201" /><p>[201]Yeah, right. There's no such thing as a free match. These
+are "free" only in the sense that they don't
+require match parentheses. Don't worry; we'll mention
+their real cost a little later, though.</p> </blockquote>
+
+<p>Now, Larry probably would have been happy enough to call these by
+slightly-less-weird names, like perhaps <tt class="literal">$gazoo</tt> or
+<tt class="literal">$ozmodiar</tt>. But those are names that you just might
+want to use in your own code. To keep ordinary Perl programmers from
+having to memorize the names of <em class="emphasis">all</em> of
+Perl's special variables before choosing their first variable
+names in their first programs,<a href="#FOOTNOTE-202">[202]</a> Larry has given strange names to many of Perl's
+<a name="INDEX-598" />
+<a name="INDEX-599" />
+<a name="INDEX-600" />builtin variables, names that
+"break the rules." In this case, the names are
+punctuation marks: <tt class="literal">$&amp;</tt>, <tt class="literal">$`</tt>,
+and <tt class="literal">$'</tt>. They're strange, ugly, and weird,
+but those are their names.<a href="#FOOTNOTE-203">[203]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-202" /><p>[202]You should still avoid
+a few classical variable names like <tt class="literal">$ARGV</tt>, but
+these few are all in all-caps. All of Perl's builtin variables
+are documented in the <em class="emphasis">perlvar</em> manpage.</p>
+</blockquote><blockquote class="footnote"> <a name="FOOTNOTE-203" /><p>[203]If you really can't
+stand these names, check out the <tt class="literal">English</tt> module,
+which attempts to give all of Perl's strangest variables nearly
+normal names. But the use of this module has never really caught on;
+instead, Perl programmers have grown to love the punctuation-mark
+variable names, strange as they are. </p> </blockquote>
+
+<p>The part of the string that actually matched the pattern is
+automatically stored in
+<tt class="literal">$&amp;</tt><a name="INDEX-601" />:
+</p>
+
+<blockquote><pre class="code">if ("Hello there, neighbor" =~ /\s(\w+),/) {
+  print "That actually matched '$&amp;'.\n";
+}</pre></blockquote>
+
+<p>That tells us that the part that matched was <tt class="literal">"
+there,"</tt> (with a space, a word, and a comma). Memory one, in
+<tt class="literal">$1</tt>, has just the five-letter word
+<tt class="literal">there</tt>, but <tt class="literal">$&amp;</tt> has the
+entire matched section.
+</p>
+
+<p>Whatever came before the matched section is in
+<tt class="literal">$`</tt><a name="INDEX-602" />, and whatever was after it is in
+<tt class="literal">$'</tt><a name="INDEX-603" />. Another way to say that is that
+<tt class="literal">$`</tt> holds whatever the regular expression engine
+had to skip over before it found the match, and <tt class="literal">$'</tt>
+has the remainder of the string that the pattern never got to. If you
+glue these three strings together in order, you'll always get
+back the original string:
+</p>
+
+<blockquote><pre class="code">if ("Hello there, neighbor" =~ /\s(\w+),/) {
+  print "That was ($`)($&amp;)($').\n";
+}</pre></blockquote>
+
+<p>The message shows the string as <tt class="literal">(Hello)( there,)(
+neighbor)</tt>, showing the three automatic match variables in
+action. This may seem familiar, and for good reason: These automatic
+memory variables are what the pattern test program (from <a href="ch07_01.htm">Chapter 7, "Concepts of Regular Expressions"</a>) was using in its line of
+"mystery" code, to show what part of the string was being
+matched by the pattern:
+</p>
+
+<blockquote><pre class="code">print "Matched: |<em class="emphasis">$`</em>&lt;<em class="emphasis">$&amp;</em>&gt;<em class="emphasis">$'</em>|\n";  # The three automatic match variables</pre></blockquote>
+
+<p>Any or all of these three automatic match variables may be empty, of
+course, just like the numbered match variables. And they have the
+same scope as the numbered match variables. Generally, that means
+that they'll stay around until the next successful pattern
+match.
+</p>
+
+<p>Now, we said earlier that these three are "free." Well,
+freedom has its price. In this case, the price is that once you use
+any one of these automatic match variables anywhere in your entire
+program, other regular expressions will run a little more slowly.
+Now, this isn't a giant slowdown, but it's enough of a
+worry that many Perl programmers will simply never use these
+<a name="INDEX-604" />
+<a name="INDEX-605" />automatic match
+variables.<a href="#FOOTNOTE-204">[204]</a> Instead, they'll use
+a workaround. For example, if the only one you need is
+<tt class="literal">$&amp;</tt>, just put parentheses around the whole
+pattern and use <tt class="literal">$1</tt> instead (you may need to
+renumber the pattern's memories, of course).
+</p><blockquote class="footnote"> <a name="FOOTNOTE-204" /><p>[204]Most of these folks haven't actually
+benchmarked their programs to see whether their workarounds actually
+save time, though; it's as though these variables were
+poisonous or something. But we can't blame them for not
+benchmarking -- many programs that could benefit from these three
+variables take up only a few minutes of CPU time in a week, so
+benchmarking and optimizing would be a waste of time. But in that
+case, why fear a possible extra millisecond? By the way, the Perl
+developers are working on this problem, but there will probably be no
+solution before Perl 6.</p> </blockquote>
+
+<p>Match variables (both the automatic ones and the numbered ones) are
+most often used in substitutions, which are the topic of the next
+section.<a name="INDEX-606" />
+<a name="INDEX-607" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch09_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch09_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">9.4. Interpolating into Patterns</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">9.6. Substitutions with s///</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

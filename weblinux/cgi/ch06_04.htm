@@ -1,0 +1,1473 @@
+<?label 6.4. Embperl?><html><head><title>Embperl (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch06_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">6.4. Embperl</h2>
+
+
+<p>SSI and HTML::Template are simple template solutions that allow you
+to add basic tags to static and dynamic HTML files. The <a name="INDEX-1399" /> <a name="INDEX-1,400" />
+<a name="INDEX-1401" />HTML::Embperl module, often referred to
+simply as Embperl, takes a different approach; it
+<a name="INDEX-1402" />parses HTML files for
+<a name="INDEX-1403" />Perl
+code, allowing you to shift your code into your HTML documents. This
+approach is similar to Java Server Pages or Microsoft's ASP
+technology that moves programming languages into documents. There are
+actually several modules available for embedding Perl within HTML
+documents, including Embperl, ePerl, HTML::EP, HTML::Mason, and
+Apache::ASP. We'll look at Embperl and Mason in this chapter.</p>
+
+
+<p>The theory behind moving code into HTML pages is somewhat different
+from the standard reason for using HTML templates. Both strategies
+attempt to separate the interface from the program logic, but they
+draw the lines at different places (see <a href="ch06_04.htm#ch06-40200">Figure 6-2</a>). Basic template solutions like HTML::Template
+draw the line between HTML and all code, at least as much as
+possible. For Embperl and similar solutions, the logic for creating
+the page is folded into the HTML for the page, but common
+<a name="INDEX-1404" />business rules are collected into
+modules that can be shared across pages. <em class="emphasis">Business
+rules</em> are those core elements of your application or
+<a name="INDEX-1405" />applications that
+are separate from the interface, data management, etc. Of course, in
+practice not everyone creates as many modules as the model suggests,
+and you can create modules like this with any of the approaches (as
+the dotted lines suggest). Thus, the model for complex template
+solutions like Embperl and ASP often end up looking like CGI.pm,
+except that instead of including HTML in the code, the code is
+included in the HTML. This isn't a bad thing, of course. Both
+CGI.pm and Embperl are excellent solutions for tying together HTML
+and program code, and you should choose whatever solution makes the
+most sense to you for each project. The point is simply that those
+who argue about the different approaches of using CGI.pm versus
+templates sometimes are not as far apart as they may seem; the
+extremes of each seem more alike than different.<a href="#FOOTNOTE-8">[8]</a></p><blockquote>
+
+<a name="FOOTNOTE-8" /><p>[8]Jason Hunter (author of <em class="emphasis">Java Servlet
+Programming</em> from O'Reilly &amp; Associates) made a
+similar argument from a Java perspective. His article, "The
+Problem with JSP," is available at <a href="http://www.servlets.com/soapbox/problems-jsp.html">http://www.servlets.com/soapbox/problems-jsp.html</a>.</p>
+
+</blockquote>
+
+
+<a name="ch06-40200" /><div class="figure"><img width="355" src="figs/cgi2.0602.gif" height="109" alt="Figure 6-2" /></div><h4 class="objtitle">Figure 6-2. Approaches for separating interfaces from code</h4>
+
+<a name="ch06-10-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.4.1. Configuration</h3>
+
+
+<p>
+<a name="INDEX-1406" />
+<a name="INDEX-1407" /> <a name="INDEX-1,408" />Embperl
+can be used in a variety of ways. You can call Embperl from your CGI
+scripts and have it parse a template file, just as you would with
+HTML::Template. In this mode, it simply gives you much more power
+than the latter since you can include full Perl expressions in the
+template (at the expense of making your templates more complex).
+However, because you have the entire Perl language at your disposal
+inside your template files, it really isn't necessary to have
+an additional CGI script initiate the request. Thus, Embperl can be
+configured as a handler so that your template files can become the
+target of HTTP requests; this works similar to the way that the SSI
+handler allows <em class="filename">.shtml</em> files to be the target for
+HTTP requests.</p>
+
+
+<p>Embperl can also be used with or without
+<em class="emphasis">mod_perl</em>. It is optimized for
+<em class="emphasis">mod_perl</em>, but it is written in C as well as
+Perl, so the compiled C code does run faster than a comparable Perl
+module would if you are not using <em class="emphasis">mod_perl</em>.</p>
+
+
+<a name="ch06-11-fm2xml" /><div class="sect3">
+<h3 class="sect3">6.4.1.1. Execute</h3>
+
+
+<p>To call Embperl from your CGI scripts, use its
+<tt class="function">Execute</tt> function and pass it the path to the
+template along with any parameters to use when parsing the template.
+For example,</p>
+
+
+<blockquote><pre class="code">my $template = "/usr/local/apache/htdocs/templates/welcome.epl";
+HTML::Embperl::Execute( $template, $time, $greeting );</pre></blockquote>
+
+
+<p>This parses <em class="filename">welcome.epl</em>, using the values of
+<tt class="literal">$time</tt> and <tt class="literal">$greeting</tt> as
+parameters, and writes the result to STDOUT. Note that we called the
+function as
+<tt class="function">HTML::Embperl::Execute</tt>
+<a name="INDEX-1409" />
+<a name="INDEX-1410" /> and not simply
+<tt class="function">Execute</tt>. Embperl doesn't export any
+symbols, nor is it an object-oriented module. Thus, you must fully
+qualify the <tt class="function">Execute</tt> function.</p>
+
+
+<p>You can also call <tt class="function">Execute</tt> and pass it a
+reference to a hash with named parameters. This gives you more
+options when using Embperl. For example, you can read the template
+input from a scalar variable instead of a file and you can write the
+output to a file or a variable instead of STDOUT.</p>
+
+
+<p>Here is how we can parse the <em class="filename">welcome.epl</em>
+template and write the result to <em class="filename">welcome.html</em>:</p>
+
+
+<blockquote><pre class="code">my $template = "/usr/local/apache/htdocs/templates/welcome.epl";
+my $output   = "/usr/local/apache/htdocs/welcome.html";
+
+HTML::Embperl::Execute( { inputfile  =&gt; $template,
+                          param      =&gt; [ $time, $greeting ],
+                          outputfile =&gt; $output } );</pre></blockquote>
+
+
+<p>Embperl also has options to cache compiled versions of pages when
+used with <em class="emphasis">mod_perl</em>. Refer to the Embperl
+documentation for the full list of parameters.</p>
+</div>
+
+
+
+<a name="ch06-12-fm2xml" /><div class="sect3">
+<h3 class="sect3">6.4.1.2. mod_perl</h3>
+
+
+<p>If you are using <em class="emphasis">mod_perl</em>, you would register
+Embperl as a handler by adding the following to
+<em class="filename">httpd.conf</em> (or <em class="filename">srm.conf</em> if
+used):</p>
+
+
+<blockquote><pre class="code">&lt;Files *.epl&gt;
+    SetHandler  perl-script
+    PerlHandler HTML::Embperl
+    Options     ExecCGI
+&lt;/files&gt;
+AddType text/html .epl</pre></blockquote>
+
+
+<p>Then any file that has a <em class="filename">.epl</em> suffix will be
+parsed and executed by Embperl.</p>
+</div>
+
+
+
+<a name="ch06-13-fm2xml" /><div class="sect3">
+<h3 class="sect3">6.4.1.3. embpcgi.pl</h3>
+
+
+<p>If you aren't using <em class="emphasis">mod_perl</em> but want your
+Embperl files to handle requests directly without a CGI script, you
+can also use the
+<em class="filename">embpcgi.pl</em>
+<a name="INDEX-1411" />
+<a name="INDEX-1412" /> CGI script that is distributed with
+Embperl. You place this script in your CGI directory and pass it the
+URL of the file to parse as part of its path info. For example, you
+might have a template file in the following path:</p>
+
+
+<blockquote><pre class="code">/usr/local/apache/htdocs/templates/welcome.epl</pre></blockquote>
+
+
+<p>To have Embperl handle this file via <em class="filename">embpcgi.pl</em>,
+you would use the following <a name="INDEX-1413" />URL:</p>
+
+
+<blockquote class="simplelist">
+
+<p><em class="emphasis">http://localhost/cgi/embpcgi.pl/templates/welcome.epl</em></p>
+
+</blockquote>
+
+
+<p>As a security feature, <em class="filename">embpcgi.pl</em> will only
+handle files that are located within your web server's document
+root. This prevents someone from trying to get at important files
+like <em class="filename">/etc/passwd</em>. Unfortunately, this means that
+people can attempt to access your Embperl file directly. For example,
+someone could view the source to our <em class="filename">welcome.epl</em>
+file with the following URL:</p>
+
+
+<blockquote class="simplelist">
+
+<p><em class="emphasis">http://localhost/templates/welcome.epl</em></p>
+
+</blockquote>
+
+
+<p>Allowing people to view the source code of executable files on your
+web server is not a good idea. Thus, if you use
+<em class="filename">embpcgi.pl</em>, you should create a standard
+directory where you will store your Embperl
+<a name="INDEX-1414" />templates and disable direct access
+to these files. Here is how you would do this for Apache. Add the
+following directives to <em class="filename">httpd.conf</em> (or
+<em class="filename">access.conf</em> if used) to disable access to any
+file below the directory named templates:</p>
+
+
+<blockquote><pre class="code">&lt;Location /templates&gt;
+  deny from all
+&lt;/Location&gt;</pre></blockquote>
+
+
+<p>This works by denying access to this directory (and any
+subdirectories) to all HTTP request from all web clients.</p>
+</div>
+</div>
+
+
+
+
+<a name="ch06-14-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.4.2. Syntax</h3>
+
+
+<p>Some HTML editors restrict authors from including tags that they do
+not recognize as proper HTML tags. This can be a problem when using
+these editors to create HTML templates that often have their own
+style of custom tags. Embperl was created with this in mind. It does
+not use commands that resemble <a name="INDEX-1415" />HTML tags so you can enter code as text in
+WYSIWYG editors. Embperl will also interpret any characters that have
+been HTML encoded (such as <tt class="literal">&amp;gt;</tt> instead of
+<tt class="literal">&gt;</tt>) and remove extraneous tags (such as
+<tt class="literal">&amp;nbsp;</tt> and &lt;BR&gt;) within Perl code before
+that code is evaluated.</p>
+
+
+<a name="ch06-15-fm2xml" /><div class="sect3">
+<h3 class="sect3">6.4.2.1. Embperl code blocks</h3>
+
+
+<p>In an Embperl document, <a name="INDEX-1416" />
+<a name="INDEX-1417" />
+<a name="INDEX-1418" />Perl commands
+are surrounded by a bracket plus another character, which we will
+refer to as a <em class="firstterm">bracket pair</em>. As an example,
+<tt class="literal">[+</tt>
+<a name="INDEX-1419" /> <a name="INDEX-1,420" /> is a starting bracket pair and
+<tt class="literal">+]</tt> is an ending bracket pair. Embperl supports a
+number of bracket pairs and treats the contents differently for each.
+<a href="ch06_04.htm#ch06-99039">Example 6-10</a> provides a simple Embperl document that
+uses most of them.</p>
+
+
+
+<a name="ch06-99039" /><div class="example">
+<h4 class="objtitle">Example 6-10. simple.epl </h4>
+
+<blockquote><pre class="code">&lt;HTML&gt;
+&lt;HEAD&gt;
+  &lt;TITLE&gt;A Simple Embperl Document&lt;/TITLE&gt;
+&lt;/HEAD&gt;
+
+&lt;BODY BGCOLOR="white"&gt;
+&lt;H2&gt;A Simple Embperl Document&lt;/H2&gt;
+
+[- $time = localtime -]
+
+&lt;P&gt;Here are the details of your request at [+ $time +]:&lt;/P&gt;
+
+&lt;TABLE&gt;
+  &lt;TR&gt;
+    &lt;TH&gt;Name&lt;/TH&gt;
+    &lt;TH&gt;Value&lt;/TH&gt;
+  &lt;/TR&gt;
+  
+  [# Output a row for each environment variable #]
+  [$ foreach $varname ( sort keys %ENV ) $]
+    &lt;TR&gt;
+      &lt;TD&gt;&lt;B&gt;[+ $varname +]&lt;/B&gt;&lt;/TD&gt;
+      &lt;TD&gt;[+ $ENV{$varname} +]&lt;/TD&gt;
+    &lt;/TR&gt;
+  [$ endforeach $]
+
+&lt;/TABLE&gt;
+
+&lt;/BODY&gt;
+&lt;/HTML&gt;</pre></blockquote>
+</div>
+
+
+<p>
+<a name="INDEX-1421" />
+<a name="INDEX-1422" />
+<a name="INDEX-1423" />
+<a name="INDEX-1424" />Embperl
+recognizes blocks of code within the following bracket pairs:</p>
+
+
+<dl>
+<dt><b><tt class="literal">[+</tt> ... <tt class="literal">+]</tt></b></dt>
+<dd><p>These brackets are typically used for
+<a name="INDEX-1425" />
+<a name="INDEX-1426" />variables and simple
+expressions. Embperl executes the enclosed code and replaces it with
+the result of the last expression evaluated. This is evaluated in a
+scalar context, so something like this:</p>
+
+
+<blockquote><pre class="code">[+ @a = ( 'x', 'y', 'z' ); @a +]</pre></blockquote>
+
+
+<p>yields an output of "3" (the number of elements in the
+array) and not "xyz" or "x y z".</p></dd>
+
+
+<dt><b><tt class="literal">[-</tt>  ... <tt class="literal">-]</tt></b></dt>
+<dd><p>These brackets are used for most of your <a name="INDEX-1427" />program logic
+such as interfacing with outside modules, assigning values to
+variables, etc. Embperl executes the enclosed code and discards the
+result.</p></dd>
+
+
+<dt><b><tt class="literal">[!</tt> ... <tt class="literal">!]</tt></b></dt>
+<dd><p>These brackets are used with
+<a name="INDEX-1428" />subroutines
+declarations and other code that needs to be initialized only once.
+Embperl treats these bracket pairs just like <tt class="literal">[- ...
+-]</tt> except that it only executes the enclosed code once.
+This distinction is most relevant to with
+<em class="emphasis">mod_perl</em>: because Embperl stays resident between
+HTTP requests, having code run once means once per the life of the
+web server child, which may handle a hundred requests (or more). With
+CGI, code within this block is only executed once per request. These
+bracket pairs were introduced in Embperl 1.2.</p></dd>
+
+
+<dt><b><tt class="literal">[$</tt>  ... <tt class="literal">$]</tt></b></dt>
+<dd><p>These brackets are used with Embperl's
+<a name="INDEX-1429" />meta-commands, such as the
+<tt class="literal">foreach</tt> and <tt class="literal">endforeach</tt> control
+structure we used in our example. Embperl's meta-commands are
+listed in <a href="ch06_04.htm#ch06-63926">Table 6-6</a> later in this chapter.</p></dd>
+
+
+<dt><b><tt class="literal">[*</tt>  ... <tt class="literal">*]</tt></b></dt>
+<dd><p>These brackets are used when working with
+<a name="INDEX-1430" />
+<a name="INDEX-1431" /> <a name="INDEX-1,432" />local variables and for Perl control
+structures. Embperl treats this like <tt class="literal">[- ... -]</tt>
+except that it executes all the code in the these blocks in a common
+scope (sort of, see the <a href="ch06_04.htm#ch06-73315">Section 6.4.2.2, "Variable scope"</a> subsection
+below). This allows code within these blocks to share local
+variables. They can also contain Perl control structures. Instead of
+using Embperl's meta-commands as control structures, we could
+have used Perl's <tt class="function">foreach</tt> loop instead of
+Embperl's to create the table in our previous example:</p>
+
+
+<blockquote><pre class="code">[# Output a row for each environment variable #]
+  [* foreach $varname ( sort keys %ENV ) { *]
+    &lt;TR&gt;
+      &lt;TD&gt;&lt;B&gt;[+ $varname +]&lt;/B&gt;&lt;/TD&gt;
+      &lt;TD&gt;[+ $ENV{$varname} +]&lt;/TD&gt;
+    &lt;/TR&gt;
+  [* } *]</pre></blockquote>
+
+
+<p>The difference is brackets versus meta-command blocks. Note that code
+within <tt class="literal">[*</tt> and <tt class="literal">*]</tt> must end with
+a semicolon or a curly bracket, and these blocks are evaluated even
+inside Embperl comment blocks (see below). These bracket pairs were
+introduced in Embperl 1.2.</p></dd>
+
+
+<dt><b><tt class="literal">[#</tt>  ... <tt class="literal">#]</tt></b></dt>
+<dd><p>These brackets are used for
+<a name="INDEX-1433" />comments. Embperl ignores
+and strips anything between these bracket pairs so the contents do
+not end up in the output sent to the client. These can also be used
+to remove large sections of HTML or code during testing, but
+unfortunately this does not work for code within <tt class="literal">[* ...
+*]</tt>, since these blocks are evaluated first. These bracket
+pairs were introduced in Embperl 1.2.</p></dd>
+
+</dl>
+
+
+<p>Because blocks begin with <tt class="literal">[</tt> in Embperl, you must
+use <tt class="literal">[[</tt> if you need to output the [ character in
+your HTML. There is no need to escape <tt class="literal">]</tt> or
+<a name="INDEX-1434" /> <a name="INDEX-1,435" />other characters. Also, Embperl ties STDOUT
+to its output stream so you can use <tt class="function">print</tt> within
+Embperl blocks and it will behave correctly.</p>
+</div>
+
+
+
+<a name="ch06-73315" /><div class="sect3">
+<h3 class="sect3">6.4.2.2. Variable scope</h3>
+
+
+<p>Each block of code within a set of bracket pairs is evaluated as a
+separate block within Perl. This means that each one has a separate
+<a name="INDEX-1436" />
+<a name="INDEX-1437" />variable
+scope. If you declare a <a name="INDEX-1438" />lexical variable (a variable declared
+with <tt class="function">my</tt>) in one block, it will not be visible in
+another block. In other words, this will not work:</p>
+
+
+<blockquote><pre class="code">[- my $time = localtime -]
+&lt;P&gt;The time is: [+ $time +].&lt;/P&gt;</pre></blockquote>
+
+
+<p>The result is roughly analogous to the following in Perl:</p>
+
+
+<blockquote><pre class="code">&amp;{sub { my $time = localtime }};
+print "&lt;P&gt;The time is: " . &amp;{sub { $time }} . ".&lt;/P&gt;";</pre></blockquote>
+
+
+<p>Similarly, <a name="INDEX-1439" />
+<a name="INDEX-1440" />pragmas that depend on scope such
+as <tt class="literal">use strict</tt> will only affect the current block
+of code. To enable the strict pragma globally, you must use the
+<tt class="literal">var</tt> meta-command (see <a href="ch06_04.htm#ch06-63926">Table 6-6</a>).</p>
+
+
+<p>The <tt class="literal">[* ... *]</tt> blocks are a little different. They
+all share a common scope so local variables (variables declared with
+<tt class="function">local</tt>) can be shared between them. However,
+lexical variables still can not. This does not mean that you should
+entirely abandon declaring your variables with
+<tt class="function">my</tt> in Embperl.</p>
+
+
+<p>Lexical variables are still useful as <a name="INDEX-1441" />temporary variables that you only need
+within a particular block. Using lexical variables for temporary
+variables is more efficient than using <a name="INDEX-1442" /> <a name="INDEX-1,443" />global
+variables because they are reclaimed by Perl as soon as the
+surrounding block ends. Otherwise, they persist until the end of the
+HTTP request. Under CGI, of course, all global variables are cleaned
+up at the end of the request because <tt class="command">perl</tt> exits.
+However, even when running under <em class="emphasis">mod_perl</em>, by
+default Embperl undefines all global variables created within the
+scope of your pages at the end of each HTTP request.</p>
+</div>
+
+
+
+<a name="ch06-63352" /><div class="sect3">
+<h3 class="sect3">6.4.2.3. Meta-commands</h3>
+
+
+<p>
+<a name="INDEX-1444" />
+<a name="INDEX-1445" />
+<a name="INDEX-1446" />Embperl offers several meta-commands for
+creating control structures plus other miscellaneous functions shown
+in <a href="ch06_04.htm#ch06-63926">Table 6-6</a>. The parentheses shown with some of
+the control structures are optional in Embperl, but including them
+can make these commands clearer and look more like Perl's
+corresponding control structures.</p>
+
+
+
+<a name="ch06-63926" /><h4 class="objtitle">Table 6-6. Embperl's Meta-commands </h4><table border="1">
+
+
+
+<tr>
+<th>
+<p>Meta-command</p></th>
+<th>
+<p>Description</p></th>
+</tr>
+
+
+
+
+<tr>
+<td>
+<blockquote><pre class="code">[$ foreach $loop_var ( list ) $]</pre></blockquote></td>
+<td>
+<p>Similar to Perl's <tt class="function">foreach</tt> control
+structure, except <em class="emphasis">$loop_var</em> is required.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">[$ endforeach $]</pre></blockquote></td>
+<td>
+<p>Indicates the end of a <em class="emphasis">foreach</em> loop.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">[$ while ( expr ) $]</pre></blockquote></td>
+<td>
+<p>Similar to Perl's <tt class="function">while</tt> control structure.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">[$ endwhile $]</pre></blockquote></td>
+<td>
+<p>Indicates the end of a <em class="emphasis">while</em> loop.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">[$ do $]</pre></blockquote></td>
+<td>
+<p>Indicates the beginning of an <em class="emphasis">until</em> loop.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">[$ until ( expr ) $]</pre></blockquote></td>
+<td>
+<p>Similar to Perl's <tt class="function">until</tt> control structure.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">[$ if ( expr ) $]</pre></blockquote></td>
+<td>
+<p>Similar to Perl's <tt class="function">if</tt> control structure.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">[$ elsif ( expr ) $]</pre></blockquote></td>
+<td>
+<p>Similar to Perl's <tt class="function">elsif</tt> control structure.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">[$ else $]</pre></blockquote></td>
+<td>
+<p>Similar to Perl's <tt class="function">else</tt> control structure.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">[$ endif $]</pre></blockquote></td>
+<td>
+<p>Indicates the end of an <em class="emphasis">if</em> conditional.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">[$ sub subname $]</pre></blockquote></td>
+<td>
+<p>This allows you to treat a section containing both HTML and Embperl
+blocks as a subroutine that can be called as a normal Perl subroutine
+or via Embperl's <tt class="function">Execute</tt> function.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">[$ endsub $]</pre></blockquote></td>
+<td>
+<p>Indicates the end of a <em class="emphasis">sub</em> body.</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">[$ var $var1 @var2 %var3 ... $]</pre></blockquote></td>
+<td>
+<p>This command is equivalent to the following in a Perl script:</p>
+
+
+<blockquote><pre class="code">use strict;
+use vars qw( $var1 @var2 %var3 ... );</pre></blockquote>
+
+
+<p>Your pages will be more efficient if you use this, especially when
+running with <em class="emphasis">mod_perl</em>. Remember, however, that
+if you do, you must declare every variable here that is shared
+between Embperl blocks because of the scope restriction (see <a href="ch06_04.htm#ch06-73315">Section 6.4.2.2, "Variable scope"</a>, earlier).</p></td>
+</tr>
+
+<tr>
+<td>
+<blockquote><pre class="code">[$ hidden [ %input %used ] $]</pre></blockquote></td>
+<td>
+<p>This generates hidden fields for all elements in the first hash that
+are not in the second hash. Both hashes are optional, and one
+typically uses Embperl's default, which are
+<tt class="literal">%fdat</tt> and <tt class="literal">%idat</tt>.
+<tt class="literal">%fdat</tt> contains the name and values of the fields
+the user submitted, and <tt class="literal">%idat</tt> contains the names
+and values of the fields that have been used as elements in the
+current form (see <a href="ch06_04.htm#ch06-15817">Section 6.4.4, "Global Variables"</a>, later).</p></td>
+</tr>
+
+
+</table>
+</div>
+</div>
+
+
+
+
+<a name="ch06-16-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.4.3. HTML Logic</h3>
+
+
+<p>
+<a name="INDEX-1447" />
+<a name="INDEX-1448" />Embperl monitors and responds to HTML as it
+is output. You can have it construct
+<a name="INDEX-1449" />tables and prefill
+form elements for you automatically.</p>
+
+
+<a name="ch06-17-fm2xml" /><div class="sect3">
+<h3 class="sect3">6.4.3.1. Tables</h3>
+
+
+<p>If you use the <tt class="literal">$row</tt>, <tt class="literal">$col</tt>, or
+<tt class="literal">$cnt</tt> variables in code within a table, Embperl
+will loop over the contents of the table, dynamically build the table
+for you, and set these variables to the current row index, the
+current column index, and the number of cells output, respectively,
+with each iteration. Embperl interprets the variables as follows:</p>
+
+
+<ul><li><p>If <tt class="literal">$row</tt> is present, everything between
+&lt;TABLE&gt; and &lt;/TABLE&gt; is repeated until the expression
+containing <tt class="literal">$row</tt> is undefined.
+<a name="INDEX-1450" />Rows consisting
+entirely of &lt;TH&gt; ... &lt;/TH&gt; cells are considered headers
+and are not repeated.</p></li><li><p>If <tt class="literal">$col</tt> is present, everything between &lt;TR&gt;
+and &lt;/TR&gt; is repeated until the expression containing
+<tt class="literal">$col</tt> is undefined.</p></li><li><p><tt class="literal">$cnt</tt> is used in the same manner for either rows or
+columns if it is present and <tt class="literal">$row</tt> or
+<tt class="literal">$col</tt> are not.</p></li></ul>
+<p>Let's look at an example. Because <tt class="literal">$row</tt> and
+<tt class="literal">$col</tt> are set to the index of the current row and
+column, they are typically used as
+<a name="INDEX-1451" />
+<a name="INDEX-1452" />array indices when
+building tables, as shown here:</p>
+
+
+<blockquote><pre class="code">[- @sports = ( [ "Windsurfing", "Summer",   "Water"    ],
+               [ "Skiing",      "Winter",   "Mountain" ],
+               [ "Biking",      "All Year", "Hills"    ],
+               [ "Camping",     "All Year", "Desert"   ] ); -]
+&lt;TABLE&gt;
+  &lt;TR&gt;
+    &lt;TH&gt;Sport&lt;/TH&gt;
+    &lt;TH&gt;Season&lt;/TH&gt;
+    &lt;TH&gt;Terrain&lt;/TH&gt;
+  &lt;/TR&gt;
+  &lt;TR&gt;
+    &lt;TD&gt;[+ $sports[$row][$col] +]&lt;/TD&gt;
+  &lt;/TR&gt;
+&lt;/TABLE&gt;</pre></blockquote>
+
+
+<p>The previous code will create the following table:</p>
+
+
+<blockquote><pre class="code">&lt;TABLE&gt;
+  &lt;TR&gt;
+    &lt;TH&gt;Sport&lt;/TH&gt;
+    &lt;TH&gt;Season&lt;/TH&gt;
+    &lt;TH&gt;Terrain&lt;/TH&gt;
+  &lt;/TR&gt;
+  &lt;TR&gt;
+    &lt;TD&gt;Windsurfing&lt;/TD&gt;
+    &lt;TD&gt;Summer&lt;/TD&gt;
+    &lt;TD&gt;Water&lt;/TD&gt;
+  &lt;/TR&gt;
+  &lt;TR&gt;
+    &lt;TD&gt;Skiing&lt;/TD&gt;
+    &lt;TD&gt;Winter&lt;/TD&gt;
+    &lt;TD&gt;Mountain&lt;/TD&gt;
+  &lt;/TR&gt;
+  &lt;TR&gt;
+    &lt;TD&gt;Biking&lt;/TD&gt;
+    &lt;TD&gt;All Year&lt;/TD&gt;
+    &lt;TD&gt;Hills&lt;/TD&gt;
+  &lt;/TR&gt;
+  &lt;TR&gt;
+    &lt;TD&gt;Camping&lt;/TD&gt;
+    &lt;TD&gt;All Year&lt;/TD&gt;
+    &lt;TD&gt;Desert&lt;/TD&gt;
+  &lt;/TR&gt;
+&lt;/TABLE&gt;</pre></blockquote>
+</div>
+
+
+
+<a name="ch06-18-fm2xml" /><div class="sect3">
+<h3 class="sect3">6.4.3.2. List elements</h3>
+
+
+<p>If you use <tt class="literal">$row</tt> within a
+<a name="INDEX-1453" />
+<a name="INDEX-1454" />list or select menu, Embperl will
+repeat each element until <tt class="literal">$row</tt> is undefined, just
+as it does with tables. For select menus, Embperl will also
+automatically check options that match name and value pairs in
+<tt class="literal">%fdat</tt> and add names and values to
+<tt class="literal">%idat</tt> (see below).</p>
+</div>
+
+
+
+<a name="ch06-19-fm2xml" /><div class="sect3">
+<h3 class="sect3">6.4.3.3. Form input elements</h3>
+
+
+<p>Outputting <a name="INDEX-1455" />
+<a name="INDEX-1456" /> <a name="INDEX-1,457" />input and
+<a name="INDEX-1458" />
+<a name="INDEX-1459" />text area tags with Embperl is similar to
+outputting these tags with CGI.pm: if you create an element with a
+name matching an existing parameter, the value of the parameter is
+filled in by default. When an element is created, Embperl checks
+whether the name of that element exists within the
+<tt class="literal">%fdat</tt> hash (see below); if it does, then its value
+is automatically filled in. Also, as HTML elements are generated,
+Embperl adds the name-value (if given) to <tt class="literal">%idat</tt>.</p>
+</div>
+</div>
+
+
+
+
+<a name="ch06-15817" /><div class="sect2">
+<h3 class="sect2">6.4.4. Global Variables</h3>
+
+
+<p>
+<a name="INDEX-1460" />
+<a name="INDEX-1461" />Embperl
+defines a number of <a name="INDEX-1462" /> <a name="INDEX-1,463" /> <a name="INDEX-1,464" />global variables that you can use
+within your templates. Here is a list of the primary variables:</p>
+
+
+<dl>
+<dt><b><tt class="literal">%ENV</tt></b></dt>
+<dd><p>This should look familiar. Embperl sets your environment variables to
+match standard CGI environment variables when running under
+<em class="emphasis">mod_perl</em>.</p></dd>
+
+
+<dt><b><tt class="literal">%fdat</tt></b></dt>
+<dd><p>This contains the name and value of all form fields that have been
+passed to your CGI script. Embperl, like CGI.pm, does not distinguish
+between GET and POST requests and loads parameters from either the
+query string or the body of the request as appropriate. If an element
+has multiple values, these values are separated by tabs.</p></dd>
+
+
+<dt><b><tt class="literal">%idat</tt></b></dt>
+<dd><p>This contains the name and value of the form fields that have been
+created on the current page.</p></dd>
+
+
+<dt><b><tt class="literal">%mdat</tt></b></dt>
+<dd><p>This is only available when running under
+<em class="emphasis">mod_perl</em> with the Apache::Session module. You
+can use this hash to store anything and it will be available to every
+future request for the same page, even if those requests are to
+different <tt class="command">httpd</tt> child processes.</p></dd>
+
+
+<dt><b><tt class="literal">%udat</tt></b></dt>
+<dd><p>This is only available when running under
+<em class="emphasis">mod_perl</em> with the Apache::Session module. You
+can use this hash to store anything and it will be available to any
+future request made by the same user. This sends a HTTP cookie to the
+user, but no cookies are sent if this hash is not used in your code.
+See <a href="ch11_03.htm#ch11-29714">Section 11.3, "Client-Side Cookies"</a>.</p></dd>
+
+
+<dt><b><tt class="literal">@param</tt></b></dt>
+<dd><p>If you use the <em class="emphasis">Execute</em> function to invoke
+Embperl pages, the parameters you supply are available to your page
+via this variable.</p></dd>
+
+</dl>
+</div>
+
+
+
+
+<a name="ch06-20-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.4.5. Example</h3>
+
+
+<p>Let's look at an example of using <a name="INDEX-1465" /> <a name="INDEX-1,466" />Embperl.
+For our example, we will create a basic "What's
+New" section that displays the headlines of recent stories. If
+users click on a headline, they will be able to read the story. This
+in itself isn't that impressive, but we will create
+administrative pages that make it very simple for someone
+administering the site to add, delete, and edit news stories.</p>
+
+
+<p>There are a total of four pages to our application, the
+"What's New" page that displays current headlines;
+an article page where users can read a story; a main administrative
+page that lists the current headlines and provides buttons for
+adding, deleting, and editing stories; and an administrative page
+that provides a form for entering a headline and article body, which
+is used for both editing existing stories as well as creating new
+stories. These pages are shown later in <a href="ch06_04.htm#ch06-31772">Figure 6-3</a>
+through <a href="ch06_04.htm#ch06-86259">Figure 6-6</a>.</p>
+
+
+<a name="ch06-21-fm2xml" /><div class="sect3">
+<h3 class="sect3">6.4.5.1. Embperl handler</h3>
+
+
+<p>Traditional Embperl solutions use
+<em class="filename">.epl</em>
+<a name="INDEX-1467" />
+<a name="INDEX-1468" /> files as the target of our requests.
+This example will work either via <em class="emphasis">mod_perl</em> or
+<em class="filename">embpcgi.pl</em>.</p>
+
+
+<p>Let's look at the main "What's New" page
+first. The code for <em class="filename">news.epl</em> is shown in <a href="ch06_04.htm#ch06-59372">Example 6-11</a>.</p>
+
+
+
+<a name="ch06-59372" /><div class="example">
+<h4 class="objtitle">Example 6-11. news.epl </h4>
+
+<blockquote><pre class="code">&lt;HTML&gt;
+
+[!
+  use lib "/usr/local/apache/lib-perl";
+  use News;
+!]
+[- @stories = News::get_stories(  ) -]
+
+&lt;HEAD&gt;
+  &lt;TITLE&gt;What's New&lt;/TITLE&gt;
+&lt;/HEAD&gt;
+
+&lt;BODY BGCOLOR="white"&gt;
+&lt;H2&gt;What's New&lt;/H2&gt;
+
+&lt;P&gt;Here's the latest news of all that's happening around here.
+  Be sure to check back often to keep up with all the changes!&lt;/P&gt;
+
+&lt;HR&gt;
+
+&lt;UL&gt;
+  &lt;LI&gt;
+    [- ( $story, $headline, $date ) = @{ $stories[$row] } if $stories[$row] -]
+    &lt;A HREF="article.epl?story=[+ $story +]"&gt;[+ $headline +]&lt;/A&gt;
+    &lt;I&gt;[+ $date +]&lt;/I&gt;
+  &lt;/LI&gt;
+&lt;/UL&gt;
+  
+[$ if ( !@stories ) $]
+  &lt;P&gt;Sorry, there aren't any articles available now. Please check
+    back later!&lt;/P&gt;
+[$ endif $]
+
+&lt;/BODY&gt;
+&lt;/HTML&gt;</pre></blockquote>
+</div>
+
+
+<p>The result looks like <a href="ch06_04.htm#ch06-31772">Figure 6-3</a>.</p>
+
+
+<a name="ch06-31772" /><div class="figure"><img width="473" src="figs/cgi2.0603.gif" height="199" alt="Figure 6-3" /></div><h4 class="objtitle">Figure 6-3. The main "What's New" page presented to users</h4>
+
+<p>Embperl programs are much easier to read and maintain if you reduce
+the amount of Perl that is included in the HTML. We do this by moving
+much of our code into a common module, News.pm, which we place in
+<em class="filename">/usr/local/apache/perl-lib</em>.</p>
+
+
+<p>We'll look at the News module in a moment, but let's
+finish looking at <em class="filename">news.epl</em> first. We call the
+News module's <tt class="function">get_stories</tt> function. This
+returns an array of stories with each element of the array containing
+a reference to an array of the story number, its headline, and the
+date it was written.</p>
+
+
+<p>Thus, within our unordered list later in the file, we loop over each
+story using Embperl's special <tt class="literal">$row</tt> variable
+and extract these elements of each story to the
+<tt class="literal">$story</tt>, <tt class="literal">$headline</tt>, and
+<tt class="literal">$date</tt> variables. Embperl will loop and create a
+list item until the expression containing <tt class="literal">$row</tt>
+evaluates to an undefined value. We then use these variables to build
+a link to a story as a list element.</p>
+
+
+<p>If there are no stories, then we print a message telling the user
+this. That's all there is to this file. <a href="ch06_04.htm#ch06-33311">Example 6-12</a> shows a relevant section of the
+<a name="INDEX-1469" />News
+module.</p>
+
+
+
+<a name="ch06-33311" /><div class="example">
+<h4 class="objtitle">Example 6-12. News.pm (part 1 of 3) </h4>
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+package News;
+use strict;
+
+use Fcntl qw( :flock );
+
+my $NEWS_DIR = "/usr/local/apache/data/news";
+
+1;
+
+
+sub get_stories {
+    my @stories = (  );
+    local( *DIR, *STORY );
+    
+    opendir DIR, $NEWS_DIR or die "Cannot open $NEWS_DIR: $!";
+    while ( defined( my $file = readdir DIR ) ) {
+        next if $file =~ /^\./;       # skip . and ..
+        open STORY, "$NEWS_DIR/$file" or next;
+        flock STORY, LOCK_SH;
+        my $headline = &lt;STORY&gt;;
+        close STORY;
+        chomp $headline;
+        push @stories, [ $file, $headline, get_date( $file ) ];
+    }
+    closedir DIR;
+    return sort { $b-&gt;[0] &lt;=&gt; $a-&gt;[0] } @stories;
+}
+
+
+# Returns standard Unix timestamp without the time, just the date
+sub get_date {
+    my $filename = shift;
+    ( my $date = localtime $filename ) =~ s/ +\d+:\d+:\d+/,/;
+    return $date;
+}</pre></blockquote>
+</div>
+
+
+<p>We store the path to the news directory in
+<tt class="literal">$NEWS_DIR</tt>. Note that we use a lexical variable
+here instead of a constant because if this script is used with
+<em class="emphasis">mod_perl</em>, as is often the case with Embperl,
+using constants can generate extra messages in the log file.
+We'll discuss why this happens in <a href="ch17_03.htm#ch17-15286">Section 17.3, "mod_perl"</a>.</p>
+
+
+<p>The format for our article files is rather basic. The first line is
+the headline, and all following lines are the body of the article,
+which should contain HTML formatting. The files are named according
+to the time that they are saved, using the result of Perl's
+<tt class="function">time</tt> function -- the number of seconds after
+the epoch.</p>
+
+
+<p>For the sake of this example we will assume that there is only one
+administrator who has access to create and edit files. If this were
+not the case, we would need to create a more elaborate way to name
+the files to prevent two people from creating stories at the same
+second. Plus, we would need to create a system to avoid having two
+administrators edit the same file at the same time; one way to do
+this would be to have the edit page retrieve the current time into a
+hidden field when it loads a file for editing, which could then be
+compared against the last modification time of the file when the file
+is saved. If the file has been modified since it was loaded, a new
+form would need to be presented to the administrator showing both
+sets of changes so they can be reconciled.</p>
+
+
+<p>The <tt class="function">get_stories</tt> function opens this news
+directory and loops through each file. It skips any files starting
+with a dot, including the current and parent directories. If we
+encounter any system errors reading directories we die; if we have
+problems reading a file, we skip it. Filesystem errors are not
+common, but they can happen; if you wish to generate a more friendly
+response to the user than a cryptic <em class="emphasis">500 Internet Service
+Error</em>, use <a name="INDEX-1470" /> <a name="INDEX-1,471" /> <a name="INDEX-1,472" />
+<a name="INDEX-1473" />CGI::Carp with
+<em class="emphasis">fatalsToBrowser</em> to catch any
+<tt class="function">die</tt> calls.</p>
+
+
+<p>We get a shared <a name="INDEX-1474" />
+<a name="INDEX-1475" />lock
+on the file to make sure that we are not reading a file that is in
+the process of being written by the administrator. Then we read the
+story's headline and add the story's file number,
+headline, and date created to our list of stories. The
+<tt class="function">get_date</tt> function simply generates a Unix
+timestamp from the file number via Perl's
+<em class="emphasis">localtime</em> function. That looks like this:</p>
+
+
+<blockquote><pre class="code">Sun Feb 13 17:35:00 2000</pre></blockquote>
+
+
+<p>It then replaces the time with a comma in order to get a basic date
+that looks like this:</p>
+
+
+<blockquote><pre class="code">Sun Feb 13, 2000</pre></blockquote>
+
+
+<p>Finally, we sort the list of stories from largest to smallest
+according to the article number. Because this is the same as the date
+the file was created, newest headlines will always appear at the
+beginning of the list.</p>
+
+
+<p>When the user selects a headline from the list, the application
+fetches the corresponding article. <a href="ch06_04.htm#ch06-87045">Example 6-13</a> shows
+the page that displays the articles.</p>
+
+
+
+<a name="ch06-87045" /><div class="example">
+<h4 class="objtitle">Example 6-13. article.epl </h4>
+
+<blockquote><pre class="code">&lt;HTML&gt;
+
+[!
+  use lib "/usr/local/apache/lib-perl";
+  use News;
+!]
+[- ( $headline, $article, $date ) = News::get_story( $fdat{story} ) -]
+
+&lt;HEAD&gt;
+  &lt;TITLE&gt;[+ $headline +]&lt;/TITLE&gt;
+&lt;/HEAD&gt;
+
+&lt;BODY BGCOLOR="white"&gt;
+  &lt;H2&gt;[+ $headline +]&lt;/H2&gt;
+  &lt;P&gt;&lt;I&gt;[+ $date +]&lt;/I&gt;&lt;/P&gt;
+  [+ local $escmode = 0; $article +]
+  
+  &lt;HR&gt;
+  &lt;P&gt;Return to &lt;A HREF="news.epl"&gt;What's New&lt;/A&gt;.&lt;/P&gt;
+
+&lt;/BODY&gt;
+&lt;/HTML&gt;</pre></blockquote>
+</div>
+
+
+<p>The result looks like <a href="ch06_04.htm#ch06-97278">Figure 6-4</a>.</p>
+
+
+<a name="ch06-97278" /><div class="figure"><img width="473" src="figs/cgi2.0604.gif" height="218" alt="Figure 6-4" /></div><h4 class="objtitle">Figure 6-4. A sample story</h4>
+
+<p>Because most of the work is done by the News module, this file is
+also quite simple. The links to this page from the main
+"What's New" page include a query string that
+specifies the number of the story to view. We use Embperl's
+special <tt class="literal">%fdat</tt> hash to retrieve the number of the
+story and pass it to the
+<em class="emphasis">News</em>::<tt class="function">get_story</tt> function,
+which gives us the headline, article contents, and date of the
+article.</p>
+
+
+<p>Then we simply need to include tags for these variables in our
+document where we want to display the data.
+<tt class="literal">$article</tt> requires some extra consideration. The
+body of the article contains HTML, but by default
+<a name="INDEX-1476" />
+<a name="INDEX-1477" />Embperl escapes any HTML
+generated by your Perl blocks, so for example, &lt;P&gt; will be
+converted to <tt class="literal">&amp;lt;P&amp;gt;</tt>. In order to
+disable this, we set Embperl's special
+<tt class="literal">$escmode</tt> variable to <tt class="literal">0</tt>, and
+because we provide a <tt class="function">local</tt> scope to the
+variable, this change only lasts for the current block and the former
+value of <tt class="literal">$escmode</tt> is reset after the article is
+output.</p>
+
+
+<p><a href="ch06_04.htm#ch06-83567">Example 6-14</a> contains the
+<tt class="function">get_story</tt> function from the News module.</p>
+
+
+
+<a name="ch06-83567" /><div class="example">
+<h4 class="objtitle">Example 6-14. News.pm (part 2 of 3) </h4>
+
+<blockquote><pre class="code">sub get_story {
+    my( $filename ) = shift(  ) =~ /^(\d+)$/;
+    my( $headline, $article );
+    
+    unless ( defined( $filename ) and -T "$NEWS_DIR/$filename" ) {
+        return "Story Not Found", &lt;&lt;END_NOT_FOUND, get_time( time );
+&lt;P&gt;Oops, the story you requested was not found.&lt;/P&gt;
+&lt;P&gt;If a link on our What's New page brought you here, please
+notify the &lt;A HREF="mailto:$ENV{SERVER_ADMIN}"&gt;webmaster&lt;/A&gt;.&lt;/P&gt;
+END_NOT_FOUND
+    }
+    
+    open STORY, "$NEWS_DIR/$filename" or
+      die "Cannot open $NEWS_DIR/$filename: $!";
+    flock STORY, LOCK_SH;
+    $headline = &lt;STORY&gt;;
+    chomp $headline;
+    local $/ = undef;
+    $article = &lt;STORY&gt;;
+    
+    return $headline, $article, get_date( $filename );
+}</pre></blockquote>
+</div>
+
+
+<p>This function takes the story number as a parameter, and the first
+thing this function does is verify that it is the expected format.
+The <a name="INDEX-1478" />regular expression assignment
+followed by the <tt class="function">defined</tt> test may seem like a
+roundabout way to test this, but we do this in order to untaint the
+<a name="INDEX-1479" />filename;
+we explain tainting and why it's important in <a href="ch08_04.htm#ch08-28640">Section 8.4, "Perl's Taint Mode"</a>. Finally we make sure that this story exists
+and is a text file.</p>
+
+
+<p>If any of our checks fail, we return an error to the user formatted
+like a standard story. Otherwise, we open the file read the headline
+and contents, get its date, and return this to the page.</p>
+
+
+<p>Now let's look at the administrative pages. The administrative
+pages should be placed in a subdirectory beneath the other files. For
+example, the files could be installed in the following locations:</p>
+
+
+<blockquote><pre class="code">.../news/news.epl
+.../news/article.epl
+.../news/admin/edit_news.epl
+.../news/admin/edit_article.epl</pre></blockquote>
+
+
+<p>This enables us to configure the web server to restrict access to the
+<em class="emphasis">admin</em> subdirectory. <a href="ch06_04.htm#ch06-70774">Example 6-15</a>
+shows the main administrative page,
+<em class="filename">admin_news.epl</em>.</p>
+
+
+
+<a name="ch06-70774" /><div class="example">
+<h4 class="objtitle">Example 6-15. admin_news.epl </h4>
+
+<blockquote><pre class="code">&lt;HTML&gt;
+
+[!
+    use lib "/usr/local/apache/lib-perl";
+    use News;
+!]
+
+[-  
+    if ( my( $input ) = keys %fdat ) {
+        my( $command, $story ) = split ":", $input;
+        
+        $command eq "new" and do {
+            $http_headers_out{Location} = "edit_article.epl";
+            exit;
+        };
+        $command eq "edit" and do {
+            $http_headers_out{Location} = "edit_article.epl?story=$story";
+            exit;
+        };
+        $command eq "delete" and
+            News::delete_story( $story );
+    }
+    
+    @stories = News::get_stories(  )
+-]
+
+&lt;HEAD&gt;
+  &lt;TITLE&gt;What's New Administration&lt;/TITLE&gt;
+&lt;/HEAD&gt;
+
+&lt;BODY BGCOLOR="white"&gt;
+  &lt;FORM METHOD="POST"&gt;
+    &lt;H2&gt;What's New Administration&lt;/H2&gt;
+    
+    &lt;P&gt;Here you can edit and delete existing stories as well as create
+      new stories. Clicking on a headline will take you to that article
+      in the public area; you will need to use your browser's Back button
+      to return.&lt;/P&gt;
+    &lt;HR&gt;
+    
+    &lt;TABLE BORDER=1&gt;
+    &lt;TR&gt;
+      [- ( $story, $headline, $date ) = @{ $stories[$row] } if $stories[$row] -]
+      &lt;TD&gt;
+        &lt;INPUT TYPE="submit" NAME="edit:[+ $story +]" VALUE="Edit"&gt;
+        &lt;INPUT TYPE="submit" NAME="delete:[+ $story +]" VALUE="Delete"
+          onClick="return confirm('Are you sure you want to delete this?')"&gt;
+      &lt;/TD&gt;
+      &lt;TD&gt;
+        &lt;A HREF="../article.epl?story=[+ $story +]"&gt;[+ $headline +]&lt;/A&gt;
+        &lt;I&gt;[+ $date +]&lt;/I&gt;
+      &lt;/TD&gt;
+    &lt;/TR&gt;
+    &lt;/TABLE&gt;
+    
+    &lt;INPUT TYPE="submit" NAME="new" VALUE="Create New Story"&gt;  
+  &lt;/FORM&gt;
+
+  &lt;HR&gt;
+  &lt;P&gt;Go to &lt;A HREF="../news.epl"&gt;What's New&lt;/A&gt;.&lt;/P&gt;
+
+&lt;/BODY&gt;
+&lt;/HTML&gt;</pre></blockquote>
+</div>
+
+
+<p>The result looks like <a href="ch06_04.htm#ch06-53377">Figure 6-5</a>.</p>
+
+
+<a name="ch06-53377" /><div class="figure"><img width="478" src="figs/cgi2.0605.gif" height="288" alt="Figure 6-5" /></div><h4 class="objtitle">Figure 6-5. Main administrative page for "What's New"</h4>
+
+<p>This page must handle a few different requests. If it receives a
+parameter, it uses a series of conditions to determine how to handle
+the request. Let's return to these statements after looking at
+the rest of the file because when the administrator first visits this
+page, there are no parameters.</p>
+
+
+<p>Like <em class="filename">news.epl</em>, we fetch an array of stories from
+<tt class="function">get_stories</tt>, but instead of creating an ordered
+list and looping over list items, we output a table and loop over
+rows in this table. For each story, we output a corresponding Edit
+and Delete button as well as a link to the story. Note that the name
+of the Edit and Delete buttons contain the command as well as the
+number of the story separated by a colon. This allows us to pass both
+pieces of information when the administrator clicks on a button,
+without restricting us from changing the label of the button.
+Finally, we add a submit button to the bottom of the page to allow
+the administrator to add a new story.</p>
+
+
+<p>All the form elements on these page are submit buttons, and they will
+only send a name-value pair if they are clicked. Thus, if the
+administrator clicks a button, the browser will request the same page
+again, passing a parameter for the selected button. Returning to the
+conditions at the top of the file, if there is a parameter passed to
+this file, it is split by colon into <tt class="literal">$command</tt> and
+<tt class="literal">$story</tt>.</p>
+
+
+<p>You may have noticed that if the administrator selects the button to
+create a new story, then the supplied parameter will not include a
+colon. That's okay because in this case,
+<tt class="function">split</tt> will set <tt class="literal">$command</tt> to
+"new" and <tt class="literal">$story</tt> to
+<tt class="literal">undef</tt>. If <tt class="literal">$command</tt> is set to
+"new", we forward the user to the
+<em class="filename">edit_article.epl</em> file. To do this, we assign
+Embperl's special <tt class="literal">%http_headers_out</tt>
+variable. Setting the "Location" key to a value outputs a
+<em class="emphasis">Location</em> HTTP header; we can then exit this
+page.</p>
+
+
+<p>If the administrator edits an existing story, we also forward to the
+<em class="filename">edit_article.epl</em> file and exit, but in this case
+we pass the story number as part of the query string. If the
+administrator deletes a story, we invoke the
+<tt class="function">delete_story</tt> function from our News module and
+continue processing. Because we gather the list of stories after this
+deletion, this page will display the updated list of headers.</p>
+
+
+<p>We also add a JavaScript handler to the delete button to prevent
+stray mouse clicks from deleting the wrong file. Even if you have
+decided not to use JavaScript on your public site, it can be very
+useful for administrative pages with limited access such as this,
+where you typically can be more restrictive about the browsers
+supported.</p>
+
+
+<p>Finally, <a href="ch06_04.htm#ch06-90891">Example 6-16</a> presents
+<em class="firstterm">edit_article.epl</em>, the page that allows the
+administrator to create or edit articles.</p>
+
+
+
+<a name="ch06-90891" /><div class="example">
+<h4 class="objtitle">Example 6-16. edit_article.ep </h4>
+
+<blockquote><pre class="code">&lt;HTML&gt;
+
+[!
+    use lib "/usr/local/apache/lib-perl";
+    use News;
+!]
+
+[-
+    if ( $fdat{story} ) {
+        ( $fdat{headline}, $fdat{article} ) =
+            News::get_story( $fdat{story} );
+    }
+    elsif ( $fdat{save} ) {
+        News::save_story( $fdat{story}, $fdat{headline}, $fdat{article} );
+        $http_headers_out{Location} = "edit_news.epl";
+        exit;
+    }
+-]
+
+&lt;HEAD&gt;
+  &lt;TITLE&gt;Edit Article&lt;/TITLE&gt;
+&lt;/HEAD&gt;
+
+&lt;BODY BGCOLOR="white"&gt;
+  &lt;H2&gt;Edit Article&lt;/H2&gt;
+  
+  &lt;HR&gt;
+  &lt;FORM METHOD="POST"&gt;
+    &lt;P&gt;&lt;B&gt;Headline: &lt;/B&gt;&lt;INPUT TYPE="text" NAME="headline" SIZE="50"&gt;&lt;/P&gt;
+    
+    &lt;P&gt;&lt;B&gt;Article:&lt;/B&gt; (HTML formatted)&lt;BR&gt;
+      &lt;TEXTAREA NAME="article" COLS=60 ROWS=20&gt;&lt;/TEXTAREA&gt;&lt;/P&gt;
+    
+    &lt;INPUT TYPE="reset" VALUE="Reset Form"&gt;
+    &lt;INPUT TYPE="submit" NAME="save" VALUE="Save Article"&gt;
+    [$ hidden $]
+  &lt;/FORM&gt;
+
+  &lt;HR&gt;
+  &lt;P&gt;Return to &lt;A HREF="edit_news.epl"&gt;What's New Administration&lt;/A&gt;.
+    &lt;I&gt;Warning, you will lose your changes!&lt;/I&gt;&lt;/P&gt;
+
+&lt;/BODY&gt;
+&lt;/HTML&gt;</pre></blockquote>
+</div>
+
+
+<p>The result looks like <a href="ch06_04.htm#ch06-86259">Figure 6-6</a>.</p>
+
+
+<a name="ch06-86259" /><div class="figure"><img width="473" src="figs/cgi2.0606.gif" height="375" alt="Figure 6-6" /></div><h4 class="objtitle">Figure 6-6. Article editing page</h4>
+
+<p>If the administrator is editing a page, then the story number will be
+supplied in the query string. We get this from
+<tt class="literal">%fdat</tt> and fetch the headline and article contents
+using <tt class="function">get_story</tt>. We then set these fields in
+<tt class="literal">%fdat</tt> so that when Embperl encounters the
+<em class="emphasis">headline</em> and <em class="emphasis">article</em> form
+elements later in this file, it will pre-fill these defaults values
+for us automatically. The hidden command in the form below will be
+replaced with the story number if it was supplied. This is all we
+need to do in order to have the form handle new stories as well as
+edits.</p>
+
+
+<p>When the administrator submits these changes, the story number (which
+will be present for edits and undefined for additions), the headline
+text, and the article text are supplied to the
+<tt class="function">save_story</tt> function and the administrator is
+redirected back to the main administrative page.</p>
+
+
+<p>The administrative functions from <a name="INDEX-1480" />
+<a name="INDEX-1481" />News are shown in <a href="ch06_04.htm#ch06-74481">Example 6-17</a>.</p>
+
+
+
+<a name="ch06-74481" /><div class="example">
+<h4 class="objtitle">Example 6-17. News.pm (part 3 of 3) </h4>
+
+<blockquote><pre class="code">sub save_story {
+    my( $story, $headline, $article ) = @_;
+    local *STORY;
+    
+    $story ||= time;                        # name new files based on time in secs
+    $article =~ s/\015\012|\015|\012/\n/g;  # make line endings consistent
+    $headline =~ tr/\015\012//d;            # delete any line endings just in case
+    
+    my( $file ) = $story =~ /^(\d+)$/ or die "Illegal filename: '$story'";
+    
+    open STORY, "&gt; $NEWS_DIR/$file";
+    flock STORY, LOCK_EX;
+    seek STORY, 0, 0;
+    print STORY $headline, "\n", $article;
+    close STORY;
+}
+
+sub delete_story {
+    my $story = shift;    
+    my( $file ) = $story =~ /^(\d+)$/ or die "Illegal filename: '$story'";
+    unlink "$NEWS_DIR/$file" or die "Cannot remove story $NEWS_DIR/$file: $!";
+}</pre></blockquote>
+</div>
+
+
+<p>The <tt class="function">save_story</tt> function takes an optional story
+file number, a headline, and article contents. If a number is not
+provided for the story, <tt class="function">save_story</tt> assumes that
+this is a new story and generates a new number from
+<tt class="function">date</tt>. We convert line endings from browsers on
+other platforms to the standard line ending for our web server and
+trim any line-ending characters from the headline because these would
+corrupt our data.</p>
+
+
+<p>Again, we test the story number to make sure it is valid and then
+open this file and write to it, replacing any previous version if
+this is an update. We get an exclusive lock while we are writing so
+someone else does not try to read it before we finish (and get a
+partial news story). The <tt class="function">delete_story</tt> function
+simply tests that the filename is <a name="INDEX-1482" /> <a name="INDEX-1,483" />valid and removes it.</p>
+</div>
+</div>
+
+
+
+
+<a name="ch06-22-fm2xml" /><div class="sect2">
+<h3 class="sect2">6.4.6. Summary</h3>
+
+
+<p>As we have seen, Embperl presents a very different approach to
+generating dynamic output with Perl. We've covered what you
+need to know in order to develop most Embperl pages, but Embperl has
+many features and options that we simply do not have room to present.
+Fortunately, Embperl has extensive documentation, so if you want to
+learn more about HTML::Embperl, you can download it from CPAN
+<a name="INDEX-1484" />
+<a name="INDEX-1485" />
+<a name="INDEX-1486" />and visit
+the <a name="INDEX-1487" />
+<a name="INDEX-1488" />Embperl
+website at <a href="http://perl.apache.org/embperl/">http://perl.apache.org/embperl/</a>.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch06_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">6.3. HTML::Template</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">6.5. Mason</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

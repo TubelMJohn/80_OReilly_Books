@@ -1,0 +1,234 @@
+<html><head><title>DOM Level 3 (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch06_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">6.4. DOM Level 3</h2>
+
+<p><a name="INDEX-626" />Before closing the book on DOM and looking
+at common gotchas, I will spend a little time letting you know
+what's coming in DOM Level 3, which is underway right now. In
+fact, I expect this specification to be finalized early in 2002, not
+long from the time you are probably reading this book. The items I
+point out here aren't all of the changes and additions in DOM
+Level 3, but they are the ones that I think are of general interest
+to most DOM developers (that's you now, if you were wondering).
+Many of these are things that DOM programmers have been requesting
+for several years, so now you can look forward to them as well.
+</p>
+
+<a name="javaxml2-CHP-6-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">6.4.1. The XML Declaration</h3>
+
+<p><a name="INDEX-627" />The first change in the DOM that I want to
+point out seems pretty trivial at first glance: exposure of the XML
+declaration. Remember those? Here's an example:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0" standalone="yes" encoding="UTF-8"?&gt;</pre></blockquote>
+
+<p>There are three important pieces of information here that are not
+currently available in DOM: the version, the state of the
+<tt class="literal">standalone</tt> attribute, and the specified encoding.
+Additionally, the DOM tree itself has an encoding; this may or may
+not match up to the XML <tt class="literal">encoding</tt> attribute. For
+example, the associated encoding for "UTF-8" in Java
+turns out to be "UTF8", and there should be a way to
+distinguish between the two. All of these problems are solved in DOM
+Level 3 by the addition of four attributes to the
+<tt class="literal">Document</tt> interface. These are
+<tt class="literal">version</tt> (a <tt class="literal">String</tt>),
+<tt class="literal">standalone</tt> (a <tt class="literal">boolean</tt>),
+<tt class="literal">encoding</tt> (another <tt class="literal">String</tt>), and
+<tt class="literal">actualEncoding</tt> (<tt class="literal">String</tt> again).
+The accessor and mutator methods to modify these attributes are
+pretty straightforward:
+</p>
+
+<blockquote><pre class="code">public String getVersion( );
+public void setVersion(String version);
+
+public boolean getStandalone( );
+public void setStandalone(boolean standalone);
+
+public String getEncoding( );
+public void setEncoding(String encoding);
+
+public String getActualEncoding( );
+public void setActualEncoding(String actualEncoding);</pre></blockquote>
+
+<p>Most importantly, you'll finally be able to access the
+information in the XML declaration. This is a real boon to those
+writing XML editors and the like that need this information. It also
+helps developers working with internationalization and XML, as they
+can ascertain a document's encoding
+(<tt class="literal">encoding</tt>), create a DOM tree with its encoding
+(<tt class="literal">actualEncoding</tt>), and then translate as needed.
+</p>
+
+</div>
+<a name="javaxml2-CHP-6-SECT-4.2" /><div class="sect2">
+<h3 class="sect2">6.4.2. Node Comparisons</h3>
+
+<p><a name="INDEX-628" />In Levels 1 and 2 of DOM, the only way to
+compare two nodes is to do it manually. Developers end up writing
+utility methods that use <tt class="literal">instanceof</tt> to determine
+the type of <tt class="literal">Node</tt>, and then compare all the
+available method values to each other. In other words, it's a
+pain. DOM Level 3 offers several comparison methods that alleviate
+this pain. I'll give you the proposed signatures, and then tell
+you about each. They are all additions to the
+<tt class="literal">org.w3c.dom.Node</tt> interface, and look like this:
+</p>
+
+<blockquote><pre class="code">// See if the input Node is the same object as this Node
+public boolean isSameNode(Node input);
+
+// Tests for equality in structure (not object equality)
+public boolean equalsNode(Node input, boolean deep);
+
+/** Constants for document order */
+public static final int DOCUMENT_ORDER_PRECEDING = 1;
+public static final int DOCUMENT_ORDER_FOLLOWING = 2;
+public static final int DOCUMENT_ORDER_SAME      = 3;
+public static final int DOCUMENT_ORDER_UNORDERED = 4;
+
+// Determine the document order of input in relation to this Node
+public int compareDocumentOrder(Node input) throws DOMException;
+
+/** Constants for tree position */
+public static final int TREE_POSITION_PRECEDING  = 1;
+public static final int TREE_POSITION_FOLLOWING  = 2;
+public static final int TREE_POSITION_ANCESTOR   = 3;
+public static final int TREE_POSITION_DESCENDANT = 4;
+public static final int TREE_POSITION_SAME       = 5;
+public static final int TREE_POSITION_UNORDERED  = 6;
+
+// Determine the tree position of input in relation to this Node
+public int compareTreePosition(Node input) throws DOMException;</pre></blockquote>
+
+<p>The first method, <tt class="literal">isSameNode(
+)</tt><a name="INDEX-629" />,
+allows for object comparison. This doesn't determine whether
+the two nodes have the same structure or data, but whether they are
+the same object in the JVM. The second method, <tt class="literal">equalsNode(
+)</tt><a name="INDEX-630" />,
+is probably going to be more commonly used in your applications. It
+tests for <tt class="literal">Node</tt> equality in terms of data and type
+(obviously, an <tt class="literal">Attr</tt> will never be equal to a
+<tt class="literal">DocumentType</tt>). It provides a parameter,
+<tt class="literal">deep</tt>, to allow comparison of just the
+<tt class="literal">Node</tt> itself or of all its child
+<tt class="literal">Node</tt>s as well.
+</p>
+
+<p>The next two methods, <tt class="literal">compareDocumentOrder(
+)</tt><a name="INDEX-631" /> and <tt class="literal">compareTreePosition(
+)</tt><a name="INDEX-632" />, allow for relational positioning of the
+current <tt class="literal">Node</tt> and an input <tt class="literal">Node</tt>.
+For both, there are several constants defined to be used as return
+values. A node can be before the current one in the document, after
+it, in the same position, or unordered. The unordered value occurs
+when comparing an attribute to an element, or in any other case where
+the term "document order" has no contextual meaning. And
+finally, a <tt class="literal">DOMException</tt> occurs when the two nodes
+being queried are not in the same DOM <tt class="literal">Document</tt>
+object. The final new method, <tt class="literal">compareTreePosition(
+)</tt><a name="INDEX-633" />, provides the same sort of comparison, but
+adds the ability to determine ancestry. Two additional constants,
+<tt class="literal">TREE_POSITION_ANCESTOR</tt> and
+<tt class="literal">TREE_POSITION_DESCENDANT</tt>, allow for this. The
+first denotes that the input <tt class="literal">Node</tt> is up the
+hierarchy from the reference <tt class="literal">Node</tt> (the one the
+method is invoked upon); the second indicates that the input
+<tt class="literal">Node</tt> is down the hierarchy from the reference
+<tt class="literal">Node</tt>.
+</p>
+
+<p>With these four methods, you can isolate any <a name="INDEX-634" />DOM structure and determine how it
+relates to another. This addition to DOM Level 3 should serve you
+well, and you can count on using all of the comparison methods in
+your coding. Keep an eye on both the constant names and values,
+though, as they may change over the evolution of the specification.
+</p>
+
+</div>
+<a name="javaxml2-CHP-6-SECT-4.3" /><div class="sect2">
+<h3 class="sect2">6.4.3. Bootstrapping</h3>
+
+<p><a name="INDEX-635" />The last
+addition in DOM Level 3 I want to cover is arguably the most
+important: the ability to bootstrap. I mentioned earlier that in
+creating DOM structures, you are forced to use
+<a name="INDEX-636" />vendor-specific code (unless you're
+using JAXP, which I'll cover in <a href="ch09_01.htm">Chapter 9, "JAXP"</a>).
+This is a bad thing, of course, as it knocks out vendor-independence.
+For the sake of discussion, I'll repeat a code fragment that
+creates a DOM <tt class="literal">Document</tt> object using a
+<tt class="literal">DOMImplementation</tt> here:
+</p>
+
+<blockquote><pre class="code">import org.w3c.dom.Document;
+import org.w3c.dom.DOMImplementation;
+
+import org.apache.xerces.dom.DOMImplementationImpl;
+
+// Class declaration and other Java constructs
+
+DOMImplementation domImpl = DOMImplementationImpl.getDOMImplementation( );
+Document doc = domImpl.createDocument( );
+// And so on...</pre></blockquote>
+
+<p>The problem is that there is no way to get a
+<tt class="literal">DOMImplementation</tt> without importing and using a
+vendor's implementation class. The solution is to use a factory
+that provides <tt class="literal">DOMImplementation</tt> instances. Of
+course, the factory is actually providing a vendor's
+<em class="emphasis">implementation</em> of
+<tt class="literal">DOMImplementation</tt> (I know, I know, it's a
+bit confusing). Vendors can set system properties or provide their
+own versions of this factory so that it returns the implementation
+class they want. The resulting code to create DOM trees then looks
+like this:
+</p>
+
+<blockquote><pre class="code">import org.w3c.dom.Document;
+import org.w3c.dom.DOMImplementation;
+import org.w3c.dom.DOMImplementationFactory;
+
+// Class declaration and other Java constructs
+
+DOMImplementation domImpl = 
+    DOMImplementationFactory.getDOMImplementation( );
+Document doc = domImpl.createDocument( );
+// And so on...</pre></blockquote>
+
+<p>The class being added is <tt class="literal">DOMImplementationFactory</tt>,
+and should solve most of your vendor-independence issues once
+it's in place. Look for this as the flagship of DOM Level 3, as
+it's one of the most requested features for current levels of
+DOM.<a name="INDEX-637" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch06_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">6.3. DOM Level 2 Modules</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">6.5. Gotcha!</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

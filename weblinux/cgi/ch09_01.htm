@@ -1,0 +1,255 @@
+<?label 9. Sending Email?><html><head><title>Sending Email (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch09_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 9. Sending Email</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch09_01.htm">Security</a><br>
+<a href="ch09_02.htm">Email Addresses</a><br>
+<a href="ch09_03.htm">Structure of Internet Email</a><br>
+<a href="ch09_04.htm">sendmail</a><br>
+<a href="ch09_05.htm">mailx and mail</a><br>
+<a href="ch09_06.htm">Perl Mailers</a><br>
+<a href="ch09_07.htm">procmail</a><br></p></div>
+
+
+
+<p>One of the most common tasks your <a name="INDEX-1802" />
+<a name="INDEX-1803" />CGI
+scripts need to perform is sending email. Email is a popular method
+for exchanging information between people, whether that information
+comes from other people or from automated systems. You may need to
+send email updates or receipts to visitors of your web site. You may
+need to notify members of your organization about certain events like
+a purchase, a request for information, or feedback about your web
+site. Email is also a useful tool to notify you when there are
+problems with your CGI scripts. When you write subroutines that
+respond to errors in your CGI scripts, it is a very good idea to
+include code to notify whomever is responsible for maintaining the
+site about the error.</p>
+
+
+<p>There are several ways to send email from an application, including
+using an external mail client, such as <tt class="command">sendmail</tt> or
+<tt class="command">mail</tt>, or by directly communicating with the remote
+mail server via Perl. There are also Perl modules that make sending
+mail especially easy. We'll explore all these options in this
+chapter by building a sample application that provides a web front
+end to an emailer.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch09-24809" />
+<h2 class="sect1">9.1. Security</h2>
+
+
+<p>Since the subject of <a name="INDEX-1804" /> <a name="INDEX-1,805" />
+<a name="INDEX-1806" />security is
+still fresh in our minds, however, we should take a moment to review
+security as it relates to email. Sending email is probably one of the
+largest causes of security errors in CGI scripts.</p>
+
+
+<a name="ch09-1-fm2xml" /><div class="sect2">
+<h3 class="sect2">9.1.1. Mailers and Shells</h3>
+
+
+<p>Most <a name="INDEX-1807" />
+<a name="INDEX-1808" />CGI scripts open a
+<a name="INDEX-1809" />pipe to an external
+<a name="INDEX-1810" />mail
+client such as <tt class="command">sendmail</tt> and
+<tt class="command">mail</tt>, and pass the email address through the
+<a name="INDEX-1811" />
+<a name="INDEX-1812" />shell as a
+parameter. Passing any user data through a shell is a very bad thing
+as we saw in the previous chapter (if you skipped ahead to this
+chapter, it would be wise to go back and review <a href="ch08_01.htm">Chapter 8, "Security"</a>, before continuing). Unless you like living
+dangerously, you should <em class="emphasis">never</em> pass an email
+address to an external application via a shell. It is not possible to
+verify that email addresses contain only certain safe characters
+either. Contrary to what you may expect, a proper email address can
+contain <em class="emphasis">any</em> valid ASCII character, including
+control characters and all those troublesome characters that have
+special meaning in the shell. We'll review what comprises a
+valid email address in the next section.</p>
+</div>
+
+
+
+
+<a name="ch09-2-fm2xml" /><div class="sect2">
+<h3 class="sect2">9.1.2. False Identities</h3>
+
+
+<p>You have likely received
+<a name="INDEX-1813" />
+<a name="INDEX-1814" /> <a name="INDEX-1,815" />email claiming to be
+from someone other than the true sender. It happens all the time with
+<a name="INDEX-1816" /> <a name="INDEX-1,817" />unsolicited bulk email
+(<em class="firstterm">spam</em>). Falsifying the
+<a name="INDEX-1818" />return address in an email message is
+very simple to do, and can even be quite useful. You probably would
+rather have email messages sent by your web server appear to come
+from actual individuals or groups within your company than the user
+(e.g., <em class="emphasis">nobody</em>) that the web user runs as.
+We'll see how to do this in our examples later in this chapter.</p>
+
+
+<p>So how does this relate to security? Say, for example, you create a
+web form that allows users to send feedback to members of your
+organization. You decide to generalize the CGI script responsible for
+this so you don't have to update it when internal email
+addresses change. Instead, you insert the email addresses into
+<a name="INDEX-1819" />hidden fields in the
+feedback form since they're easier to update there. However,
+you do take security precautions. Because you recognize that
+it's possible for a cracker to change hidden fields, you are
+careful not to pass the email addresses through a shell, and you
+treat them as <a name="INDEX-1820" /> <a name="INDEX-1,821" />tainted data. You handled all the
+details correctly, but you still have a potential security
+problem -- it's just at a higher level.</p>
+
+
+<p>If the <a name="INDEX-1822" />
+<a name="INDEX-1823" />user can specify the sender,
+the recipient, and the body of the message, you are allowing them to
+send any message to anyone anywhere, and the resulting message will
+originate from your machine. Anyone can falsify the return address in
+an email message, but it is very difficult to try to mask the
+message's routing information. A knowledgeable person can look
+at the headers in an email message and see where that message truly
+originated, and all the email messages your web server sends out will
+clearly originate from the machine hosting it.</p>
+
+
+<p>Thus this feedback page is a security problem because crackers given
+this much freedom could send damaging or embarrassing email to
+whomever they wanted, and all the messages would look like they are
+from your organization. Although this may not seem as serious as a
+system breach, it is still something you probably would rather avoid.</p>
+</div>
+
+
+
+
+<a name="ch09-3-fm2xml" /><div class="sect2">
+<h3 class="sect2">9.1.3. Spam</h3>
+
+
+<p>Spam, of course, refers to unsolicited
+<a name="INDEX-1824" />
+<a name="INDEX-1825" />
+<a name="INDEX-1826" />junk email. It's
+those messages that you get from someone you've never heard of
+advertising weight loss plans, get-rich schemes, and
+less-than-reputable web sites. None of us like spam, so be certain
+your web site doesn't contribute to the problem. Avoid creating
+CGI scripts that are so flexible that they allow the user to specify
+the recipient and the content of the message. The previous example of
+the feedback page illustrates this. As we saw in the last chapter, it
+is not difficult to create a web client with LWP and a little bit of
+Perl code. Likewise, it would not be difficult for a spammer to use
+LWP to repeatedly call your CGI script in order to send out numerous,
+annoying messages.</p>
+
+
+<p>Of course, most spammers don't operate this way. The big ones
+have dedicated equipment, and for those who don't, it's
+much more convenient to hijack an SMTP server, which is designed to
+send mail, than having to pass requests through a CGI script. So even
+if you do create scripts that are wide open to hijacking, the chances
+that someone will exploit it are slim ... but what if it does happen?
+You probably do not want to face the mass of angry recipients who
+have tracked the routing information back to you. When it comes to
+security, it's always better to play it <a name="INDEX-1827" /> <a name="INDEX-1,828" /> <a name="INDEX-1,829" />safe.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch09_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">8.6. Summary</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">9.2. Email Addresses</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

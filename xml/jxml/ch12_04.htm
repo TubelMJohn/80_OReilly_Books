@@ -1,0 +1,531 @@
+<html><head><title>Going Further (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch12_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch12_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">12.4. Going Further</h2>
+
+<p>Although you can now do everything in SOAP you knew how to do in
+XML-RPC, there is a lot more to SOAP. As I said in the beginning of
+the chapter, two important things that SOAP brings to the table are
+the ability to use custom parameters with a minimal amount of effort,
+and more advanced fault handling. In this section, I cover both of
+these topics.
+</p>
+
+<a name="javaxml2-CHP-12-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">12.4.1. Custom Parameter Types</h3>
+
+<p><a name="INDEX-1240" />The most limiting thing with the CD
+catalog, at least at this point, is that it stores only the title and
+artist for a given CD. It is much more realistic to have an object
+(or set of objects) that represents a CD with the title, artist,
+label, track listings, perhaps a genre, and all sorts of other
+information. I'm not going to build this entire structure, but
+will move from a title and artist to a <tt class="literal">CD</tt> object
+with a title, artist, and label. This object needs to be passed from
+the client to the server and back, and demonstrates how SOAP can
+handle these custom types. <a href="ch12_04.htm#javaxml2-CHP-12-EX-8">Example 12-8</a> shows this
+new class.<a name="INDEX-1241" />
+<a name="INDEX-1242" />
+</p>
+
+<a name="javaxml2-CHP-12-EX-8" /><div class="example">
+<h4 class="objtitle">Example 12-8. The CD class </h4>
+<blockquote><pre class="code">package javaxml2;
+
+public class CD {
+
+    /** The title of the CD */
+    private String title;
+
+    /** The artist performing on the CD */
+    private String artist;
+
+    /** The label of the CD */
+    private String label;
+
+    public CD( ) {
+        // Default constructor
+    }
+
+    public CD(String title, String artist, String label) {
+        this.title = title;
+        this.artist = artist;
+        this.label = label;
+    }
+
+    public String getTitle( ) { 
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getArtist( ) {
+        return artist;
+    }
+
+    public void setArtist(String artist) {
+        this.artist = artist;
+    }
+
+    public String getLabel( ) {
+        return label;
+    }
+ 
+    public void setLabel(String label) {
+        this.label = label;
+    }
+
+    public String toString( ) {
+        return "'" + title + "' by " + artist + ", on " +
+            label;
+    }
+}</pre></blockquote>
+</div>
+
+<p>This requires a whole slew of changes to the
+<tt class="literal">CDCatalog</tt> class as well. <a href="ch12_04.htm#javaxml2-CHP-12-EX-9">Example 12-9</a> shows a modified version of this class with
+the changes that use the new <tt class="literal">CD</tt> support class
+highlighted.<a name="INDEX-1243" />
+<a name="INDEX-1244" />
+</p>
+
+<a name="javaxml2-CHP-12-EX-9" /><div class="example">
+<h4 class="objtitle">Example 12-9. An updated CDCatalog class </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.util.Hashtable;
+
+public class CDCatalog {
+
+    /** The CDs, by title */
+    private Hashtable catalog;
+
+    public CDCatalog( ) {
+        catalog = new Hashtable( );
+
+        // Seed the catalog
+        <tt class="userinput"><b>addCD(new CD("Nickel Creek", "Nickel Creek", "Sugar Hill"));
+        addCD(new CD("Let it Fall", "Sean Watkins", "Sugar Hill"));
+        addCD(new CD("Aerial Boundaries", "Michael Hedges", "Windham Hill"));
+        addCD(new CD("Taproot", "Michael Hedges", "Windham Hill"));</b></tt>
+    }
+
+    public void addCD(CD cd) {
+        <tt class="userinput"><b>if (cd == null) {
+            throw new IllegalArgumentException("The CD object cannot be null.");
+        }
+        catalog.put(cd.getTitle( ), cd);</b></tt>        
+    }
+
+    <tt class="userinput"><b>public CD getCD(String title) {
+        if (title == null) {
+            throw new IllegalArgumentException("Title cannot be null.");
+        }
+
+        // Return the requested CD
+        return (CD)catalog.get(title);
+    }</b></tt>
+
+    public Hashtable list( ) {
+        return catalog;
+    }
+}</pre></blockquote>
+</div>
+
+<p>In addition to the obvious changes, I've also updated the old
+<tt class="literal">getArtist(String</tt> <tt class="literal">title)</tt> method
+to <tt class="literal">getCD(String title)</tt>, and made the return value
+a <tt class="literal">CD</tt> object. This means the SOAP server will need
+to serialize and deserialize this new class, and the client will be
+updated. First, I look at an updated deployment descriptor that
+details the serialization issues related to this custom type. Add the
+following lines to the deployment descriptor for the CD catalog, as
+well as changing the available method names to match the updated
+<tt class="literal">CDCatalog</tt> class:
+</p>
+
+<blockquote><pre class="code">&lt;isd:service xmlns:isd="http://xml.apache.org/xml-soap/deployment"
+             id="urn:cd-catalog"
+&gt;
+  &lt;isd:provider type="java"
+                scope="Application"
+                methods="<tt class="userinput"><b>addCD getCD list</b></tt>"
+  &gt;
+    &lt;isd:java class="javaxml2.CDCatalog" static="false" /&gt;
+  &lt;/isd:provider&gt;
+
+  &lt;isd:faultListener&gt;org.apache.soap.server.DOMFaultListener&lt;/isd:faultListener&gt;
+<tt class="userinput"><b>
+  &lt;isd:mappings&gt;
+    &lt;isd:map encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"
+             xmlns:x="urn:cd-catalog-demo" qname="x:cd"
+             javaType="javaxml2.CD"
+             java2XMLClassName="org.apache.soap.encoding.soapenc.BeanSerializer"
+             xml2JavaClassName="org.apache.soap.encoding.soapenc.BeanSerializer"/&gt;
+  &lt;/isd:mappings&gt;</b></tt>
+&lt;/isd:service&gt;</pre></blockquote>
+
+<p>The new element,
+<tt class="literal">mappings</tt><a name="INDEX-1245" />, specifies how a SOAP server should
+handle custom parameters such as the <tt class="literal">CD</tt> class.
+First, define a <tt class="literal">map</tt> element for each custom
+parameter type. For the <a name="INDEX-1246" /><tt class="literal">encodingStyle</tt>
+attribute, at least as of Apache SOAP 2.2, you should always supply
+the value <a href="http://schemas.xmlsoap.org/soap/encoding/">http://schemas.xmlsoap.org/soap/encoding/</a>,
+the only encoding currently supported. You need to supply a namespace
+for the custom type and then the name of the class, with this
+namespace prefix, for the type. In my case, I used a
+"dummy" namespace and the simple prefix "x"
+for this purpose. Then, using the <tt class="literal">javaType</tt>
+attribute, supply the actual Java class name:
+<tt class="literal">javaxml2.CD</tt> in this case. Finally, the magic
+occurs in the <tt class="literal">java2XMLClassName</tt> and
+<tt class="literal">xml2JavaClassName</tt> attributes. These specify a
+class to convert from Java to XML and from XML to Java, respectively.
+I've used the incredibly handy
+<tt class="literal">BeanSerializer</tt><a name="INDEX-1247" />
+<a name="INDEX-1248" />
+class, also provided with Apache SOAP. If your custom parameter is in
+a JavaBean format, this serializer and deserializer will save you
+from having to write your own. You need to have a class with a
+default constructor (remember that I defined an empty, no-args
+constructor within the <tt class="literal">CD</tt> class), and expose all
+the data in that class through <tt class="literal">setXXX</tt> and
+<tt class="literal">getXXX</tt> style methods. Since the
+<tt class="literal">CD</tt> class fits the bill here, the
+<tt class="literal">BeanSerializer</tt> works perfectly.
+</p>
+
+<a name="ch12-24-fm2xml" /><blockquote><b>NOTE:</b> 
+
+It's no accident that the <tt class="literal">CD</tt> class follows the JavaBean conventions. Most data classes fit easily into this format, and I knew I wanted to avoid writing my own custom serializer and deserializer. These are a pain to write (not overly difficult, but easy to mess up), and I recommend you go to great lengths to try and use the Bean conventions in your own custom parameters. In many cases, the Bean conventions only require that a default constructor (with no arguments) is present in your class.
+</p>
+</blockquote>
+<p>Now recreate your service <em class="filename">jar</em> file. Then,
+redeploy your service:
+</p>
+
+<blockquote><pre class="code">(gandalf)/javaxml2/Ch12$ java org.apache.soap.server.ServiceManagerClient 
+    http://localhost:8080/soap/servlet/rpcrouter xml/CDCatalogDD.xml</pre></blockquote>
+<blockquote><b>WARNING:</b> 
+If you have kept your servlet engine running and the service deployed
+all this time, you'll need to restart the servlet engine to
+activate the new classes for the SOAP service, and redeploy the
+service.
+</p>
+</blockquote>
+<p>At this point, all that's left is modifying the client to use
+the new class and methods. <a href="ch12_04.htm#javaxml2-CHP-12-EX-10">Example 12-10</a> is an updated
+version of the client class <tt class="literal">CDAdder</tt><a name="INDEX-1249" />
+<a name="INDEX-1250" />. The changes from the previous version
+of the class are highlighted.
+</p>
+
+<a name="javaxml2-CHP-12-EX-10" /><div class="example">
+<h4 class="objtitle">Example 12-10. The updated CDAdder class </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.net.URL;
+import java.util.Vector;
+import org.apache.soap.Constants;
+import org.apache.soap.Fault;
+import org.apache.soap.SOAPException;
+<tt class="userinput"><b>import org.apache.soap.encoding.SOAPMappingRegistry;
+import org.apache.soap.encoding.soapenc.BeanSerializer;</b></tt>
+import org.apache.soap.rpc.Call;
+import org.apache.soap.rpc.Parameter;
+import org.apache.soap.rpc.Response;
+<tt class="userinput"><b>import org.apache.soap.util.xml.QName;</b></tt>
+
+public class CDAdder {
+
+    public void add(URL url, String title, String artist, <tt class="userinput"><b>String label</b></tt>) 
+        throws SOAPException {
+
+        System.out.println("Adding CD titled '" + title + "' by '" +
+            artist + "'<tt class="userinput"><b>, on the label " + label</b></tt>);
+
+        <tt class="userinput"><b>CD cd = new CD(title, artist, label);
+
+        // Map this type so SOAP can use it
+        SOAPMappingRegistry registry = new SOAPMappingRegistry( );
+        BeanSerializer serializer = new BeanSerializer( );
+        registry.mapTypes(Constants.NS_URI_SOAP_ENC,
+            new QName("urn:cd-catalog-demo", "cd"),
+            CD.class, serializer, serializer);</b></tt>   
+
+        // Build the Call object
+        Call call = new Call( );
+        <tt class="userinput"><b>call.setSOAPMappingRegistry(registry);</b></tt>
+        call.setTargetObjectURI("urn:cd-catalog");
+        call.setMethodName("addCD");
+        call.setEncodingStyleURI(Constants.NS_URI_SOAP_ENC);
+
+        // Set up parameters
+        Vector params = new Vector( );
+        <tt class="userinput"><b>params.addElement(new Parameter("cd", CD.class, cd, null));</b></tt>
+        call.setParams(params);
+
+        // Invoke the call
+        Response response;
+        response = call.invoke(url, "");
+
+        if (!response.generatedFault( )) {
+            System.out.println("Successful CD Addition.");
+        } else {
+            Fault fault = response.getFault( );
+            System.out.println("Error encountered: " + fault.getFaultString( ));
+        }
+    }
+
+    public static void main(String[] args) {
+        <tt class="userinput"><b>if (args.length != 4) {
+            System.out.println("Usage: java javaxml2.CDAdder [SOAP server URL] " +
+                "\"[CD Title]\" \"[Artist Name]\" \"[CD Label]\"");</b></tt>
+            return;
+        }
+
+        try {
+            // URL for SOAP server to connect to
+            URL url = new URL(args[0]);
+
+            // Get values for new CD
+            String title = args[1];
+            String artist = args[2];
+            <tt class="userinput"><b>String label = args[3];</b></tt>
+
+            // Add the CD
+            CDAdder adder = new CDAdder( );
+            adder.add(url, title, artist, <tt class="userinput"><b>label</b></tt>);
+        } catch (Exception e) {
+            e.printStackTrace( );
+        }
+    }
+}</pre></blockquote>
+</div>
+
+<p>The only really interesting change is in dealing with the mapping of
+the <tt class="literal">CD</tt> class:
+</p>
+
+<blockquote><pre class="code">        // Map this type so SOAP can use it
+        SOAPMappingRegistry registry = new SOAPMappingRegistry( );
+        BeanSerializer serializer = new BeanSerializer( );
+        registry.mapTypes(Constants.NS_URI_SOAP_ENC,
+            new QName("urn:cd-catalog-demo", "cd"),
+            CD.class, serializer, serializer);   </pre></blockquote>
+
+<p>This is how a custom parameter can be encoded and sent across the
+wire. I already discussed how the <tt class="literal">BeanSerializer</tt>
+class could be used to handle parameters in the JavaBean format, such
+as the <tt class="literal">CD</tt> class. To specify that to the server, I
+used the deployment descriptor; however, now I need to let the client
+know to use this serializer and deserializer. This is what the
+<tt class="literal">SOAPMappingRegistry</tt><a name="INDEX-1251" />
+<a name="INDEX-1252" />
+class allows. The <tt class="literal">mapTypes(
+)</tt><a name="INDEX-1253" />
+<a name="INDEX-1254" /> method takes in an encoding string (again,
+using the constant <tt class="literal">NS_URI_SOAP_ENC</tt> is the best
+idea here), and information about the parameter type a special
+serialization should be used for. First, a <tt class="literal">QName</tt>
+is supplied. This is why the odd namespacing was used back in the
+deployment descriptor; you need to specify the same URN here, as well
+as the local name of the element (in this case "CD"),
+then the Java <tt class="literal">Class</tt> object of the class to be
+serialized (<tt class="literal">CD.class</tt>), and finally the class
+instance for serialization and deserialization. In the case of the
+<tt class="literal">BeanSerializer</tt>, the same instance works for both.
+Once all this is set up in the registry, let the
+<tt class="literal">Call</tt> object know about it through the
+<tt class="literal">setSOAPMapping-Registry( )</tt> method.
+</p>
+
+<p>You can run this class just as before, adding the CD label, and
+things should work smoothly:
+</p>
+
+<blockquote><pre class="code">C:\javaxml2\build&gt;java javaxml2.CDAdder 
+    http://localhost:8080/soap/servlet/rpcrouter 
+    "Tony Rice" "Manzanita" "Sugar Hill"
+Adding CD titled 'Tony Rice' by 'Manzanita', on the label Sugar Hill
+Successful CD Addition.</pre></blockquote>
+
+<p>I'll leave it up to you to modify the
+<tt class="literal">CDLister</tt> class in the same fashion, and the
+downloadable samples have this updated class as well.<a name="INDEX-1255" /> <a name="INDEX-1256" />
+</p>
+
+<a name="ch12-25-fm2xml" /><blockquote><b>NOTE:</b> 
+
+You might think that since the <tt class="literal">CDLister</tt> class doesn't deal directly with a <tt class="literal">CD</tt> object (the return value of the <tt class="literal">list( )</tt> method was a <tt class="literal">Hashtable</tt>), you don't need to make any changes. However, the returned <tt class="literal">Hashtable</tt> contains instances of CD objects. If SOAP doesn't know how to deserialize these, your client is going to give you an error. Therefore, you must specify a <tt class="literal">SOAPMappingRegistry</tt> instance on the <tt class="literal">Call</tt> object to make things work.<a name="INDEX-1257" />
+</p>
+</blockquote>
+</div>
+<a name="javaxml2-CHP-12-SECT-4.2" /><div class="sect2">
+<h3 class="sect2">12.4.2. Better Error Handling</h3>
+
+<p><a name="INDEX-1258" /> <a name="INDEX-1259" />Now that you're tossing around custom
+objects, making RPC calls, and generally showing up everyone else in
+the office, let me talk about a less exciting topic: error handling.
+In any network transaction, many things can go wrong. The service
+isn't running, an error occurs on the server, objects
+can't be found, classes are missing, and a whole lot of other
+problems can arise. Until now, I just used the
+<tt class="literal">fault.getString(
+)</tt><a name="INDEX-1260" />
+<a name="INDEX-1261" /> method to report errors. But this method
+isn't always very helpful. To see it in action, comment out the
+following line in the <tt class="literal">CDCatalog</tt> constructor:
+</p>
+
+<blockquote><pre class="code">    public CDCatalog( ) {<tt class="userinput"><b>
+        //catalog = new Hashtable( );</b></tt>
+
+        // Seed the catalog
+        addCD(new CD("Nickel Creek", "Nickel Creek", "Sugar Hill"));
+        addCD(new CD("Let it Fall", "Sean Watkins", "Sugar Hill"));
+        addCD(new CD("Aerial Boundaries", "Michael Hedges", "Windham Hill"));
+        addCD(new CD("Taproot", "Michael Hedges", "Windham Hill"));
+    }</pre></blockquote>
+
+<p>Recompile, restart your server engine, and redeploy. The result is
+that a <tt class="literal">NullPointerException</tt> occurs when the class
+constructor tries to add a CD to an uninitialized
+<tt class="literal">Hashtable</tt>. Running the client will let you know an
+error has occurred, but not in a very meaningful way:
+</p>
+
+<blockquote><pre class="code">(gandalf)/javaxml2/build$ java javaxml2.CDLister 
+    http://localhost:8080/soap/servlet/rpcrouter
+Listing current CD catalog.
+Error encountered: Unable to resolve target object: null</pre></blockquote>
+
+<p>This isn't exactly the type of information you need to track
+down the problem. However, the framework is in place to do a better
+job of error handling; remember the
+<tt class="literal">DOMFaultListener</tt><a name="INDEX-1262" />
+<a name="INDEX-1263" />
+you specified as the value of the <tt class="literal">faultListener</tt>
+element? This is where it comes into play. The returned
+<tt class="literal">Fault</tt> object in the case of a problem (as in this
+one) contains a DOM <tt class="literal">org.w3c.dom.Element</tt> with
+detailed error information. First, add an import statement for
+<tt class="literal">java.util.Iterator</tt> to your client source code:
+</p>
+
+<blockquote><pre class="code">import java.net.URL;
+import java.util.Enumeration;
+import java.util.Hashtable;<tt class="userinput"><b>
+import java.util.Iterator;</b></tt>
+import java.util.Vector;
+import org.apache.soap.Constants;
+import org.apache.soap.Fault;
+import org.apache.soap.SOAPException;
+import org.apache.soap.encoding.SOAPMappingRegistry;
+import org.apache.soap.encoding.soapenc.BeanSerializer;
+import org.apache.soap.rpc.Call;
+import org.apache.soap.rpc.Parameter;
+import org.apache.soap.rpc.Response;
+import org.apache.soap.util.xml.QName;</pre></blockquote>
+
+<p>Next, make the following change to how errors are handled in the
+<tt class="literal">list( )</tt><a name="INDEX-1264" />
+<a name="INDEX-1265" /> method:
+</p>
+
+<blockquote><pre class="code">        if (!response.generatedFault( )) {
+            Parameter returnValue = response.getReturnValue( );
+            Hashtable catalog = (Hashtable)returnValue.getValue( );
+            Enumeration e = catalog.keys( );
+            while (e.hasMoreElements( )) {
+                String title = (String)e.nextElement( );
+                CD cd = (CD)catalog.get(title);
+                System.out.println("  '" + cd.getTitle( ) + "' by " + 
+cd.getArtist( ) +
+                    " on the label " + cd.getLabel( ));
+            }
+        } else {
+            Fault fault = response.getFault( );
+            System.out.println("Error encountered: " + fault.getFaultString( ));
+<tt class="userinput"><b>
+            Vector entries = fault.getDetailEntries( );
+            for (Iterator i = entries.iterator(); i.hasNext( ); ) {
+                org.w3c.dom.Element entry = (org.w3c.dom.Element)i.next( );
+                System.out.println(entry.getFirstChild().getNodeValue( ));
+            }</b></tt>
+        }</pre></blockquote>
+
+<p>By using the <tt class="literal">getDetailEntries(
+)</tt><a name="INDEX-1266" />
+<a name="INDEX-1267" /> method, you get access to the raw data
+supplied by the SOAP service and server about the problem. The code
+iterates through these (there is generally only a single element, but
+it pays to be careful) and grabs the DOM <tt class="literal">Element</tt>
+contained within each entry. Essentially, here's the XML you
+are working through:
+</p>
+
+<blockquote><pre class="code">&lt;SOAP-ENV:Fault&gt;
+  &lt;faultcode&gt;SOAP-ENV:Server.BadTargetObjectURI&lt;/faultcode&gt;
+  &lt;faultstring&gt;Unable to resolve target object: null&lt;/faultstring&gt;
+  &lt;stacktrace&gt;<tt class="userinput"><b>Here's what we want!</b></tt>&lt;/stackTrace&gt;
+&lt;/SOAP-ENV:Fault&gt;</pre></blockquote>
+
+<p>In other words, the <tt class="literal">Fault</tt> object gives you access
+to the portion of the SOAP envelope that deals with errors.
+Additionally, Apache <a name="INDEX-1268" />SOAP provides a Java stack trace if
+errors occur, and that provides the detailed information needed to
+troubleshoot problems. By grabbing the <tt class="literal">stackTrace</tt>
+element and printing the <tt class="literal">Text</tt> node's value
+from that <tt class="literal">Element</tt>, your client will now print out
+the stack trace from the server. Compile these changes and rerun the
+client. You should get the following output:
+</p>
+
+<blockquote><pre class="code">C:\javaxml2\build&gt;java javaxml2.CDLister http://localhost:8080/soap/servlet/rpcr
+outer
+Listing current CD catalog.
+Error encountered: Unable to resolve target object: null
+java.lang.NullPointerException
+        at javaxml2.CDCatalog.addCD(CDCatalog.java:24)
+        at javaxml2.CDCatalog.&lt;init&gt;(CDCatalog.java:14)
+        at java.lang.Class.newInstance0(Native Method)
+        at java.lang.Class.newInstance(Class.java:237)</pre></blockquote>
+
+<p>This goes on for a bit, but you can see the juicy bits of information
+indicating that a <tt class="literal">NullPointerException</tt> occurred,
+and even get the line numbers on the server classes where the
+problems happened. The result of this fairly minor change is a much
+more robust means of handling errors. That should prepare you for
+tracking down bugs on your server classes. Oh, and be sure to change
+your <tt class="literal">CDCatalog</tt> class back to a version that
+won't cause these errors before moving on!<a name="INDEX-1269" /> <a name="INDEX-1270" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch12_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch12_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">12.3. Getting Dirty</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">12.5. What's Next?</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

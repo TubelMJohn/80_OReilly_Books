@@ -1,0 +1,514 @@
+<html><head><title>Configuring XMLReader Behavior (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch03_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+	<h2 class="sect1">3.3. Configuring XMLReader Behavior</h2>
+
+	<p>
+<a name="INDEX-408" />
+<a name="INDEX-409" />
+<a name="INDEX-410" />
+        A configuration mechanism was one of the key features
+	added in the SAX2 release. Parsers can support
+	extensible sets of named Boolean <em class="emphasis">feature</em>
+	flags and <em class="emphasis">property</em> objects.
+	These function in similar ways, including using URIs to
+	identify any number of features and properties.
+	The exception model, presented in <a href="ch02_01.htm">Chapter 2, "Introducing SAX2"</a> in <a href="ch02_04.htm#sax2-CHP-2-SECT-4.1">Section 2.4.1, "SAX2 Feature Flags"</a> is used
+	to distinguish the three basic types of feature or property:
+	the current value may be read-only, read/write, or undefined.
+	Some flags and properties may have rules
+	about when they can be changed (typically not while parsing)
+	or read.
+	</p>
+
+	<p>
+<a name="INDEX-411" />
+<a name="INDEX-412" />
+        Applications access property objects and feature flags
+	through <tt class="literal">get*()</tt> and <tt class="literal">set*()</tt>
+	methods and use URIs to identify the characteristic of interest.
+	Since SAX does not provide a way to enumerate such URIs
+	as supported by a parser, you will need to rely on parser
+	documentation, or the tables in this section, to identify the
+	legal identifiers. (Or consult the source code, if you have access to it.)
+	</p>
+
+	<p>
+<a name="INDEX-413" />
+        If you happen to be defining new handlers or features using
+	the SAX2 framework, you don't have to ask for permission
+	to define new property or feature flag IDs. Since they are
+	identified using URIs, just start your ID with a base URI that
+	you control. (Only the SAX maintainers would start with the
+	<em class="emphasis">http://xml.org/sax/</em>
+       	URI, for example.) Typically, it will be easiest to make up some HTTP URL
+	based on a fully qualified domain name that you control. As
+	with namespace URIs, these are used purely as identifiers rather than 
+	as locations from which data would be retrieved. (The "I" in URI stands for "identifier.")
+	</p>
+
+	<a name="sax2-CHP-3-SECT-3.1" /><div class="sect2">
+	    <h3 class="sect2">3.3.1. XMLReader Properties</h3>
+
+	    <p>
+<a name="INDEX-414" />
+            SAX2 defines two <em class="emphasis">XMLReader</em> calls for accessing
+	    named property objects. One of the most common uses for such
+	    objects is to install non-core event handlers. Accessing
+	    properties is like accessing feature flags, except that the
+	    values associated with these names are objects rather than Booleans:</p>
+
+	    <blockquote><pre class="code">XMLReader       producer ...;
+String          uri = ...;
+Object          value = ...;
+
+// Try getting and setting the property
+try {
+    System.out.println ("Initial property setting: "
+	+ producer.getProperty (uri);
+    // if we get here, the property is supported
+
+    producer.setProperty (uri, value);
+    // if we get here, the parser set the property 
+
+} catch (SAXNotSupportedException e) {
+    // bad value for property ... maybe wrong type, or parser state
+    System.out.println ("Can't set property: "
+	+ e.getMessage ());
+    System.exit (1);
+
+} catch (SAXNotRecognizedException e) {
+    // property not supported by this parser
+    System.out.println ("Doesn't understand property: "
+	+ e.getMessage ());
+    System.exit (1);
+}</pre></blockquote>
+
+	    <p>You'll notice the URIs for these standard
+	    properties happen to have a common prefix. This means that
+	    you can declare the prefix (<em class="emphasis">http://xml.org/sax/properties/</em>) as a constant
+	    string and construct the identifiers by string catenation.</p>
+	    
+<p>Here are the standard properties:</p>
+
+	    <dl>
+
+		<dt><i><em class="emphasis">http://xml.org/sax/properties/declaration-handler</em></i></dt>
+		<dd><p>This property holds an implementation of
+		<em class="emphasis">org.xml.sax.ext.DeclHandler</em>,
+		used for reporting the DTD declarations that aren't
+		reported through 
+		<em class="emphasis">org.xml.sax.DTDHandler</em> callbacks or for
+		the root element name declaration,
+		<em class="emphasis">org.xml.sax.ext.LexicalHandler</em>
+		callbacks. This handler is presented in <a href="ch04_03.htm#sax2-CHP-4-SECT-3.1">Section 4.3.1, "The DeclHandler Interface "</a>.</p>
+		
+		<p>&AElig;lfred, Crimson, and Xerces support this property.
+		In fact, all JAXP-compliant processors must do so.
+		</p></dd>
+
+		<dt><i><em class="emphasis">http://xml.org/sax/properties/dom-node</em></i></dt>
+		<dd><p>Only specialized parsers will support
+		this property:
+		parsers that traverse DOM document nodes to
+		produce streams of corresponding SAX events. (Typical
+		SAX2 parsers parse XML text instead of DOM content.) When read, this property returns the DOM node corresponding
+		to the current SAX2 callback.
+		The property can only be written before a parse, to
+		specify that the DOM node
+		beginning and ending the SAX event stream need not be a
+		<em class="emphasis">org.w3c.dom.Document</em>.
+		This type of parser <?troff .ne 10?>is presented later in this chapter,
+		in <a href="ch03_05.htm#sax2-CHP-3-SECT-5.1">Section 3.5.1, "DOM-to-SAX Event Production (and DOM4J, JDOM)"</a>.
+		</p>
+		
+		<p>One example of such a parser is
+		<em class="emphasis">gnu.xml.util.DomParser</em>,
+		which is currently packaged along with the
+		&AElig;lfred parser. At this time, neither Crimson nor Xerces include
+		such functionality.
+		</p></dd>
+
+		<dt><i><em class="emphasis">http://xml.org/sax/properties/lexical-handler</em></i></dt>
+		<dd><p>This property holds an implementation of
+		<em class="emphasis">org.xml.sax.ext.LexicalHandler</em>,
+		used for reporting various events mostly (but
+		not exclusively) relating to details of XML text that
+		have no semantic or structural meaning, such as comments. This handler is presented in <a href="ch04_01.htm">Chapter 4, "Consuming SAX2 Events"</a> in <a href="ch04_02.htm#sax2-CHP-4-SECT-2">Section 4.2, "The LexicalHandler Interface "</a>.</p>
+		
+		<p>&AElig;lfred, Crimson, and Xerces support this property.
+		In fact, all JAXP-compliant processors must do so.
+		</p></dd>
+
+		<dt><i><em class="emphasis">http://xml.org/sax/properties/xml-string</em></i></dt>
+		<dd><p>This property returns a literal string of 
+	        characters associated with the current parser callback event. Exactly which characters are returned isn't specified by SAX2.
+		An example
+		would be returning all the characters in the start tag
+		of an element, including unexpanded entity and character
+		references as well as excess whitespace and the exact
+		type of quote characters (single, double) used to delimit
+		attribute values.
+		(This feature is intended to be of use when constructing
+		certain kinds of XML editors, or DTD analyzers, that are
+		willing to re-parse this data.)
+		</p>
+		
+		<p>No widely available open source SAX2 parser
+		currently supports this property.
+		</p></dd>
+
+	    </dl>
+
+	    <p>Applications may find it useful to define their own
+	    types of handler interfaces, assembling sequences of SAX event
+	    "atoms" into higher-level event "molecules" that incorporate
+	    essential application-level semantics (and probably
+	    some procedural validation).
+	    This is the same kind of process model used by W3C's XML schema
+	    processing model: the Post-Schema-Validation Infoset (PSVI)
+	    additions incorporate semantics suited to
+	    processing with that kind of schema. Most applications need
+	    to associate even more semantics with data than are easily captured by such simple
+	    rules (including DTDs and all types of schema).
+	    Those semantics would likely not be understood by any common
+	    <em class="emphasis">XMLReader</em>, but other kinds of SAX
+	    processing components
+	    can help manage such application-level handlers.
+	    You can see an example of this technique in
+	    <a href="ch06_01.htm#sax2-CHP-6-EX-3">Example 6-3</a>.
+	    </p>
+
+	</div>
+
+	<a name="sax2-CHP-3-SECT-3.2" /><div class="sect2">
+	    <h3 class="sect2">3.3.2. XMLReader Feature Flags</h3>
+
+	    <p>
+<a name="INDEX-415" />
+<a name="INDEX-416" />
+<a name="INDEX-417" />
+<a name="INDEX-418" />
+<a name="INDEX-419" />
+            The previous chapter showed how to access feature
+	    flags from SAX parsers and used the standard validation flag
+	    as the primary example.
+	    Accessing feature flags follows the same model as accessing properties, except the
+	    values are boolean not Object.
+	    There are a handful of standard SAX2 feature flags,
+	    which are all you normally need.
+	    The namespace for features is different from the namespace
+	    for properties. You can't set a property to a
+	    <em class="emphasis">java.lang.Boolean</em> value and expect
+	    to have the same effect as setting the feature flag that
+	    happens to use the same identifier.
+	    </p>
+
+	    <p>As with properties, the URIs for these standard
+	    feature flags happen to have a common prefix: <em class="emphasis">http://xml.org/sax/features/</em>.
+	    It's good programming practice to declare the prefix as a
+	    constant and construct these feature identifiers by string
+	    catenation, helping reduce errors.
+	    Also, remember that flags aren't necessarily either
+	    settable (read/write)<a href="#FOOTNOTE-17">[17]</a> or readable (supported); some
+	    parsers won't recognize all these flags, and in some cases
+	    these flags expose parser behaviors that don't change.</p><blockquote class="footnote"><a name="FOOTNOTE-17" /><p>[17]SAX could support write-only flags too, but these are rarely a good idea.</p></blockquote>
+
+<p>The standard flags are as follows:
+	    </p>
+
+	    <dl>
+
+		<dt><i><em class="emphasis">http://xml.org/sax/features/external-general-entities</em></i></dt>
+		<dd><p>The default value for this flag is
+		parser-specific.
+		When the parser is validating, and in most other cases,
+		the flag is <em class="emphasis">true</em>, indicating that the
+		parser reads all external entities used outside the DTD. When the flag is <em class="emphasis">false</em>, the XML parser won't expand references
+		to external general entities, so applications won't see
+		the entire body of documents using such entities.
+		This value can't be changed during parsing.
+		</p>
+		
+		<p>
+<a name="INDEX-420" />
+<a name="INDEX-421" />
+<a name="INDEX-422" />
+<a name="INDEX-423" />
+                Crimson and Xerces only support <em class="emphasis">true</em>
+		for this property.
+		(For such parsers, you can get most of the effect of setting this flag
+		to <em class="emphasis">false</em> by using an <em class="emphasis">EntityResolver</em>
+		that returns zero-length entities after the first
+		<tt class="literal">startElement()</tt> event.)&AElig;lfred supports changing the value of this property. 
+		</p></dd>
+
+		<dt><i><em class="emphasis">http://xml.org/sax/features/external-parameter-entities</em></i></dt>
+		<dd><p>The default value for this flag is
+		parser-specific. When the parser is validating, and in most other cases,
+		the flag is <em class="emphasis">true</em>, indicating the DTD
+		will be completely processed.
+		When the flag is <em class="emphasis">false</em>, the XML parser will skip any external DTD subset,
+		as well as named external parameter entities, so it
+		won't necessarily read the entire DTD for a document.
+		This value can't be changed during parsing.
+		</p>
+		
+		<p>Skipping these entities means attributes
+		declared in them will not be defaulted or normalized as
+		expected, and their types won't be known.
+		As a result, default namespace declarations may get dropped.
+		Parts of the internal subset after a reference to a skipped
+		external parameter entity will be ignored.
+		It also means some general entities might not be declared,
+		making it impossible to correctly distinguish whether
+		references to undefined entities are well-formedness
+		errors.
+		</p>
+		
+		<p>Normally, you are better off providing an entity
+		resolver that accesses locally cached copies of your DTD
+		components, or not using DTDs, rather than disabling
+		processing of external parameter entities. But don't assume
+		all the XML you work with will have these DTD entities processed; the XML processors in some web browsers
+		will not read these entities by default.
+		</p>
+		
+		<p>Xerces and Crimson only support <em class="emphasis">true</em>
+		for this property.
+		(For such parsers, you can get an effect similar to setting
+		this to <em class="emphasis">false</em> by using an <em class="emphasis">EntityResolver</em>
+		that returns zero-length entities before the first
+		<tt class="literal">startElement()</tt> event. The parser won't correctly ignore declarations found later in the DTD.)
+		&AElig;lfred supports changing the value of this property.
+		</p></dd>
+
+		<dt><i><em class="emphasis">http://xml.org/sax/features/is-standalone/</em></i></dt>
+		<dd><p>This feature flag derives its value
+		from the document being
+		parsed, so it is read-only and only available after the
+		first part of the document has been parsed.
+		When the flag is <em class="emphasis">true</em>, the document has been declared to be standalone.
+		If that declaration is correct, then
+		all external entities may be safely ignored.
+		This feature is part of XML 1.0 and is intended to reduce
+		the cost of parsing some documents.
+		</p>
+		
+		<p>This flag should be part of an upcoming SAX
+		extensions release.
+
+		</p></dd>
+
+		<dt><i><em class="emphasis">http://xml.org/sax/features/lexical-handler/parameter-entities</em></i></dt>
+		<dd><p>
+<a name="INDEX-424" />
+<a name="INDEX-425" />
+<a name="INDEX-426" />
+                The default value for this flag is
+		parser-specific
+		and is implicitly false if the parser doesn't support
+		the <em class="emphasis">LexicalHandler</em>
+		through a parser property.
+		When the flag is <em class="emphasis">true</em>, the parser will report the beginning and end
+		of parameter entities through <em class="emphasis">LexicalHandler</em> calls.
+		(Skipped parameter entities are always reported,
+		through the appropriate <em class="emphasis">ContentHandler</em> call.)
+		Parameter entities are distinguished from general entities
+		because the first character of their entity name will
+		be a percent sign (%).
+		The value can't be changed during parsing.
+		</p>
+		
+		<p>
+<a name="INDEX-427" />
+
+                Currently, only the&AElig;lfred parser reports
+		parameter entities.
+		</p></dd>
+
+		<dt><i><em class="emphasis">http://xml.org/sax/features/namespaces</em></i></dt>
+		<dd><p>
+<a name="INDEX-428" />
+<a name="INDEX-429" />
+<a name="INDEX-430" />
+                This flag defaults to
+		<em class="emphasis">true</em> in XML
+		parsers, which indicates the parser performs
+		namespace processing, reporting <tt class="literal">xmlns</tt>
+		attributes by
+		<tt class="literal">startPrefixMapping()</tt> and
+		<tt class="literal">endPrefixMapping()</tt> calls
+		and providing namespace URIs for each
+		element or attribute. Otherwise no such processing
+		is done at the parser level.
+		This can't be changed during parsing.
+		</p>
+		
+		<p>
+<a name="INDEX-431" />
+                You will leave flag this at its default setting
+		unless your XML documents aren't guaranteed to conform
+		to the XML Namespaces specification.
+		Setting this to <em class="emphasis">false</em> usually gives
+		some degree of parsing speed improvement, although
+		it will likely not provide a significant impact on
+		overall application performance.
+		If you disable namespaces, make sure you first enable the
+		<em class="emphasis">namespace-prefixes</em> feature.
+		</p>
+		
+		<p>This is supported by all SAX2 XML parsers.&AElig;lfred, Crimson, and Xerces support changing the value of this property.
+		</p></dd>
+
+		<dt><i><em class="emphasis">http://xml.org/sax/features/namespace-prefixes</em></i></dt>
+		<dd><p>This flag defaults to
+		<em class="emphasis">false</em> in XML
+		parsers, indicating the parser
+		will not present <tt class="literal">xmlns*</tt> attributes in
+		its <tt class="literal">startElement()</tt> callbacks.
+		Unless the flag is <em class="emphasis">true</em>, parsers won't portably present the
+		qualified names (which include the prefix) used in an
+		XML document for elements or attributes.
+		The value can't be changed during parsing.
+		</p>
+		
+		<p>If you want to see the namespace prefixes for any reason,
+		including for generating output without further postprocessing
+		or for performing layered DTD validation, make sure this flag
+		is set. Also make sure this flag is set if you completely
+		disable namespace processing (with the
+		<em class="emphasis">namespaces</em> feature flag), because
+		otherwise the behavior of a SAX2 parser is undefined.</p>
+		
+		<p>This is supported by all SAX2 parsers.&AElig;lfred, Crimson, and Xerces support changing the value of this property.
+		</p></dd>
+
+		<dt><i><em class="emphasis">http://xml.org/sax/features/string-interning</em></i></dt>
+		<dd><p>
+<a name="INDEX-432" />
+                The default value for this flag is
+		parser-specific.
+		When true, this indicates that all XML name strings
+		(except those inside attribute values) and namespace URIs
+		returned by this parser will have been interned using
+		<tt class="literal">String.intern()</tt>. Some kind of interning is almost always done to improve the performance of parsers, and this flag exposes this work for the benefit of applications. This value can't be changed during parsing.</p>
+		
+		<p>
+<a name="INDEX-433" />
+<a name="INDEX-434" />
+<a name="INDEX-435" />
+                When applications know interning has been done,
+		they know they can rely on fast, identity-based tests
+		for string equality
+		(<tt class="literal">==</tt> or <tt class="literal">!=</tt>)
+		rather than the more expensive
+		<tt class="literal">String.equals()</tt> method. Using equality testing for strings will always work, but it can be much slower than identity testing. Java automatically interns all string constants. Lots of <tt class="literal">startElement()</tt> processing needs to match element and attribute name strings (as sketched in <a href="ch02_06.htm#sax2-CHP-2-EX-8">Example 2-8</a>), so this kind of optimization can often be a win. </p>
+		
+		<p>&AElig;lfred interns all strings.
+		Some older versions of Crimson don't recognize this flag,
+		but all versions should correctly intern those strings.
+		Xerces reports that it does not intern these strings.
+		</p></dd>
+
+		<dt><i><em class="emphasis">http://xml.org/sax/features/validation</em></i></dt>
+		<dd><p>The default value for this flag is
+		parser-specific; in most cases it is <em class="emphasis">false</em>.
+		When the flag is <em class="emphasis">true</em>, the parser is performing XML validation
+		(with a DTD, unless you've requested otherwise).
+		When the flag is <em class="emphasis">false</em>, the parser isn't validating.
+		The value can't be changed while parsing.
+		</p>
+		
+		<p>&AElig;lfred, when packaged with its optional validator,
+		Crimson, and Xerces support both settings.
+		</p></dd>
+
+	    </dl>
+
+	    <p>A few additional standard extension features will
+	    likely be defined, providing even more complete Infoset
+	    support from SAX2 XML parsers.&AElig;lfred also includes a nonvalidating parser, which supports only <em class="emphasis">false</em> for this flag.
+	    </p>
+
+	    <p>
+<a name="INDEX-436" />
+            Of the widely available parsers, only Xerces has
+	    nonstandard feature flags. (The Xerces distribution
+ 	    includes full documentation for those flags.) As a rule,
+	    avoid most of these, because they are parser-specific and even version-specific. Some are used to disable warnings about extra definitions that aren't errors. (Most parsers don't bother reporting such nonerrors; Xerces reports them by default.) Others promote noncompliant XML validation semantics. Here are a few flags that you may want to use.
+	    </p>
+
+	    <dl>
+<dt><em class="emphasis">http://apache.org/xml/features/validation/schema</em>
+		</b></dt>
+		<dd><p>This tells the parser to validate with W3C-style schemas.
+		The document needs to identify a schema,
+		and the parser must have namespaces
+		and validation enabled.
+		(Defaults to <em class="emphasis">false</em>.)
+		</p>
+		
+		<p>W3C XML schema validation does not need to be built
+		into XML parsers. In fact, most currently available
+		schema validators are layered.
+		</p></dd>
+
+		<dt><em class="emphasis">http://apache.org/xml/features/validation/schema-full-checking</em>
+		</b></dt>
+		<dd><p>This flag controls whether W3C schema
+		validation involves all the specified tests.
+		By default, some of the more expensive checks are
+		not performed; Xerces is not "fully conforming" by default.
+		</p></dd>
+
+		<dt><i><em class="emphasis">http://apache.org/xml/features/allow-java-encodings</em></i></dt>
+		<dd><p>This flag defaults to <em class="emphasis">false</em>,
+		limiting the encodings that
+		the parser accepts to a handful. When the flag is set to <em class="emphasis">true</em>, more encoding names are supported. Most other SAX2 parsers effectively have <em class="emphasis">true</em> as their default. A few of those additional encoding names are Java-specific (such as "UTF8"); most of them are standard encoding names, either the preferred version or recognized alternatives.</p></dd>
+
+		<dt><i><em class="emphasis">http://apache.org/xml/features/continue-after-fatal-error</em></i></dt>
+		<dd><p>When set, this flag permits Xerces to continue
+		parsing after it invokes
+		<tt class="literal">ErrorHandler.fatalError()</tt> to
+		report a nonrecoverable error.
+		If the error handler doesn't abort parsing by throwing
+		an exception, Xerces will continue.
+		The XML specification requires that no more event data be
+		reported after fatal errors, but it allows additional errors
+		to be reported.
+		(Of course, depending on the initial error,
+		many of the subsequent reports might be nonsense.)
+<a name="INDEX-437" />
+<a name="INDEX-438" />
+<a name="INDEX-439" />
+<a name="INDEX-440" />
+
+</p></dd>
+
+	    </dl>
+	</div>
+    
+    
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch03_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">3.2. Bootstrapping an XMLReader</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">3.4. The EntityResolver Interface</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

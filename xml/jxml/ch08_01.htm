@@ -1,0 +1,383 @@
+<html><head><title>Advanced JDOM (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch08_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+
+<h1 class="chapter">Chapter 8. Advanced JDOM</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#javaxml2-CHP-8-SECT-1">Helpful JDOM Internals</a><br />
+<a href="ch08_02.htm">JDOM and Factories</a><br />
+<a href="ch08_03.htm">Wrappers and Decorators</a><br />
+<a href="ch08_04.htm">Gotcha!</a><br />
+<a href="ch08_05.htm">What's Next?</a><br /></p></div>
+
+<p><a name="INDEX-774" /></a>Continuing with
+JDOM, this chapter introduces some more advanced concepts. In the
+last chapter, you saw how to read and write XML using JDOM, and also
+got a good taste of what classes are available in the JDOM
+distribution. In this chapter, I drill down a little deeper to see
+what's going on. You'll get to see some of the classes
+that JDOM uses that aren't exposed in common operations, and
+you'll start to understand how JDOM is put together. Once
+you've gotten that basic understanding down, I'll move on
+to show you how JDOM can utilize factories and your own custom JDOM
+implementation classes, albeit in a totally different way than DOM.
+That will take you right into a fairly advanced example using
+wrappers and decorators, another pattern for adding functionality to
+the core set of JDOM classes without needing an interface-based API.
+</p>
+
+<div class="sect1"><a name="javaxml2-CHP-8-SECT-1" /></a>
+<h2 class="sect1">8.1. Helpful JDOM Internals</h2>
+
+<p><a name="INDEX-775" /></a>
+<a name="INDEX-776" /></a>The first topic I cover is the architecture
+of JDOM. In <a href="ch07_01.htm">Chapter 7, "JDOM"</a>, I showed you a simple
+UML-type model of the core JDOM classes. However, if you look
+closely, there are probably some things in the classes that you
+haven't worked with, or didn't expect. I'm going to
+cover those particular items in this section, showing how you can get
+down and dirty with JDOM.
+</p>
+
+<a name="ch08-3-fm2xml" /></a><blockquote><b>NOTE:</b> 
+
+<a name="INDEX-777" /></a>JDOM beta 7 was released literally days before this chapter was written. In that release, the <tt class="literal">Text</tt> class was being whiteboarded, but had not been integrated in the JDOM internals. However, this process is happening very quickly, most likely before this book gets into your hands. Even if that is not the case, it will be integrated soon after, and the issues discussed here will then apply. If you have problems with the code snippets in this section, check the version of JDOM you are using, and always try to get the newest possible release.
+<p></p>
+</blockquote>
+<a name="javaxml2-CHP-8-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">8.1.1. The Text Class</h3>
+
+<p>One class you may have been a bit surprised to see in <a name="INDEX-778" /></a> <a name="INDEX-779" /></a> <a name="INDEX-780" /></a>JDOM
+is the <tt class="literal">Text</tt> class. If you read the last chapter,
+you probably caught that one large difference between DOM and JDOM is
+that JDOM (at least seemingly) directly exposes the textual content
+of an element, whereas in DOM you get the child
+<tt class="literal">Text</tt> node and then extract its value. What
+actually happens, though, is that JDOM models character-based content
+much like DOM does architecturally; each piece of character content
+is stored within a JDOM <tt class="literal">Text</tt> instance. However,
+when you invoke <tt class="literal">getText( )</tt> (or
+<tt class="literal">getTextTrim( )</tt> or <tt class="literal">getTextNormalize(
+)</tt>) on a JDOM <tt class="literal">Element</tt> instance, the
+instance automatically returns the value(s) in its child
+<tt class="literal">Text</tt> nodes:
+</p>
+
+<blockquote><pre class="code">// Get textual content
+String textualContent = element.getText( );
+
+// Get textual content, with surrounding whitespace trimmed
+String trimmedContent = element.getText().trim( );
+// or...
+String trimmedContent = element.getTextTrim( );
+
+// Get textual content, normalized (all interior whitespace compressed to single
+//   space. For example, "   this   would  be  " would be "this would be"
+String normalizedContent = element.getTextNormalize( );</pre></blockquote>
+
+<p>As a result, it commonly seems that no <tt class="literal">Text</tt> class
+is actually being used. The same methodology applies when invoking
+<tt class="literal">setText( )</tt><a name="INDEX-781" /></a>
+on an element; the text is created as the content of a new
+<tt class="literal">Text</tt> instance, and that new instance is added as a
+child of the element. Again, the rationale is that the process of
+reading and writing the textual content of an XML element is such a
+common occurrence that it should be as simple and quick as possible.
+</p>
+
+<p>At the same time, as I pointed out in earlier chapters, a strict tree
+model makes navigation over content very simple;
+<tt class="literal">instanceof</tt> and recursion become easy solutions for
+tree explorations. Therefore, an explicit <tt class="literal">Text</tt>
+class, present as a child (or children) of <tt class="literal">Element</tt>
+instances, makes this task much easier. Further, the
+<tt class="literal">Text</tt> class allows extension, while raw
+<tt class="literal">java.lang.String</tt> classes are not extensible. For
+all of these reasons (and several more you can dig into on the
+<tt class="literal">jdom-interest</tt> mailing lists), the
+<tt class="literal">Text</tt> class is being added to JDOM. Even though not
+as readily apparent as in other APIs, it is available for these
+<a name="INDEX-782" /></a>iteration-type cases. To accommodate
+this, if you invoke <tt class="literal">getContent( )</tt> on an
+<tt class="literal">Element</tt> instance, you will get all of the content
+within that element. This could include <tt class="literal">Comment</tt>s,
+<tt class="literal">ProcessingInstruction</tt>s,
+<tt class="literal">EntityRef</tt>s, <tt class="literal">CDATA</tt> sections, and
+textual content. In this case, the textual content is returned as one
+or more <tt class="literal">Text</tt> instances rather than directly as
+<tt class="literal">String</tt>s, allowing processing like this:
+</p>
+
+<blockquote><pre class="code">public void processElement(Element element) {
+    List mixedContent = element.getContent( );
+    for (Iterator i = mixedContent.iterator(); i.hasNext( ); ) {
+        Object o = i.next( );
+        if (o instanceof Text) {
+            processText((Text)o);
+        } else if (o instanceof CDATA) {
+            processCDATA((CDATA)o);
+        } else if (o instanceof Comment) {
+            processComment((Comment)o);
+        } else if (o instanceof ProcessingInstruction) {
+            processProcessingInstruction((ProcessingInstruction)o);
+        } else if (o instanceof EntityRef) {
+            processEntityRef((EntityRef)o);
+        } else if (o instanceof Element) {
+            processElement((Element)o);
+        }
+    }
+}
+
+public void processComment(Comment comment) {
+    // Do something with comments
+}
+
+public void processProcessingInstruction(ProcessingInstruction pi) {
+    // Do something with PIs
+}
+
+public void processEntityRef(EntityRef entityRef) {
+    // Do something with entity references
+}
+
+public void processText(Text text) {
+    // Do something with text
+}
+
+public void processCDATA(CDATA cdata) {
+    // Do something with CDATA
+}</pre></blockquote>
+
+<p>This sets up a fairly simple recursive processing of a JDOM tree. You
+could kick it off with simply:
+</p>
+
+<blockquote><pre class="code">// Get a JDOM Document through a builder
+Document doc = builder.build(input);
+
+// Start recursion
+processElement(doc.getRootElement( ));</pre></blockquote>
+
+<p>You would handle <tt class="literal">Comment</tt> and
+<tt class="literal">ProcessingInstruction</tt> instances at the document
+level, but you get the idea here. You can choose to use the
+<tt class="literal">Text</tt> class when it makes sense, and not worry
+about it when it doesn't.<a name="INDEX-783" /></a> <a name="INDEX-784" /></a> <a name="INDEX-785" /></a> 
+</p>
+
+</div>
+<a name="javaxml2-CHP-8-SECT-1.2" /></a><div class="sect2">
+<h3 class="sect2">8.1.2. The EntityRef Class</h3>
+
+<p><a name="INDEX-786" /></a>
+<a name="INDEX-787" /></a>
+<a name="INDEX-788" /></a>Next
+up on the JDOM internals list is the <tt class="literal">EntityRef</tt>
+class. This is another class that you may not have to use much in
+common cases, but is helpful to know for special coding needs. This
+class represents an XML entity reference in JDOM, such as the
+<tt class="literal">OReillyCopyright</tt> entity reference in the
+<em class="emphasis">contents.xml</em> document I have been
+using in examples:
+</p>
+
+<blockquote><pre class="code">&lt;ora:copyright&gt;&amp;OReillyCopyright;&lt;/ora:copyright&gt;</pre></blockquote>
+
+<p>This class allows for setting and retrieval of a name, public ID, and
+system ID, just as is possible when defining the reference in an XML
+DTD or schema. It can appear anywhere in a JDOM content tree, like
+the <tt class="literal">Elements</tt> and <tt class="literal">Text</tt> nodes.
+However, like <tt class="literal">Text</tt> nodes, an
+<tt class="literal">EntityRef</tt> class is often a bit of a pain in the
+normal case. For example, in the <em class="emphasis">contents.xml</em> document, modeled in JDOM,
+you're usually going to be more interested in the textual value
+of the reference (the resolved content) rather than the reference
+itself. In other words, when you invoke <tt class="literal">getContent(
+)</tt> on the copyright <tt class="literal">Element</tt> in a JDOM
+tree, you'd like to get "Copyright O'Reilly,
+2000" or whatever other textual value is referred to by the
+entity reference. This is much more useful (again, in the most common
+cases) than getting a no-content indicator (an empty string), and
+then having to check for the existence of an
+<tt class="literal">EntityRef</tt>. For this reason, by default, all
+<a name="INDEX-789" /></a>entity references
+are expanded when using the JDOM builders
+(<tt class="literal">SAXBuilder</tt> and <tt class="literal">DOMBuilder</tt>) to
+generate JDOM from existing XML. You will rarely see
+<tt class="literal">EntityRef</tt>s in this default case, because you
+don't want to mess with them. However, if you find you need to
+leave entity references unexpanded and represented by
+<tt class="literal">EntityRef</tt>s, you can use the
+<tt class="literal">setExpandEntities(
+)</tt><a name="INDEX-790" /></a>
+<a name="INDEX-791" /></a> method on the builder classes:
+</p>
+
+<blockquote><pre class="code">// Create new builder
+SAXBuilder builder = new SAXBuilder( );
+
+// Do not expand entity references (default is to expand these)
+builder.setExpandEnitites(false);
+
+// Build the tree with EntityRef objects (if needed, of course)
+Document doc = builder.build(inputStream);</pre></blockquote>
+
+<p>In this case, you may have <tt class="literal">EntityRef</tt> instances in
+the tree (if you were using the <em class="emphasis">contents.xml</em> document, for example). And you
+can always create <tt class="literal">EntityRef</tt>s directly and place
+them in the JDOM tree:
+</p>
+
+<blockquote><pre class="code">// Create new entity reference
+EntityRef ref = new EntityRef("TrueNorthGuitarsTagline");
+ref.setSystemID("tngTagline.xml");
+
+// Insert into the tree
+tagLineElement.addContent(ref);</pre></blockquote>
+
+<p>When serializing this tree, you get XML like this:</p>
+
+<blockquote><pre class="code">&lt;guitar&gt;
+  &lt;tagLine&gt;&amp;TrueNorthGuitarsTagline;&lt;/tagLine&gt;
+&lt;/guitar&gt;</pre></blockquote>
+
+<p>And when reading the document back in using a builder, the resulting
+JDOM <tt class="literal">Document</tt> would depend on the
+<tt class="literal">expandEntities</tt><a name="INDEX-792" /></a> flag. If it is set to false, you'd
+get the original <tt class="literal">EntityRef</tt> back again with the
+correct name and system ID. With this value set to
+<tt class="literal">false</tt> (the default), you'd get the resolved
+content. A second serialization might result in:
+</p>
+
+<blockquote><pre class="code">&lt;guitar&gt;
+  &lt;tagLine&gt;two hands, one heart&lt;/tagLine&gt;
+&lt;/guitar&gt;</pre></blockquote>
+
+<p>While this may seem like a lot of fuss over something simple,
+it's important to realize that whether or not entities are
+expanded can change the input and output XML you are working with.
+Always keep track of how the builder flags are set, and what you want
+your JDOM tree and XML output to look like.
+</p>
+
+</div>
+<a name="javaxml2-CHP-8-SECT-1.3" /></a><div class="sect2">
+<h3 class="sect2">8.1.3. The Namespace Class</h3>
+
+<p><a name="INDEX-793" /></a>
+<a name="INDEX-794" /></a>
+<a name="INDEX-795" /></a>I
+want to briefly cover one more JDOM class, the
+<tt class="literal">Namespace</tt> class. This class acts as both an
+instance variable and a factory within the JDOM architecture. When
+you need to create a new namespace, either for an element or for
+searching, you use the static <tt class="literal">getNamespace(
+)</tt><a name="INDEX-796" /></a> methods on this class:
+</p>
+
+<blockquote><pre class="code">// Create namespace with prefix
+Namespace schemaNamespace = 
+    Namespace.getNamespace("xsd", "http://www.w3.org/XMLSchema/2001");
+
+// Create namespace without prefix
+Namespace javaxml2Namespace =
+    Namespace.getNamespace("http://www.oreilly.com/javaxml2");</pre></blockquote>
+
+<p>As you can see, there is a version for creating namespaces with
+prefixes and one for creating namespaces without prefixes
+(<a name="INDEX-797" /></a>default namespaces). Either version can be
+used, then supplied to the various JDOM methods:
+</p>
+
+<blockquote><pre class="code">// Create element with namespace
+Element schema = new Element("schema", schemaNamespace);
+
+// Search for children in the specified namespace
+List chapterElements = contentElement.getChildren("chapter", javaxml2Namespace);
+
+// Declare a new namespace on this element
+catalogElement.addNamespaceDeclaration(
+    Namespace.getNamespace("tng", "http://www.truenorthguitars.com"));</pre></blockquote>
+
+<p>These are all fairly self-explanatory. Also, when XML serialization
+is performed with the various outputters
+(<tt class="literal">SAXOutputter</tt><a name="INDEX-798" /></a>,
+<tt class="literal">DOMOutputter</tt><a name="INDEX-799" /></a>,
+and
+<tt class="literal">XMLOutputter</tt><a name="INDEX-800" /></a>), the namespace declarations are
+automatically handled and added to the resulting XML.
+</p>
+
+<p>One final note: in JDOM, namespace comparison is based solely on URI.
+In other words, two <tt class="literal">Namespace</tt> objects are equal if
+their URIs are equal, regardless of prefix. This is in keeping with
+the letter and spirit of the XML Namespace specification, which
+indicates that two elements are in the same namespace if their URIs
+are identical, regardless of prefix. Look at this XML document
+fragment:
+</p>
+
+<blockquote><pre class="code">&lt;guitar xmlns="http://www.truenorthguitars.com"&gt;
+  &lt;ni:owner xmlns:ni="http://www.newInstance.com"&gt;
+    &lt;ni:name&gt;Brett McLaughlin&lt;/ni:name&gt;
+    &lt;tng:model xmlns:tng="http://www.truenorthguitars.com&gt;Model 1&lt;/tng:model&gt;
+    &lt;backWood&gt;Madagascar Rosewood&lt;/backWood&gt;
+  &lt;/ni:owner&gt;
+&lt;/guitar&gt;</pre></blockquote>
+
+<p>Even though they have varying prefixes, the elements
+<tt class="literal">guitar</tt>, <tt class="literal">model</tt>, and
+<tt class="literal">backWood</tt> are all in the same namespace. This holds
+true in the JDOM <tt class="literal">Namespace</tt> model, as well. In
+fact, the <tt class="literal">Namespace</tt> class's <tt class="literal">equals(
+)</tt><a name="INDEX-801" /></a>
+<a name="INDEX-802" /></a> method will return equal based solely on
+URIs, regardless of prefix.
+</p>
+
+<p>I've touched on only three of the JDOM classes, but these are
+the classes that are tricky and most commonly asked about. The rest
+of the API was covered in the previous chapter, and reinforced in the
+next sections of this chapter. You should be able to easily deal with
+textual content, entity references, and namespaces in JDOM now,
+converting between <tt class="literal">String</tt>s and
+<tt class="literal">Text</tt> nodes, resolved content and
+<tt class="literal">EntityRef</tt>s, and multiple-prefixed namespaces with
+ease. With that understanding, you're ready to move on to some
+more complex examples and cases.<a name="INDEX-803" /></a> <a name="INDEX-804" /></a> 
+</p>
+
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch08_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">7.6. What's Next?</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">8.2. JDOM and Factories</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+      </map>
+
+</body></html>

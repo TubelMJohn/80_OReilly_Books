@@ -1,0 +1,747 @@
+<html><head><title>Other Kinds of SAX2 Event Producers (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch04_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+	<h2 class="sect1">3.5. Other Kinds of SAX2 Event Producers</h2>
+
+	<p>Normally, an <em class="emphasis">XMLReader</em> turns XML text into SAX event callbacks.
+	This book encourages you to think of those event consumer callbacks
+	as the most important part of the process, so using XML
+	text as input is just one option for feeding those consumers.
+	</p>
+
+	<p>
+<a name="INDEX-455" />
+<a name="INDEX-456" />
+<a name="INDEX-457" />
+<a name="INDEX-458" />
+        For example, some SAX parsers have turned HTML text into SAX
+	callbacks; there have even been SAX wrappers around the limited
+	<em class="emphasis">javax.swing.text.html</em> parser.
+	These wrappers can help migrate to XHTML, first by making
+	sure tags are properly formed, paired, and nested, then by helping
+	make the XHTML be valid so more tools can work with it.
+	Malformed HTML is a huge problem; there's lots of brain-dead
+	HTML text on the Web.<a href="#FOOTNOTE-18">[18]</a>
+
+	In practice, no generally available SAX HTML parser is quite good
+	enough to substitute for tools like HTML Tidy (see
+	<a href="http://tidy.sourceforge.net">http://tidy.sourceforge.net</a>)
+	combined with manual fixup for problem cases, but that could change.
+	</p><blockquote class="footnote">
+
+	    <a name="FOOTNOTE-18" /><p>[18]One early browser development policy was that
+	    <em class="emphasis">there's no such thing as broken HTML</em>,
+	    so parsers needed to accept pretty much everything.
+	    The policy helped simplify content creation when there were
+	    few tools beyond text editors, but it also led to serious
+	    problems with browser incompatibility which are only now
+	    beginning to go away.
+	    It's also helped spread tools fostering malformed HTML
+	    (including flakey CGI scripts)
+	    and made it harder to present HTML on low-cost systems
+	    (it takes a fat parser to handle even a fraction of the
+	    different kinds of broken HTML).
+	    </p>
+	    
+	    <a name="FOOTNOTE-18" /><p>The draconian error-handling policy of the XML
+	    specification (if it's not well formed, it must be rejected)
+	    was a reaction to those problems: XML parsers don't need to
+	    compete on how well they can make sense of garbage input.
+	    It was added at the request of the main browser vendors,
+	    which were then Netscape and Microsoft. This policy makes it a lot easier to create tools to process XML text, including presentation tools (XHTML browsing) that can even work on limited resource systems (such as PDAs or cell phones), content management tools, and "screen scrapers" for mining XHTML presentation text (to repurpose the data shown there).</p></blockquote>
+
+	<a name="sax2-CHP-3-SECT-5.1" /><div class="sect2">
+	    <h3 class="sect2">3.5.1. DOM-to-SAX Event Production (and DOM4J, JDOM)</h3>
+
+	    <p>
+<a name="INDEX-459" />
+<a name="INDEX-460" />
+            It's so typical to want to turn a DOM node into a series
+	    of SAX events that SAX2 defined a standard way to do this.
+	    Several of the projects that claim to improve on
+	    DOM by being more Java-friendly, such as DOM4J and JDOM,
+	    have similar functionality.
+	    </p>
+
+	    <p>
+            In conjunction with any sort of SAX text output API (such
+	    as an <em class="emphasis">XMLWriter</em>), this technique is an easy way to
+	    turn a DOM tree into text.
+	    Utilities to turn a DOM node into text all need to do more or
+	    less the same thing: traverse the tree and emit the right sort
+	    of text. Using SAX (and SAX utilities) you can do this without
+	    needing support for any optional DOM Level 3 modules and
+	    without relying on any vendor-specific DOM extensions.
+	    (It's also a fine technique to use when you need a debugging
+	    snapshot and can't afford the memory needed to deep-clone a
+	    DOM document.)
+	    </p>
+	    
+	    <p>Of course, any other processing can be done too,
+	    such as validating the output.
+	    After initializing and connecting an appropriate event producer,
+	    consumer-side validator,
+	    and <em class="emphasis">ErrorHandler</em>,
+	    just produce the events and watch for reports of validity
+	    errors.
+	    In some cases (as with DOM-to-SAX converters), you can
+	    look at individual element subtrees; in other cases,
+	    you'll need to examine entire documents.
+	    </p>
+
+	    <div class="sect3">
+		<h3 class="sect3">3.5.1.1. Turning DOM trees into SAX events</h3>
+
+		<p>
+<a name="INDEX-461" />
+<a name="INDEX-462" />
+                To turn a DOM node into SAX events, you'll need to
+		use a special parser class; normal SAX parsers require text
+		as input and won't know the first thing about DOM.
+		If it's a Level 2 DOM and is using namespace support,
+		you'll probably need to manually patch up the namespace
+		data, since DOM isn't guaranteed to maintain it.
+		Patching can be done before or after you generate SAX events; I prefer to use a single, generic SAX2 processing
+		component to handle namespace fixups no matter where
+		the problem arose, since DOM isn't the only culprit.
+		Given such a parser class (the GNU version is used here),
+		your code will look like this:
+		</p>
+
+		<blockquote><pre class="code">import gnu.xml.util.XMLWriter;
+import org.w3c.dom.Node;
+import gnu.xml.util.DomParser;
+
+XMLReader       parser;
+Node            node = ...;
+ContentHandler  contentHandler = new XMLWriter (system.out);
+
+parser = new DomParser ();
+parser.setContentHandler (contentHandler);
+// you may also set DTDHandler, LexicalHandler, and DeclHandler
+
+parser.setProperty ("http://xml.org/sax/properties/dom-node", node);
+parser.parse ("dom-node value gets parsed");</pre></blockquote>
+
+		<p>Neither Crimson nor Xerces currently include support
+		for such DOM-to-SAX transformations.
+		</p>
+
+		</div>
+
+	    <div class="sect3">
+		<h3 class="sect3">3.5.1.2. Turning DOM4J trees into SAX events</h3>
+
+		<p>
+<a name="INDEX-463" />
+                In DOM4J
+		(<a href="http://www.dom4j.org">http://www.dom4j.org</a>),
+		it works like this.
+		The current version of DOM4J isn't as flexible
+		or complete as a DOM-to-SAX converter, though it has
+		a few more options than JDOM.
+		See the current release for more information.
+		</p>
+
+		<blockquote><pre class="code">import gnu.xml.util.XMLWriter;
+import org.dom4j.io.SAXWriter;
+import org.dom4j.Document;
+
+SAXWriter       parser;
+ContentHandler  contentHandler = new XMLWriter (system.out);
+Document        doc = ...;
+
+parser = new SAXWriter ();
+parser.setContentHandler (contentHandler);
+// you may also set DTDHandler and LexicalHandler
+
+parser.write (doc);
+		</pre></blockquote>
+
+		</div>
+
+	    <div class="sect3">
+		<h3 class="sect3">3.5.1.3. Turning JDOM trees into SAX events</h3>
+
+		<p>
+<a name="INDEX-464" />
+                Here's how to do this conversion in JDOM
+		(<a href="http://www.jdom.org">http://www.jdom.org</a>).
+		As this is being written,
+		the current version of JDOM doesn't support the level
+		of flexibility of a DOM-to-SAX parser; it only
+		handles JDOM document nodes. It also
+		doesn't support <em class="emphasis">LexicalHandler</em> or <em class="emphasis">DeclHandler</em> events.
+		JDOM could support some of the <em class="emphasis">LexicalHandler</em> events,
+		such as those for comments and CDATA section boundaries.
+		See the current release for more information.
+<a name="INDEX-465" />
+<a name="INDEX-466" />
+	
+
+</p>
+
+		<blockquote><pre class="code">import gnu.xml.util.XMLWriter;
+import org.jdom.Document;
+import org.jdom.output.SAXOutputter;
+
+SAXOutputter    parser;
+ContentHandler  contentHandler = new XMLWriter (system.out);
+Document        doc;
+
+parser = new SAXOutputter (contentHandler);
+// you may also set DTDHandler
+
+parser.output (doc);</pre></blockquote>
+
+		</div>
+
+	</div>
+
+	<a name="sax2-CHP-3-SECT-5.2" /><div class="sect2">
+	    <h3 class="sect2">3.5.2. Push Mode Event Production</h3>
+
+	    <p>
+<a name="INDEX-467" />
+<a name="INDEX-468" />
+            Since SAX event handlers are just objects, your
+	    application software can call their methods directly.
+	    This is a common technique for application code that needs to
+	    convert data structures to XML: turn them into SAX event streams
+	    for processing by other components.
+	    That component could be an <em class="emphasis">XMLWriter</em>
+	    sending data across the web to a partner, but you can do
+	    other kinds of processing too.
+	    Such application code normally has no reason to be wrapped
+	    as an implementation of <em class="emphasis">XMLReader</em>.
+	    </p>
+
+	    <p>
+<a name="INDEX-469" />
+            When used with in-memory data structures,
+	    this is part of what's sometimes called <em class="emphasis">serialization</em>.
+	    Be careful not to confuse this with the more specialized
+	    meaning in Java RMI, where serialization is a binary data
+	    format tied to individual Java classes.
+	    Other words used to describe this kind of process include
+	    "marshaling," "encoding," and "pickling."
+	    Reversing the process is an important parallel problem,
+	    since most of the time applications must both produce
+	    and consume XML data. That is, most applications round-trip data, rather than just consuming it or producing it.
+	    </p>
+
+	    <p>This event generation technique is not restricted
+	    to data structures that were originally stored in memory.
+	    You can use it with data from databases, stored on filesystems,
+	    and entered through user interfaces.
+	    The same general technique
+	    is used in all these cases.</p>
+
+	    <a name="sax2-CHP-3-SECT-5.2.1" /><div class="sect3">
+		<h3 class="sect3">3.5.2.1. Turning CSV files into SAX events</h3>
+
+		<p>
+<a name="INDEX-470" />
+<a name="INDEX-471" />
+<a name="INDEX-472" />
+                Comma Separated Values, or CSV, is a
+		data format that is widely used for some data
+		interchange problems.
+		Many spreadsheets and databases can read and write it,
+		and it can be used to publish fairly large databases.
+		It's one of the more widely understood "flat file" text
+		formats, and it's not uncommon to need to translate
+		data CSV formats into XML.
+		With luck, the meaning of each field will be documented
+		or maybe obvious from context.
+		A simple CSV list of some yoga classes might have
+		five fields per record and look like this:
+		</p>
+
+		<blockquote><pre class="code">daniela,4:30-5:45pm,ashtanga,sun,mixed
+(staff),10:30am-12:00m,sivanenda,daily,open
+philippe,7-9:00pm,ashtanga,mon,mixed
+larry,4:30-5:45pm,ashtanga,wed,rocket
+mahadevi,6-8:00pm,sivanenda,wed,advanced
+savonn,7-8:30pm,vinyasa,wed,2-3
+kei,9:30-11am,vinyasa,thu,intermediate
+patti,7:30-9pm,iyenegar,thur,1-2
+regan,9:30-11am,bikram,fri,open
+mark,12m-2pm,ashtanga,sat,mysore</pre></blockquote>
+
+		<p>The translation is easier than the parsing of
+		CSV itself. Details like handling of empty
+		or missing fields, quoted values, and inconsistent
+		value syntax are messy,
+		and critical when importing lots of data. In fact,
+		it's so messy that <a href="ch03_05.htm#sax2-CHP-3-EX-4">Example 3-4</a>
+		completely avoids such lexical issues for CSV input data.
+		(Nonlexical issues should be delegated
+		to XML processing layers.)
+		The example shows one way to translate;
+		it's packaged more simply than a real-world application
+		would probably expect.
+		(Making an <em class="emphasis">XMLReader</em> that emits
+		SAX events is possible and might be convenient.)
+		This approach turns each CSV
+		record into a single element by using attributes
+		(with a sneak peek at a helper class we'll see later).
+		It prints the output as XML text, which is probably not
+		how you'd normally work with such data;
+		the output is more naturally sent through 
+		a processing pipeline.
+		</p>
+
+		<a name="sax2-CHP-3-EX-4" /><div class="example">
+		    <h4 class="objtitle">Example 3-4. Producing SAX2 events from CSV input</h4>
+
+		<blockquote><pre class="code">import java.io.*;
+import java.util.StringTokenizer;
+import org.xml.sax.*;
+import org.xml.sax.helpers.*;
+import gnu.xml.util.XMLWriter;
+
+
+public class csv
+{
+    // stdin = (simple) CSV, stdout = XML
+    public static void main (String argv [])
+    {
+	BufferedReader	in;
+	XMLWriter	out;
+	ErrorHandler	errs;
+	String		line;
+
+	try {
+	    in = new BufferedReader (new InputStreamReader (System.in));
+	    out = new XMLWriter (System.out);
+	    errs = new DefaultHandler () {
+		    public void fatalError (SAXParseException e) {
+			System.err.println ("** parse error: "
+			    + e.getMessage ());
+		    }
+		};
+
+	    out.startElement ("", "", "yoga", new AttributesImpl ());
+	    while ((line = in.readLine ()) != null)
+		parseLine (line, out, errs);
+	    out.endElement ("", "", "yoga");
+	    out.flush ();
+	} catch (Exception e) {
+	    System.err.println ("** error: " + e.getMessage ());
+	    e.printStackTrace (System.err);
+	    System.exit (1);
+	}
+    }
+
+    // this doesn't handle quoted strings (with commas inside),
+    // empty fields, tabs used as delimiters, or column headers.
+    private static void parseLine (
+	String		line,
+	ContentHandler	out,
+	ErrorHandler	errs
+    ) throws SAXException
+    {
+	StringTokenizer	tokens = new StringTokenizer (line.trim (), ",");
+	String		values [] = new String [5];
+
+	// if there aren't five values, it's malformed
+	if (tokens.countTokens () != 5) {
+	    errs.fatalError (
+		new SAXParseException ("not enough values", null));
+	    return;
+	}
+	for (int i = 0; i &lt; 5; i++)
+	    values [i] = tokens.nextToken ();
+
+	// now that we parsed the line safely, report its contents
+
+	// the AttributesImpl class is shown later
+	AttributesImpl	atts = new AttributesImpl ();
+
+	atts.addAttribute ("", "", "teacher", "CDATA", values [0]);
+	atts.addAttribute ("", "", "time", "CDATA", values [1]);
+	atts.addAttribute ("", "", "type", "CDATA", values [2]);
+	atts.addAttribute ("", "", "date", "CDATA", values [3]);
+	atts.addAttribute ("", "", "level", "CDATA", values [4]);
+
+	out.ignorableWhitespace ("\n  ".toCharArray (), 0, 3);
+	out.startElement ("", "", "class", atts);
+	out.endElement ("", "", "class");
+    } 
+}</pre></blockquote>
+
+		</div>
+
+		<p>The output of that program looks somewhat like this:</p>
+
+		<blockquote><pre class="code">&lt;yoga&gt;
+  &lt;class teacher="daniela" time="4:30-5:45pm" type="ashtanga" 
+         date="sun" level="mixed"&gt;&lt;/class&gt;
+  &lt;class teacher="(staff)" time="10:30am-12:00m" type="sivanenda" 
+         date="daily" level="open"&gt;&lt;/class&gt;
+  &lt;class teacher="philippe" time="7-9:00pm" type="ashtanga" 
+         date="mon" level="mixed"&gt;&lt;/class&gt;
+  &lt;class teacher="larry" time="4:30-5:45pm" type="ashtanga" 
+         date="wed" level="rocket"&gt;&lt;/class&gt;
+  &lt;class teacher="mahadevi" time="6-8:00pm" type="sivanenda" 
+         date="wed" level="advanced"&gt;&lt;/class&gt;
+  &lt;class teacher="savonn" time="7-8:30pm" type="vinyasa" 
+         date="wed" level="2-3"&gt;&lt;/class&gt;
+  &lt;class teacher="kei" time="9:30-11am" type="vinyasa" 
+         date="thu" level="intermediate"&gt;&lt;/class&gt;
+  &lt;class teacher="patti" time="7:30-9pm" type="iyenegar" 
+         date="thur" level="1-2"&gt;&lt;/class&gt;
+  &lt;class teacher="regan" time="9:30-11am" type="bikram" 
+         date="fri" level="open"&gt;&lt;/class&gt;
+  &lt;class teacher="mark" time="12m-2pm" type="ashtanga" 
+         date="sat" level="mysore"&gt;&lt;/class&gt;&lt;/yoga&gt;
+</pre></blockquote>
+
+		<p>
+<a name="INDEX-473" />
+                This included some ignorable whitespace to
+		prevent the output from appearing as one big line
+		of text; enabling pretty printing would do as well.
+		Notice that the output needed to be flushed, else
+		the JVM would normally exit with data still
+		buffered in memory. We haven't yet looked at the
+		<tt class="literal">endDocument()</tt> callback that
+		would normally flush the data.
+		Finally, notice that handling of any CSV conversion
+		errors is delegated to a SAX error handler, which
+		in this case adopts a very permissive strategy.
+<a name="INDEX-474" />
+<a name="INDEX-475" />
+	
+</p>
+
+		</div>
+
+	    <a name="sax2-CHP-3-SECT-5.2.2" /><div class="sect3">
+		<h3 class="sect3">3.5.2.2. Turning objects into SAX events</h3>
+
+		<p>
+<a name="INDEX-476" />
+<a name="INDEX-477" />
+<a name="INDEX-478" />
+                For simple objects, something like the following
+		"Address" example works.
+		For a more complex object, such as a purchase order
+		with multiple addresses for shipping and billing, you'll
+		likely have routines that encode other data 
+		and use routines like this one as subroutines.
+		You won't need to use any other handler interfaces,
+		though you might want to embed comments or create CDATA
+		boundaries using a <em class="emphasis">LexicalHandler</em>.
+		Notice that <tt class="literal">startElement()</tt> calls always
+		have matching <tt class="literal">endElement()</tt> calls,
+		just as if the text was generated by an XML parser.
+		This example declares and uses namespaces; you don't need
+		to do that on the producer side if you patch them up later,
+		but it's a reasonable practice to adopt.
+		As used here, the <em class="emphasis">AttributesImpl</em> class
+		just creates an empty set of attributes to pass on
+		because null values can't be used:
+		</p>
+
+		<blockquote><pre class="code">static final String nsURI = "http://example.com/xml/address";
+
+void toXML (Address addr, ContentHandler stream)
+{
+    char            temp [];
+    Attributes      atts;
+
+    // create an empty set of attributes
+    atts = new AttributesImpl ();
+
+    // &lt;address xmlns="http://example.com/xml/address"&gt;
+    stream.startPrefixMapping ("", nsURI);
+    stream.startElement (nsURI, "address", "address", atts);
+
+    // &lt;street&gt;...&lt;/street&gt;
+    stream.startElement (nsURI, "street", "street", atts);
+    temp = addr.getStreet ().toCharArray ();
+    stream.characters (temp, 0, temp.length);
+    stream.endElement (nsURI, "street", "street");
+
+    // &lt;city&gt;...&lt;/city&gt;
+    stream.startElement (nsURI, "city", "city", atts);
+    temp = addr.getCity ().toCharArray ();
+    stream.characters (temp, 0, temp.length);
+    stream.endElement (nsURI, "city", "city");
+
+    // &lt;country&gt;...&lt;/country&gt;
+    stream.startElement (nsURI, "country", "country", atts);
+    temp = addr.getCountry ().toCharArray ();
+    stream.characters (temp, 0, temp.length);
+    stream.endElement (nsURI, "country", "country");
+
+    // ... there would probably be more elements,
+    // but not all application data in the "Address"
+    // would be shared with the recipient.
+
+    // &lt;/address&gt;
+    stream.endElement (nsURI, "address", "address");
+    stream.endPrefixMapping ("");
+}</pre></blockquote>
+
+		<p>
+<a name="INDEX-479" />
+<a name="INDEX-480" />
+<a name="INDEX-481" />
+                If you're printing such output, you might want to
+		add some ignorable whitespace to keep all the text from appearing on a single line. The resulting XML text will be easier to read, though having text without line breaks should not matter otherwise. (Better yet: use an XMLWriter with pretty-printing support.) If you are working with many namespaces, you may want to use the <em class="emphasis">NamespaceSupport</em> class (see <a href="ch05_01.htm#sax2-CHP-5-SECT-1.3">Section 5.1.3, "The NamespaceSupport Class "</a> in <a href="ch05_01.htm">Chapter 5, "Other SAX Classes"</a>) to track and select the prefixes used in the element and attribute names you write.
+		</p>
+
+		<p>It may also be a good idea to write "unmarshaling" code
+		(taking such events and recreating, or looking up, application
+		objects) at the same time you write marshaling code (like the
+		preceding code, creating SAX events from application objects).
+		That helps test the code: when round-trip processing works for
+		many different data items (save a lot of test cases),
+		you know it's behaving.
+		Unmarshaling code can also be an appropriate place to test for
+		semantic validity of data: you might have reason to trust
+		that your current marshaling code is correct, but changes
+		made next year could break something, and it's not good to
+		expect everyone else will marshal correctly.
+		</p>
+
+		</div>
+
+	    <a name="sax2-CHP-3-SECT-5.2.3" /><div class="sect3">
+		<h3 class="sect3">3.5.2.3. Data modeling concerns</h3>
+
+		<p>
+<a name="INDEX-482" />
+                As a rule of thumb, avoid assuming that your XML data
+		model ought to match your application's data structures.
+		Such policies can sometimes be appropriate, but more often,
+		your application's internal data structures were optimized for
+		something unrelated to communicating with other applications.
+		Most systems that automatically marshal and unmarshal data
+		structures (maybe using "reflection" in Java) will make such
+		assumptions; they lead to tightly coupled systems.
+		Tight coupling tends to cause fragility in the face of system
+		evolution, since upgrades normally occur incrementally
+		on widely distributed systems (such as almost all web-based
+		applications).
+		</p>
+
+		<p>For example, when you interchange the results of a
+		complex set of queries from your database
+		(perhaps for a large purchase order),
+		it is typically appropriate to mask the exact relational
+		structure used in your application.
+		The recipient of your XML may well have adopted a different
+		relational normalization.
+		The recipient might not even expect to perform database
+		operations on such data. Data displays may need to
+		address usability issues that are completely unrelated
+		to how applications "think" about the same data.
+		Similar logic applies when the application data isn't
+		stored in a database or is only partially stored in one.
+		</p>
+
+		<p>On the other hand, if you're using XML to transfer a
+		relation from one database to another, encoding a
+		<em class="emphasis">java.sql.ResultSet</em> (or CSV table)
+		into a series of elements (one element per table row, without
+		duplications) may be exactly the right model.
+		(The reverse transformation would be unmarshaling -- consuming XML to populate a database.)
+		You won't always want to denormalize, even though the ability
+		to easily do that is one of the great strengths of using XML
+		to interchange data.
+		Many common messaging scenarios involve the kind of data model
+		that serves as input to normalization processes, and are
+		oriented to individual cases not aggregates.
+		</p>
+
+		<p>When you're encoding individual data items,
+		such as integers, dates,
+		or binary data encoded using BASE64,
+		you should consider using the data-typing facilities
+		in Part 2 of the W3C XML Schema specification
+		(<a href="http://www.w3c.org/TR/xmlschema-2/">http://www.w3c.org/TR/xmlschema-2/</a>).
+		Those "simple" datatypes are intended to be used in many
+		specifications. Its association with the particular
+		schema system described in other parts of the W3C XML Schema
+		specification can be viewed as a historical accident;
+		you don't need to use W3C schemas to use these datatypes.
+<a name="INDEX-483" />
+<a name="INDEX-484" />
+		
+</p>
+
+		</div>
+
+	    </div>
+
+	<a name="sax2-CHP-3-SECT-5.3" /><div class="sect2">
+	    <h3 class="sect2">3.5.3. Producing Well-Formed Event Streams</h3>
+
+	    <p>
+<a name="INDEX-485" />
+            If you are generating SAX2 events from any event
+	    producer that's not an actual XML parser (maybe by using an
+	    HTML parser or code that traverses data structures), you may
+	    need to ensure the event stream is legal before passing it
+	    to other components (maybe by printing it as XML text).
+	    There are issues of well formedess to think about:
+	    <tt class="literal">startElement()</tt> calls need matching
+	    <tt class="literal">endElement()</tt> calls,
+	    other calls require similar start/end nesting,
+	    carriage returns are prohibited in line ends,
+	    and more.
+	    Correct reporting of namespace information is important: prefixes
+	    must be declared and correctly used.
+	    Validity will also be an issue in many contexts as a policy of
+	    eliminating data format errors as early as possible.
+	    (It's cheaper to fix bugs before you ship them in products than
+	    afterward, and validation tools make some bugs easy to find.)
+	    </p>
+	    
+	    <p>The particular issues you may have depend on what
+	    kind of event producer you use and what kinds of events
+	    you generate.
+	    DOM streams can easily be namespace-invalid; for example, prefixes are
+	    often undeclared or missing.
+	    Code that generates events directly is particularly prone
+	    to violate element nesting and closure requirements and
+	    to omit namespace declarations.
+	    Few tools prevent all kinds of illegal content;
+	    <tt class="literal">]]&gt;</tt> could appear in CDATA sections,
+	    and <tt class="literal">--</tt> (two hyphens) within comments,
+	    both of which will prevent generation of legal XML text.
+	    </p>
+
+	    <p>With high-quality producer-side code, you'll have fixed
+	    all those problems before the code is released.
+	    But you'll still probably
+	    want code that dynamically verifies that there's no
+	    problem to use when debugging or troubleshooting.
+	    If you adopt a good SAX2 event pipeline framework, it
+	    can easily support components that monitor event streams to
+	    ensure they meet those data integrity constraints
+	    or, in some cases (like namespaces), patch event streams
+	    so they are correct.
+	    </p>
+
+	</div>
+
+	<a name="sax2-CHP-3-SECT-5.4" /><div class="sect2">
+	    <h3 class="sect2">3.5.4. The XMLFilter Interface</h3>
+
+	    <p>
+<a name="INDEX-486" />
+            SAX2 added the <em class="emphasis">XMLFilter</em>
+	    interface.
+	    <em class="emphasis">XMLFilter</em> is just an <em class="emphasis">XMLReader</em> that can
+	    be associated with a "parent" reader.
+	    What's interesting is the expectation that the parent is
+	    producing the events and the filter postprocesses them;
+	    the filter parses and modifies Infoset data, not XML text.
+	    From the perspective of your application code, a filter that
+	    you use as an <em class="emphasis">XMLReader</em> is doing some
+	    postprocessing of your parser requests,
+	    some processing on the XML data,
+	    then passing you the results; it's a preprocessor for infoset data.</p>
+
+<p>The <em class="emphasis">XMLFilter</em> interface adds these methods to <em class="emphasis">XMLReader</em>:</p>
+
+	    <dl>
+
+		
+<dt><b><tt class="literal">void setParent(XMLReader parser)</tt></b></dt>
+<dt><b><tt class="literal">XMLReader getParent()</tt></b></dt>
+
+		<dd><p>The parent of an <em class="emphasis">XMLFilter</em> is accessed
+		using standard JavaBeans property-naming conventions.
+		Use this property to control which parser (or filter)
+		generates the events to be filtered.
+		</p></dd>
+	    
+	    </dl>
+
+	    <p>The role of the <em class="emphasis">XMLFilter</em> implementation is
+	    primarily to intercept and process SAX content events.
+	    Because its real work is to process those events,
+	    the code in such a filter is acting as a consumer.
+	    Implementing the <em class="emphasis">XMLReader</em> interface is a facade to make
+	    that consumer code look like a pull API (<em class="emphasis">XMLReader</em>)
+	    and let it intercept requests to an underlying parser.
+	    That is, it supports one kind of XML pipeline model.
+	    </p>
+
+	    <p>
+<a name="INDEX-487" />
+            Since the interesting issues are all on the consumer
+	    side, <em class="emphasis">XMLFilter</em> is discussed later with other kinds of SAX event
+	    pipeline models, in <a href="ch04_05.htm#sax2-CHP-4-SECT-5">Section 4.5, "XML Pipelines "</a>, in <a href="ch04_01.htm">Chapter 4, "Consuming SAX2 Events"</a>, along with the <em class="emphasis">XMLFilterImpl</em> helper class.
+	    </p>
+
+	    <p>
+<a name="INDEX-488" />
+            If you're using these filters as event producers,
+	    you'll need to pay attention to a secondary role of
+	    an <em class="emphasis">XMLFilter</em>: intercepting
+	    and modifying parser requests.
+	    This kind of filter is a <em class="emphasis">compound object</em>.
+	    It consists of the filter,
+	    plus a reader (which might in turn be another filter),
+	    handler bindings,
+	    and settings for feature flags and properties.
+	    The interrelationships of these parts can get murky.
+	    In simple cases you can ignore the distinction, treating this
+	    type of SAX filter just like another reader. 
+	    But in other cases you may need to remember that the filter and
+	    its parent are distinct objects with different behaviors.
+	    </p>
+
+	    <p>For example, sometimes you'll find implementations
+	    of <em class="emphasis">XMLFilter</em> that don't use
+	    mechanisms such as the <em class="emphasis">EntityResolver</em>
+	    or <em class="emphasis">ErrorResolver</em>.
+	    When you need to use those mechanisms,
+	    you'd need to bind such objects to the parent parser.
+	    But most filters pass those objects on to the parent
+	    and may even need to use them internally, so you'd
+	    bind them to the filter instead.
+	    You'll need to know which kind of filter you have.
+	    In a similar way, if an underlying parser interns its
+	    strings, but the filter changes them (for example, swapping one
+	    namespace URI for another) and doesn't intern those strings,
+	    then code that talks to the filter can't use identity tests to
+	    replace the slower equality tests.
+	    The filter would have to expose a different setting for
+	    such feature flags than the parent parser.
+<a name="INDEX-489" />
+
+	    </p>
+	    
+	</div>
+
+    
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch04_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">3.4. The EntityResolver Interface</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">4. Consuming SAX2 Events</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

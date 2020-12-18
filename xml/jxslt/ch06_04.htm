@@ -1,0 +1,232 @@
+<html><head><title>Stylesheet Caching Revisited (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch06_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">6.4. Stylesheet Caching Revisited</h2>
+
+<p><a name="INDEX-737" /> <a name="INDEX-738" />We
+have seen two approaches that eliminate the need to hardcode the
+absolute pathname of XSLT stylesheets in your servlet code. In the
+first approach, the <tt class="literal">ServletContext</tt> was used to
+load resources from the web application using a relative pathname. In
+the second approach, the location was specified as a context
+initialization parameter.
+</p>
+
+<p><a name="INDEX-739" />This takes care of compilation
+changes, but now we have the issue of dynamic loading. In the
+<tt class="literal">PersonalDataServlet</tt> class, the two XSLT
+stylesheets are located and "compiled" into instances of
+the <tt class="literal">javax.xml.transform.Templates</tt> interface.
+Although this offers high performance for transformations, the two
+stylesheets are never flushed from memory. If changes are made to the
+XSLT stylesheets on disk, the servlet must be stopped and started
+again.
+</p>
+
+<a name="javaxslt-CHP-6-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">6.4.1. Integration with the Stylesheet Cache</h3>
+
+<p><a name="INDEX-740" />
+<a name="INDEX-741" />In <a href="ch05_01.htm">Chapter 5, "XSLT Processing with Java"</a>, a
+stylesheet cache was implemented. In this next example,
+<tt class="literal">PersonalDataServlet</tt><a name="INDEX-742" /> is modified to use the cache
+instead of <tt class="literal">Templates</tt> directly. This will offer
+virtually the same runtime performance. However, you will be able to
+modify the stylesheets and immediately see those changes in your web
+browser. Each time a stylesheet is requested, the cache will check
+its timestamp on the file system. If the file has been modified, a
+new <tt class="literal">Templates</tt> instance is instantiated without
+bringing down the servlet.
+</p>
+
+<p>Fortunately, integration with the cache actually makes the
+<tt class="literal">PersonalDataServlet</tt> simpler to implement. <a href="ch06_04.htm#javaxslt-CHP-6-EX-10">Example 6-10</a> contains the modified listing, and all
+modified lines are emphasized.
+</p>
+
+<a name="javaxslt-CHP-6-EX-10" /><div class="example">
+<h4 class="objtitle">Example 6-10. Modified PersonalDataServlet.java with stylesheet cache </h4>
+<blockquote><pre class="code">package chap6;
+
+<tt class="userinput"><b>import com.oreilly.javaxslt.util.StylesheetCache;</b></tt>
+import java.io.*;
+import java.net.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import javax.xml.transform.*;
+import javax.xml.transform.dom.*;
+import javax.xml.transform.stream.*;
+
+<tt class="userinput"><b>/**
+ * A modification of PersonalDataServlet that uses the
+ * com.oreilly.javaxslt.util.StylesheetCache class.
+ */</b></tt>
+public class PersonalDataServlet extends HttpServlet {
+    private PersonalDataXML personalDataXML = new PersonalDataXML( );
+    <tt class="userinput"><b>private String editXSLTFileName;
+    private String thanksXSLTFileName;</b></tt>
+
+    /**
+     * One-time initialization of this Servlet.
+     */
+    public void init( ) throws UnavailableException {
+        <tt class="userinput"><b>this.editXSLTFileName = getServletContext( ).getRealPath(
+                "/WEB-INF/xslt/editPersonalData.xslt");
+        this.thanksXSLTFileName = getServletContext( ).getRealPath(
+                "/WEB-INF/xslt/confirmPersonalData.xslt");</b></tt>
+    }
+
+    /**
+     * Handles HTTP GET requests, such as when the user types in
+     * a URL into his or her browser or clicks on a hyperlink.
+     */
+    protected void doGet(HttpServletRequest request,
+            HttpServletResponse response) throws IOException,
+            ServletException {
+        PersonalData personalData = getPersonalData(request);
+        // the third parameter, 'false', indicates that error
+        // messages should not be displayed when showing the page.
+        <tt class="userinput"><b>showPage(response, personalData, false, this.editXSLTFileName);</b></tt>
+    }
+
+    /**
+     * Handles HTTP POST requests, such as when the user clicks on
+     * a Submit button to update his or her personal data.
+     */
+    protected void doPost(HttpServletRequest request,
+            HttpServletResponse response) throws IOException,
+            ServletException {
+
+        // locate the personal data object and update it with
+        // the information the user just submitted.
+        PersonalData pd = getPersonalData(request);
+        pd.setFirstName(request.getParameter("firstName"));
+        pd.setLastName(request.getParameter("lastName"));
+        pd.setDaytimePhone(request.getParameter("daytimePhone"));
+        pd.setEveningPhone(request.getParameter("eveningPhone"));
+        pd.setEmail(request.getParameter("email"));
+
+        if (!pd.isValid( )) {
+            // show the 'Edit' page with an error message
+            <tt class="userinput"><b>showPage(response, pd, true, this.editXSLTFileName);</b></tt>
+        } else {
+            // show a confirmation page
+            <tt class="userinput"><b>showPage(response, pd, false, this.thanksXSLTFileName);</b></tt>
+        }
+    }
+
+    /**
+     * A helper method that sends the personal data to the client
+     * browser as HTML. It does this by applying an XSLT stylesheet
+     * to the DOM tree.
+     */
+    private void showPage(HttpServletResponse response,
+            PersonalData personalData, boolean includeErrors,
+            <tt class="userinput"><b>String xsltFileName) throws IOException, ServletException {</b></tt>
+        try {
+            org.w3c.dom.Document domDoc =
+                    this.personalDataXML.produceDOMDocument(
+                    personalData, includeErrors);
+
+            <tt class="userinput"><b>Transformer trans =
+                    StylesheetCache.newTransformer(xsltFileName);</b></tt>
+
+            response.setContentType("text/html");
+            PrintWriter writer = response.getWriter( );
+
+            trans.transform(new DOMSource(domDoc), new StreamResult(writer));
+        } catch (Exception ex) {
+            showErrorPage(response, ex);
+        }
+    }
+
+    /**
+     * If any exceptions occur, this method can be showed to display
+     * the stack trace in the browser window.
+     */
+    private void showErrorPage(HttpServletResponse response,
+            Throwable throwable) throws IOException {
+        PrintWriter pw = response.getWriter( );
+        pw.println("&lt;html&gt;&lt;body&gt;&lt;h1&gt;An Error Has Occurred&lt;/h1&gt;&lt;pre&gt;");
+        throwable.printStackTrace(pw);
+        pw.println("&lt;/pre&gt;&lt;/body&gt;&lt;/html&gt;");
+    }
+
+    /**
+     * A helper method that retrieves the PersonalData object from
+     * the HttpSession.
+     */
+    private PersonalData getPersonalData(HttpServletRequest request) {
+        HttpSession session = request.getSession(true);
+        PersonalData pd = (PersonalData) session.getAttribute(
+                "chap6.PersonalData");
+        if (pd == null) {
+            pd = new PersonalData( );
+            session.setAttribute("chap6.PersonalData", pd);
+        }
+        return pd;
+    }
+}</pre></blockquote>
+</div>
+
+<p>One key difference in this example is its reliance on the
+<tt class="literal">com.oreilly.javaxslt.util.StylesheetCache</tt> class.
+This will, of course, require that you add
+<em class="filename">StylesheetCache.class</em> to your WAR file in the
+appropriate directory. Another option is to place the stylesheet
+cache into a JAR file, and place that JAR file into the
+<em class="filename">TOMCAT_HOME/lib</em> directory. This approach is
+taken when you download the example code for this book.
+</p>
+
+<p>The biggest code savings occur in the <tt class="literal">init( )</tt>
+method because the filenames for the stylesheets are stored instead
+of <tt class="literal">Templates</tt> instances. This is because the
+stylesheet cache requires filenames as inputs and will create its own
+instances of <tt class="literal">Templates</tt>, which accounts for a
+majority of the simple changes throughout the servlet.
+</p>
+
+<p>Once you get this example up and running, testing the stylesheet
+reloading capability is a snap. As before,
+<em class="filename">chap6.war</em> is copied to the
+<em class="filename">TOMCAT_HOME/webapps</em> directory. After you run the
+servlet the first time, you will notice that the WAR file is expanded
+into the <em class="filename">TOMCAT_HOME/webapps/chap6</em> directory.
+Simply go into the
+<em class="filename">TOMCAT_HOME/webapps/chap6/WEB-INF/xslt</em> directory
+and edit one of the stylesheets. Then click on the Refresh button on
+your web browser, and you should see the results of the edits that
+were just made.
+</p>
+
+<p>If you don't see the changes, there might be some leftover
+files from earlier examples in this chapter. Be sure to shut down
+Tomcat and remove both <em class="filename">chap6.war</em> and the
+<em class="filename">chap6</em> directory from Tomcat's
+<em class="filename">webapps</em> directory. Then re-deploy <a name="INDEX-743" /> <a name="INDEX-744" />and try
+again.<a name="INDEX-745" /><a name="INDEX-746" /> <a name="INDEX-747" /> 
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch06_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">6.3. Another Servlet Example</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">6.5. Servlet Threading Issues</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

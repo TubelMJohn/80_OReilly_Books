@@ -1,0 +1,233 @@
+<html><head><title>Namespaces (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch06_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">6.2. Namespaces</h2>
+
+<p><a name="INDEX-547" />An important addition to DOM Level 2 not yet
+discussed is DOM's support for XML <a name="INDEX-548" />namespaces.
+You'll remember from <a href="ch03_01.htm">Chapter 3, "SAX"</a> and
+<a href="ch04_01.htm">Chapter 4, "Advanced SAX "</a>, that SAX 2.0 added
+<a name="INDEX-549" />namespace support, and the same is true
+for the second iteration of DOM. The key here is two new methods on
+the <tt class="literal">Node</tt> interface: <tt class="literal">getPrefix(
+)</tt><a name="INDEX-550" /> and
+<tt class="literal">getNamespaceURI(
+)</tt><a name="INDEX-551" />. Additionally, all of the
+<a name="INDEX-552" />creation methods have namespace-aware
+versions available. So, instead of calling <tt class="literal">createElement(
+)</tt>, you call <tt class="literal">createElementNS( )</tt>.
+</p>
+
+<a name="javaxml2-CHP-6-SIDEBAR-1" /><blockquote><table border="1" cellpadding="6"><tr><td>
+<h4 class="objtitle">Overloaded?</h4>
+
+<p><a name="INDEX-553" />To all of the Java programmers out there,
+<tt class="literal">createElementNS( )</tt> looks pretty odd. Why not just
+overload <tt class="literal">createElement( )</tt> to take in additional
+parameters? Well, you could if DOM was used only in Java or in
+languages that supported overloading. However, it's not;
+it's a cross-language specification, and that results in
+limitations with method names and backwards compatiblity when it
+comes to changing existing method signatures. So, DOM defined new
+methods with the <tt class="literal">NS</tt> suffix to identify them as
+namespace-aware versions. It's bad for straight Java, but good
+for DOM as a cross-language standard.
+</p>
+</td></tr></table><p></blockquote>
+
+<p>In each of these new namespace-aware methods, the first argument is
+the namespace URI, and the second is the
+<em class="emphasis">qualified</em> name of the element, attribute, etc.
+Note that I said qualified; this means that if you want to use a
+namespace URI of "http://www.oreilly.com" and a prefix of
+"ora" on an element called "copyright", you
+would call <tt class="literal">createElementNS("http://www.oreilly.com",
+"ora:copyright")</tt>. This is very important, and remembering
+to use that prefix will save you a lot of time down the road. Calling
+<tt class="literal">getPrefix( )</tt> on that new element will correctly
+return "ora", though, as it should. If you want the
+element in the default namespace (with no prefix), just pass in the
+element name (the local name, in this case), and you're all
+set. Calling <tt class="literal">getPrefix(
+)</tt><a name="INDEX-554" /> on
+a default-namespaced element returns null, by the way, as it does on
+an element not in any namespace.
+</p>
+<blockquote><b>WARNING:</b> 
+
+<a name="INDEX-555" />The prefix tells you very little about whether an element is a namespace. Elements with a default namespace (and no prefix) have the same return value from <tt class="literal">getPrefix( )</tt> as elements not in <em class="emphasis">any</em> namespace. I'm hoping the next version of the specification modifies this to return an empty string ("") when the element is in the default namespace.
+</p>
+</blockquote>
+<p>Rather than simply list all the new namespace-aware methods (you can
+find that list in <a href="appa_01.htm">Appendix A, "API Reference"</a>), I'd rather
+show you some real code. In fact, converting the
+<tt class="literal">UpdateItemServlet</tt>'s <tt class="literal">doPost(
+)</tt><a name="INDEX-556" />
+method to use namespaces is a perfect example:
+</p>
+
+<blockquote><pre class="code">    public void doPost(HttpServletRequest req, HttpServletResponse res)
+        throws ServletException, IOException {
+
+        // Get parameter values
+        String id = req.getParameterValues("id")[0];
+        String name = req.getParameterValues("name")[0];
+        String description = req.getParameterValues("description")[0];
+
+        // See if this file exists
+        Document doc = null;
+        File xmlFile = new File(ITEMS_DIRECTORY + "item-" + id + ".xml");
+        }<tt class="userinput"><b>String docNS = "http://www.oreilly.com/javaxml2";}</b></tt>
+
+        if (!xmlFile.exists( )) {
+            // Create new DOM tree
+            DOMImplementation domImpl = new DOMImplementationImpl( );
+            doc = domImpl.createDocument(<tt class="userinput"><b>docNS</b></tt>, "item", null);
+            Element root = doc.getDocumentElement( );
+
+            // ID of item (as attribute)
+            root.setAttribute("id", id);
+
+            // Name of item
+            Element nameElement = <tt class="userinput"><b>doc.createElementNS(docNS, "name");</b></tt>
+            Text nameText = doc.createTextNode(name);
+            nameElement.appendChild(nameText);
+            root.appendChild(nameElement);
+
+            // Description of item
+            Element descriptionElement = 
+<tt class="userinput"><b>                doc.createElementNS(docNS, "description");</b></tt>
+            Text descriptionText = doc.createText(description);
+            descriptionElement.appendChild(descriptionText);
+            root.appendChild(descriptionElement);
+  } else {
+            // Load document
+            try {
+                DOMParser parser = new DOMParser( );
+                parser.parse(xmlFile.toURL().toString( ));
+                doc = parser.getDocument( );
+
+                Element root = doc.getDocumentElement( );
+   
+                // Name of item
+                NodeList nameElements = 
+<tt class="userinput"><b>                    root.getElementsByTagNameNS(docNS, "name");</b></tt>
+                Element nameElement = (Element)nameElements.item(0);
+                Text nameText = (Text)nameElement.getFirstChild( );
+                nameText.setData(name);
+            
+                // Description of item
+                NodeList descriptionElements = 
+                    <tt class="userinput"><b>root.getElementsByTagNameNS(docNS, "description");</b></tt>
+                Element descriptionElement = (Element)descriptionElements.item(0);
+
+                // Remove and recreate description
+                root.removeChild(descriptionElement);
+                descriptionElement = <tt class="userinput"><b>doc.createElementNS(docNS, "description");</b></tt>
+                Text descriptionText = doc.createTextNode(description);
+                descriptionElement.appendChild(descriptionText);
+                root.appendChild(descriptionElement);
+            } catch (SAXException e) {
+                // Print error
+                PrintWriter out = res.getWriter( );
+                res.setContentType("text/html");
+                out.println("&lt;HTML&gt;&lt;BODY&gt;Error in reading XML: " +
+                    e.getMessage( ) + ".&lt;/BODY&gt;&lt;/HTML&gt;");
+                out.close( ); 
+                return;
+            }
+        }</b></tt>
+
+        // Serialize DOM tree
+        DOMSerializer serializer = new DOMSerializer( );
+        serializer.serialize(doc, xmlFile);
+
+        // Print confirmation
+        PrintWriter out = res.getWriter( );
+        res.setContentType("text/html");
+        out.println("&lt;HTML&gt;&lt;BODY&gt;Thank you for your submission. " +
+            "Your item has been processed.&lt;/BODY&gt;&lt;/HTML&gt;");
+        out.close( );        
+    }</pre></blockquote>
+
+<p>Using the <tt class="literal">createElementNS(
+)</tt><a name="INDEX-557" /> method to create namespaced elements and
+searching for them with <tt class="literal">getElementsByTagNameNS(
+)</tt><a name="INDEX-558" /> seems to be perfect. The
+<tt class="literal">createDocument(
+)</tt><a name="INDEX-559" /> method even has a handy place to insert the
+namespace URI for the root element. These elements are all put into
+the default namespace, and everything looks fine. However, there is a
+big problem here. Look at the output from running this servlet with
+no existing XML (this is generated XML, rather than modified XML):
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+&lt;item id="bourgOM"&gt;
+&lt;name&gt;Bourgeois OM Guitar&lt;/name&gt;
+&lt;description&gt;This is a &lt;i&gt;beautiful&lt;/i&gt; &lt;b&gt;Sitka-topped&lt;/b&gt; guitar with 
+&lt;b&gt;Indian Rosewood&lt;/b&gt; back and sides. Made by luthier 
+&lt;a href="http://www.bourgeoisguitars.com"&gt;Dana Bourgeois&lt;/a&gt;, this OM has a 
+&lt;b&gt;huge sound&lt;/b&gt;. 
+The guitar has &lt;i&gt;great action&lt;/i&gt;, a 1 3/4" nut, and all 
+&lt;i&gt;fossilized ivory&lt;/i&gt; nut and saddle, with &lt;i&gt;ebony&lt;/i&gt; end pins.
+New condition, this is a &lt;b&gt;great guitar&lt;/b&gt;!&lt;/description&gt;
+&lt;/item&gt;</pre></blockquote>
+
+<p>Does this look familiar? It is the XML from earlier, with
+<em class="emphasis">no change</em>! The one thing that
+<a name="INDEX-560" />DOM does not do is add <a name="INDEX-561" />namespace
+declarations. Instead, you'll need to manually add the
+<tt class="literal">xmlns</tt> attribute to your DOM tree; otherwise, when
+reading in the document, the elements won't be placed into a
+namespace and you will have some problems. One small change takes
+care of this, though:
+</p>
+
+<blockquote><pre class="code">// Create new DOM tree
+DOMImplementation domImpl = new DOMImplementationImpl( );
+doc = domImpl.createDocument(docNS, "item", null);
+Element root = doc.getDocumentElement( );
+<tt class="userinput"><b>root.setAttribute("xmlns", docNS);</b></tt>
+</pre></blockquote>
+<p>Now you'll get the namespace declaration that you were probably
+expecting to show up the first go round. You can compile these
+changes, and try things out. You won't notice any difference;
+changes are made just as they were before. However, your documents
+should now have namespaces, both in the reading and writing portion
+of the servlet application.
+</p>
+
+<p>A final word on this namespace detail: keep in mind that you could
+certainly modify the DOMSerializer class to look for namespaces on
+elements, and print out the appropriate xmlns declarations as it
+walks the tree. This is a perfectly legal change, and would be sort
+of valuable; in fact, it's what many solutions, like those
+found within Xerces, already do. In any case, as long as you are
+aware of this behavior, you are protected from being the victim of
+it.<a name="INDEX-562" />
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch06_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch06_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">6. Advanced DOM</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">6.3. DOM Level 2 Modules</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

@@ -1,0 +1,588 @@
+<?label 15.3. Debugging Tools?><html><head><title>Debugging Tools (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch15_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch16_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">15.3. Debugging Tools</h2>
+
+
+<p>We've looked <a name="INDEX-3032" />
+<a name="INDEX-3033" />at what can cause common errors, but not
+everything is a common problem. If you are having problems and none
+of the earlier solutions helps, then you need to do some
+investigative work. In this section, we'll look at some tools
+to help you uncover the source of the problem. Briefly, here is an
+outline of the steps you can take:</p>
+
+
+<ul><li><p>Check the syntax of your scripts with the<a name="INDEX-3034" />
+<em class="emphasis">-c</em> flag.</p></li><li><p>Check the web server's error logs.</p></li><li><p>Run your script from the command line.</p></li><li><p>Test the value of variables by dumping them to the browser.</p></li><li><p>Use an <a name="INDEX-3035" />interactive debugger.</p></li></ul>
+<p>Let's review each in more detail.</p>
+
+
+<a name="ch15-13-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.3.1. Check Syntax</h3>
+
+
+<p>We mentioned this within
+<a name="INDEX-3036" />one of the sections above, but it
+bears repeating again in its own section: if your code does not parse
+or compile, then it will never run correctly. So get in the habit of
+testing your scripts with the <em class="emphasis">-c</em> flag from the
+command line before you test them in the browser, and while
+you're add it, have it check for
+<a name="INDEX-3037" />warnings too with the
+<em class="emphasis">-w</em> flag. Remember, if you use taint mode (and
+you are using taint mode with all of your scripts, right?), you also
+need to pass the <em class="emphasis">-T</em> flag to avoid the following
+error:</p>
+
+
+<blockquote><pre class="code">$ perl -wc myScript.cgi
+Too late for "-T" option.</pre></blockquote>
+
+
+<p>Therefore, use the <tt class="literal">-wcT</tt> combination:</p>
+
+
+<blockquote><pre class="code">perl -wcT calendar.cgi</pre></blockquote>
+
+
+<p>This will either return:</p>
+
+
+<blockquote><pre class="code">Syntax OK</pre></blockquote>
+
+
+<p>or a list of problems. Of course you should only use the
+<em class="emphasis">-c</em> flag from the command line and
+<em class="emphasis">not</em> add it to the <a name="INDEX-3038" />pound-bang line in your scripts.</p>
+</div>
+
+
+
+
+<a name="ch15-14-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.3.2. Check Error Logs</h3>
+
+
+<p>Typically, errors are printed to <a name="INDEX-3039" />STDERR, and on
+<a name="INDEX-3040" />
+<a name="INDEX-3041" /> <a name="INDEX-3042" />some web servers anything that is
+printed to STDERR while a CGI script is running ends up in your
+server's error logs. Thus, you can often find all sorts of
+useful clues by scanning these logs when you have problems. Possible
+locations of this file with <a name="INDEX-3043" />Apache are
+<em class="filename">/usr/local/apache/logs/error_log</em> or
+<em class="filename">/usr/var/logs/httpd/error_log</em>. Errors are
+appended to the bottom; you may want to watch the log as you test
+your CGI script. If you use the <tt class="command">tail</tt> command with
+a <em class="emphasis">-f</em> option:</p>
+
+
+<blockquote><pre class="code">$ tail -f /usr/local/apache/logs/error_log</pre></blockquote>
+
+
+<p>it will print new lines as they are written to the file.</p>
+</div>
+
+
+
+
+<a name="ch15-15-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.3.3. Running Scripts from the Command Line</h3>
+
+
+<p>Once your <a name="INDEX-3044" />scripts pass a syntax
+check, the next step is to try to run them from the command line.
+Remember that because CGI scripts receive much of their data from
+<a name="INDEX-3045" />environment
+variables, you can set these manually yourself before you run your
+script:</p>
+
+
+<blockquote><pre class="code">$ export HTTP_COOKIE="user_id=abc123"
+$ export QUERY_STRING="month=jan&amp;year=2001"
+$ export REQUEST_METHOD="GET"
+$ ./calendar.cgi</pre></blockquote>
+
+
+<p>You will see the full output of your script including any headers you
+print. This can be quite useful if you suspect your problem has to do
+with the headers you are sending.</p>
+
+
+<p>If you are using Version 2.56 or previous of
+<a name="INDEX-3046" />
+<a name="INDEX-3047" />
+<a name="INDEX-3048" />CGI.pm, it makes
+accepting form parameters much easier, by prompting for them when you
+run your script:</p>
+
+
+<blockquote><pre class="code">(offline mode: enter name=value pairs on standard input)</pre></blockquote>
+
+
+<p>You can then enter <a name="INDEX-3049" /> <a name="INDEX-3050" />parameters as name-value pairs
+separated by an equals sign. CGI.pm ignores whitespace and allows you
+to use <a name="INDEX-3051" />quotes:</p>
+
+
+<blockquote><pre class="code">(offline mode: enter name=value pairs on standard input)
+month = jan
+year=2001</pre></blockquote>
+
+
+<p>When you are finished, press the <a name="INDEX-3052" />
+<a name="INDEX-3053" />end-of-file character on your
+system (use Ctrl-D on Unix or Mac; use Ctrl-Z on Windows).</p>
+
+
+<p>As of <a name="INDEX-3054" />
+<a name="INDEX-3055" />2.57, CGI.pm no
+longer automatically prompts for values. Instead, you can pass
+parameters as arguments to your script (this works for previous
+versions, too):</p>
+
+
+<blockquote><pre class="code">$ ./calendar.cgi month=jan year=2001</pre></blockquote>
+
+
+<p>If you prefer to have CGI.pm prompt you for input instead, you can
+still enable this in later versions by using the
+<tt class="literal">-debug</tt>
+<a name="INDEX-3056" /> argument with CGI.pm:</p>
+
+
+<blockquote><pre class="code">use CGI qw( -debug );</pre></blockquote>
+
+
+<p>If you are working with a complex
+<a name="INDEX-3057" />
+<a name="INDEX-3058" />form, and it is too much work
+to manually enter parameters, then you can capture the parameters to
+a file to use offline by adding a few lines to the top of your
+script:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use CGI;
+
+my $q = new CGI;
+
+## BEGIN INSERTED CODE
+open FILE, "&gt; /tmp/query1" or die $!;
+$q-&gt;save( \*FILE );
+print $q-&gt;header( "text/plain" ), "File saved\n";
+## END INSERTED CODE
+.
+.</pre></blockquote>
+
+
+<p>Now you should have a file saved to <em class="filename">/tmp/query1</em>
+which you can use from the command line. Remove the inserted code
+first (or comment it out for future use), then you can use the query
+file like this:</p>
+
+
+<blockquote><pre class="code">$ ./catalog.cgi &lt; /tmp/query1</pre></blockquote>
+</div>
+
+
+
+
+<a name="ch15-16-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.3.4. Dumping Variables</h3>
+
+
+<p>If you script runs
+<a name="INDEX-3059" /> <a name="INDEX-3060" /> <a name="INDEX-3061" />correctly but it does not
+do what you expect, then you need to break it down into chunks to
+determine where it is failing. The simplest way to do this is to
+include a handful of
+<tt class="function">print</tt>
+<a name="INDEX-3062" /> statements:</p>
+
+
+<blockquote><pre class="code">sub fetch_results {
+print "Entering fetch_results( @_ )\n"; #DEBUG#
+    .
+    .</pre></blockquote>
+
+
+<p>You may want to outdent these commands or place comments at the end
+so that it is easy to find and remove them when you are done.</p>
+
+
+<p>If you are working with a complex <a name="INDEX-3063" /> <a name="INDEX-3064" />
+<a name="INDEX-3065" />Perl data structure, you
+can print it quite easily by using the
+<a name="INDEX-3066" />
+<a name="INDEX-3067" />Data::Dumper
+module. Simply add code like the following:</p>
+
+
+<blockquote><pre class="code">.
+    .
+use Data::Dumper;        #DEBUG#
+print Dumper( $result ); #DEBUG#
+    return $result;
+}</pre></blockquote>
+
+
+<p>The <tt class="function">Dumper</tt> function will serialize your data
+structure into neatly indented Perl source code. If you want to look
+at this within an <a name="INDEX-3068" /> <a name="INDEX-3069" />
+<a name="INDEX-3070" />HTML
+page, be sure to enclose it within &lt;PRE&gt; tags or view the page
+source.</p>
+
+
+<p>If you are outputting complex HTML, you may need to view the source
+in order to see whether your statements printed. It is often much
+easier to open a separate filehandle to your own log file and print
+your debugging commands there. In fact, you may want to develop your
+own module that provides a way to send debugging output to a common
+debug log file as well as a simple way to turn debugging mode on and
+off.</p>
+</div>
+
+
+
+
+<a name="ch15-17-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.3.5. Debuggers</h3>
+
+
+<p>All the previous strategies help isolate bugs, but the best solution
+by far is to use debuggers. <a name="INDEX-3071" />Debuggers
+allow you to interact with your program as it runs. You can monitor
+the program flow, watch the value of variables, and more.</p>
+
+
+<a name="ch15-18-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.5.1. The Perl debugger</h3>
+
+
+<p>If you <a name="INDEX-3072" />
+<a name="INDEX-3073" />invoke
+<tt class="command">perl</tt> with the <em class="emphasis">-d</em> flag, you
+will end up in an interactive session. Unfortunately, this means that
+you can use the debugger only from the <a name="INDEX-3074" />command line. This is not the traditional
+environment for CGI scripts, but it is not difficult to mimic the CGI
+environment, as we saw earlier. The best way to do this is to save a
+CGI object to a query file, initialize any additional environment
+variables you might need, such as cookies, and then run your CGI
+script like this:</p>
+
+
+<blockquote><pre class="code">$perl -dT calendar.cgi &lt;/tmp/query1
+
+Loading DB routines from perl5db.pl version 1
+Emacs support available.
+
+Enter h or `h h' for help.
+
+main::(Dev:Pseudo:7):	my $q = new CGI;
+  DB&lt;1&gt;</pre></blockquote>
+
+
+<p>The debugger can be intimidating at first, but it is very powerful.
+To help you get going, <a href="ch15_03.htm#ch15-28900">Table 15-1</a> shows a brief
+<a name="INDEX-3075" />
+<a name="INDEX-3076" />summary of all the basic commands you need
+to know to debug a script. You can debug all of your CGI scripts with
+just these commands, although there are many more features actually
+available. Practice walking through scripts that you know work in
+order to learn how to move around within the debugger. The debugger
+will not change your files, so you cannot damage a working script by
+typing a wrong command.</p>
+
+
+<p>Complete documentation for the <a name="INDEX-3077" />Perl debugger is available in the
+<em class="citetitle">perldebug</em> manpage, and a quick reference for
+the complete set of commands is available by typing
+<tt class="literal">h</tt> within the debugger.</p>
+
+
+<a name="ch15-28900" /><h4 class="objtitle">Table 15-1. Basic Perl Debugger Commands </h4><table border="1">
+
+
+
+<tr>
+<th>
+<p>Command</p></th>
+<th>
+<p>Description</p></th>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p><tt class="literal">s</tt></p></td>
+<td>
+<p>Step; Perl executes the line listed above the prompt, stepping into
+any subroutines; note that a line with multiple commands may take a
+few steps to evaluate.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">n</tt></p></td>
+<td>
+<p>Next; Perl executes the line listed above the prompt, stepping over
+any subroutines (they still run; Perl waits for them to finish before
+continuing).</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">c</tt></p></td>
+<td>
+<p>Continue to the end of the program or the next break point, whichever
+comes first.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">c 123</tt></p></td>
+<td>
+<p>Continue up to line 123; line 123 must contain a command (it cannot
+be a comment, blank line, the second half of a command, etc.).</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">b</tt></p></td>
+<td>
+<p>Set a breakpoint at current line; breakpoints halt execution caused
+by <tt class="literal">c</tt>.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">b 123</tt></p></td>
+<td>
+<p>Set a breakpoint at line 123; line 123 must contain a command (it
+cannot be a comment, blank line, the second half of a command, etc.).</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">b my_sub</tt></p></td>
+<td>
+<p>Set a breakpoint at the first executable line of the
+<tt class="function">my_sub</tt> sub.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">d</tt></p></td>
+<td>
+<p>Delete a breakpoint from the current line; takes same arguments as
+<tt class="literal">b</tt>.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">D</tt></p></td>
+<td>
+<p>Deletes all breakpoints.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">x $var</tt></p></td>
+<td>
+<p>Display the value of <tt class="literal">$var</tt> in list and scalar
+contexts; note that it will recurse down complex, nested data
+structures.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">r</tt></p></td>
+<td>
+<p>Return from the current sub; Perl finishes executing the current
+subroutine, displays the result, and continues at the next line after
+the sub.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">l</tt></p></td>
+<td>
+<p>List the next 10 lines of your script; this command can be used
+successively.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">l 123</tt></p></td>
+<td>
+<p>List line 123 of your script.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">l 200-300</tt></p></td>
+<td>
+<p>List lines 200 through 300 of your script.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">l my_sub</tt></p></td>
+<td>
+<p>List the first 10 lines of the <tt class="function">my_sub</tt> sub.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">q</tt></p></td>
+<td>
+<p>Quit.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><tt class="literal">R</tt></p></td>
+<td>
+<p>Restart the script in the debugger.</p></td>
+</tr>
+
+
+</table>
+</div>
+
+
+
+<a name="ch15-19-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.5.2. ptkdb</h3>
+
+
+<p>Another option is
+<em class="emphasis">ptkdb</em>
+<a name="INDEX-3078" /> <a name="INDEX-3079" /> (see <a href="ch15_03.htm#ch15-65096">Figure 15-1</a>), the Perl/Tk debugger, which is available on
+CPAN as <em class="emphasis">Devel-ptkdb</em>. It allows you to debug your
+scripts with a graphical interface. It also allows you to debug your
+CGI interactively as they are running.</p>
+
+
+<a name="ch15-65096" /><div class="figure"><img width="481" src="figs/cgi2.1501.gif" height="374" alt="Figure 15-1" /></div><h4 class="objtitle">Figure 15-1. Debugging a CGI script with ptkdb</h4>
+
+<p>In order to use <em class="emphasis">ptkdb</em>, you need two things.
+First, you need access to an X Window server;<a href="#FOOTNOTE-21">[21]</a> the
+<a name="INDEX-3080" />X Window System is included with most Unix
+and compatible systems; commercial versions are available for other
+operating systems as well. Second, the web server must have
+<a name="INDEX-3081" />
+<a name="INDEX-3082" />Tk.pm
+module, available on CPAN, which requires Tk. Tk is
+a<a name="INDEX-3083" /> <a name="INDEX-3084" /> graphics toolkit that is
+typically distributed with the Tcl scripting language. You can obtain
+Tcl/Tk from <a href="http://www.scriptics.com/">http://www.scriptics.com/</a>. For more
+information on using Perl
+
+<a name="INDEX-3085" />with Tk via Tk.pm,
+refer to <em class="citetitle">Learning Perl/Tk</em> by Nancy Walsh (O'Reilly &amp; Associates,
+Inc.).</p><blockquote>
+
+<a name="FOOTNOTE-21" /><p>[21]In the
+X Window System, you run an X Window <em class="emphasis">server
+</em>locally, which displays programs that you may execute
+remotely. The use of "server" in this context is
+sometimes confusing, since you typically use a <em class="emphasis">client
+</em>to interact with remote systems.</p>
+
+</blockquote>
+
+
+<p>In order to debug a CGI script with <em class="emphasis">ptkdb</em>, begin
+your CGI scripts as follows:</p>
+
+
+<blockquote><pre class="code">#! /usr/bin/perl -d:ptkdb
+
+sub BEGIN {
+    $ENV{DISPLAY} = "your.machine.hostname:0.0" ;
+}</pre></blockquote>
+
+
+<p>You should replace <tt class="literal">your.machine.hostname</tt> with the
+hostname or IP address of your machine. You can use
+<tt class="literal">localhost</tt> if you are running an X Window session
+on the web server.</p>
+
+
+<p>You also need to allow the web server to display programs on your X
+Window server. On Unix and compatible systems, you do so by adding
+the registering the hostname or IP address of the webserver with the
+<tt class="command">xhost</tt>
+<a name="INDEX-3086" />
+<a name="INDEX-3087" /> command:</p>
+
+
+<blockquote><pre class="code">$ xhost www.webserver.hostname
+www.webserver.hostname being added to access control list</pre></blockquote>
+
+
+<p>You can then access your CGI script via a browser, which should open
+a debugging window on your system. Note that your web browser may
+time out if you spend much time interacting with the debugger without
+your script producing output.</p>
+</div>
+
+
+
+<a name="ch15-20-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.5.3. ActiveState Perl debugger</h3>
+
+
+<p>The final option is available only to <a name="INDEX-3088" />
+<a name="INDEX-3089" />
+<a name="INDEX-3090" /> <a name="INDEX-3091" />Win32 users.
+ActiveState distributes a graphical Perl debugger with their Perl
+Development Kit (PDK), shown in <a href="ch15_03.htm#ch15-43713">Figure 15-2</a>.</p>
+
+
+<a name="ch15-43713" /><div class="figure"><img width="481" src="figs/cgi2.1502.gif" height="441" alt="Figure 15-2" /></div><h4 class="objtitle">Figure 15-2. Debugging a CGI script with the ActiveState Perl debugger</h4>
+
+<p>Once installed, using the
+<em class="emphasis">-d</em>
+<a name="INDEX-3093" /> flag with <tt class="command">perl</tt>
+invokes this debugger instead of the standard Perl debugger. It can
+also be invoked when running CGI scripts if you are logged into the
+web server.</p>
+
+
+<p>You can obtain the <a name="INDEX-3094" />
+<a name="INDEX-3095" />PDK and corresponding
+documentation from ActiveState's web site at <a href="http://www.activestate.com/">http://www.activestate.com/</a>. The PDK is a
+commercial product, but as of the time this book was written,
+ActiveState <a name="INDEX-3096" /> <a name="INDEX-3097" />offers a free <a name="INDEX-3098" /> <a name="INDEX-3099" /> <a name="INDEX-3100" />seven-day trial.</p>
+</div>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch15_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch16_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">15.2. Perl Coding Techniques</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">16. Guidelines for Better CGI Applications</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

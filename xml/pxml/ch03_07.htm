@@ -1,0 +1,234 @@
+<html><head><title>Document Validation (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch03_08.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">3.7. Document Validation</h2>
+
+<p>Being<a name="INDEX-263" />
+<a name="INDEX-264" />
+well-formed is a minimal requirement for XML everywhere. However, XML
+processors have to accept a lot on blind faith. If we try to build a
+document to meet some specific XML application's
+specifications, it doesn't do us any good if a
+content generator slips in a strange element we've
+never seen before and the parser lets it go by with nary a whimper.
+Luckily, a higher level of quality control is available to us when we
+need to check for things like that. It's called
+document validation.
+</p>
+
+<p><em class="emphasis">Validation</em> is a sophisticated way of comparing
+a <em class="emphasis">document
+instance</em><a name="INDEX-265" /> <a name="INDEX-266" /> against a template or grammar
+specification. It can restrict the number and type of elements a
+document can use and control where they go. It can even regulate the
+patterns of character data in any element or attribute. A
+<em class="emphasis">validating
+parser</em><a name="INDEX-267" /> tells you whether a document is valid
+or not, when given a DTD or schema to check against.
+</p>
+
+<p>Remember that you don't need to validate every XML
+document that passes over your desk. DTDs and other validation
+schemes shine when working with specific XML-based markup languages
+(such as XHTML for web pages, MathML for equations, or CaveML for
+spelunking), which have strict rules about which elements and
+attributes go where (because having an automated way to draw
+attention to something fishy in the document structure becomes a
+feature).
+</p>
+
+<p>However, validation usually isn't crucial when you
+use Perl and XML to perform a less specific task, such as tossing
+together XML documents on the fly based on some other, less sane data
+format, or when ripping apart and analyzing existing XML documents.
+</p>
+
+<p>Basically, if you feel that validation is a needless step for the job
+at hand, you're probably right. However, if you
+knowingly generate or modify some flavor of XML that needs to stick
+to a defined standard, then taking the extra step or three necessary
+to perform document validation is probably wise. Your toolbox,
+naturally, gives you lots of ways to do this. Read on.
+</p>
+
+<a name="perlxml-CHP-3-SECT-7.1" /><div class="sect2">
+<h3 class="sect2">3.7.1. DTDs</h3>
+
+<p><a name="INDEX-268" />Document type descriptions (DTDs)
+are documents written in a special markup language defined in the XML
+specification, though they themselves are not XML. Everything within
+these documents is a declaration starting with a
+<tt class="literal">&lt;!</tt><a name="INDEX-269" /> <a name="INDEX-270" /> delimiter and comes in four flavors:
+elements, attributes, entities, and notations.
+</p>
+
+<p><a href="ch03_07.htm#perlxml-CHP-3-EX-8">Example 3-8</a> is a very simple DTD. </p>
+
+<a name="perlxml-CHP-3-EX-8" /><div class="example">
+<h4 class="objtitle">Example 3-8. A wee little DTD </h4>
+<blockquote><pre class="code">&lt;!ELEMENT memo (to, from, message)&gt;
+&lt;!ATTLIST memo priority (urgent|normal|info) 'normal'&gt;
+&lt;!ENTITY % text-only "(#PCDATA)*"&gt;
+&lt;!ELEMENT to %text-only;&gt;
+&lt;!ELEMENT from %text-only;&gt;
+&lt;!ELEMENT message (#PCDATA | emphasis)*&gt;
+&lt;!ELEMENT emphasis %text-only;&gt;
+&lt;!ENTITY myname "Bartholomus Chiggin McNugget"&gt;</pre></blockquote>
+</div>
+
+<p>This DTD declares five elements, an attribute for the
+<tt class="literal">&lt;memo&gt;</tt> element, a parameter entity to make
+other declarations cleaner, and an entity that can be used inside a
+document instance. Based on this information, a validating parser can
+reject or approve a document. The following document would pass
+muster:
+</p>
+
+<blockquote><pre class="code">&lt;!DOCTYPE memo SYSTEM "/dtdstuff/memo.dtd"&gt;
+&lt;memo priority="info"&gt;
+  &lt;to&gt;Sara Bellum&lt;/to&gt;
+  &lt;from&gt;&amp;myname;&lt;/from&gt;
+  &lt;message&gt;Stop reading memos and get back to work!&lt;/message&gt;
+&lt;/memo&gt;</pre></blockquote>
+
+<p>If you removed the <tt class="literal">&lt;to&gt;</tt> element from the
+document, it would suddenly become invalid. A well-formedness checker
+wouldn't give a hoot about missing elements. Thus,
+you see the value of validation.
+</p>
+
+<p>Because DTDs are so easy to parse, some general XML processors
+include the ability to validate the documents they parse against
+DTDs. <tt class="literal">XML::LibXML</tt> is one such parser. A very
+simple validating parser is shown in <a href="ch03_07.htm#perlxml-CHP-3-EX-9">Example 3-9</a>.
+</p>
+
+<a name="perlxml-CHP-3-EX-9" /><div class="example">
+<h4 class="objtitle">Example 3-9. A validating parser </h4>
+<blockquote><pre class="code">use XML::LibXML;
+use IO::Handle;
+
+# initialize the parser
+my $parser = new XML::LibXML;
+
+# open a filehandle and parse
+my $fh = new IO::Handle;
+if( $fh-&gt;fdopen( fileno( STDIN ), "r" )) {
+    my $doc = $parser-&gt;parse_fh( $fh );
+    if( $doc and $doc-&gt;is_valid ) {
+        print "Yup, it's valid.\n";
+    } else {
+        print "Yikes! Validity error.\n";
+    }
+    $fh-&gt;close;
+}</pre></blockquote>
+</div>
+
+<p>This parser would be simple to add to any program that requires valid
+input documents. Unfortunately, it doesn't give any
+information about what specific problem makes it invalid (e.g., an
+element in an improper place), so you wouldn't want
+to use it as a general-purpose validity checking tool.<a href="#FOOTNOTE-19">[19]</a> T. J. Mather's
+<tt class="literal">XML::Checker</tt> is a better module for reporting
+specific validation errors.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-19" /><p>[19]The authors prefer to use a command-line tool called
+<em class="emphasis">nsgmls</em> available from <a href="http://www.jclark.com/">http://www.jclark.com/</a>. Public web sites,
+such as <a href="http://www.stg.brown.edu/service/xmlvalid/">http://www.stg.brown.edu/service/xmlvalid/</a>,
+can also validate arbitrary documents. Note that, in these cases, the
+XML document must have a DOCTYPE declaration, whose system identifier
+(if it has one) must contain a resolvable URL and not a path on your
+local system.</p> </blockquote>
+
+</div>
+<a name="perlxml-CHP-3-SECT-7.2" /><div class="sect2">
+<h3 class="sect2">3.7.2. Schemas</h3>
+
+<p>DTDs<a name="INDEX-271" /> have
+limitations; they aren't able to check what kind of
+character data is in an element and if it matches a particular
+pattern. What if you wanted a parser to tell you if a
+<tt class="literal">&lt;date&gt;</tt> element has the wrong format for a
+date, or if it contains a street address by mistake? For that, you
+need a solution such as XML Schema. XML Schema is a second generation
+of DTD and brings more power and flexibility to validation.
+</p>
+
+<p>As noted in <a href="ch02_01.htm">Chapter 2, "An XML Recap"</a>, XML Schema enjoys the
+dubious distinction among the XML-related W3C specification family
+for being the most controversial schema (at least among hackers).
+Many people like the concept of schemas, but many
+don't approve of the XML Schema implementation,
+which is seen as too cumbersome or constraining to be used
+effectively.
+</p>
+
+<p>Alternatives to XML Schema include
+<a name="INDEX-272" />
+<a name="INDEX-273" />OASIS-Open's
+RelaxNG (<a href="http://www.oasis-open.org/committees/relax-ng/">http://www.oasis-open.org/committees/relax-ng/</a>)
+and Rick Jelliffe's
+<a name="INDEX-274" />Schematron
+(<a href="http://www.ascc.net/xml/resource/schematron/schematron.html">http://www.ascc.net/xml/resource/schematron/schematron.html</a>).
+Like XML Schema, these specifications detail XML-based languages used
+to describe other XML-based languages and let a program that knows
+how to speak that schema use it to validate other XML documents. We
+find Schematron particularly interesting because it has had a Perl
+module attached to it for a while (in the form of Kip
+Hampton's <tt class="literal">XML::Schematron</tt>
+family).
+</p>
+
+<p>Schematron is especially interesting to many Perl and XML hackers
+because it builds on existing popular XML technologies that already
+have venerable Perl implementations. Schematron defines a very simple
+language with which you list and group together assertions of what
+things should look like based on XPath expressions. Instead of a
+forward-looking grammar that must list and define everything that can
+possibly appear in the document, you can choose to validate a
+fraction of it. You can also choose to have elements and attributes
+validate based on conditions involving anything anywhere else in the
+document (wherever an XPath expression can reach). In practice, a
+Schematron document looks and feels like an XSLT stylesheet, and with
+good reason: it's intended to be fully implementable
+by way of XSLT. In fact, two of the
+<tt class="literal">XML::Schematron</tt><a name="INDEX-275" /> Perl modules work by first transforming
+the user-specified schema document into an XSLT sheet, which it then
+simply passes through an XSLT processor.
+</p>
+
+<p>Schematron lacks any kind of built-in data typing, so you
+can't, for example, do a one-word check to insist
+that an attribute conforms to the W3C date format. You can, however,
+have your Perl program make a separate step using any method
+you'd like (perhaps through the
+<tt class="literal">XML::XPath</tt> module) to come through date attributes
+and run a good old Perl regular expression on them. Also note that no
+schema language will ever provide a way to query an
+element's content against a database, or perform any
+other action outside the realm of the document. This is where mixing
+Perl and schemas can come in very handy.
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch03_08.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">3.6. XML::XPath</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">3.8. XML::Writer</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

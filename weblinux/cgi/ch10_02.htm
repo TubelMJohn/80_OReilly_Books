@@ -1,0 +1,334 @@
+<?label 10.2. DBM Files?><html><head><title>DBM Files (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch10_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch10_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">10.2. DBM Files</h2>
+
+
+<p>
+<a name="INDEX-2046" />DBM files provide many advantages
+<a name="INDEX-2047" />over text files for database purposes, and
+because Perl provides such a simple, transparent interface to working
+with DBM files, they are a popular choice for programming tasks that
+don't require a full RDBMS. DBM files are simply on-disk
+<a name="INDEX-2048" />hash tables. You can quickly look up
+values by key and efficiently update and delete values in place.</p>
+
+
+<p>To use a DBM file, you must tie a Perl hash to the file using one of
+the DBM modules. <a href="ch10_02.htm#ch10-86514">Example 10-3</a> shows some code that
+uses the <a name="INDEX-2049" />
+<a name="INDEX-2050" />DB_File module to tie a hash to the file
+<em class="filename">user_email.db</em>.</p>
+
+
+
+<a name="ch10-86514" /><div class="example">
+<h4 class="objtitle">Example 10-3. email_lookup.cgi </h4>
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use DB_File;
+use Fcntl;
+use CGI;
+
+my $q        = new CGI;
+my $username = $q-&gt;param( "user" );
+my $dbm_file = "/usr/local/apache/data/user_email.db";
+my %dbm_hash;
+my $email;
+
+tie %dbm_hash, "DB_File", $dbm_file, O_RDONLY or
+    die "Unable to open dbm file $dbm_file: $!";
+
+if ( exists $dbm_hash{$username} ) {
+    $email = $q-&gt;a( { href =&gt; "mailto:$dbm_hash{$username}" },
+                    $dbm_hash{$user_name} );
+else {
+    $email = "Username not found";
+}
+
+untie %dbm_hash;
+
+print $q-&gt;header( "text/html" ),
+      $q-&gt;start_html( "Email Lookup Results" ),
+      $q-&gt;h2( "Email Lookup Results" ),
+      $q-&gt;hr,
+      $q-&gt;p( "Here is the email address for the username you requested: " ),
+      $q-&gt;p( "Username: $username", $q-&gt;br,
+             "Email: $email" ),
+      $q-&gt;end_html;</pre></blockquote>
+</div>
+
+
+<p>There are many different formats of DBM files, and likewise there are
+many different DBM modules available. <a name="INDEX-2051" /> <a name="INDEX-2,052" />Berkeley DB and GDBM are the most
+powerful. However, for web development Berkeley DB, and the
+corresponding DB_File module, is the most popular choice. Unlike
+GDBM, it provides a simple way for you to lock the database so that
+concurrent writes do not truncate and corrupt your file.</p>
+
+
+<a name="ch10-8-fm2xml" /><div class="sect2">
+<h3 class="sect2">10.2.1. DB_File</h3>
+
+
+<p>
+<a name="INDEX-2053" />
+<a name="INDEX-2054" />
+<a name="INDEX-2055" />DB_File
+supports Version 1.xx functionality for Berkeley DB; Berkeley DB
+Versions 2.xx and 3.xx add numerous enhancements. DB_File is
+compatible with these later versions, but it supports only the 1.xx
+API. Perl support for version 2.xx and later is provided by the
+BerkeleyDB module. DB_File is much simpler and easier to use,
+however, and continues to be the more popular option. If Berkeley DB
+is not installed on your system, you can get it from <a href="http://www.sleepycat.com/">http://www.sleepycat.com/</a>. The DB_File and
+BerkeleyDB modules are on CPAN. DB_File is also included in the
+standard Perl distribution (although it is installed only if Berkeley
+DB is present).</p>
+
+
+<p>Using DB_File is quite simple, as we saw earlier. You simply need to
+tie a hash to the DBM file you want to use and then you can treat it
+like a regular hash. The
+<tt class="function">tie</tt>
+<a name="INDEX-2056" />
+<a name="INDEX-2057" /> function takes at least two
+arguments: the hash you want to tie and the name of the DBM module
+you are using. Typically, you also provide the name of the DBM file
+you want to use and access flags from
+<a name="INDEX-2058" /> <a name="INDEX-2,059" />
+<a name="INDEX-2060" />Fcntl.
+You can also specify the file permission for the new file if you are
+creating a file.</p>
+
+
+<p>Often, you access
+<a name="INDEX-2061" /> <a name="INDEX-2,062" />
+<a name="INDEX-2063" />hash files on a read/write basis.
+This complicates the code somewhat because of
+<a name="INDEX-2064" /> <a name="INDEX-2,065" />file
+locking:</p>
+
+
+<blockquote><pre class="code">use Fcntl;
+use DB_File;
+
+my %hash;
+local *DBM;
+
+my $db = tie %hash, "DB_File", $dbm_file, O_CREAT | O_RDWR, 0644 or
+    die "Could not tie to $dbm_file: $!";
+my $fd = $db-&gt;fd;                                            # Get file descriptor
+open DBM, "+&lt;&amp;=$fd" or die "Could not dup DBM for lock: $!"; # Get dup filehandle
+flock DBM, LOCK_EX;                                          # Lock exclusively
+undef $db;                                                   # Avoid untie probs
+.
+.
+# All your code goes here; treat %hash like a normal, basic hash
+.
+.
+untie %hash;        # Clears buffers, then saves, closes, and unlocks file</pre></blockquote>
+
+
+<p>We use the <tt class="literal">O_CREAT</tt> and <tt class="literal">O_RDWR</tt>
+flags imported by Fcntl to indicate that we want to open the DBM file
+for read/write access and create the file if it does not exist. If a
+new file is created, on Unix systems it is assigned 0644 as its file
+permissions (although <tt class="command">umask</tt> may restrict this
+further). If <tt class="function">tie</tt> succeeds, we store the
+resulting DB_File object in
+<tt class="literal">$db</tt>
+<a name="INDEX-2066" />.</p>
+
+
+<p>The only reason we need <tt class="literal">$db</tt> is to get the file
+descriptor of DB_File's underlying DBM file. By using this, we
+can open a read/write filehandle to this file descriptor. Finally,
+this gives us a filehandle we can lock with
+<tt class="function">flock</tt>. We then undefine <tt class="literal">$db</tt>.</p>
+
+
+<p>The reason we clear <tt class="literal">$db</tt> is not just to conserve
+RAM. Typically, when you are done working with a tied hash, you
+<tt class="function">untie</tt>
+<a name="INDEX-2067" /> <a name="INDEX-2,068" />
+<a name="INDEX-2069" /> it, just as you would
+<tt class="function">close</tt> a file, and if you do not explicitly
+<tt class="function">untie</tt> it, then Perl automatically does this for
+you as soon as all references to the DB_File go out of scope. The
+catch is that <tt class="function">untie</tt> clears only the variable
+that it is untying; the DBM file isn't actually written and
+freed until DB_File's
+<tt class="function">DESTROY</tt>
+<a name="INDEX-2070" />
+method is called -- when all references to the object have gone
+out of scope. In our code earlier, we have two references to this
+object: <tt class="literal">%hash</tt> and <tt class="literal">$db</tt>, so in
+order for the DBM file to be written and saved, both these references
+need to be cleared.</p>
+
+
+<p>If this is confusing, then don't worry about the specifics.
+Just remember that whenever you get a DB_File object (such as
+<tt class="literal">$db</tt> above) in order to do file locking, undefine
+it as soon as you have locked the filehandle. Then
+<tt class="function">untie</tt> will act like <tt class="function">close</tt>
+and always be the command that frees your DBM file.</p>
+
+
+<p>DB_File provides a very simple, efficient solution when you need to
+store name-value pairs. Unfortunately, if you need to store more
+complex data structures, you must still encode and decode them so
+that they can be stored as scalars. Fortunately, another module
+addresses this issue.</p>
+</div>
+
+
+
+
+<a name="ch10-9-fm2xml" /><div class="sect2">
+<h3 class="sect2">10.2.2. MLDBM</h3>
+
+
+<p>If you look at the bottom of the Perl manpage, you will see that the
+three great virtues of a programmer are
+<em class="emphasis">laziness</em>, <em class="emphasis">impatience</em>, and
+<em class="emphasis">hubris</em>. <a name="INDEX-2071" />
+<a name="INDEX-2072" /> <a name="INDEX-2,073" />MLDBM is all about laziness, but in a
+virtuous way. With MLDBM, you don't have to worry about
+encoding and decoding your Perl data in order to fit the confines of
+your storage medium. You can just save and retrieve it as Perl.</p>
+
+
+<p>MLDBM turns another DBM like DB_File into a
+<a name="INDEX-2074" />multilevel DBM that is not
+restricted to simple <a name="INDEX-2075" />key-value pairs. It uses a serializer to
+convert complex <a name="INDEX-2076" />Perl structures into a representation that
+can be stored and deserialized back into Perl again. Thus, you can do
+things like this:</p>
+
+
+<blockquote><pre class="code"># File locking omitted for brevity
+tie %hash, "MLDBM", $dbm_file, O_CREAT | O_RDWR, 0644;
+$hash{mary} = {
+    name     =&gt; "Mary Smith",
+    position =&gt; "Vice President",
+    phone    =&gt; [ "650-555-1234", "800-555-4321" ],
+    email    =&gt; 'msmith@widgets.com',
+};</pre></blockquote>
+
+
+<p>Later, you can retrieve this information directly:</p>
+
+
+<blockquote><pre class="code">my $mary = $hash{mary};
+my $position = $mary-&gt;{position};</pre></blockquote>
+
+
+<p>Note that because MLDBM is so transparent it will allow you to ignore
+the fact that data is stored in <a name="INDEX-2077" />name-value pairs:</p>
+
+
+<blockquote><pre class="code">my $work_phone = $hash{mary}{phone}[1];</pre></blockquote>
+
+
+<p>However, be careful because this only works when you are
+<a name="INDEX-2078" />reading, not when you are writing. You must
+still write the data as a key-value pair. This will silently fail:</p>
+
+
+<blockquote><pre class="code">$hash{mary}{email} = 'mary_smith@widgets.com';</pre></blockquote>
+
+
+<p>You should do this instead:</p>
+
+
+<blockquote><pre class="code">my $mary = $hash{mary};                      # Get a copy of Mary's record
+$mary{email} = 'mary_smith@widgets.com';     # Modify the copy
+$hash{mary} = $mary;                         # Write the copy to the hash</pre></blockquote>
+
+
+<p>MLDBM keeps track of blessed objects, so it works exceptionally well
+for storing objects in Perl:</p>
+
+
+<blockquote><pre class="code">use Employee;
+
+my $mary = new Employee( "Mary Smith" );
+$mary-&gt;position( "Vice President" );
+$mary-&gt;phone( "650-555-1234", "800-555-4321" );
+$mary-&gt;email( 'msmith@widgets.com' );
+$hash{mary} = $mary;</pre></blockquote>
+
+
+<p>and for retrieving them:</p>
+
+
+<blockquote><pre class="code">use Employee;
+
+my $mary = $hash{mary};
+print $mary-&gt;email;</pre></blockquote>
+
+
+<p>When retrieving objects, be sure you use the corresponding module (in
+this case, a fictional module called Employee) before you try to
+access the data.</p>
+
+
+<p>MLDBM does have limitations. It cannot store and retrieve filehandles
+or code references (at least not across multiple CGI requests).</p>
+
+
+<p>When you use MLDBM, you must tell it which DBM module to use as well
+as which module to use for serializing and deserializing the data.
+The options include <a name="INDEX-2079" /> <a name="INDEX-2,080" /> <a name="INDEX-2,081" />Storable, Data::Dumper, and FreezeThaw.
+Storable is the fastest, but Data::Dumper is included with Perl.</p>
+
+
+<p>When you use <a name="INDEX-2082" /> <a name="INDEX-2,083" />MLDBM with DB_File, you can lock the
+underlying <a name="INDEX-2084" />DBM file just like
+you would with DB_File:</p>
+
+
+<blockquote><pre class="code">use Fcntl;
+use MLDBM qw( DB_File Storable );
+
+my %hash;
+local *DBM;
+
+my $db = tie %hash, "MLDBM", $dbm_file, O_CREAT | O_RDWR, 0644 or
+    die "Could not tie to $dbm_file: $!";
+my $fd = $db-&gt;fd;                                            # Get file descriptor
+open DBM, "+&lt;&amp;=$fd" or die "Could not dup DBM for lock: $!"; # Get dup filehandle
+flock DBM, LOCK_EX;                                          # Lock exclusively
+undef $db;                                                   # Avoid untie probs
+.
+.
+# All your code goes here; treat %hash like a normal, complex hash
+.
+.
+untie %hash;        # Clears buffers then saves, closes, <a name="INDEX-2085" />and unlocks file</pre></blockquote>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch10_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch10_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">10. Data Persistence</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">10.3. Introduction to SQL</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

@@ -1,0 +1,509 @@
+<html><head><title>XPath-Based Identity Checks (XML Schema)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric van der Vlist" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002521L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XML Schema" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XML Schema" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch09_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch09_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">9.2. XPath-Based Identity Checks</h2>
+
+<p>The <a name="INDEX-684" />IDs and <a name="INDEX-685" /> <a name="INDEX-686" />IDREFs are stored in the PSVI in a table
+(called the "ID/IDREF table") and
+can eventually be used by the applications to locate the
+corresponding nodes. We can expect XPath applications (including
+XPointer) to provide shortcuts and fast access to the nodes
+identified by W3C XML Schema, as is already the case with the DTD
+IDs.
+</p>
+
+<p>Simple and easy to use within their domain, IDs and IDREFs keep the
+limitations of their DTDs ancestors. W3C XML Schema provides a more
+flexible feature for defining identity constraints without limitation
+on its lexical space and allowing local keys and references, as well
+as multinodes keys.
+</p>
+
+<p>Another important difference is that the ID/IDREF checks are done on
+datatypes based on <tt class="literal">xs:NMTOKEN</tt> datatypes, while the
+checks that we will see hereafter can be performed on other
+datatypes, and the comparisons will be done on the actual value
+spaces rather than on their string representations from the lexical
+space. These checks are based on a set of <em class="emphasis">XPath</em>
+expressions and are defined through three different (but similar)
+constructs to test the uniqueness of a value, define a key, and
+define a key reference.
+</p>
+
+<a name="xmlschema-CHP-9-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">9.2.1. Uniqueness</h3>
+
+<p>The <a name="INDEX-687" />first
+<a name="INDEX-688" />of these constructs defines a
+simple check for uniqueness. We will spend some time explaining this
+in detail, since the two other constructs are based on the same
+pattern.
+</p>
+
+<p>The definition of these constraints is done using two consecutive
+<a name="INDEX-689" />relative XPath expressions evaluated
+against the position of the element under which they are defined. We
+need a clear picture of the structure of the instance documents to
+define them. The starting point is the location of the element under
+which the check is defined. This location determines the scope of the
+test and must be carefully chosen, since it is the basis from which
+all the checks will be performed for this constraint.
+</p>
+
+<p>For instance, in our library, we can choose to define a check for the
+uniqueness of the ISBN number of our books under the library element,
+since we need to check it within the scope of the whole library.
+However, within a book, we may also test that the reference to a
+character is unique within the scope of this book. We can define this
+second check inside the <tt class="literal">book</tt> element.
+</p>
+
+<p>Once we have chosen the location of the test, we can start writing it
+at the end of the definition of the element:
+</p>
+
+<blockquote><pre class="code">&lt;xs:element name="book" maxOccurs="unbounded"&gt;
+  &lt;xs:complexType&gt;
+    .../...
+  &lt;/xs:complexType&gt;
+  &lt;xs:unique name="book"&gt;
+    .../...
+  &lt;/xs:unique&gt;
+&lt;/xs:element&gt;</pre></blockquote>
+
+<p>The <tt class="literal">name</tt> attribute used here will be useful if we
+want to refer to this constraint through a <tt class="literal">keyref</tt>.
+</p>
+
+<p>Now that we have defined the name and the root of the test, we will
+define the <tt class="literal">selector</tt> that is the relative path of
+the node being identified. In our example, the relative path to
+access a book element from <tt class="literal">library</tt> is
+<tt class="literal">book</tt>, so we write:
+</p>
+
+<blockquote><pre class="code">&lt;xs:element name="library"&gt;
+  &lt;xs:complexType&gt;
+    .../...
+  &lt;/xs:complexType&gt;
+  &lt;xs:unique name="book"&gt;
+    &lt;xs:selector xpath="book"/&gt;
+    .../...
+  &lt;/xs:unique&gt;
+&lt;/xs:element&gt;</pre></blockquote>
+
+<p>We have expressed the fact that a book must be unique within a
+library. To complete the description of this check, we need to define
+how a book is identified through <tt class="literal">field</tt> elements.
+</p>
+
+<p>In our case, the identifier is the <tt class="literal">isbn</tt>
+subelement, and the complete definition is:
+</p>
+
+<blockquote><pre class="code">&lt;xs:element name="book" maxOccurs="unbounded"&gt;
+  &lt;xs:complexType&gt;
+    .../...
+  &lt;/xs:complexType&gt;
+  &lt;xs:unique name="book"&gt;
+    &lt;xs:selector xpath="book"/&gt;
+    &lt;xs:field xpath="isbn"/&gt;
+  &lt;/xs:unique&gt;
+&lt;/xs:element&gt;</pre></blockquote>
+
+<p>Translated into plain English, this definition can be read as
+"for each library, each book identified by its ISBN
+should be unique."
+</p>
+
+
+
+<a name="ch09-4-fm2xml" /><blockquote><b>TIP:</b> 
+A unique condition doesn't impose that the node used
+as an identifier (the field) is required. Selectors whose field is
+not available are just ignored. To define the same check when the
+field is required, a "key" should
+be defined instead of "unique."
+</p>
+</blockquote>
+
+</div>
+<a name="xmlschema-CHP-9-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">9.2.2. Composite Fields</h3>
+
+<p>If <a name="INDEX-690" />
+<a name="INDEX-691" />the names of our authors were split in our
+library into first, middle, and last names, we may find it convenient
+to define a composite field to identify our authors. W3C XML Schema
+provides this feature by allowing definition of several fields within
+a single constraint--for instance:
+</p>
+
+<blockquote><pre class="code">&lt;xs:element name="library"&gt;
+  &lt;xs:complexType&gt;
+    .../...
+  &lt;/xs:complexType&gt;
+  &lt;xs:unique name="author"&gt;
+    &lt;xs:selector xpath="author"/&gt;
+    &lt;xs:field xpath="first-name"/&gt;
+    &lt;xs:field xpath="middle-name"/&gt;
+    &lt;xs:field xpath="last-name"/&gt;
+  &lt;/xs:unique&gt;
+&lt;/xs:element&gt;</pre></blockquote>
+
+<p>The check is then done on the triple that is composed of the values
+of the three fields (first-name, middle-name, last-name) that need to
+be unique as a combination.
+</p>
+
+</div>
+<a name="xmlschema-CHP-9-SECT-2.3" /><div class="sect2">
+<h3 class="sect2">9.2.3. Keys</h3>
+
+<p>A <a name="INDEX-692" /> <a name="INDEX-693" />key <a name="INDEX-694" />is a unique constraint with the
+additional restriction that all the nodes corresponding to all the
+fields are required.
+</p>
+
+<p>The syntax for defining a key is the same as the syntax for defining
+a unique condition, except the unique element is replaced by a key
+element:
+</p>
+
+<blockquote><pre class="code">&lt;xs:element name="library"&gt;
+  &lt;xs:complexType&gt;
+    .../...
+  &lt;/xs:complexType&gt;
+  &lt;xs:key name="book"&gt;
+    &lt;xs:selector xpath="book"/&gt;
+    &lt;xs:field xpath="isbn"/&gt;
+  &lt;/xs:key&gt;
+&lt;/xs:element&gt;</pre></blockquote>
+
+
+
+<a name="ch09-6-fm2xml" /><blockquote><b>TIP:</b> 
+There is clearly an overlap between the additional existence check
+done by a key constraint and the other ways to control the number of
+occurrences of an element or attribute. In our example, if the
+minimum number of occurrences for the author's name
+is set to one, using <tt class="literal"><a href="ch15_01.htm#ch15-77603">xs:unique</a></tt>
+or <tt class="literal"><a href="ch15_01.htm#ch15-77346">xs:key</a></tt> is equivalent, except when the
+author's name can have a
+"nil" value. (We will discuss the
+"nil" value in <a href="ch11_01.htm">Chapter 11, "Referencing Schemas and Schema Datatypes in XML Documents"</a>.) 
+</p>
+</blockquote>
+
+</div>
+<a name="xmlschema-CHP-9-SECT-2.4" /><div class="sect2">
+<h3 class="sect2">9.2.4. Key References</h3>
+
+<p>Despite <a name="INDEX-695" />its name, <tt class="literal"><a href="ch15_01.htm#ch15-77355">xs:keyref</a></tt> can be used not only to define a
+reference to <tt class="literal"><a href="ch15_01.htm#ch15-77346">xs:key</a></tt>, but
+also to <tt class="literal"><a href="ch15_01.htm#ch15-77603">xs:unique</a></tt>.
+</p>
+
+<p>The usage of <tt class="literal"><a href="ch15_01.htm#ch15-77355">xs:keyref</a></tt> is
+straightforward and similar to the usage of <tt class="literal"><a href="ch15_01.htm#ch15-77346">xs:key</a></tt> or <tt class="literal"><a href="ch15_01.htm#ch15-77603">xs:unique</a></tt>, with an important point worth
+mentioning: the <tt class="literal">refer</tt> attribute of <tt class="literal"><a href="ch15_01.htm#ch15-77355">xs:keyref</a></tt> should refer to a <tt class="literal"><a href="ch15_01.htm#ch15-77346">xs:key</a></tt> or <tt class="literal"><a href="ch15_01.htm#ch15-77603">xs:unique</a></tt> element defined under the same
+element or under one of their ancestors.
+</p>
+
+
+
+<a name="ch09-8-fm2xml" /><blockquote><b>TIP:</b> 
+The reason for this rule is that the
+"identity-constraint tables" where
+the keys and references are stored are local to an element and its
+ancestors.
+</p>
+</blockquote>
+
+<p>The definitions of matching <tt class="literal"><a href="ch15_01.htm#ch15-77603">xs:unique</a></tt> or <tt class="literal"><a href="ch15_01.htm#ch15-77346">xs:key</a></tt> and <tt class="literal"><a href="ch15_01.htm#ch15-77355">xs:keyref</a></tt> need to be done within the same
+element, or else one of its ancestors has an impact on the choice of
+this location. If, for instance, our books and authors are kept in
+separate sections of our document:
+</p>
+
+<blockquote><pre class="code">&lt;library&gt;
+  &lt;books&gt;
+    &lt;book&gt;
+      .../...
+      &lt;author-ref ref="Charles M. Schulz"/&gt;
+      .../...
+    &lt;/book&gt;
+    .../...
+  &lt;/books&gt;
+  &lt;authors&gt;
+    &lt;author&gt;
+      &lt;name&gt;
+        Charles M. Schulz
+      &lt;/name&gt;
+      .../...
+    &lt;/author&gt;
+    .../...
+  &lt;/authors&gt;
+&lt;/library&gt;</pre></blockquote>
+
+<p>It's good practice to define a modular schema by
+locating the constraints as near as possible to the elements they
+control. A natural fit is to locate a key in the
+<tt class="literal">authors</tt> element and the matching keyref in the
+<tt class="literal">books</tt> element. However, since a <tt class="literal"><a href="ch15_01.htm#ch15-77355">xs:keyref</a></tt> needs to be in the same element as
+the matching <tt class="literal"><a href="ch15_01.htm#ch15-77346">xs:key</a></tt> or one
+of its ancestors, and <tt class="literal">books</tt> isn't
+an ancestor of <tt class="literal">authors</tt>, the <tt class="literal"><a href="ch15_01.htm#ch15-77355">xs:keyref</a></tt> definition can only be done in the
+<tt class="literal">library</tt> element. (The <tt class="literal"><a href="ch15_01.htm#ch15-77346">xs:key</a></tt> can be defined either in the
+<tt class="literal">library</tt> or in the <tt class="literal">authors</tt>
+element.)
+</p>
+
+<p>In the previous example, locating the <tt class="literal"><a href="ch15_01.htm#ch15-77346">xs:key</a></tt> definition within
+<tt class="literal">library</tt> or <tt class="literal">authors</tt> was only a
+matter of style, since the authors are unique both within a
+<tt class="literal">library</tt> and within the <tt class="literal">authors</tt>
+elements. However, W3C XML Schema allows for situations in which this
+isn't the case and in which a key is unique within
+the scope of a subelement without being unique within the whole
+document.
+</p>
+
+<p>Let's modify the previous example to define several
+categories of authors:
+</p>
+
+<blockquote><pre class="code">&lt;library&gt;
+  &lt;books&gt;
+    &lt;book&gt;
+      .../...
+      &lt;author-ref ref="Charles M. Schulz"/&gt;
+      .../...
+    &lt;/book&gt;
+    .../...
+  &lt;/books&gt;
+  &lt;authors&gt;
+    &lt;category id="comics"&gt;
+      &lt;author&gt;
+        &lt;name&gt;
+          Charles M. Schulz
+        &lt;/name&gt;
+        .../...
+      &lt;/author&gt;
+      .../...
+    &lt;/category&gt;
+    &lt;category id="novels"&gt;
+      .../...
+    &lt;/category&gt;
+    .../...
+  &lt;/authors&gt;
+&lt;/library&gt;</pre></blockquote>
+
+<p>Defining a <tt class="literal"><a href="ch15_01.htm#ch15-77346">xs:key</a></tt> (or
+<tt class="literal"><a href="ch15_01.htm#ch15-77603">xs:unique</a></tt>) within
+<tt class="literal">library</tt> or <tt class="literal">authors</tt> specifies a
+uniqueness within the scope of the entire library. Defining a list of
+authors within <tt class="literal">category</tt> specifies a uniqueness
+within this category only, and allows authors with the same name to
+be defined under several categories.
+</p>
+
+<p>It is perfectly valid, per W3C XML Schema, to define a <tt class="literal"><a href="ch15_01.htm#ch15-77346">xs:key</a></tt> under <tt class="literal">category</tt>
+and a matching <tt class="literal"><a href="ch15_01.htm#ch15-77355">xs:keyref</a></tt> under
+<tt class="literal">library</tt> (since <tt class="literal">library</tt> is an
+ancestor of <tt class="literal">category</tt>). By doing so, a new
+constraint is added to authors' names. When an
+author is referenced within a book, her name has to be unique within
+the scope of the <tt class="literal"><a href="ch15_01.htm#ch15-77355">xs:keyref</a></tt>.
+Applied to our instance document, this means that if
+"Charles M. Schulz" was not
+referenced in one of the books, he can be defined in several
+categories; since he is referenced in one book, his name must be
+defined once only.
+</p>
+
+
+
+<a name="ch09-10-fm2xml" /><blockquote><b>TIP:</b> 
+While this behavior is described in the Recommendation, the results
+may be surprising for schema designers. It is probably good practice
+to keep the definitions of the <tt class="literal"><a href="ch15_01.htm#ch15-77346">xs:key</a></tt> (or <tt class="literal"><a href="ch15_01.htm#ch15-77603">xs:unique</a></tt>) and their matching <tt class="literal"><a href="ch15_01.htm#ch15-77355">xs:keyref</a></tt> <a name="INDEX-696" /> <a name="INDEX-697" />in <a name="INDEX-698" />the <a name="INDEX-699" />same <a name="INDEX-700" />elements. 
+</p>
+</blockquote>
+
+</div>
+<a name="xmlschema-CHP-9-SECT-2.5" /><div class="sect2">
+<h3 class="sect2">9.2.5. Permitted XPath Expressions</h3>
+
+<p>The <a name="INDEX-701" />W3C XML Schema Recommendation
+states that "to reduce the burden on implementers,
+in particular implementers of streaming processors, only restricted
+subsets of XPath expressions are allowed" in
+<a name="INDEX-702" /><tt class="literal"><a href="ch15_01.htm#ch15-77531">xs:selector</a></tt> and <a name="INDEX-703" /><tt class="literal"><a href="ch15_01.htm#ch15-77286">xs:field</a></tt>. The result of this statement is a
+limited subset of XPath that allows only the selection of nodes that
+are descendants of or are part of the current locations.
+</p>
+
+<p>The XPath expressions allowed in <tt class="literal"><a href="ch15_01.htm#ch15-77531">xs:selector</a></tt> must exclusively go deeper into the
+hierarchy of the XML element nodes, do not allow any tests in the
+XPath steps, and must match a set of elements. In addition, the XPath
+expressions allowed in <tt class="literal"><a href="ch15_01.htm#ch15-77286">xs:field</a></tt> can also select attributes.
+</p>
+
+<p>The full BNF for this subset is given in the reference guide. Rather
+than giving a verbose explanation, let's see some
+examples of what is possible and what is not.
+</p>
+
+<p>The following are allowed:</p>
+
+<dl>
+<dt><i>xpath="author"</i></dt>
+<dd>
+Selects the child elements named <tt class="literal">author</tt> that do
+not belong to any namespace.
+</p>
+</dd>
+
+
+<dt><i>xpath="author|character"</i></dt>
+<dd>
+Selects the child elements named <tt class="literal">author</tt> or
+<tt class="literal">character</tt> that do not belong to any namespace.
+</p>
+</dd>
+
+
+<dt><i>xpath="lib:author"</i></dt>
+<dd>
+Selects the child elements named <tt class="literal">author</tt> that
+belong to the namespace whose prefix is
+"lib".
+</p>
+</dd>
+
+
+<dt><i>xpath="*"</i></dt>
+<dd>
+Selects all the child elements.</p>
+</dd>
+
+
+<dt><i>xpath="lib:*"</i></dt>
+<dd>
+Selects all the child elements that belong to the namespace whose
+prefix is "lib".
+</p>
+</dd>
+
+
+<dt><i>xpath="authors/author"</i></dt>
+<dd>
+Selects all the <tt class="literal">authors</tt>/<tt class="literal">author</tt>
+child elements.
+</p>
+</dd>
+
+
+<dt><i>xpath=".//author"</i></dt>
+<dd>
+Selects all the elements that are descendants of the current node,
+named <tt class="literal">author</tt>, and don't belong to
+any namespace.
+</p>
+</dd>
+
+
+<dt><i>xpath="author/@id"</i></dt>
+<dd>
+Selects the <tt class="literal">id</tt> attribute of the
+<tt class="literal">author</tt> child element (allowed only for
+<tt class="literal"><a href="ch15_01.htm#ch15-77286">xs:field</a></tt>, and not for
+<tt class="literal"><a href="ch15_01.htm#ch15-77531">xs:selector</a></tt>).
+</p>
+</dd>
+
+
+<dt><i>xpath="@id|@name"</i></dt>
+<dd>
+Selects <tt class="literal">@id</tt> or <tt class="literal">@name</tt> (valid
+only in <tt class="literal"><a href="ch15_01.htm#ch15-77286">xs:field</a></tt>, since
+attributes are forbidden in <tt class="literal"><a href="ch15_01.htm#ch15-77531">xs:selector</a></tt>).
+</p>
+</dd>
+
+</dl>
+
+<p>The following are forbidden:</p>
+
+<dl>
+<dt><i>xpath="/library/author"</i></dt>
+<dd>
+Absolute paths are not allowed.</p>
+</dd>
+
+
+<dt><i>xpath="../author"</i></dt>
+<dd>
+The parent axis is not allowed.</p>
+</dd>
+
+
+<dt><i>xpath=".//*[@id]"</i></dt>
+<dd>
+Tests are not allowed.</p>
+</dd>
+
+
+<dt><i>xpath="author[@type='comics']"</i></dt>
+<dd>
+Tests are not allowed.</p>
+</dd>
+
+
+<dt><i>xpath="substring-after(@xlink:href, `#')"</i></dt>
+<dd>
+Function calls are not allowed.</p>
+</dd>
+
+
+<dt><i>xpath="//author"</i></dt>
+<dd>
+Absolute paths are not allowed.</p>
+</dd>
+
+</dl>
+
+
+
+<a name="ch09-12-fm2xml" /><blockquote><b>TIP:</b> 
+Default namespaces do not apply within XPath expressions, and
+elements and attributes must always be qualified by a prefix if they
+belong to a <a name="INDEX-704" />namespace. 
+</p>
+</blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch09_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch09_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">9. Defining Uniqueness, Keys, and Key References</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">9.3. ID/IDREF Versus /</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

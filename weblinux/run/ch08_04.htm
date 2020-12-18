@@ -1,0 +1,2202 @@
+<?label 8.4. Managing Print Services?><html><head><title>Managing Print Services (Running Linux)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Running Linux" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm" /></td><td width="172" valign="top" align="right"><a href="ch08_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">8.4. Managing Print Services</h2>
+
+<p><a name="INDEX-1803" />
+Linux has a fairly complicated printing system, compared to the printing
+services most personal computers use.  It allows many users to print documents 
+at the same time, and each user can send documents from one or more 
+applications without waiting for the previous document to finish printing.  The 
+printing system processes the files to be printed correctly on different
+kinds of printers connected to the computer in different 
+ways.  If you print on a network, files can be created on one host and 
+printed out on a printer controlled by another host.</p>
+
+<p>The whole process happens without much fuss, when you press the Print 
+button in an application or issue a command, such as <tt class="command">lpr</tt>, to
+print a 
+document.  That document does not go directly to the printer, though, 
+because it might already be busy.  Instead, the document is stored in a
+temporary file in a directory called the printer spool directory.  As
+the word "spool" suggests, the documents get taken out of the
+directory one by one as the printer becomes free.  Each printer has 
+its own spool directory.</p>
+
+<p><a name="INDEX-1804" />
+When Linux starts, it sets up a printer daemon (an independently 
+running process) called <tt class="command">lpd</tt>.  This process waits around
+checking
+each spool directory for files that should be printed.  When the process
+finds a file, it makes a copy of itself. 
+The new <tt class="command">lpd</tt> takes control of the print spool where the
+file was placed and
+queues it for printing.
+It won't send the next file to that printer until the last
+file has finished printing.
+The master <tt class="command">lpd</tt> starts 
+an <tt class="command">lpd</tt> for each spooling
+directory on the system when a file is sent to it, so there may be as many
+<tt class="command">lpd</tt> daemons running as the number of active spooling 
+directories plus the
+master <tt class="command">lpd</tt>.  Each subordinate <tt class="command">lpd</tt>
+stays around until its spool directory is empty.</p>
+
+<p><a name="INDEX-1805" />
+<a name="INDEX-1806" />
+<a name="INDEX-1807" />
+Your Linux installation process associates the printer port on your system to
+a device named in the <em class="filename">/dev</em> directory.  You must then link that device name to the convenient printer names you use in your
+commands; that's the role of the printer capability file called
+<em class="filename">/etc/printcap</em>.</p>
+
+<p>Another key task in printer management is to make sure you have filters
+in place for <tt class="command">lpd</tt> to use when formatting documents for printing.
+These filters are also specified in the <em class="filename">/etc/printcap</em> file,
+and we'll talk a lot about them in this section.</p>
+
+<p>There are several printer-support packages for Linux.  Most
+distributions use the <span class="acronym">BSD</span>-derived package that
+contains the <tt class="command">lpd</tt> printer daemon.  These packages
+include a set of utilities and manpage documents to support
+traditional Unix-style printing on Linux.  The
+<span class="acronym">BSD</span> printing system doesn't have as many
+administrative tools or user controls as, for example, the System V
+Unix printer-management system (which uses the
+<tt class="command">lpsched</tt> daemon), but each user controls the
+files that she sends to the printer. This section describes installation and configuration of the
+<span class="acronym">BSD</span> printer-support package. (The various printing utilities
+are described in the section
+
+"<a href="ch09_05.htm#x-100-3-sec-print">Section 9.5, "Printing"</a>" in
+<a href="ch09_01.htm">Chapter 9, "Editors, Text Tools,
+ Graphics,
+ and Printing"</a>.)</p>
+
+<p>Some Linux distributions provide a printer-management tool that simplifies
+printer installation and management through a graphical user interface.  These
+tools are documented by the vendor that supplies them.  They manage printing by controlling the same tools 
+and files we are about to describe, but with less fine control.  They 
+can save you a lot of trouble in getting started, but they don't always get 
+things right.  If you want to correct an installation set up through these
+tools or want to improve on their performance, you still should
+work through the procedures in this section.</p>
+
+<div class="sect2">
+<h3 class="sect2">8.4.1. Checking Printer Hardware</h3>
+
+<p><a name="INDEX-1808" />
+<a name="INDEX-1809" />
+Before you set up printer services, be sure the printing devices are 
+online.  If you also use another operating system, such as
+OS/2, Coherent, or <span class="acronym">MS-DOS</span>, you can exercise the hardware to ensure that it is
+connected properly and working
+before loading Linux.  Successfully printing a document from another operating system  immediately
+eliminates one major source of woe and headscratching.  Similarly, if you
+are going to use printer services on a network, your system should be 
+on the network and all protocols functioning before proceeding.</p>
+
+<p>You install printer services as the root
+user, with superuser privileges.
+The super-user is the only user besides the <tt class="command">lpd</tt> print
+daemon able to write
+directly to a  printer by directing
+output to the corresponding output device.  Other users cannot send output
+directly to the printer and must instead use the printer utilities to handle
+printing tasks.</p>
+
+<p>Before you get started, you can abuse your root
+privileges to verify that your system's assigned device files actually have a
+valid link to the physical device.  Just send a brief <span class="acronym">ASCII</span> test file directly
+to the printer by redirection.  For instance, if you have a printer on your 
+first parallel port, its device name is probably either
+<a name="INDEX-1810" />
+<a name="INDEX-1811" />
+<a name="INDEX-1812" />
+<a name="INDEX-1813" />
+<a name="INDEX-1814" />
+<a name="INDEX-1815" />
+<em class="filename">/dev/lp0</em> or <em class="filename">/dev/lp1</em>, depending on your installation.
+The following command outputs some text suited for testing a printer setup, 
+which you can redirect to your printer. (If you have an early PostScript printer, you may need instead to send it a small PostScrip test file to prevent it from getting confused.)
+<blockquote><pre class="code">lptest &gt; /dev/lp1</pre></blockquote></p>
+
+<p>The <tt class="command">lptest</tt> 
+utility is designed to conveniently exercise an <span class="acronym">ASCII</span> printer or terminal
+to make sure it is working correctly.  It sends a prepared file composed 
+of the 96 <span class="acronym">ASCII</span> characters in a sequence that creates a "ripple"
+or "barber-pole" output effect.  The default output of <tt class="command">lptest</tt> on Linux is 16,000 characters arrayed in 79-character lines, long enough to require 
+more than one page to print.  If you run <tt class="command">lptest</tt> with no
+arguments, it
+prints the standard output to your screen, and you can see what should be
+sent to the printer.
+The <tt class="command">lptest</tt> command allows you to trim the width of the output column and to
+limit the number of output lines. For example, to display an output 35 
+characters wide, limited to six lines, you would enter:
+<blockquote><pre class="code">lptest 35 6</pre></blockquote>
+
+The output should look much like this:
+<blockquote><pre class="code">!"#$%&amp;'()*+,-./0123456789:;&lt;=&gt;?@ABC
+"#$%&amp;'()*+,-./0123456789:;&lt;=&gt;?@ABCD
+#$%&amp;'()*+,-./0123456789:;&lt;=&gt;?@ABCDE
+$%&amp;'()*+,-./0123456789:;&lt;=&gt;?@ABCDEF
+%&amp;'()*+,-./0123456789:;&lt;=&gt;?@ABCDEFG
+&amp;'()*+,-./0123456789:;&lt;=&gt;?@ABCDEFGH</pre></blockquote>
+
+<?troff .ne 10?>
+This output is short enough that you can see the result of redirecting it to your
+printer without wasting a lot of paper and long enough to identify many
+obvious problems with printing.</p>
+
+<p><a name="INDEX-1816" />
+Of course, you can also use the <tt class="command">cat</tt> command to direct a
+file to the printer.  To send a
+PostScript test file to a PostScript printer, for example, type:
+
+<blockquote><pre class="code">cat testfile.ps &gt; /dev/lp1</pre></blockquote></p>
+
+<p>If you have a serial printer, try directing output to the serial port 
+to which it is connected.  For the first serial port (COM1: in <span class="acronym">MS-DOS</span>) try 
+something like:
+
+<blockquote><pre class="code">lptest &gt; /dev/ttys0</pre></blockquote>
+
+
+or:
+
+<blockquote><pre class="code">lptest &gt; /dev/ttyS0</pre></blockquote></p>
+
+<p><a name="INDEX-1817" />
+<a name="INDEX-1818" />
+Make sure you send to the correct serial port; don't try to output the 
+file to a serial mouse, for example.  If your serial printer is on the 
+second serial port, for example, it is addressed as
+<em class="filename">/dev/ttyS1</em> or <em class="filename">/dev/ttys1</em>.</p>
+
+<p>If you have a page printer that buffers a partial page, after it stops 
+printing you may need to take the printer offline and press the Form Feed 
+button to get it to print the last partial page.  Don't forget to put the 
+printer back online afterward.  (If your printer does buffer partial pages, you want Linux
+to send the formfeed character to the printer, either by forcing it through 
+the <em class="filename">/etc/printcap</em> entry for the printer or by having
+the printer filter append it to the end of the file.  We'll discuss these
+options later.)</p>
+
+<p><a name="INDEX-1819" />
+<a name="INDEX-1820" />
+<a name="INDEX-1821" />
+If your little test resulted in "laddered" text (text that looks something
+like the following example) and then continued off the page, the 
+printer did not insert a carriage return at the end of each line:</p>
+
+<blockquote><pre class="code">!"#$%&amp;'()*+,-./0123456789:;&lt;=&gt;?@ABC
+                                   "#$%&amp;'()*+,-./0123456789:;&lt;=&gt;?@ABCD
+                                                                      #$</pre></blockquote>
+
+<p>You might be able to figure out what went wrong here.
+Text files in Unix use just a newline (also known as a linefeed, 
+<span class="acronym">ASCII</span> code 10) to terminate each line.  MS-DOS uses both a newline and 
+a carriage return.  Your printer was therefore set up to use MS-DOS-style 
+line endings with both newline and carriage-return characters at
+the end of each line.  In order to print a text file from Unix, 
+you can install a printer filter to accommodate the Unix newline, or you can
+reconfigure your printer to properly return to the start of the
+line on
+receipt of a newline character.  Often this is simply a matter of setting
+a dip switch.  Check your printer manual.  (Be careful about changing your
+printer characteristics if you use multiple operating systems.)</p>
+
+<p>Laddering won't be an issue if you have a printer using a page-description
+language such as PostScript (the universally used page-layout language from
+Adobe), and you always filter plain text into that
+output form before printing.  Filtering is described later in this chapter.</p>
+
+<a name="INDEX-1822" /><a name="INDEX-1823" />
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">8.4.2. Gathering Resources</h3>
+
+<p><a name="INDEX-1824" />
+OK, you have your printer hardware set up and connected.
+You should collect hardcopy of your resource documents (at least the
+manpages for the print utilities and files described here, and the
+Printing <span class="acronym">HOWTO</span> file).  Also, it is useful to have
+the technical
+specifications for your printer.  Often these are no longer provided
+when you buy your printer, but you can usually download the information 
+you need from an <span class="acronym">FTP</span> site or <span class="acronym">BBS</span>
+operated by the printer manufacturer.  
+While you are retrieving such information, look around and see if there
+is documentation (such as a description of printer error messages and
+their meanings) that can help you troubleshoot and manage your printer.
+Most printer manufacturers also offer a technical manual for the printer
+that you can buy.  This may or may not be the same volume as the service
+manual.</p>
+
+<p>For example, on the Hewlett Packard <span class="acronym">FTP</span> site,
+ftp://boi.external.hp.com, 
+you can retrieve printer technical data sheets; product specs;
+port-configuration information; PostScript, <span class="acronym">PCL</span>,
+and <span class="acronym">HP-GL</span> files for testing
+your printers (and filters); descriptions of printer control sequences
+you can pass to the printer to control its behavior; and documents 
+telling how you can integrate <tt class="command">lpd</tt>-based printing services
+with
+HP's JetAdmin package (and thereby with Netware-networked printers as 
+well).</p>
+
+<p>Now, before starting, take a deep breath; be patient with yourself.  Printer
+services configuration is a skill that takes time to develop.  If you
+have sufficiently standard equipment and successfully use one of the
+new-fangled printer management utilities to quickly and efficiently
+install and configure printer services, celebrate!  Then note that you
+can probably fine-tune the installation for better performance by
+applying the procedures we describe next and perhaps by using filters
+and utilities written specifically to support all the features of your 
+printer model.  If you decide to revise a successful printer installation, 
+make sure you take notes on the changes you make so you can find your way 
+back if your changes don't do what you expected.</p>
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">8.4.3. Choosing Printer Software</h3>
+
+<p><a name="INDEX-1825" />
+<a name="INDEX-1826" />
+In order to print from Linux, you need to install the
+<span class="acronym">BSD</span> print system.  This provides basic tools, but it
+does not support modern printers.
+Indeed, it was designed to support line printers and devices common to
+the computer rooms of the '60s and '70s.  In order to support modern 
+printers, powerful supplemental packages provide the features 
+most users think of as essential.  (The ftp://metalab.unc.edu <span class="acronym">FTP</span> site
+and its mirrors archive the packages we mention here.)</p>
+
+<p>In this
+section, we discuss some important packages to support modern print services.
+We assume your system will have at least the <tt class="command">groff</tt> formatter, 
+the Ghostscript page-formatting package, and the
+<tt class="command">GNU Enscript</tt> filter packages,
+which are described in
+
+<a href="ch09_01.htm">Chapter 9, "Editors, Text Tools,
+ Graphics,
+ and Printing"</a>.
+Most Linux distributions already include these as well as other
+formatting and printing utilities.  If yours does not, you 
+can retrieve them from the usual Linux <span class="acronym">FTP</span> sites or take them from the 
+CD-ROM of another distribution.</p>
+
+<p>It matters where you
+get formatting and filtering packages.  If you receive 
+Ghostscript from a European distribution, for example,
+it probably defaults to an A4 paper format rather 
+than the 8.5x11-inch paper format kept in U.S. 
+binary archives.  In either case, the default can 
+easily be overridden through an <tt class="command">lpr</tt> option
+passed to the filter.  Alternatively, you can build the tools
+from source.</p>
+
+<p><a name="INDEX-1827" />
+<a name="INDEX-1828" />
+<a name="INDEX-1829" />
+The trend in printer technology is away from character-oriented output
+and toward adoption of a page-description language
+(<span class="acronym">PDL</span>) that provides
+sophisticated graphics and font control.  By far the most popular of the
+<span class="acronym">PDL</span>s is PostScript, which has been widely adopted
+in the Unix and Internet
+communities.  A major reason for its acceptance is Ghostscript, a 
+PostScript implementation copyrighted by Aladdin Enterprises.  A
+version is also 
+distributed under the <span class="acronym">GNU</span> Public License through the Free Software 
+Foundation, along with a large font library, that can be used with
+either version or other PostScript interpreters.</p>
+
+<p>Ghostscript implements almost all the instructions of the PostScript
+language and supports viewer utilities, such as Ghostview, that allow
+PostScript documents to be displayed in X windows. Similarly,
+excellent filters are readily available that convert PostScript output
+into other printing languages, such as Hewlett-Packard's
+<span class="acronym">PCL</span>, and into forms printable as raster output on
+inkjet, dot matrix, and laser printers.  Ghostscript is indispensable
+if you do any kind of printing besides character-based output and is
+easily extensible.  The Ghostscript package supports Adobe type 1 and
+3 PostScript fonts and provides a number of utilities for graphic
+format conversion and filtering. It can even generate PDF files, i.e., 
+files that conform to the Adobe Portable Document
+Format specification.</p>
+
+<p>Ghostscript may be insufficient to use by itself, however, because it
+doesn't provide printer control to switch between PostScript and text
+modes.  Although Ghostscript does provide a filter that provides this
+capability (and more), the <tt class="command">nenscript</tt> filter meets
+the tests of simplicity, flexibility, and reliability for most
+systems, so we document it here.</p>
+
+<p>A typical Linux formatting and printing system might primarily use
+<tt class="command">groff</tt> to format, creating PostScript output that is
+then processed by Ghostscript for printing and display.  Often there
+will be parallel printing systems installed that perform document
+formatting to suit preferences of various users or accommodate files
+received in different typesetting formats.</p>
+
+<a name="INDEX-1830" /><a name="INDEX-1831" />
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">8.4.4. Checking Print Utilities</h3>
+
+<p><a name="INDEX-1832" /> <a name="INDEX-1833" /> 
+
+You probably also want to install the TeX formatting package.  Even
+if you do not install the full TeX distribution, you should at least
+install the <tt class="command">xdvi</tt> utility, in order to view TeX
+output and Texinfo files in an X window.  Other filters can process
+<span class="acronym">DVI</span> output into forms such as PostScript
+(<tt class="command">dvips</tt>) or <span class="acronym">PCL</span>
+(<tt class="command">dvilj</tt>) if you have an aversion to the
+Ghostscript package or need to use native printer fonts for efficient
+data transfer and rapid printing.</p>
+
+<p><a name="INDEX-1834" /> The Lout
+package is also worthy of consideration as an efficient and compact
+package to format documents for PostScript output.  It supports Level
+2 PostScript and the Adobe Structuring Conventions, takes
+comparatively little memory, and comes with good enough documentation
+to learn quickly.  Lout doesn't create an intermediate output form; it goes directly from markup input to PostScript output.</p>
+
+<p>To support graphics work and X Window System utilities, you probably
+want to install other tools, some of which probably come with your
+distribution.  A collection of current versions of the most popular
+print support packages for Linux can be found at the ftp://metalab.unc.edu Linux archive, in
+<em class="filename">/pub/Linux/system/printing</em>.  The
+<tt class="command">netpbm</tt> and <tt class="command">pbmplus</tt> packages
+support a large variety of graphic file format conversions.  (Such
+formats have to be converted to PostScript before you try to print
+them.)  The Ghostview package provides display tools to view
+PostScript files in an X Window System environment, and also provides
+PostScript and PDF support for other packages, such as your Web browser.</p>
+
+<p><a name="INDEX-1835" />
+<a name="INDEX-1836" /> The
+ImageMagick package, described in 
+<a href="ch09_01.htm">Chapter 9, "Editors, Text Tools,
+ Graphics,
+ and Printing"</a>, deserves special mention. It
+lets you display a large number of graphic formats in an X window.
+(It uses Ghostview and Ghostscript when it needs to display a
+PostScript image.)  Most of the graphics
+files you can print you can also display using ImageMagick.</p>
+
+<p>A "magic" filter package may also save you much grief in
+configuring and supporting different document output formats.  We will
+discuss the APSfilter magic filter package (not in great depth) but
+you may prefer the Magic-Filter package instead.  Both are available
+at the ftp://metalab.unc.edu
+<span class="acronym">FTP</span> archive. For more on magic filters, see the
+section "<a href="ch08_04.htm#x-100-3-sec-magfil">Section 8.4.9, "Magic Filters: APSfilter and Alternatives"</a>"
+later in this
+<?troff \p?> chapter.</p>
+
+<p><a name="INDEX-1837" />
+<a name="INDEX-1838" />
+<a name="INDEX-1839" />
+<a name="INDEX-1840" /> 
+
+
+If you want to support fax devices, the <tt class="command">tiffg3</tt>
+utility can be used with Ghostscript to output Group III fax format
+files.  To control a Class 1 or Class 2 faxmodem on your Linux host,
+you can use the efax package, which is provided in many distributions,
+or you can install and configure the more capable, but more complex,
+FlexFax package.</p>
+
+<p><a name="INDEX-1841" />
+<a name="INDEX-1842" />
+
+There are additional tools to support double-sided printing on laser
+printers and packages that convert PostScript to less common
+printer-control languages to support Canon and <span class="acronym">IBM</span>
+Proprinter devices, for example.  There is a package to support
+printing in Chinese on laser printers and bitmap devices.  Most of
+these packages 
+<?troff .ne 10?>
+don't directly affect management of print services so
+we don't describe them in detail here, but this is a good time to
+install them if you wish to use them.</p>
+
+<p>For the benefit of your users, make sure that all the manual pages
+for the packages you install are prepared properly when you complete
+your installations.  Then run <tt class="command">/sbin/mkwhatis</tt>
+(<tt class="command">/usr/bin/mandb</tt> on Debian) to
+build the 
+manual page index file that facilitates locating information online.  Some
+packages, such as Ghostscript, also provide additional documention that
+you can print or make available on the system for reference.  (Linux
+distributions tend to omit these documents, but you can <span class="acronym">FTP</span> them from
+the sites where the software packages are developed and maintained.  The
+<span class="acronym">GNU</span> archives of the Free Software Foundation, for example, are accessed
+by anonymous <span class="acronym">FTP</span> at ftp://GNU.ai.mit.edu.)</p>
+
+<p>Filter selection and use is described "<a href="ch08_04.htm#x-100-3-sec-filterconfig">Section 8.4.7, "Print Filters"</a>" section later in this chapter.</p>
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">8.4.5. Setting Up the Printcap File</h3>
+
+<p><a name="INDEX-1843" />
+<a name="INDEX-1844" />
+The essence of printer configuration is creating correct entries
+in the printer capabilities file, <em class="filename">/etc/printcap</em>.
+A simple printcap entry for an HP Laserjet 4MP laser printer 
+attached to
+
+the first (bidirectional) parallel port on an <span class="acronym">ISA</span>
+bus <span class="acronym">PC</span> might look
+something like this:<a href="#FOOTNOTE-34">[34]</a>
+<blockquote><pre class="code">ljet|lp|ps|Postscript|600dpi 20MB memory|local|LPT1:\
+     :lp=/dev/lp0:rw:\
+     :sd=/var/spool/lpd/ljet4:mx#0:mc#0:pl#72:pw#85:\
+     :lf=/var/log/lpd-errs:if=/usr/local/cap/ljet4:</pre></blockquote>
+
+Don't be scared.  After reading the following sections, you will find yourself
+browsing printcap files with ease.</p><blockquote>
+
+<a name="FOOTNOTE-34" /><p>[34]In this chapter, we use ljet4 in several examples.  Be 
+aware that the HP Laserjet 4 model is available in several versions.  Some 
+Laserjet 4 models are PCL5 printers only, and others use PostScript. 
+Unless you are aware that such things can happen, you 
+can find it very frustrating trying to debug a printer filter that is 
+expecting, for example, PostScript, when Ghostscript is passing it PCL5 
+input.</p>
+
+</blockquote>
+
+<p>
+<img src="figs/bomb.gif">&nbsp;&nbsp;The <em class="filename">/etc/printcap</em> file should accommodate
+every printer and printer port or address--serial, parallel, <span class="acronym">SCSI</span>, <span class="acronym">USB</span>, or 
+networked--your system will use. Make sure it reflects 
+<?troff .ne 10?>
+any change
+in hardware.  And as always, be aware that some hardware changes
+should be performed only when power to your system is shut off.</p>
+
+<div class="sect3">
+<h3 class="sect3">8.4.5.1. Printcap file format rules</h3>
+
+<p><a name="INDEX-1845" />
+The printcap file format rules, briefly, are:</p>
+
+<ul><li><p>A comment line begins with a pound sign (#).</p></li><li><p>Each "line" of the printcap file defines a printer.  A line that
+ends with a backslash character (\) is continued on the next line.
+Be very 
+careful that no space or tab character follows the backslash 
+character on the line. Traditionally, a continuation line is 
+indented for readability.  Multiple printer definitions can use the same 
+actual printer, applying the same or different filters.</p></li><li><p>Fields in the line are separated by colon characters (:); fields
+can be empty.  However, a printcap line entry cannot be an empty
+field.</p></li><li><p>Traditionally, the first field in the entry has no preceding colon.</p></li><li><p> 
+ 
+The first field of the entry line contains names for the printer, each
+separated by a vertical bar character (|).  In the earlier example entry, this portion is the name field:
+<blockquote><pre class="code">ljet|lp|ps|Postscript|600dpi 20MB memory|local|LPT1</pre></blockquote>
+
+Printer naming is discussed in detail in the
+next section.
+You should create a subdirectory of <em class="filename">/var/spool/lpd</em> with
+the same
+name as the first printer ID listed in each printcap entry.  However, 
+the actual print spool that is used is assigned by
+the <tt class="literal">sd</tt> variable for the printcap entry; if the <tt class="literal">sd</tt> variable
+doesn't point
+to the actual print spool directory, any file sent to that printer 
+definition will vanish.</p></li><li><p>There must be at least a default printer entry in
+printcap. If a printer is named lp, that printer is used as the
+default system printer. Do not confuse the lp default printer name
+with the <tt class="literal">lp</tt> local printer variable, which is
+described next. We recommend you use <b class="emphasis-bold">lp</b> as an alias (one of the names
+after the | characters) rather than the primary printer name (the
+first in the list), so you can switch the default printer without
+difficulty.</p></li><li><p>Each local printer must have an <tt class="literal">lp</tt> variable set.  In the 
+previous example, the variable was set by this segment of the printcap entry:
+<blockquote><pre class="code">lp=/dev/lp0</pre></blockquote></p></li><li><p>For compulsive and sometimes practical reasons, some administrators
+recommend that the entries of the printcap file be kept in alphabetical
+order.</p></li></ul>
+</div>
+
+
+<div class="sect3">
+<h3 class="sect3">8.4.5.2. Printer names</h3>
+
+<p><a name="INDEX-1846" />
+<a name="INDEX-1847" />
+Most printer entries traditionally begin with a short printer name entry
+in the first 
+field, at least one fuller printer name, and one longer explanatory entry. Thus, both ljet and PostScript are names for the printer whose nameline is:
+<blockquote><pre class="code">ljet|lp|ps|Postscript|600dpi 20MB memory|local|LPT1:</pre></blockquote>
+
+ 
+Documents can be output to any printer 
+named in a nameline in <em class="filename">/etc/printcap</em>.</p>
+
+<p>You might name your printers after the model (hp, epson) or the type of 
+printer (ps, pcl) or its specific modes.  The DeskJet 540, for example, 
+is a printer that should have two definitions in the printcap file, one 
+for black print and another for 
+color.  The filters you use to support it are likely to be 
+those for DeskJet 500 or 550C.  
+For simple administration, you can assign printer names that are the
+names of a filter or filter parameter used for a specific device.  Thus,
+if you have one LaserJet 4 and will use the ljet4 filter only for it, 
+<b class="emphasis-bold">ljet4</b> is one logical name for the printer.  Similarly, a dot-matrix
+printer might be named <b class="emphasis-bold">72dpi</b> when accessed via its
+low-resolution printer
+definition line, and have the name <b class="emphasis-bold">144dpi</b> when accessed in a
+higher resolution.</p>
+
+<p>If you use a printer administration utility that
+comes with your Linux distribution, you may have to follow certain arbitrary
+rules in preparing your printcap entries in order to get the tools working.  For example, if you use Red Hat's printer manager utility
+provided on the administrator's desktop, you may need to make sure that
+<b class="emphasis-bold">hp</b> is the first name of the first active printer entry in the printcap 
+file.  This means that when you need to switch default printers, you need
+to move the new default printer to the top entry of the list and then
+remove the <b class="emphasis-bold">hp</b> name from the old default printer and prepend it as the 
+first name of the new default printer.  In order to prevent confusion in
+use of the spool queues, you should just leave the <em class="filename">/var/spool/lpd/lp</em> directory
+set up and create a new directory with the actual name of the spool
+directory that corresponds to the name by which you actually will address
+the printer.  Thus, if you want to send your files to print on a printer
+named <b class="emphasis-bold">moa</b>, you will need to create a directory named
+<em class="filename">/var/spool/lpd/moa</em>, with appropriate permissions, and specify that
+directory as the printer spool for that printer.  Setting up printer 
+directories is described in the next section.</p>
+</div>
+
+
+<div class="sect3">
+<h3 class="sect3">8.4.5.3. The rest of the printcap variables</h3>
+
+<p>The printcap file provides a number of variables that you can define.
+Some are fairly universal, and others are specific to the
+implemented features of <tt class="command">lpd</tt>.  Most variables are provided to specify page
+parameters, files and directories, filters, communication channel settings,
+and remote access control.  Any time you prepare a printcap file on a
+new system, read the printcap manual page to make sure you use the correct
+variable names.  Variables set in a printcap entry that are not recognized
+are passed through to the filter for processing.</p>
+
+<p>The printcap variables described here are listed in roughly their order
+of importance.  Some variables are boolean, and are considered set if they are 
+present.  Others are set with the assignment operator (=) or numeric
+value operator (#) and a value; the variable preceedes the operator and the
+string or number follows the operator.  Examples of the variables
+described in the following list are included in the contrived sample
+<em class="filename">/etc/printcap</em> file that follows.  The 
+printcap manual page has a more complete listing of variables recognized 
+by <tt class="command">lpd</tt>:</p>
+
+<dl>
+<dt><b><tt class="literal">sd</tt></b></dt><dd><p><a name="INDEX-1848" />
+<a name="INDEX-1849" />
+Specifies the spool directory used by the printer.  Spool directories
+should all be in the same directory tree (on a fast hard disk), which is
+usually <em class="filename">/var/spool</em>.  Spool files are defined even for
+remote printers.
+Each spool file should have one of the names assigned to the printer it
+serves.</p></dd>
+
+
+<dt><b><tt class="literal">lp</tt></b></dt><dd><p><a name="INDEX-1850" />
+Assigns a local printer device, typically connected through
+parallel port, serial port, or SCSI interface.  The <tt class="literal">lp</tt>
+variable must be
+assigned to a device file in the <em class="filename">/dev</em> directory, which may
+be a link to a
+physical device.  The <tt class="literal">lp</tt> variable must be assigned if there
+is a local printer.
+This variable should not be assigned if the <tt class="literal">rp</tt> variable is
+assigned (that is, the print spool manager is on
+another host).<a href="#FOOTNOTE-35">[35]</a>
+If <tt class="literal">lp</tt> assigns a serial device, the baud rate must be
+specified with the
+<tt class="literal">br</tt> variable.</p><blockquote>
+
+<a name="FOOTNOTE-35" /><p>[35]A special case arises where the printer to be addressed is a true networked
+printer (that is, it has its own IP address).  In that instance, the 
+<tt class="literal">lp</tt> variable assigns the name of a dummy file that is used
+for setting a temporary lock on the file when the networked printer is in 
+use.  The documentation for the networked printer should describe
+the procedure for setting up and managing print services to access it.</p>
+
+</blockquote></dd>
+
+
+<dt><b><tt class="literal">lf</tt></b></dt><dd><p><a name="INDEX-1851" />
+<a name="INDEX-1852" />
+Specifies the log file for storing error messages.  All printers
+should have this variable set and normally use the same error log file.
+Error entries include the name of the printer and can reveal problems
+with the user's printer environment, the host configuration, the
+communications channel that is used, and sometimes the printer hardware itself.</p></dd>
+
+
+<dt><b><tt class="literal">rw</tt></b></dt><dd><p><a name="INDEX-1853" />
+This variable should be specified if the printer is able to send
+data back to the host through the specified device file.  The
+<tt class="literal">rw</tt> variable
+tells <tt class="command">lpd</tt> that the device should be opened for both reading
+and writing.
+This can be useful for serial or SCSI PostScript printers, for example,
+because they may return fairly useful error messages to <tt class="command">lpd</tt>,
+which stores them in the error log.</p></dd>
+
+
+<dt><b><tt class="literal">mx</tt></b></dt><dd><p><a name="INDEX-1854" />
+<a name="INDEX-1855" />
+Specifies the maximum size of a print job in the spool.  A value
+of zero sets no limit (the default, <tt class="literal">mx#0</tt>), and any other
+value sets the
+maximum file size in blocks.  Most of the time you don't want to set 
+a limit, but you could, for example, set a value slightly smaller than the expected
+minimum space available on a disk.</p></dd>
+
+
+<dt><b><tt class="literal">if</tt></b></dt><dd><p><a name="INDEX-1856" />
+<a name="INDEX-1857" />
+Specifies an input filter to use.  If you do not specify an input
+(<tt class="literal">if</tt>) or output (<tt class="literal">of</tt>) filter,
+the system uses the default <em class="filename">/usr/sbin/lpf</em> filter.
+For some MS DOS-style character printers, this is sufficient.  Other useful 
+filters are provided in the formatting utilities, and there are some
+flexible "magic filter" packages that will determine (usually correctly)
+the filtering to apply from the content of the data file passed to it.  See
+the section "<a href="ch08_04.htm#x-100-3-sec-filterconfig">Section 8.4.7, "Print Filters"</a>" that follows.</p></dd>
+
+
+<dt><b><tt class="literal">of</tt></b></dt><dd><p><a name="INDEX-1858" />
+Specifies an "output" filter to use.  When you assign the
+<tt class="literal">of</tt> variable and don't assign
+the <tt class="literal">if</tt> variable, the system uses the filter once 
+when the device
+is opened.  All queued jobs are then sent without reapplying the filter
+until the queue is exhausted (and <tt class="command">lpd</tt> removes the lock file
+from the spool 
+directory).  This is not normally useful, but it could serve such purposes as 
+sending faxes to a faxmodem for dialed connection over a telephone line.</p>
+
+<p>When you assign both the <tt class="literal">if</tt> and <tt class="literal">of</tt>
+variables, the <tt class="literal">if</tt>-specified
+filter normally processes the file, but the
+<tt class="literal">of</tt>-specified filter 
+prints a banner page before the input filter is applied.
+<?troff .ne 10?>
+Using both input and output filters effectively on the same print queue is
+notoriously difficult.</p></dd>
+
+
+<dt><b><tt class="literal">br</tt></b></dt><dd><p><a name="INDEX-1859" />
+<a name="INDEX-1860" />
+<a name="INDEX-1861" />
+Specifies the data-transfer rate (baud rate) for a serial port.
+You must supply this value if the printer is accessed via serial port.  A
+pound sign precedes a numeric value that expresses the data-transfer rate
+in bits per second (not truly the baud rate, which is an effective rate
+of flow as opposed to the maximum rate of flow).  The specified rate should not exceed
+any hardware limits.  For example, if your serial port is capable of a
+57.6 Kbps rate and the printer can process 28.8 Kbps, the assigned
+rate should not exceed that lower limit (perhaps <tt class="literal">br#19200</tt>). 
+Supported
+bps values are the usual multiples for serial
+<?troff \p?> communications: 300, 600, 1200,
+2400, 4800, 9600, and so on.
+A number of additional data conditioning
+values may be set if you do assign a <tt class="literal">br</tt> value, but most of them aren't
+useful for typical Linux installations.  The default behavior is probably
+acceptable for your printing purposes, but if you intend to print via
+serial port, study the <tt class="literal">br</tt>, <tt class="literal">fc</tt>,
+<tt class="literal">fs</tt>, <tt class="literal">xc</tt>, and <tt class="literal">xs</tt>
+variables in the printcap manual page.</p></dd>
+
+
+<dt><b><tt class="literal">pl</tt></b></dt><dd><p><a name="INDEX-1862" />
+<a name="INDEX-1863" />
+Specifies the page length as the number of lines using the
+default font characters for character devices (and printers that can
+use a character mode).  An example is <tt class="literal">pl#66</tt> for an
+11-inch page
+at six lines per inch.  This value allows space for cropping and accommodates
+limits of some other devices, such as inkjet printers that cannot print
+to the bottom of the sheet or the edge of the paper. Normally used in 
+conjunction with the <tt class="literal">pw</tt> variable.</p></dd>
+
+
+<dt><b><tt class="literal">pw</tt></b></dt><dd><p><a name="INDEX-1864" />
+Specifies the width of the page supported, in characters, using the
+default font characters for character devices.  <tt class="literal">pw</tt> is set like the <tt class="literal">pl</tt> variable;
+for example, <tt class="literal">pw#85</tt> for 10 characters per inch with an 8.5-inch
+printable page width.</p></dd>
+
+
+<dt><b><tt class="literal">px</tt></b></dt><dd><p>Specifies the number of pixels to use on the X axis for a bitmap
+image file sent to a raster device.</p></dd>
+
+
+<dt><b><tt class="literal">py</tt></b></dt><dd><p>Specifies the number of pixels to use on the Y axis for a bitmap
+image file sent to a raster device.</p></dd>
+
+
+<dt><b><tt class="literal">sh</tt></b></dt><dd><p>Suppresses printing of a header or banner page. In most cases, you
+should set this.</p></dd>
+
+
+<dt><b><tt class="literal">rp</tt></b></dt><dd><p><a name="INDEX-1865" />
+<a name="INDEX-1866" />
+<a name="INDEX-1867" />
+Specifies the name of a remote printer to use.  This variable
+cannot be set if the <tt class="literal">lp</tt> variable is set for the same
+printer.  The
+printer handling is performed by the remote host assigned in the
+<tt class="literal">rm</tt>
+variable, which is required when <tt class="literal">rp</tt> is set.  Usually, the
+only variables
+set along with these are spooling and error
+recording.  See the example that follows.</p></dd>
+
+
+<dt><b><tt class="literal">rm</tt></b></dt><dd><p><a name="INDEX-1868" />
+Specifies a remote host that controls the remote printer you
+print to.  The specified host ID assigned by <tt class="literal">rm</tt> should be
+one that is known to the network services as installed (set up in 
+<em class="filename">/etc/hosts</em> or known through NIS, for example).</p></dd>
+
+
+<dt><b><tt class="literal">rs</tt></b></dt><dd><p>Restricts access to local printers to those users with an account on the system.</p></dd>
+
+
+<dt><b><tt class="literal">rg</tt></b></dt><dd><p>Specifies a restricted group that can use the printer.  For example, to reserve
+a defined printer for superuser, enter <tt class="literal">rg=root</tt>.</p></dd>
+
+
+<dt><b><tt class="literal">sf</tt></b></dt><dd><p>Suppresses the formfeed sent to the printer by default at the end of
+a print file.</p></dd>
+
+
+<dt><b><tt class="literal">ff</tt></b></dt><dd><p>Assigns the formfeed character or string the device should use.  The
+default is Ctrl-L (equivalent to <tt class="literal">ff='\f'</tt>), which is usual for most devices.</p></dd>
+
+
+<dt><b><tt class="literal">fo</tt></b></dt><dd><p>Sends a formfeed character to the device before sending the file.</p></dd>
+
+
+<dt><b><tt class="literal">mc</tt></b></dt><dd><p>Specifies the maximum number of copies you can print.  Values
+are the same as for the <tt class="literal">mx</tt> variable; usually you want
+to allow unlimited
+copies (<tt class="literal">mc#0</tt>), which is the default.</p></dd>
+
+
+<dt><b><tt class="literal">sc</tt></b></dt><dd><p>Suppresses multiple copies (equivalent to <tt class="literal">mc#1</tt>).</p></dd>
+
+</dl>
+
+<p><a href="ch08_04.htm#x-100-3-ex-printcap">Example 8-1</a> contains a sample printcap file that shows
+off many of the variables discussed in the previous list.</p>
+
+<a name="x-100-3-ex-printcap" /><div class="example">
+<h4 class="objtitle">Example 8-1. Sample /etc/printcap file</h4>
+
+<blockquote><pre class="code"># Fare well, sweet prints.
+hp|bat|west|spigot|berkeley|TI MicroLaser Turbo:\
+     :mx#0:rp=lp:\
+     :lp=:sd=/var/spool/lpd:rm=spigot.berk.ora.com:\
+     :lf=/var/log/lpd-errs:
+# To the print room
+kiwi|810|rint|Big Apple|Apple 810 via EtherTalk:\
+     :lp=/var/spool/lpd/kiwi:sh:\
+     :sd=/var/spool/lpd/kiwi:pl#72:pw#85:mx#0:\
+     :lf=/var/log/lpd-errs:if=/usr/local/cap/kiwi:
+<?troff .ne 10?>
+# big bird--agapornis via shielded serial access
+samoa|S|PostScript|secure|QMS 1725 by serial adapter:\
+     :lp=dev/tty01:br#38400:rw:xc#0:xs#0400040:sh:\
+     :sd=/var/spool/lpd/samoa:pl#72:pw#85:mx#0:mc#0:\
+     :lf=/var/log/lpd-errs:if=/usr/local/cap/samoa:
+# agapornis via printer room subnet (standard access)
+moa|ps|QMS 1725 via Ethernet:\
+     :lp=/var/spool/lpd/moa/moa:rm=agapornis:rp=samoa:\
+     :sd=/var/spool/lpd/moa:mx#0:sh:\
+     :lf=/var/log/lpd-errs:if=/usr/local/cap/samoa:</pre></blockquote>
+</div>
+
+<a name="INDEX-1869" />
+</div>
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">8.4.6. Configuring Ghostscript</h3>
+
+<p><a name="INDEX-1870" />
+<a name="INDEX-1871" />
+Ghostscript is included in standard Linux packages; it is an essential
+utility in an X Window System environment and is useful even if you don't run
+X.  Ghostscript can provide graphics output to a standard VGA
+display even where no window manager is running and can also process and
+create PostScript-formatted files without a graphics display.
+You can examine what devices Ghostscript is configured to recognize and format
+for on your system by entering Ghostscript in interactive mode.  If you
+enter:
+<blockquote><pre class="code">$ gs</pre></blockquote>
+
+Ghostscript should load in interactive mode and await your 
+instructions:
+<blockquote><pre class="code">GS&gt;</pre></blockquote>
+
+You can then query the devices that Ghostscript is configured to recognize,
+and Ghostscript will display them:
+<blockquote><pre class="code">GS&gt; <tt class="userinput"><b>devicenames ==</b></tt>
+[/pkm /sj48 /la75plus /t4693d2 /pjxl300 /cdj500 /mgr8 /tifflzw /ppm
+/okiibm /la70 /iwlo /ljet3d /pjxl /cdjcolor /mgrgray8 /tiffg32d /pnm
+/oce9050 /declj250 /bjc600 /ljet2p /st800 /stcolor /png256 /mgrgray2
+/tiffcrle /pgnm /m8510 /lbp8 /bj200 /pdfwrite /pjetxl /eps9high
+/pnggray /bitcmyk /faxg32d /pgm /jetp3852 /epson /lp2563 /paintjet
+/appledmp /x11cmyk /pcx24b /bit /dfaxlow /pbm /cp50 /tek4696 /lj4dith
+/djet500c /x11 /pcx16 /tiff24nc /pkmraw /ccr /ln03 /t4693d4 /deskjet
+/cdj550 /pcxmono /tiffpack /ppmraw /r4081 /la75 /nullpage /ljet4 /iwlq
+/cdjmono /mgr4 /tiffg4 /pnmraw /oki182 /la50 /iwhi /ljet3 /cdj850
+/cdeskjet /png16m /mgrgray4 /tiffg3 /pgnmraw /necp6 /lips3 /epsonc
+/laserjet /x11mono /png16 /mgrmono /faxg4 /pgmraw /imagen /bjc800
+/bj10e /pj /eps9mid /x11alpha /pngmono /bitrgb /faxg3 /pbmraw /ibmpro
+/ap3250 /ljetplus /dnj650c /pcx256 /psmono /dfaxhigh /xes /lj250
+/t4693d8 /djet500 /miff24 /pcxgray /tiff12nc]  
+GS&gt; <tt class="userinput"><b>quit</b></tt>
+$</pre></blockquote></p>
+
+<p>If you are not using X, and Ghostscript fails to initialize when you try to invoke it, 
+complaining that it cannot open an X display, then the first device 
+Ghostscript loaded in its build file was the X Window System device; 
+Ghostscript uses the first device as its default device.  You can work around
+this problem by specifying some other device that Ghostscript will have installed,
+for example, <tt class="literal">gs -sDEVICE=epson</tt>.  You can guard against
+the problem in the future by setting a global <span class="acronym">GS_DEVICE</span> environment variable
+to some other device on your system that can be opened by Ghostscript.</p>
+
+<p>If you have such an unusual output device that the default Ghostscript 
+installation does not support it, you need to rebuild Ghostscript to
+support the device, or else process your output files through a filter that
+converts it to a form usable by your output device.  Ghostscript comes
+with makefiles and is easy to build if you follow the Ghostscript documentation
+that comes with the distribution.</p>
+
+<p>The more graphics utilities, X window managers, games, and
+applications you use, the more likely you will need to reinstall
+Ghostscript to suit your requirements.  Read the Ghostscript documentation
+before running the makefile that comes with the package.  (This requires
+that you have <tt class="command">gcc</tt> installed on your system.)</p>
+
+<p>You can define the <span class="acronym">GSDIR</span> environment variable to locate the 
+path of the <em class="emphasis">ghostscript</em> command, and to set
+<span class="acronym">GS_LIB</span> variables if you need to build Ghostscript utilities
+and add them to your installation. For example:
+<blockquote><pre class="code">export GSDIR=/usr/bin
+export GS_LIB=/usr/lib/ghostscript:/usr/local/lib/fonts:/usr/X11R6/fonts</pre></blockquote></p>
+
+<p>Set the <span class="acronym">GS_LIB_DEFAULTS</span> variable before you make a new build of
+Ghostscript; see the <tt class="command">gs</tt> manual page.</p>
+
+<p>The Ghostscript package also contains some PostScript programs that
+provide useful print-support functions, including some sophisticated
+printing capabilities we do not document here.  The
+<em class="filename">gs_init.ps</em> file,
+in particular, affects the general behavior of Ghostscript.  
+Additional scripts (filters, shell scripts, and so on) can be found in 
+<em class="filename">/usr/lib/ghostscript</em> or
+<em class="filename">/usr/local/lib/ghostscript</em>.  You
+may find it useful to examine the <em class="filename">ps2epsi.ps</em> utility,
+which converts
+PostScript into encapsulated PostScript, and the
+<em class="filename">ps2ascii.ps</em> utility, 
+which converts PostScript files into plain text.</p>
+</div>
+
+
+
+
+<a name="x-100-3-sec-filterconfig" /><div class="sect2">
+<h3 class="sect2">8.4.7. Print Filters</h3>
+
+<p><a name="INDEX-1872" />
+Every document passes through a filter before going to
+the printer, thanks to the <tt class="literal">if</tt> variable in the printcap
+file.
+A print filter can be found in a Linux distribution,
+acquired from the printer's vendor, found on the Net, or even
+made yourself from scratch
+or by cobbling together existing filters and shell utilities.</p>
+
+<p>An input filter can also be used to restrict use of a printer
+to a specific user or group, or users with accounts on a particular host.
+Typical <tt class="literal">if</tt>-assigned filters are executable shell scripts
+that process the
+text file, but they can be any program that can take the input data
+stream and process it for output to a printer.</p>
+
+<p>It is 
+increasingly common for commercial Linux distributions to build a filter
+interactively.  While you can usually improve on such a filter, it can
+help to use one as a starting point.
+The Red Hat distribution, for example,
+created the following shell-script filter (named 
+<em class="filename">/var/spool/lpd/ljet4/filter</em>)<a href="#FOOTNOTE-36">[36]</a>
+on one of our systems from information provided to it in the
+printer manager window and from default assumptions.  The
+<em class="filename">/etc/printcap</em>
+was modified to specify the use of this filter, which proved to be perfectly
+functional on our system:</p><blockquote>
+
+<a name="FOOTNOTE-36" /><p>[36]Putting a filter in a printer's spool directory is a convenient technique
+for a printer management program to use when setting up your 
+printer system.  You may prefer to keep all your print filters 
+and graphics conversion filters in the same directory (following the Unix
+tradition), such as
+<em class="filename">/usr/sbin</em> or <em class="filename">/var/spool/lpd/filters</em>.
+Of course, in that case, each filter you 
+create must be uniquely named.</p>
+
+</blockquote>
+
+<blockquote><pre class="code">#!/bin/sh
+	
+DEVICE=ljet4
+RESOLUTION=600x600
+PAPERSIZE=letter
+SENDEOF=
+	
+nenscript -TUS -ZB -p- |
+if [ "$DEVICE" = "PostScript" ]; then
+	cat -
+else
+	gs -q -sDEVICE=$DEVICE \
+		-r$RESOLUTION \
+		-sPAPERSIZE=$PAPERSIZE \
+		-dNOPAUSE \
+		-dSAFER \
+		-sOutputFile=- -
+fi
+	
+if [ "$SENDEOF" != "" ]; then
+	printf ""
+fi
+	
+exit 0</pre></blockquote>
+
+<p>There's nothing exotic about this filter.  First it sets some variables
+that appear later as arguments in the Ghostscript command.
+The script passes output through <tt class="command">nenscript</tt> and passes
+PostScript files to the <tt class="command">gs</tt>
+Ghostscript utility.  (In this particular case, the automatically generated filter
+will never invoke <tt class="command">gs</tt> because <span class="acronym">DEVICE</span> never equals
+"PostScript" in the <tt class="literal">if</tt> test.)
+If your printer doesn't eject the final pages of output, you can force it to by setting 
+the <span class="acronym">SENDEOF</span>
+variable near the top of the file.  For example:
+<blockquote><pre class="code">SENDEOF='\f'</pre></blockquote>
+
+will cause a formfeed to be sent to the printer when it reaches the end of
+a file.</p>
+
+<p>You might modify such a script and substitute a filter
+specifically designed for a LaserJet 4 printer, such as the actual ljet4 
+filter package, for example, and accommodate printing of TeX <span class="acronym">DVI</span> files
+by filtering them through <tt class="command">dvips</tt> and feeding them to Ghostscript.
+There is an
+
+elementary discussion of how to create a filter in the Linux Printing
+<span class="acronym">HOWTO</span>.</p>
+
+<p><a name="INDEX-1873" />
+<a name="INDEX-1874" />
+If you use a character printer that expects a carriage return at the end
+of each line, it will be unhappy with Linux, which follows Unix fashion
+in terminating a line with a linefeed, but no carriage return.  To force
+correct treatment of newlines on these printers, the filter has to insert
+the carriage return.  This can be done by writing the processing into 
+the filter, or, alternatively, by using a filter that already has the
+capacity of inserting the character.</p>
+
+<p>Some printer vendors
+provide filters and utilities for their printers, especially where
+the usual solutions are likely to be inadequate to take advantage of
+the printer's capabilities.  For example, Hewlett-Packard 
+provides a JetAdmin package with filters to use with their <span class="acronym">TCP/IP</span> 
+network-addressed LaserJet printers.</p>
+
+<p><a name="INDEX-1875" />
+<a name="INDEX-1876" />
+The default filter that comes with the <span class="acronym">BSD</span> print-management package is 
+<em class="filename">/usr/sbin/lpf</em>.  This filter is undocumented and probably
+best ignored, unless
+you wish to retrieve the C source and trace through the program to learn
+its capabilities.  (The full <span class="acronym">BSD</span> source for this can be
+found in the lpr-secure package in the printing directory from
+ftp://metalab.unc.edu.)</p>
+
+<p>Most of the print-filtering needs you have were long ago resolved,
+and there are filters out there to meet your needs.  By running:
+<blockquote><pre class="code"> 
+apropos filter</pre></blockquote>
+
+you can probably identify several print filters installed on your host.</p>
+
+<p>Changing filters is simple.  You need only change the
+<em class="filename">/etc/printcap</em> input filter specification
+(<tt class="literal">if</tt>) to specify the filter you want, and then kill
+and restart <tt class="command">lpd</tt>, which you can do using the
+<tt class="command">lpc</tt> utility.  Enter (as root):
+
+<blockquote><pre class="code">lpc restart all</pre></blockquote></p>
+
+<p><a name="INDEX-1877" />
+The <tt class="command">lpc</tt> utility reports any <tt class="command">lpd</tt>
+processes it kills, then it restarts <tt class="command">lpd</tt>.  If
+there are files in a print spool waiting to print,
+<tt class="command">lpd</tt> also reports that an <tt class="command">lpd</tt>
+daemon for that printer has been started.  The <tt class="command">lpc</tt>
+printer control utility is described later in this chapter, in the section
+"<a href="ch08_04.htm#x-100-3-sec-lpc">Section 8.4.12, "Controlling Printer Services with lpc"</a>."</p>
+
+<p>Study the manual page for a filter and then pass some test files
+through before adopting a strange print filter.  We have found that
+filters don't always perform "as advertised" in their
+manual page; often the document is obsolete or the filter was compiled
+by someone using different configuration parameters than the document
+assumes.  There is no substitute for testing all the things you expect
+the filter to do before adopting it.  Two good filtering packages,
+<tt class="command">nenscript</tt> and APSfilter, are discussed in the next section.</p>
+
+<a name="INDEX-1878" />
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">8.4.8. The nenscript Filter</h3>
+
+<p><a name="INDEX-1879" />
+The <tt class="command">nenscript</tt> filter is a typical modern filter for
+Linux.  You should find it in <em class="filename">/usr/bin/nenscript</em>
+if it was provided in your Linux distribution.  Otherwise, it may be
+installed in <em class="filename">/usr/local/bin</em>.
+<tt class="command">nenscript</tt> controls headers, footers, rotation of
+text, and so on, and produces PostScript output conforming to the Adobe
+Structuring Conventions from plain <span class="acronym">ASCII</span> input (by
+calling Ghostscript).  It sends output to the printer specified by the
+user's <span class="acronym">NENSCRIPT</span> environment variable, if set, or the user's
+<span class="acronym">PRINTER</span>
+environment variable otherwise.  If neither variable is set,
+<tt class="command">nenscript</tt> uses the default printer that
+<tt class="command">lpr</tt> wants to use.</p>
+
+<p>If <tt class="command">nenscript</tt> is called using the
+<span class="option">-Z</span> option, it is supposed to pass PostScript
+files through without altering them.  <tt class="command">nenscript</tt>
+examines the input file, and if the first two characters in the input
+file are <tt class="literal">%!</tt>, <tt class="command">nenscript</tt> suppresses formatting.  Since this output "type-checking" is
+primitive, it is easily fooled.  Obviously if the first two characters
+happen to be something other than <tt class="literal">%!</tt>, perhaps
+because a formfeed is the first character, for example, the file will
+not be recognized as PostScript even if it is. This
+can easily happen if some filter processing takes place before
+the file passes through to <tt class="command">nenscript</tt>.  Of course, a file can also
+have <tt class="literal">%!</tt>  as the first characters and not be PostScript (or could be
+nonconforming PostScript) and may not therefore be handled properly if
+passed to a PostScript printer.  There are smarter filters for this
+type of checking, including Magic-Filter or APSfilter, but
+<tt class="command">nenscript</tt> may easily meet your needs, especially if
+you print only to a PostScript printer.</p>
+
+<p><a name="INDEX-1880" />
+If you use the <tt class="command">nenscript</tt> filter for a PostScript
+printer on your system, therefore, you could specify the
+<span class="option">-Z</span> option in the <span class="acronym">NENSCRIPT</span> environment
+variable for all user shells by default, in order to pass through the
+PostScript received by the filter.</p>
+
+<p>There are other comparable filters.  The <tt class="command">nenscript</tt>
+filter emulates the traditional Unix enscript
+filter.  A shell script provided in the <tt class="command">nenscript</tt>
+package invokes <tt class="command">nenscript</tt> configured to behave as
+though it were another (similar) traditional Unix
+filter, <tt class="command">pstext</tt>.</p>
+
+<p>To use <tt class="command">nenscript</tt> to filter
+your print files, make sure <tt class="command">nenscript</tt> is
+installed in an appropriate path, and then set the printers for which
+you want <tt class="command">nenscript</tt> to filter to point to a filter
+that invokes the <tt class="command">nenscript</tt> filter.  You may find
+that the printcap entry can point directly to the
+<tt class="command">nenscript</tt> filter if you set a system-wide default
+<span class="acronym">NENSCRIPT</span> variable to control its options, or you
+can create a simple
+processing filter that calls <tt class="command">nenscript</tt>, much like
+the sample configuration file shown earlier.  Verify file and directory
+ownerships and permissions after you have altered the printcap file
+and set up filters.</p>
+</div>
+
+
+
+
+<?troff .sp -.3?><a name="x-100-3-sec-magfil" /><div class="sect2">
+<h3 class="sect2">8.4.9. Magic Filters: APSfilter and Alternatives</h3>
+
+<p><a name="INDEX-1881" />
+<a name="INDEX-1882" />
+<a name="INDEX-1883" />
+The most versatile filters are the so-called "magic"
+filters.  A magic filter examines the contents of a file passed to it,
+and filters the output for printing based on the what it learns from
+the format of the information.  If it sees the file is
+DVI routed to a PostScript printer, for instance,
+it will apply another filter (perhaps <tt class="command">dvips</tt>) to
+convert the data into PostScript for printing.  This is very
+convenient, but on occasion, the filter can make a mistake.  If that
+happens, the user can resubmit the file with command-line options that
+specify which filtering to perform, or the user can preprocess the file
+by piping it through the needed filtering before passing it to
+<tt class="command">lpr</tt> for routine print processing.  There are some
+good magic filter packages, including APSfilter (which we have chosen
+to describe here) Magic-Filter, and the <tt class="command">gslp.ps</tt>
+filter provided with complete Ghostscript packages.</p>
+
+<p>Some Linux distributions, regrettably, omit Ghostscript's supplemental utilities or
+documents, but you can always retrieve a complete Ghostscript
+distribution via <span class="acronym">FTP</span> from the
+<span class="acronym">GNU</span> archive site (ftp://ftp.gnu.org/gnu/ ) or one of its mirrors. You can get the
+APSfilter package from the
+ftp://metalab.unc.edu
+<span class="acronym">FTP</span> site in the
+<em class="filename">/pub/Linux/system/printing</em> directory.  The
+primary <span class="acronym">FTP</span> site for the Magic-Filter package is
+the ftp://tsx-11.mit.edu Linux
+archive.  The Ghostscript filter, <tt class="command">gslp.ps</tt>, is
+written in the PostScript language and can be used
+only with Ghostscript or another interpretor compatible with Adobe PostScript.</p>
+
+<p><a name="INDEX-1884" />
+The APSfilter package for Linux is a port of a package developed for
+FreeBSD.  For that reason, there are a few precautions to take in
+order to ensure that things configure properly when you install the
+APSfilter package.  On a Linux host, it is probably best to install
+the APSfilter package in <em class="filename">/usr/lib/apsfilter</em>.  The
+package comes from ftp://metalab.unc.edu as a gzipped, tarred file.
+<a name="INDEX-1885" />
+<a name="INDEX-1886" />
+To unpack the package, put it in the
+<em class="filename">/usr/lib/apsfilter</em> directory and enter:
+<blockquote><pre class="code">gunzip apsfilter*gz</pre></blockquote></p>
+
+<p>This results in a tar file.  As of this writing, the tar file
+does not install correctly if you simply use the <tt class="command">tar</tt> command on it in the
+<em class="filename">apsfilter</em> directory.
+Instead, from the <em class="filename">apsfilter</em> directory, use this command:
+<blockquote><pre class="code">tar -vxf apsfilter*.tar -C /usr/lib</pre></blockquote></p>
+
+<p>Now the APSfilter package unpacks within subdirectories of the
+<em class="filename">apsfilter</em>
+directory.</p>
+
+<p> Change to the <em class="filename">apsfilter</em> directory. Before
+you run the <tt class="command">SETUP</tt> command, you want to make sure
+you have all the filters you might want to use with APSfilter
+installed and configured.  The
+<em class="filename">/usr/lib/apsfilter/FAQ</em> file tells you of some of
+the more important and useful packages.</p>
+
+<p>Before you run the installation, read the <em class="filename">INSTALL</em> 
+document to make sure there aren't any surprises.  Then run 
+<em class="filename">./SETUP</em>. It tests for the presence and location of 
+graphics utilities and other 
+filters APSfilter uses to convert files into a form
+printable on your printer.</p>
+
+<p>The <em class="filename">SETUP</em> script lets you know if the filter installed
+correctly. 
+It can be run again if you wish to install more than one printer or
+more than one mode for a single printer.  For example, if you install
+a Deskjet 540 printer, you probably will want to use the dj500
+definition for the black cartridge and the dj550c definition for
+the <span class="acronym">CMYK</span> color cartridge.  APSfilter uses very
+long directory names for its spool directories.  If you don't like that, you can rename the spool
+directories and change the corresponding directory fields in the
+corresponding <tt class="command">/etc/printcap</tt> entry.
+Be sure not to shorten the name
+of the filter used; that path is critical.  We don't recommend
+you undertake to make things pretty until you are satisfied that
+things are working.</p>
+
+<p>Before you try your new setup, you need to restart
+the print daemon:
+<blockquote><pre class="code">/usr/sbin/lpc restart all</pre></blockquote></p>
+
+<p>APSfilter sets systemwide variables for printer
+definitions in the <em class="filename">/etc/apsfilterrc</em> file; reading it can be
+informative.
+Common print problems are probably the usual file ownership or permission
+problems, so don't forget to check that out.  Then, read the <em class="filename">FAQ</em>
+and
+<em class="filename">TROUBLESHOOTING</em> files in the
+<em class="filename">/usr/lib/apsfilter</em> directory.</p>
+
+<p>If your APSfilter installation didn't work, you can always return to the
+configuration you had before you installed it by copying the
+<em class="filename">/etc/printcap.orig</em> file that APSfilter saved for you back to 
+<em class="filename">/etc/printcap</em>.</p>
+
+<p>APSfilter names its printers sequentially,
+from <tt class="literal">lp1</tt> up.
+Don't be confused; that has nothing to do with the actual
+physical device assigned to the printer.  Again, you can 
+change those names.</p>
+
+<p>APSfilter allows you to loosen restrictions so individual users can set
+up their own <em class="filename">.apsfilterr</em> file in their home directories.
+The default is
+to not allow it, which is a bit more secure.</p>
+
+<p><a name="INDEX-1887" />
+The latest version of Magic-Filter (at the time of this writing, Version 1.2)
+is remarkably easy to install and makes a clean alternative to APSfilter.
+However, the installation doesn't do any
+hand-holding.  Though there is a useful manual page, there isn't much information
+to walk you through setting up the alternate processing that the Magic-Filter
+utility should do for most printing devices.  In particular, if you have a 
+versatile printer that outputs in multiple modes (PostScript, PCL5, text, 
+and so on), you may find it worth your while to install and use this package.</p>
+
+<a name="INDEX-1888" /><a name="INDEX-1889" /><a name="INDEX-1890" />
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">8.4.10. BSD Print System Elements: Files,
+ Directories, and Utilities</h3>
+
+<p><a name="INDEX-1891" />
+<a name="INDEX-1892" />
+The print-management system requires you to create directories
+that match the printcap printer names in order to spool files for
+printing.  It also requires you to create other files for controlling the print
+process itself.  You must set up directories and files
+with the correct ownership and privileges, and the printer
+utilities themselves also need correct permissions.</p>
+
+<div class="sect3">
+<h3 class="sect3">8.4.10.1. Setting up printer directories</h3>
+
+<p><a name="INDEX-1893" />
+Your Linux installation created a standard spool directory.  Ideally, this
+is on a fast-access disk drive.  The basic spool directory
+(<em class="filename">/var/spool</em> ) is 
+normally used for managing mail, news, and <span class="acronym">UUCP</span> 
+communications as well as for holding printer files.  
+We recommend
+you follow this practice, which is a Linux standard.  Some utilities
+or filters you get may expect to find
+<em class="filename">/usr/spool/lpd</em> as the printer spool 
+path.  You will have to make corrections if you find this condition.
+You can, of course, create <em class="filename">/usr/spool</em> and link it to
+<em class="filename">/var/spool</em>, but
+that is a good idea only if <em class="filename">/usr</em> and
+<em class="filename">/var</em> are on the same disk 
+drive.</p>
+
+<p><a name="INDEX-1894" />
+<a name="INDEX-1895" />
+You must create your
+own printer spool directories.  The <em class="filename">/var/spool/lpd</em> directory
+is the 
+standard path for each printer subdirectory.  Each printer subdirectory 
+name must be used as a printer name in the first field in a corresponding
+<em class="filename">/etc/printcap</em> entry.
+For example, <em class="filename">/var/spool/lpd/moa</em> is appropriate for
+a printer with <tt class="literal">moa</tt> in a name field of the printcap entry.  In turn, the 
+<em class="filename">/etc/printcap</em> entry for this printer should have an
+<tt class="literal">sd</tt> variable set to point 
+to the spooling directory (<tt class="literal">sd=/var/spool/lpd/moa</tt>, for example).</p>
+
+<p>You shouldn't use <tt class="literal">lp</tt> as 
+the actual spool directory name unless you never expect to have more than
+one printer on your system or network, because <tt class="literal">lp</tt>
+is the default printer.  (If your default printer is somewhere else on the network,
+your files will still get spooled to
+<em class="filename">/var/spool/lpd/lp</em> first, before your
+<tt class="command">lpd</tt> forwards them to the print daemon on the remote host to print.)  You
+may have a printer-management utility that automatically creates an <tt class="literal">lp</tt>
+spool directory, but you can always edit the printcap file to point to
+any directory you wish.</p>
+
+<p>The spool directory name should be the first name listed in the associated
+<em class="filename">/etc/printcap</em> entry for the printer to make identification easy.
+The printcap entry will then be associated with the names under which
+<tt class="command">lpq</tt> and <tt class="command">lpc</tt> utilities report print queue status.</p>
+</div>
+
+
+<div class="sect3">
+<h3 class="sect3">8.4.10.2. File, directory, and utility privileges</h3>
+
+<p><a name="INDEX-1896" />
+<a name="INDEX-1897" />
+The most common problem in establishing print services is with file
+and directory permissions. <a href="ch08_04.htm#x-100-3-table-print-perms">Table 8-1</a>
+lists the important files, directories, and utilities that comprise
+<span class="acronym">BSD</span> print management on Linux.  Installed locations
+may vary according to your Linux distribution.  The ownerships and
+permissions given in the following table are recommended for the files and directories
+of the printing system.  (Additional filters and nonstandard spool
+paths may be specified in <em class="filename">/etc/printcap</em>).
+Different permissions may still work, but if you have permissions
+problems, this is where you can straighten them out. An asterisk in
+the first column of <a href="ch08_04.htm#x-100-3-table-print-perms">Table 8-1</a>
+indicates that many files can exist with the names of different
+printers.</p>
+
+
+<a name="x-100-3-table-print-perms" /><h4 class="objtitle">Table 8-1. BSD's Files, Directories, and Utilities for Printing</h4><table border="1">
+<?table-gutter 1 2?>
+<?table-gutter 2 2?>
+<?table-gutter 3 2?>
+<tr>
+<th>Directory or File</th>
+<th>Permissions</th>
+<th>Owner/Group</th>
+<th>Description</th>
+</tr>
+
+
+
+
+<tr>
+<td rowspan="0"><em class="filename">/dev/ttys1</em></td>
+<td rowspan="0"><tt class="literal">crwsr-----</tt></td>
+<td rowspan="0">root/lp</td>
+<td rowspan="0"><p>Typical serial port printing device</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/dev/lp1</em></td>
+<td rowspan="0"><tt class="literal">crws------</tt></td>
+<td rowspan="0">root/lp</td>
+<td rowspan="0"><p>Typical parallel port device (not bidirectional)</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/usr/bin/lpc</em></td>
+<td rowspan="0"><tt class="literal">-rwsrwsr-x</tt></td>
+<td rowspan="0">root/lp</td>
+<td rowspan="0"><p>Controls print-spooling services</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/usr/bin/lpr</em></td>
+<td rowspan="0"><tt class="literal">-rwsrwsr-x</tt></td>
+<td rowspan="0">root/lp</td>
+<td rowspan="0"><p>Receives print file, assigns processing data, and spools both</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/usr/bin/lpq</em></td>
+<td rowspan="0"><tt class="literal">-rwsrwsr-x</tt></td>
+<td rowspan="0">root/lp</td>
+<td rowspan="0"><p>Reports on spooled files with user and print queue data</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/usr/bin/lprm</em></td>
+<td rowspan="0"><tt class="literal">-rwsrwsr--</tt></td>
+<td rowspan="0">root/lp</td>
+<td rowspan="0"><p>Removes print jobs from spool</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/usr/bin/tunelp</em></td>
+<td rowspan="0"><tt class="literal">-rwsr-sr--</tt></td>
+<td rowspan="0">root/lp</td>
+<td rowspan="0"><p>Tests print services to improve them</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/usr/bin/lptest</em></td>
+<td rowspan="0"><tt class="literal">-rwxr-xr-x</tt></td>
+<td rowspan="0">root/root</td>
+<td rowspan="0"><p>Outputs an <span class="acronym">ASCII</span> file for printer and display testing</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/usr/sbin/lpd</em></td>
+<td rowspan="0"><tt class="literal">-rwsr-s---</tt></td>
+<td rowspan="0">root/lp</td>
+<td rowspan="0"><p>Daemon manages printing using printcap data and data passed by <tt class="command">lpr</tt></p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/usr/sbin/lpf</em></td>
+<td rowspan="0"><tt class="literal">-rwxr-xr-x</tt></td>
+<td rowspan="0">root/lp</td>
+<td rowspan="0"><p>Primitive <span class="acronym">BSD</span> text print filter</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/usr/sbin/pac</em></td>
+<td rowspan="0"><tt class="literal">-rwxr--r--</tt></td>
+<td rowspan="0">root/root</td>
+<td rowspan="0"><p><span class="acronym">BSD</span> utility reports on printer activity and usage by user ID</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/var/spool/</em></td>
+<td rowspan="0"><tt class="literal">drwxr-sr-x</tt></td>
+<td rowspan="0">root/daemon</td>
+<td rowspan="0"><p>Basic system location for temporary files</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/var/spool/lpd</em></td>
+<td rowspan="0"><tt class="literal">-rws--s--x</tt></td>
+<td rowspan="0">root/lp</td>
+<td rowspan="0"><p>Standard path for the print-spooling system</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/var/spool/lpd/*</em></td>
+<td rowspan="0"><tt class="literal">drwxr-sr-x</tt></td>
+<td rowspan="0">root/lp</td>
+<td rowspan="0"><p>Spooling subdirectories for each defined printer</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/var/spool/lpd/*/filter</em></td>
+<td rowspan="0"><tt class="literal">-rwxr-xr-x</tt></td>
+<td rowspan="0">root/lp</td>
+<td rowspan="0"><p>Filters created by Red Hat printer-management utility for each print spool</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/var/spool/lpd/lpd.lock</em></td>
+<td rowspan="0"><tt class="literal">-rw-rw----</tt></td>
+<td rowspan="0">root/lp</td>
+<td rowspan="0"><p><tt class="command">lpd</tt> queue control lock</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/var/spool/lpd/*/.seq</em></td>
+<td rowspan="0"><tt class="literal">-rw-rw----</tt></td>
+<td rowspan="0">lp/lp</td>
+<td rowspan="0"><p>Sequence file <tt class="command">lpd</tt> uses to order spooled files</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/var/spool/lpd/*/lock</em></td>
+<td rowspan="0"><tt class="literal">-rw-------</tt></td>
+<td rowspan="0">root/lp</td>
+<td rowspan="0"><p><tt class="command">lpd</tt> writes lock to prevent sending next file until printer is ready</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/var/spool/lpd/*/status</em></td>
+<td rowspan="0"><tt class="literal">-rw-------</tt></td>
+<td rowspan="0">lp/lp</td>
+<td rowspan="0"><p><tt class="command">lpd</tt> stores latest printer status report here</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/var/log/lp-acct</em></td>
+<td rowspan="0"><tt class="literal">-rw-------</tt></td>
+<td rowspan="0">root/root</td>
+<td rowspan="0"><p>Accounting record file, from which <tt class="command">pac</tt> extracts and formats print data<a href="#FOOTNOTE-37">[37]</a></p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><em class="filename">/var/log/lpd-errs</em></td>
+<td rowspan="0"><tt class="literal">-rw-rw-r--</tt></td>
+<td rowspan="0">root/lp</td>
+<td rowspan="0"><p>Standard <span class="acronym">BSD</span> log file for <em class="filename">lpd</em> errors</p></td>
+</tr>
+
+
+<?troff .nr tB_on 0?></table><blockquote>
+
+<a name="FOOTNOTE-37" /><p>[37]This file remains empty if system accounting is not installed, unless
+you configure Ghostscript to perform its limited reporting there
+and make the file writable by all.</p>
+
+</blockquote>
+
+
+
+<?troff .vs 12p?><p>The usual Linux printer-management utilities set the print files with
+root
+ownership and lp
+group privilege.  Traditionally, <span class="acronym">BSD</span> distributions have used
+root ownership 
+and daemon group privilege.
+You can use either group privilege, but if you
+use both daemon and
+lp privileges with different utilities
+and files, you
+will have problems.  Be particularly careful about this if you add utilities
+from other packages to your services.</p>
+
+<p>Let's say you (as root)
+need to create the printer-spooling directory,
+<em class="filename">/var/spool/lpd</em>.  You execute the command:
+<blockquote><pre class="code">mkdir /var/spool/lpd</pre></blockquote>
+
+Assuming your <em class="filename">/var/spool</em> was created with the usual
+permissions, the new <em class="filename">lpd</em> directory has permissions of
+<tt class="literal">drwxrwxr-x</tt>, which is too permissive.  
+If you enter the command:
+<blockquote><pre class="code">chmod 755 /var/spool/lpd</pre></blockquote>
+
+the permissions are changed to <tt class="literal">drwxr-xr-x</tt>.
+This is close, but not 
+what you want.  You need to set the setuid bit, so lp
+can setuid root:
+<blockquote><pre class="code">chmod +s /var/spool/lpd</pre></blockquote>
+
+This results in <tt class="literal">drwsr-sr-x</tt>, which is what you want.
+However, the group should
+be lp, not
+root, so you need to fix that:
+<blockquote><pre class="code">chgrp lp /var/spool/lpd</pre></blockquote></p>
+
+<p>Create the spool directories needed for each printer as
+subdirectories of the <em class="filename">/var/spool/lpd</em> directory in the same way,
+and then use <tt class="command">touch</tt> to create a <em class="filename">.seq</em> file in each
+print directory:
+<blockquote><pre class="code">touch .seq</pre></blockquote></p>
+
+<a name="INDEX-1898" /><a name="INDEX-1899" /><a name="INDEX-1900" />
+</div>
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">8.4.11. Exercising the Printer Daemon</h3>
+
+<p><a name="INDEX-1901" /> <a name="INDEX-1902" /> The <tt class="command">lpd</tt> daemon
+consults <em class="filename">/etc/printcap</em> and then sends files to
+printers by directing them to a device file in the
+<em class="filename">/dev</em> directory.  Most printers on Linux boxes are
+serial (usually addressed through devices named
+<em class="filename">/dev/ttys0</em>, <em class="filename">/dev/ttys1</em>,
+and so on, or <em class="filename">/dev/ttyS0</em>,
+<em class="filename">/dev/ttyS1</em>, and so on.)  or parallel
+(<em class="filename">/dev/lp0</em>, <em class="filename">/dev/lp1</em>, or
+<em class="filename">/dev/lp2</em>, depending on the physical addresses the
+ports use).  The port assignments are described in the section
+"<a href="ch08_04.htm#x-100-3-sec-printtrouble">Section 8.4.14, "Printer System Troubleshooting"</a>." A common
+mistake when configuring print services is to use the wrong port.</p>
+
+<p><a name="INDEX-1903" />
+<a name="INDEX-1904" />
+<a name="INDEX-1905" />
+You can link a virtual device, <em class="filename">/dev/fax</em> for example,
+to an actual device you can use by creating a symbolic link.  For example:</p>
+
+<blockquote><pre class="code">ln -s /dev/ttys1 /dev/fax</pre></blockquote>
+
+<p>This allows users to set up scripts and filters that address
+<em class="filename">/dev/fax</em>, while you move the physical device (a
+faxmodem, for example) around simply by removing
+<em class="filename">/dev/fax</em> and then creating it again with a link
+to the new device.</p>
+
+<p>The <span class="acronym">BSD</span> printer daemon is notorious for dying or
+just becoming inert.  To be fair, this seems to be less common than it
+was some years ago, but it still happens.  When it does, just kill the
+old daemon and start a new one.  If <tt class="command">lpd</tt> isn't
+fairly reliable, though, there is a cause somewhere.  There could be
+something wrong with a user's environment or the specified
+command-line options used with <tt class="command">lpr</tt> or a faulty
+filter that sends setup data to the printer in a form the printer
+doesn't like.  However, you have every reason to expect to have a
+"pretty good" printing package installation.  If you are
+having problems, check out "<a href="ch08_04.htm#x-100-3-sec-printtrouble">Section 8.4.14, "Printer System Troubleshooting"</a>."</p>
+
+<p>OK, let's see if you have a working print system.  After making all
+these changes, you can be sure that <tt class="command">lpd</tt> doesn't
+know what is going on.  <a name="INDEX-1906" /> So run the <tt class="command">ps</tt> command
+and find the ID of the <tt class="command">lpd</tt> process.  Then enter:
+
+<blockquote><pre class="code">kill -9 <em class="replaceable">processid</em></pre></blockquote>
+
+
+to kill the process you specified.<a href="#FOOTNOTE-38">[38]</a> You should now have no print daemon running.  Just
+enter <tt class="command">/usr/sbin/lpd</tt> to start the print daemon.</p><blockquote>
+
+<a name="FOOTNOTE-38" /><p>[38] <a name="INDEX-1907" /> You may prefer to use
+<tt class="command">lpc</tt> to perform this task.  Also, if your root
+desktop has a printer-manager tool, you can probably click on the
+lpd button to kill and restart the print
+<?troff \p?> daemon.</p>
+
+</blockquote>
+
+<p>Now, while watching the activity <span class="acronym">LED</span>s on your printer front panel 
+(if there are any), send a file to the printer (still acting with 
+superuser privilege):
+<blockquote><pre class="code">lptest | lpr</pre></blockquote>
+
+
+<a name="INDEX-1908" />
+The <tt class="command">lptest</tt> <span class="acronym">ASCII</span> barber pole should begin printing to your default
+printer, as configured in your <em class="filename">/etc/printcap</em> file.  If it doesn't,
+you have a configuration problem that has nothing to do with privileges.</p>
+
+<p>Did the printer show any activity?  Does your default printer have a spool 
+directory?  Does the directory have a <em class="filename">.seq</em> file?
+Check <em class="filename">/var/log/lpd-errs</em>
+and see if anything was stored in it.  
+Use the <tt class="command">lpc</tt> command and get a report on the status of the print daemon
+and the print spool.</p>
+
+<p>If everything else looks good, make sure the printer is using the port
+you expected by sending a file directly to the port--for example:
+
+<blockquote><pre class="code"># <tt class="userinput"><b>lptest &gt; /dev/lp1</b></tt></pre></blockquote>
+
+
+To test for a serial printer:
+
+<blockquote><pre class="code"># <tt class="userinput"><b>lptest &gt; /dev/ttys1</b></tt></pre></blockquote>
+
+
+and so on.  If none of these worked, 
+reexamine your <em class="filename">/etc/printcap</em> file.  Is your entry properly formed?
+Are there no blank spaces or tabs following the continuation character (\) on
+your entry line?  Is the printer queue correctly specified?  Does the name
+<tt class="literal">lp</tt> appear as one of the printer names of the name field?  Is the first name
+in the name field the same name as the spool directory it uses?</p>
+
+<p>Let's assume you got through this first little test unscathed, and you now 
+have several pages of lovely barber-pole printout in your printer tray.  Next 
+comes the real challenge.  Can you print as a regular user?  Log in (or run
+<tt class="command">su</tt>)
+to become a normal system user.  Now, try the same experiment. If
+it works, congratulations, you've got a printer!  If it doesn't, you have
+a problem, but it is probably a file or directory ownership or permissions
+problem.  You know what you have to do about that.  Become 
+root again, look at
+the manual pages for <tt class="command">chgrp</tt>, <tt class="command">chmod</tt>, and
+<tt class="command">chown</tt>, and go down the list of files
+and directories to find your problem and fix it.  Repeat until Joe User
+can print.</p>
+
+<a name="INDEX-1909" />
+</div>
+
+
+
+
+<a name="x-100-3-sec-lpc" /><div class="sect2">
+<h3 class="sect2">8.4.12. Controlling Printer Services with lpc</h3>
+
+<p><a name="INDEX-1910" />
+<a name="INDEX-1911" />
+The <tt class="command">lpc</tt> utility is provided to manage printer queues and requires
+root privilege to perform most of its 
+functions.
+<tt class="command">lpc</tt> reports on all print queues and their attending
+<tt class="command">lpd</tt>
+daemons.  You can also specify reports on a specific printer or printing
+system user.  To get a status report
+on all printers and users, type:
+<blockquote><pre class="code">$ <tt class="userinput"><b>lpc status</b></tt>
+ibis:
+	queuing is enabled
+	printing is enabled
+	no entries
+	no daemon present
+crow:
+	queuing is enabled
+	printing is enabled
+	1 entry in spool area
+	crow is ready and printing
+<?troff .ne 10?>
+ada:
+	queuing is disabled
+	printing is disabled
+	no entries
+	no daemon present</pre></blockquote></p>
+
+<p>Queuing can be enabled within <tt class="command">lpc</tt> through the
+<tt class="command">enable</tt> command and disabled 
+using its <tt class="command">disable</tt> command.
+The <tt class="command">disable</tt> command works by setting a 
+group execute permission on the lock file in the print spool directory.</p>
+
+<p><a name="INDEX-1912" />
+<a name="INDEX-1913" />
+<a name="INDEX-1914" />
+Printing can be enabled in <tt class="command">lpc</tt> using its
+<tt class="command">start</tt> command and disabled 
+using its <tt class="command">stop</tt> command.
+Jobs held in a print queue when a printer is stopped
+will remain there until printing is restarted.  The <tt class="command">stop</tt>
+command functions by setting a lock file in the printer spool directory and
+killing the print daemon for that queue, but it allows the currently printing
+job to complete.  The <tt class="command">abort</tt> 
+<a name="INDEX-1915" />
+command works like <tt class="command">stop</tt>, but halts any printing job immediately, too. (Since
+the job did not complete, <tt class="command">lpr</tt> retains it and starts over again when the 
+queue is restarted.)</p>
+
+<p><a name="INDEX-1916" />
+<a name="INDEX-1917" />
+The <tt class="command">down</tt> command functions as though both a <tt class="command">disable</tt> and
+a <tt class="command">stop</tt> command were issued, and the
+<tt class="command">up</tt> command does the reverse, issuing
+<tt class="command">enable</tt> and <tt class="command">start</tt> commands.</p>
+
+<p>You could also limit the display to one printer:
+<blockquote><pre class="code">$ <tt class="userinput"><b>lpc status crow</b></tt>
+crow:
+	queuing is enabled
+	printing is enabled
+	1 entry in spool area
+	crow is ready and printing</pre></blockquote></p>
+
+<p>The status-reporting feature is useful for anyone, and <tt class="command">lpc</tt>
+allows all users
+to use it.
+The real work for <tt class="command">lpc</tt> usually involves solving a printing crisis.
+Sometimes a print daemon dies, and printing jobs back up.  Sometimes a printer runs 
+out of ink or paper, or even fails.  Jobs in the print spools have to be 
+suspended or moved to another spool where they can be printed.  Someone may
+simply have an urgent printing task that needs to be moved to the top of the
+queue.</p>
+
+<p>The <tt class="command">lpc</tt> command is a classic
+Unix command: tight-lipped and forbidding.  When
+you simply enter the <tt class="command">lpc</tt> command, all you get back
+is a prompt:
+
+<blockquote><pre class="code">lpc&gt;</pre></blockquote>
+
+
+The command is interactive and waiting for your instructions.  You
+can get help by entering <tt class="literal">help</tt> or a question mark at the
+<tt class="command">lpc</tt> prompt. <tt class="command">lpc</tt> responds and
+gives you a new prompt. For example, entering a question mark
+displays:
+
+<blockquote><pre class="code">#  <tt class="userinput"><b>lpc</b></tt>
+lpc&gt; <tt class="userinput"><b>?</b></tt>
+Commands may be abbreviated.  Commands are:
+abort   enable  disable help    restart status  topq    ?
+clean   exit    down    quit    start   stop    up
+lpc&gt;</pre></blockquote></p>
+
+<p><a name="INDEX-1918" />
+You can get additional help by asking for help about a specific
+command.  For example, to learn more about restarting a stalled print
+queue, type:
+
+<blockquote><pre class="code">lpc&gt; <tt class="userinput"><b>help restart</b></tt>
+restart         kill (if possible) and restart a spooling daemon
+lpc&gt;</pre></blockquote></p>
+
+<p>The <tt class="command">lpc</tt> help message does not offer online help
+about the secondary arguments you can specify in some places.  The
+manual page will offer you some guidance.  Most of the commands accept
+<tt class="command">all</tt> or a print spool name as a secondary argument.</p>
+
+<p>The <tt class="command">lpc topq</tt> command recognizes a print spool name
+as the first argument and printer job numbers or user IDs as
+following arguments.  The arguments are used to reorder the print
+queue.  For example, to move job 237 to the top of the ada print
+queue, followed by all jobs owned by bckeller in the queue, enter:
+
+<blockquote><pre class="code">lpc&gt; <tt class="userinput"><b>topq ada 237 bckeller</b></tt></pre></blockquote>
+
+
+The <tt class="command">lpd</tt> daemon will start job 237 as soon as the
+current job is finished and will put any files in the queue owned by
+bckeller before the rest of the print spool.  If you were very
+impatient, you could use the <tt class="command">abort</tt> and
+<tt class="command">clean</tt> commands to kill and purge the currently
+printing job, then use <tt class="command">topq</tt> to put the job you want
+at the top of the queue, before using <tt class="command">restart</tt> to
+create a new <tt class="command">lpd</tt> and restart the queue.</p>
+
+<p>When you use the <tt class="command">stop</tt> command  to 
+stop a print spool (or all print spools) you can broadcast a message
+to all system users at the same time.  For example:
+<blockquote><pre class="code">lpc&gt; <tt class="userinput"><b>stop ada "Printer Ada taken down to replace toner cartridge."</b></tt></pre></blockquote></p>
+
+<p>If you do major surgery on the print spools--stopping queues and moving
+files around--it is wise to use <tt class="command">lpc</tt>'s <tt class="command">clean</tt> command.  This minimizes the
+risk that some loose end will cause an <tt class="command">lpd</tt> daemon to stall:
+
+<blockquote><pre class="code">lpc&gt; <tt class="userinput"><b>clean</b></tt></pre></blockquote>
+
+
+Then get a new status report and restart or start all stopped print spools
+before exiting.  There is a difference between aborting a process, stopping
+a process, and bringing a print queue down.  If you bring a print queue 
+down (<tt class="command">lpc down ada</tt> for example) you will find you cannot get
+<tt class="command">lpd</tt>
+to serve the print spool again until you restore services with an
+<tt class="command">lpc up ada</tt> command.
+Similarly, if you stop a queue, you have to start or restart it.</p>
+
+<p>Follow up after you clear print spool problems using <tt class="command">lpc</tt>.
+Further status 
+reports will let you know promptly whether the problems were actually solved.</p>
+
+<p>You should not wait for disaster to become familiar
+with <tt class="command">lpc</tt> commands, because printing jobs can pass through
+a Linux spool
+very fast, especially when a printer has lots of memory to buffer jobs
+sent to it.  Study the manual page and work with <tt class="command">lpc</tt> enough to be
+comfortable with the control it gives you over print spools and
+<tt class="command">lpd</tt> daemons.</p>
+
+<p>You can abbreviate 
+subcommands unless it makes them ambiguous.  For instance, in the following command,
+<tt class="literal">h</tt> stands for <tt class="command">help</tt> :
+<blockquote><pre class="code">lpc&gt; <tt class="userinput"><b>h topq</b></tt></pre></blockquote></p>
+
+<p>To exit 
+from <tt class="command">lpc</tt>, enter the command:
+<blockquote><pre class="code">lpc&gt; <tt class="userinput"><b>quit</b></tt></pre></blockquote>
+
+or:
+<blockquote><pre class="code">lpc&gt; <tt class="userinput"><b>exit</b></tt></pre></blockquote></p>
+
+<a name="INDEX-1919" /><a name="INDEX-1920" />
+</div>
+
+
+
+
+<a name="x-100-3-sec-printmaint" /><div class="sect2">
+<h3 class="sect2">8.4.13. Printer Optimization</h3>
+
+<p><a name="INDEX-1921" />
+<a name="INDEX-1922" />
+<a name="INDEX-1923" />
+For performance improvement, you can first try to maximize the physical
+tuning of the system.  You should try to determine the maximum data flow 
+rates you can sustain to the printers you install.  Don't 
+specify a faster rate of communication
+than can be supported unless your printer is going to return flow 
+control signals to the print daemon.  That is, you must have bidirectional
+communications (and the printer must return the necessary signals) or else 
+you must limit your transmission speeds so that data doesn't get lost 
+en route to the 
+printer.  You may have to experiment with this to wring the best possible
+performance from printers limited by restricted bandwidth.</p>
+
+<p><a name="INDEX-1924" />
+Old PC serial and parallel cards just don't have the throughput
+available with later cards.  Newer serial cards have faster I/O
+processors.  Newer parallel ports are typically faster and meet the
+EPP standard to support bidirectional communications, which may allow
+<tt class="command">lpd</tt> to control data flow to the printer better.  A
+significant performance improvement may be only a few dollars away.</p>
+
+<p>If your printer is just plain slow and cannot buffer print jobs, there isn't 
+much to be gained from optimizing the data-transfer rate, of course, but
+it may still be useful for you to use interrupt-driven flow control 
+instead of port polling if your hardware permits.</p>
+
+<p><a name="INDEX-1925" />
+You can try out various printer optimizations using the <tt class="command">tunelp</tt> utility.
+Read
+the manual page carefully before attempting this.  If a tuning procedure fails,
+you may need to turn the printer off and back on to reset it.  Also, don't
+forget to use <tt class="command">lpc</tt> to restart the <tt class="command">lpd</tt> daemon after
+each change to the 
+configuration.  Back up your working setup before monkeying around
+with <tt class="command">tunelp</tt>.</p>
+
+<p>An excellent first use for <tt class="command">tunelp</tt> is to cause a print job to abort
+on receiving a printer error and to notify you.  (The default is not to
+abort.)  Setting this up can shorten the test cycle.  To cause abort on
+printer error, enter as root:
+
+<blockquote><pre class="code">tunelp -aon</pre></blockquote></p>
+
+<?troff .Nd 10?><p>If you use a parallel port printer, and your parallel port supports
+interrupt-driven printing, you can use <tt class="command">tunelp</tt> to
+accellerate printer access:
+
+<blockquote><pre class="code">tunelp /dev/lp1 -i7</pre></blockquote></p>
+
+<p>This example switches the port controlled by interrupt 7 to use
+interrupt-driven printing. If an attempt to print after this change is
+made fails, you should reset the port and switch back to noninterrupt
+driven polling:
+
+<blockquote><pre class="code">tunelp /dev/lp1 -r -i0</pre></blockquote></p>
+
+<p>If you don't know the interrupt this device uses, you can query with
+<tt class="command">tunelp -q on</tt>, and the <span class="acronym">IRQ</span>
+setting will be displayed.</p>
+
+<p>You can probably speed up printing a bit by reducing the pause the
+driver takes when it cannot send a character to the printer after a certain
+number of tries. For example, a fast laser printer might happily
+accommodate very brief pauses and not require many attempts to
+transmit. To try putting a character 10 times before pausing (the
+default is 250 attempts) and set the pause to .01, type:
+
+<blockquote><pre class="code">tunelp /dev/lp1 -c10 -t1</pre></blockquote>
+
+
+The <span class="option">-t</span> takes a numeric value that represents a
+multiple of .01 seconds.  The default pause is .1 seconds.</p>
+
+<p>Note that if you find the optimal transfer rate for plain-text files,
+it is likely to be less efficient for graphics files, which are
+generally processed more slowly.</p>
+
+<p>When you finish tuning your printing system, you may want to reset the
+printer abort flag to prevent the process from aborting on receipt of
+printer error:
+<blockquote><pre class="code">tunelp -aoff</pre></blockquote></p>
+
+<p>The <tt class="command">tunelp</tt> utility will continue to be developed in subsequent releases of
+Linux.  Check the manual page to see the capabilities of your release.</p>
+</div>
+
+
+
+
+<a name="x-100-3-sec-printtrouble" /><div class="sect2">
+<h3 class="sect2">8.4.14. Printer System Troubleshooting</h3>
+
+<p><a name="INDEX-1926" />
+<a name="INDEX-1927" />
+
+When you have a printer problem, first resort to
+<tt class="command">lpc</tt> to generate a status report.  The print daemons
+should be alive and well, and no error should be returned.  You can
+also check the contents of the
+<em class="filename">/var/spool/lpd/</em><em class="replaceable">printername</em><em class="filename">/status</em>
+file and see if there is an error message from the printer stored
+there.  Check the <em class="filename">/var/log/lpd-errs</em> file for any
+errors reported by <tt class="command">lpd</tt>.  If you are using
+Ghostscript, and its reporting features are active, use
+<tt class="command">/sbin/pac</tt> on Ghostscript's log file to get a report
+that may reveal errors Ghostscript generated.  (As long as Linux
+system accounting isn't available, you might as well use
+<em class="filename">/var/log/lp-acct</em> to store these reports.  You'll
+have to make the file writable by all to do this.)</p>
+
+<p>Look at that <tt class="command">lpc</tt> status report again.  
+Do files get to the print spool?
+Do they leave the spool?  
+Are the necessary supporting files for <tt class="command">lpd</tt> present (<em class="filename">.seq</em>, 
+<em class="filename">lock</em>, and so on).  
+If <tt class="command">lpc status</tt> reported a printer named
+" : " there is a malformed <em class="filename">/etc/printcap</em> line; the last character
+on a continuation line must be the backslash, not a space or tab.</p>
+
+<?troff .Nd 10?><p><a name="INDEX-1928" />
+<a name="INDEX-1929" />
+Sometimes the <em class="filename">/etc/printcap</em> file is set up wrong, and it makes 
+<tt class="command">lpd</tt> 
+misroute a file.  To test for that condition, prepare a file for print
+but save it to a file instead of spooling it to the printer.  
+Examine the file.  
+Is it in the form you expect?  Try a couple of sanity checks:</p>
+
+<ul><li><p>If as root you send the file
+directly to the device (for example, <tt class="literal">cat filename.ps &gt; /dev/lp1</tt>)
+does it print?  
+If so, it means the problem lies in your software configuration,
+not in the hardware.</p></li><li><p>Can you view your PostScript file using Ghostview?
+If so, you know that the format of the file is correct but the printer
+or filter is not interpreting it properly.</p></li></ul><p>
+If you are testing a text file, try preparing it and routing it to a display,
+passing it through a utility such as <tt class="command">less</tt>, and examine the result.
+A custom filter can also misroute a file.</p>
+
+<p>Sometimes it is difficult to figure out where a printing problem originates.
+Printer configuration problems can be masked (or introduced) by having 
+defaults overridden,
+for example.  You may have to start by looking at an individual user's 
+printing
+habits and then work forward.  Individual users can set environment 
+variables in their shell startup files to specify 
+the printer they want to use as a default, and the behavior of formatters
+and print filters.  Default system values are often overridden by 
+environment variables, and they in turn are overridden by option 
+arguments passed to <tt class="command">lpr</tt> on the command line or by another utility.</p>
+
+<p>When a print job terminates abnormally, it may be necessary to clear
+the lock file for the spool before <tt class="command">lpd</tt> will send another file
+to print from that spool
+(<em class="filename">/var/spool/lpd/</em><em class="replaceable">printername</em><em class="filename">/lock</em>).
+The <tt class="command">lpd</tt> daemon creates the lock file and changes it on completion.
+You can use <tt class="command">lpc</tt> to stop the print daemon and then clean up the spool
+before starting it again.</p>
+
+<p>Some problems derive from the data-transfer process.  A printer may drop
+characters or be unable to keep up with the data flow you are attempting
+to provide, especially if the printer is old and slow or if the cable is unusually
+long.  One possible symptom of data-transfer problems is when the printer can handle plain text readily, but
+pauses and thrashes when trying to print graphic files.  If you suspect 
+some problem of this nature, try increasing the pause the system takes 
+before attempting to resend data and slowing the wait loop.  The <tt class="command">tunelp</tt> 
+utility lets you control this conveniently:
+<a name="INDEX-1930" />
+
+<blockquote><pre class="code">tunelp -t200 -w5</pre></blockquote>
+
+<?troff .ne 10?>
+This command tells <tt class="command">lpd</tt> to pause 2 seconds between attempts.
+The <span class="option">-w</span> option sets the number of loops for the busy
+loop counter 
+to read between strobe signals.  Normally <span class="option">-w</span> is set to 0.
+For more information on <tt class="command">tunelp</tt>, see
+the section "<a href="ch08_04.htm#x-100-3-sec-printmaint">Section 8.4.13, "Printer Optimization"</a>."</p>
+
+<p><a name="INDEX-1931" />
+If <tt class="command">lpd</tt> never seems to run on your system, perhaps it isn't
+started
+up when the system boots.  If this is the case, append a <tt class="command">/etc/lpd</tt> line
+to the end of your <em class="filename">/etc/rc.d/rc.local</em> file.  Most Linux distributions start
+<tt class="command">lpd</tt> these days as part of the default installation.</p>
+
+<p>Some problems may never occur unless you use another 
+package that presents conflicts by attempting to address the same 
+devices.  For example, <span class="acronym">UUCP</span> utilities address a
+serial port using a <em class="filename">/dev/ttyS*</em> device driver.
+However, <span class="acronym">UUCP</span> is a daemon with greater 
+privileges than lp, and (although
+it shouldn't)
+it can leave the device set with a 
+privilege level <tt class="command">lpd</tt> cannot write to.</p>
+
+<p><a name="INDEX-1932" />
+<a name="INDEX-1933" />
+The Linux distribution of the 
+<span class="acronym">BSD</span> print package is usually installed with lp
+group permissions.  
+On traditional <span class="acronym">BSD</span> print-management installations, <tt class="command">lpd</tt> is owned by 
+daemon and has
+daemon group privileges. 
+(There's no special lp group to 
+support printing.)  If you think there are subtle problems relating 
+to device access collisions by processes owned by different daemons, you 
+can change all print utilities group privileges to
+daemon and, of course, 
+change directory and file-access privileges as well.  That would restore
+the traditional <span class="acronym">BSD</span> configuration.  A better solution would be
+to find the problem devices and change their ownership to 
+lp, since <span class="acronym">UUCP</span>
+will still be able to use devices lp owns.
+Be aware that a serial
+port address can be reached by a number of virtual devices
+linked to the actual device; you have to correctly set the ownership of 
+the real port.</p>
+
+<p>Occasionally, a user believes his print job is going to the "wrong" 
+printer.  This is usually an environment variable problem.  Double-check
+your <em class="filename">/etc/printcap</em>, but also check the user's environment variables.
+For example, a user may have a <span class="acronym">GS_DEVICE</span> variable set that Ghostscript
+uses as the default printer.  If Ghostscript processing precedes 
+<tt class="command">nenscript</tt> processing, for example, the Ghostscript printer assignment
+could be passed to <tt class="command">nenscript</tt>, overriding a
+<span class="acronym">NENSCRIPT</span> or <span class="acronym">PRINTER</span> 
+device specification.  This can also cause strange results if one
+parameter is overridden while others stay as before, so that, for example, a filter
+performs some special page layout for one printer, but the file goes to
+another.</p>
+
+<p>Older PostScript printers may simply ignore <span class="acronym">ASCII</span> files sent to them.
+If a user complains about disappearing output, maybe the file isn't 
+getting passed through <tt class="command">nenscript</tt> for PostScript encapsulation, or 
+(very rarely) maybe <tt class="command">nenscript</tt> was fooled into thinking it is already
+PostScript.</p>
+
+<p><a name="INDEX-1934" />
+A multimode printer that knows when to switch modes (between PCL
+and plain text, for example) may still fail to eject the page and
+start the next file on the new page when one file of the same
+type is queued immediately following another of the same type.  If
+this occurs, you can force the filter to add a formfeed at the 
+end of each document (see the sample filter in the earlier section
+"<a href="ch08_04.htm#x-100-3-sec-filterconfig">Section 8.4.7, "Print Filters"</a>") at the cost
+of sometimes printing unnecessary blank pages.</p>
+
+<p><a name="INDEX-1935" />
+<a name="INDEX-1936" />
+Parallel port printer addressing can be confusing.  On an XT bus system,
+the first parallel port is addressed as <em class="filename">/dev/lp0</em> at
+<tt class="literal">0x3bc</tt>.  On
+the usual ISA bus system, the first parallel port device is <em class="filename">/dev/lp1</em>
+at <tt class="literal">0x378</tt>, which is the second parallel port on an XT system (still 
+the <em class="filename">/dev/lp1</em> device).  The usual second parallel port on an ISA bus
+system is 
+<em class="filename">/dev/lp2</em>, as you would expect, at <tt class="literal">0x278</tt>.
+However, there are some unusual 
+configurations out there, such as systems with three parallel ports (if 
+installed correctly these will be addressed as <em class="filename">/dev/lp0</em>,
+<em class="filename">/dev/lp1</em>, and <em class="filename">/dev/lp2</em>).
+IRQ assignments may also be unusual and present a problem 
+if you are trying to set up interrupt-driven printing.</p>
+
+<p>If all else fails, review the initial installation procedure, making sure
+the hardware is actually connected and functional by booting another operating system if possible,
+testing devices as root user, and so on.</p>
+
+<a name="INDEX-1937" /><a name="INDEX-1938" /><a name="INDEX-1939" />
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch08_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">8.3. Managing System Logs</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">8.5. Setting Terminal Attributes</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

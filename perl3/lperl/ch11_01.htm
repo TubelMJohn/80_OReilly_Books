@@ -1,0 +1,188 @@
+<html><head><title>Filehandles and File Tests (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch10_10.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch11_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+
+<h1 class="chapter">Chapter 11. Filehandles and File Tests</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#lperl3-CHP-11-SECT-1">What Is a Filehandle?</a><br />
+<a href="ch11_02.htm">Opening a Filehandle</a><br />
+<a href="ch11_03.htm">Fatal Errors with die</a><br />
+<a href="ch11_04.htm">Using Filehandles</a><br />
+<a href="ch11_05.htm">Reopening a Standard Filehandle</a><br />
+<a href="ch11_06.htm">File Tests</a><br />
+<a href="ch11_07.htm">Exercises</a><br /></p></div>
+
+<div class="sect1"><a name="lperl3-CHP-11-SECT-1" /></a>
+<h2 class="sect1">11.1. What Is a Filehandle?</h2>
+
+<p><a name="INDEX-733" /></a>A
+filehandle is the name in a Perl program for an
+<a name="INDEX-734" /></a> <a name="INDEX-735" /></a>I/O
+connection between your Perl process and the outside world. That is,
+it's the name of a <em class="emphasis">connection</em>, not
+necessarily the name of a file.
+</p>
+
+<p>Filehandles are named like other Perl identifiers (letters, digits,
+and underscores, but they can't start with a digit), but since
+they don't have any prefix character, they might be confused
+with present or future reserved words, as we saw with labels. Once
+again, as with labels, the recommendation from Larry is that you use
+all uppercase letters in the name of your filehandle -- not only
+will it stand out better, but it will also guarantee that your
+program won't fail when a future (lowercase) reserved word is
+introduced.
+</p>
+
+<p>But there are also six special filehandle names that Perl already
+uses for its own purposes: <tt class="literal">STDIN</tt>,
+<tt class="literal">STDOUT</tt>, <tt class="literal">STDERR</tt>,
+<tt class="literal">DATA</tt>, <tt class="literal">ARGV</tt>, and
+<tt class="literal">ARGVOUT</tt>.<a href="#FOOTNOTE-243">[243]</a> Although you may choose any filehandle name you'd
+like, you shouldn't choose one of those six unless you intend
+to use that one's special properties.<a href="#FOOTNOTE-244">[244]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-243" /></a><p>[243]Some people hate typing
+in all-caps, even for a moment, and will try spelling these in
+lowercase, like <tt class="literal">stdin</tt>. Perl may even let you get
+away with that from time to time, but not always. The details of when
+these work and when they fail are beyond the scope of this book. But
+the important thing is that programs that rely upon this kindness
+will one day break, so it is best to avoid lowercase here.</p>
+</blockquote><blockquote class="footnote"> <a name="FOOTNOTE-244" /></a><p>[244]In some
+cases, you could (re-)use these names without a problem. But your
+maintenance programmer may think that you're using the name for
+its builtin features, and thus may be confused. </p> </blockquote>
+
+<p>Maybe you recognized some of those names already. When your program
+starts, <tt class="literal">STDIN</tt><a name="INDEX-736" /></a> is the filehandle naming the
+connection between the Perl process and wherever the program should
+get its input, known as the <em class="firstterm">standard input
+stream</em><a name="INDEX-737" /></a>. This is generally the user's
+keyboard unless the user asked for something else to be the source of
+input, such as reading the input from a file or reading the output of
+another program through a pipe.<a href="#FOOTNOTE-245">[245]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-245" /></a><p>[245]The defaults we speak
+of in this chapter for the three main I/O streams are what the Unix
+shells do by default. But it's not just shells that launch
+programs, of course. We'll see in <a href="ch14_01.htm">Chapter 14, "Process Management"</a>
+what happens when you launch another program from Perl.</p>
+</blockquote>
+
+<p>There's also the <em class="firstterm">standard output
+stream</em><a name="INDEX-738" /></a>, which is
+<tt class="literal">STDOUT</tt><a name="INDEX-739" /></a>. By default, this one goes to the
+user's display screen, but the user may send the output to a
+file or to another program, as we'll see shortly. These
+standard streams come to us from the
+<a name="INDEX-740" /></a>Unix "standard I/O" library,
+but they work in much the same way on most modern operating
+systems.<a href="#FOOTNOTE-246">[246]</a> The general idea is that your program
+should blindly read from <tt class="literal">STDIN</tt> and blindly write
+to <tt class="literal">STDOUT</tt>, trusting in the user (or generally
+whichever program is starting your program) to have set those up. In
+that way, the user can type a command like this one at the shell
+prompt:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-246" /></a><p>[246]If you're not already familiar with
+how your non-Unix system provides standard input and output, see
+the<a name="INDEX-741" /></a> <em class="emphasis">perlport</em> manpage and
+the documentation for that system's equivalent to the Unix
+shell (the program that runs programs based upon your keyboard
+input).</p> </blockquote>
+
+<blockquote><pre class="code">$ <tt class="userinput"><b>./your_program &lt;dino &gt;wilma</b></tt></pre></blockquote>
+
+<p>That command tells the shell that the program's input should be
+read from the file <em class="filename">dino</em>, and the output should
+go to the file <em class="filename">wilma</em>. As long as the program
+blindly reads its input from <tt class="literal">STDIN</tt>, processes it
+(in whatever way we need), and blindly writes its output to
+<tt class="literal">STDOUT</tt>, this will work just fine.
+</p>
+
+<p>And at no extra charge, the program will work in a
+<a name="INDEX-742" /></a>
+<a name="INDEX-743" /></a><em class="firstterm">pipeline</em>. This is
+another concept from Unix, which lets us write command lines like
+this one:
+</p>
+
+<blockquote><pre class="code">$ <tt class="userinput"><b>cat fred barney | sort | ./your_program | grep something | lpr</b></tt></pre></blockquote>
+
+<p>Now, if you're not familiar with these Unix commands,
+that's okay. This line says that the <i class="command">cat</i>
+command should print out all of the lines of file
+<em class="filename">fred</em> followed by all of the lines of file
+<em class="filename">barney</em>. Then that output should be the input of
+the <i class="command">sort</i> command, which sorts those lines and
+passes them on to <i class="command">your_program</i>. After it has done
+its processing, <i class="command">your_program</i> will send the data on
+to <i class="command">grep</i>, which discards certain lines in the data,
+sending the others on to the <i class="command">lpr</i> command, which
+should print everything that it gets on a printer. Whew!
+</p>
+
+<p>But pipelines like that are common in Unix and many other systems
+today because they let you put together a powerful, complex command
+out of simple, standard building blocks.
+</p>
+
+<p>There's one more standard I/O stream. If (in the previous
+example) <i class="command">your_program</i> had to emit any warnings or
+other diagnostic messages, those shouldn't go down the
+pipeline. The <i class="command">grep</i> command is set to discard
+anything that it hasn't specifically been told to look for, and
+so it will most likely discard the warnings. Even if it did keep the
+warnings, we probably don't want those to be passed downstream
+to the other programs in the pipeline. So that's why
+there's also the <em class="firstterm">standard error
+stream</em><a name="INDEX-744" /></a>:
+<tt class="literal">STDERR</tt><a name="INDEX-745" /></a>. Even if the standard output is
+going to another program or file, the errors will go to wherever the
+user desires. By default, the errors will generally go to the
+user's display screen,<a href="#FOOTNOTE-247">[247]</a> but the
+user may send the errors to a file with a shell command like this
+one:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-247" /></a><p>[247]Also, generally, errors
+aren't buffered. That means that if the standard error and
+standard output streams are both going to the same place (such as the
+monitor), the errors may appear earlier than the normal output. For
+example, if your program prints a line of ordinary text, then tries
+to divide by zero, the output may show the message about dividing by
+zero first, and the ordinary text second.</p> </blockquote>
+
+<blockquote><pre class="code">$ <tt class="userinput"><b>netstat | ./your_program 2&gt;/tmp/my_errors</b></tt></pre></blockquote>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch10_10.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch11_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">10.10. Exercise</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">11.2. Opening a Filehandle</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

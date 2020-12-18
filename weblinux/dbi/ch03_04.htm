@@ -1,0 +1,548 @@
+<?label 3.4. Modifying Data Within Tables ?><html><head><title>Modifying Data Within Tables  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch03_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch03_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">3.4. Modifying Data Within Tables </h2>
+
+
+
+<p>Read-only <a name="INDEX-303" />databases (that is, databases
+that only allow you to <tt class="literal">SELECT</tt> data from them) are
+very useful. <em class="emphasis">Data
+warehouses</em>
+<a name="INDEX-304" /> are typically massive
+<a name="INDEX-305" />read-only databases populated with
+archived data mangled into a form suitable for reporting. However, in
+the cut-and-thrust world of transaction-processing databases, the
+ability to <em class="emphasis">modify</em> data within the database
+quickly and efficiently is of paramount importance.</p>
+
+
+
+<p>There are several core operations that comprise the broader
+definition of data modification, namely:</p>
+
+
+
+<ul><li><p><em class="emphasis">Inserting</em> new data into the database</p></li><li><p><em class="emphasis">Deleting</em> data from the database</p></li><li><p><em class="emphasis">Updating</em>, or modifying, existing data within the
+database</p></li></ul>
+<p>Each of these operations falls into the grouping of <em class="emphasis">Data
+Manipulation Language</em> <a name="INDEX-306" />commands, or
+<em class="emphasis">DMLs</em>, alongside <tt class="literal">SELECT</tt>.</p>
+
+
+
+<p>We shall discuss each of these tasks in turn and apply the theory to
+our example database.</p>
+
+
+
+<a name="ch03-ch03_inserting_0" /><div class="sect2">
+<h3 class="sect2">3.4.1. Inserting Data </h3>
+
+
+
+<p>Before <a name="INDEX-307" />a <a name="INDEX-308" />database
+can be really of any use, data must be inserted into it by some
+means, either by manual data entry or with an automated batch loading
+program. The action of inserting data only applies to cases in which
+you wish to load a completely new record of information into the
+database. If the record already exists and merely requires
+modification of a column value, the <em class="emphasis">update</em>
+operation should be used instead.</p>
+
+
+
+<p>Data inserts in the relational database model are done on a
+row-by-row basis: each record or item of information that you load
+into the database corresponds to a brand-new row within a given
+existing table. As each inserted record corresponds to a new row in
+one table, multitable inserts are not possible.<a href="#FOOTNOTE-30">[30]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-30" /><p>[30]Well,
+this is not strictly true these days, as database servers get
+smarter. Oracle, for example, allows inserts into equi-join views and
+also supports "INSTEAD OF" triggers that make just about
+anything possible.</p>
+
+
+</blockquote>
+
+
+
+<p>The SQL <tt class="literal">INSERT</tt>
+<a name="INDEX-309" /> <a name="INDEX-310" /> keyword
+provides a simple mechanism for inserting new rows of data into the
+database. For example, assuming the <tt class="literal">megaliths</tt>
+table is already present in the database and and contains the six
+columns shown earlier in <a href="ch03_01.htm#ch03-39875">Figure 3-1</a>, a single row
+of data can be inserted into it using the following SQL statement:</p>
+
+
+
+<blockquote><pre class="code">INSERT INTO megaliths VALUES ( 0, 'Callanish I', 
+                               '"Stonehenge of the North"',
+                               'Western Isles',
+                               'NB 213 330', 1 )</pre></blockquote>
+
+
+
+<p>If you then <tt class="literal">SELECT</tt> back all the rows in the table,
+you should be able to see the row that has just been inserted.</p>
+
+
+
+<p>Just as the <tt class="literal">SELECT</tt> statement could specify which
+columns from a table should be returned in the query, it is also
+possible (and good practice) to specify into which columns of the
+table the values should be inserted. The unspecified columns will
+take the default value, typically <tt class="literal">NULL</tt>. For
+example, if you wished to specify only the <tt class="literal">id</tt> and
+<tt class="literal">name</tt> columns of the table, allowing
+<tt class="literal">description</tt> and <tt class="literal">location</tt> to be
+<tt class="literal">NULL</tt>, the SQL statement would be:</p>
+
+
+
+<blockquote><pre class="code">INSERT INTO megaliths ( id, name ) VALUES ( 0, 'Callanish I' )</pre></blockquote>
+
+
+
+<p>There must be an exact mapping between the number of columns and
+column values specified in the SQL statement. It is also essential to
+make sure that the datatypes of the supplied values and the
+corresponding columns match.</p>
+
+
+
+<a name="ch03-ch03_using_0" /><div class="sect3">
+<h3 class="sect3">3.4.1.1. Using INSERT for data transfers </h3>
+
+
+
+<p>One 
+<a name="INDEX-311" />of the more sneaky uses for the
+<tt class="literal">INSERT</tt> keyword is to transfer data from one table
+or column to another in one easy operation. This seems to fly in the
+face of our previous assertion that only one row can be inserted with
+each <tt class="literal">INSERT</tt> statement, but in fact, follows the
+rules correctly (in an underhand manner).</p>
+
+
+
+<p>For example, if we wanted to make a quick copy of the
+<tt class="literal">megaliths</tt> table into a new table called
+<tt class="literal">megaliths_copy</tt>, the following SQL statement can be
+used:</p>
+
+
+
+<blockquote><pre class="code">INSERT INTO megaliths_copy
+    SELECT *
+    FROM megaliths</pre></blockquote>
+
+
+
+<p>This process inserts each row returned from the
+<tt class="literal">SELECT</tt> statement into the new table, row by row,
+until an exact copy is created. This feature of
+<tt class="literal">INSERT</tt> is extremely useful for making quick copies
+of tables if you need to do some destructive maintenance work on the
+original, such as pruning redundant data. For this SQL to work, the
+original table and destination table must have an identical
+structure.</p>
+
+
+
+<p>You can further refine this operation by specifying conditions that
+the rows to be transferred must meet before being inserted. For
+example, to copy across only the rows of data for megaliths located
+in Wiltshire:</p>
+
+
+
+<blockquote><pre class="code">INSERT INTO megaliths_copy
+    SELECT *
+    FROM megaliths
+    WHERE location LIKE '%Wiltshire%'</pre></blockquote>
+
+
+
+<p>Furthermore, you can make <em class="emphasis">extracts</em> of data from
+tables into new tables by explicitly specifying the targeted columns
+in the new table. This is useful when building large denormalized
+tables for use within a data warehouse. Therefore, if we had a table
+called <tt class="literal">megalocations</tt> that contained two columns
+called <tt class="literal">name</tt> and <tt class="literal">location</tt>, we
+could populate this new table from the <tt class="literal">megaliths</tt>
+table in the following way:</p>
+
+
+
+<blockquote><pre class="code">INSERT INTO megalocations
+    SELECT name, location
+    FROM megaliths</pre></blockquote>
+
+
+
+<p>Or, we can even select data from multiple tables for inserting. A
+denormalized table containing the rows coalesced from the
+<tt class="literal">megaliths</tt> and <tt class="literal">media</tt> tables
+might contain two columns, <tt class="literal">name</tt> and
+<tt class="literal">url</tt>. Populating this table with an
+<tt class="literal">INSERT</tt> statement is easy:</p>
+
+
+
+<blockquote><pre class="code">INSERT INTO megamedia
+    SELECT name, url
+    FROM megaliths, media
+    WHERE megaliths.id = media.megaliths_id</pre></blockquote>
+
+
+
+<p>However, in general, table population via <tt class="literal">INSERT</tt>
+statements is usually performed by batch-loading programs that
+generate suitable SQL statements and execute them within the
+database, such as Oracle's SQL*Loader. Of course, Perl is a
+good example of a programming language that makes loading data from a
+file remarkably easy <a name="INDEX-312" />via the <a name="INDEX-313" />DBI.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch03-ch03_deleting_0" /><div class="sect2">
+<h3 class="sect2">3.4.2. Deleting Data </h3>
+
+
+
+<p>Now <a name="INDEX-314" />that <a name="INDEX-315" />you
+have spent copious amounts of time loading data into your tables to
+play with, the next thing you'll want to do is tidy it up and
+remove redundant or unwanted data.</p>
+
+
+
+<p>The <tt class="literal">DELETE</tt>
+<a name="INDEX-316" /> <a name="INDEX-317" /> keyword
+defined within SQL is exactly what you are looking for, providing a
+simple syntax for permanently removing rows of data from tables. As
+with the <tt class="literal">INSERT</tt> statement, deleting rows applies
+only to a single table at a time; therefore, if you want to remove
+rows that are referred to by records in other tables, you should
+first delete those associated <em class="emphasis">foreign
+key</em>
+<a name="INDEX-318" />
+records from the secondary tables. This preserves the
+<em class="emphasis">referential integrity</em> of your database and is
+known as <em class="emphasis">delete cascading</em>.<a href="#FOOTNOTE-31">[31]</a> Some databases support
+<a name="INDEX-319" />cascading delete mechanisms that
+automate these extra deletes.</p><blockquote>
+
+
+<a name="FOOTNOTE-31" /><p>[31]An
+analogy for this process is removing a file on a Unix system that has
+several symbolic links associated with it. It is good housekeeping to
+remove the stale symbolic links when the target file has been
+removed. This also applies to Windows and Macintosh systems with
+shortcuts to documents.</p>
+
+
+</blockquote>
+
+
+
+<p>For example, a cascading delete applied to rows in the
+<tt class="literal">megaliths</tt> table would also need to remove the
+appropriate rows in the <tt class="literal">media</tt> table where the
+following join condition is true:</p>
+
+
+
+<blockquote><pre class="code">megaliths.id = media.megaliths_id</pre></blockquote>
+
+
+
+<p>However, <tt class="literal">DELETE</tt> statements do not have the same
+"single row at a time" restriction that
+<tt class="literal">INSERT</tt> statements suffer from.
+<tt class="literal">DELETE</tt> can purge a table entirely in one
+statement. For example, to remove all the rows within the
+<tt class="literal">megaliths</tt> table, we could simply write:</p>
+
+
+
+<blockquote><pre class="code">DELETE FROM megaliths</pre></blockquote>
+
+
+
+<p>Of course, we may not wish to remove <em class="emphasis">all</em> the
+rows from a table, but only certain rows. This can be done in a
+familiar manner by specifying a list of conditions that the data
+within a row must meet for it to be removed. Therefore, if we wanted
+to delete all the rows of data within the
+<tt class="literal">megaliths</tt> table that contain sites located in
+``Wiltshire,'' then the following statement
+would work nicely:</p>
+
+
+
+<blockquote><pre class="code">DELETE FROM megaliths
+WHERE location LIKE '%Wiltshire%'</pre></blockquote>
+
+
+
+<p>To remove all the rows relating to stone circles, we could narrow the
+criterion that a row must meet by saying that the type of the site
+must be equal to ``Stone Circle.'' The
+tighter query would read:</p>
+
+
+
+<blockquote><pre class="code">DELETE FROM megaliths
+WHERE location LIKE '%Wiltshire%'
+AND site_type_id IN (SELECT id FROM site_types
+                     WHERE site_type = 'Stone Circle')</pre></blockquote>
+
+
+
+<p>It should be noted that deleting all the rows from a table does not
+actually remove the table from the database. The table will be left
+in place, but it will have no rows in it.<a href="#FOOTNOTE-32">[32]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-32" /><p>[32]Some
+databases feature a faster and more efficient way of removing all the
+rows from a table with the
+<tt class="literal">TRUNCATE</tt>
+<a name="INDEX-320" /> <a name="INDEX-321" />
+<tt class="literal">TABLE</tt> keyword. But beware! In some databases, that
+keyword removes all indices as well.</p>
+
+
+</blockquote>
+
+
+
+<p>A more powerful way to determine which rows of data to delete can be
+expressed by using a subquery to return the target rows. A good
+example of this sort of behavior is deleting the foreign keys from a
+table when the primary keys are being deleted. This can be broken up
+into two separate <tt class="literal">DELETE</tt> statements, the first
+removing the foreign key rows, the second removing the primary key
+rows. The following examples remove the rows relating to megalithic
+sites in ``Wiltshire'' from both the
+<tt class="literal">media</tt> and <tt class="literal">megaliths</tt> tables:</p>
+
+
+
+<blockquote><pre class="code">DELETE FROM media
+WHERE megaliths_id IN (
+    SELECT id
+    FROM megaliths
+    WHERE location LIKE '%Wiltshire%'
+  )
+
+DELETE FROM megaliths
+WHERE location LIKE '%Wiltshire%'</pre></blockquote>
+
+
+
+<p>To sum up, removing data from tables is made extremely simple
+(perhaps too simple!) by use of the <tt class="literal">DELETE</tt>
+keyword. Later in this chapter, we'll discuss the
+database's perspective of the deletion process in more detail,
+including the all-important possibility of undoing deletions that
+<a name="INDEX-322" />go
+<a name="INDEX-323" />wrong.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch03-ch03_updating_0" /><div class="sect2">
+<h3 class="sect2">3.4.3. Updating Data </h3>
+
+
+
+<p>The <a name="INDEX-324" />final
+<a name="INDEX-325" />way
+in which modifications can be performed on data stored within tables
+in a database is to make in-place modifications of existing data by
+updating the values of particular columns in particular rows. With an
+<tt class="literal">UPDATE</tt>
+<a name="INDEX-326" /> <a name="INDEX-327" />
+statement, rows are neither inserted nor deleted, and the structure
+of the table itself is not altered.</p>
+
+
+
+<p><tt class="literal">UPDATE</tt> statements are extremely powerful, in that
+it is possible to update multiple rows of data in one statement. If
+desired, the new values may be supplied by the returned values from a
+<tt class="literal">SELECT</tt> statement following the syntax of the
+<tt class="literal">INSERT</tt> command.</p>
+
+
+
+<p>The most simple and useful <tt class="literal">UPDATE</tt> is to update a
+column of a single row within a table to a new value. For example, if
+you wanted to update the location of the "Avebury" row
+within the <tt class="literal">megaliths</tt> table, the following SQL
+statement would work:</p>
+
+
+
+<blockquote><pre class="code">UPDATE megaliths
+SET location = 'Near Devizes, Wiltshire'
+WHERE name = 'Avebury'</pre></blockquote>
+
+
+
+<p>You should notice the condition clause specified in this statement.
+If the statement did not check for the exact name of the site,
+<em class="emphasis">every</em> row within the table would have had the
+<tt class="literal">UPDATE</tt> statement performed against it, causing a
+potentially disastrous data corruption. Condition clauses may be
+specified in exactly the same way as used in other SQL commands such
+as <tt class="literal">DELETE</tt> and <tt class="literal">SELECT</tt>.</p>
+
+
+
+<p><tt class="literal">UPDATE</tt> statements may also update more than one
+column in a single statement, by simply listing the columns we wish
+to update in a comma-separated list. For example, to update both the
+<tt class="literal">name</tt> and <tt class="literal">description</tt> fields
+within the <tt class="literal">megaliths</tt> table, you can write the
+following SQL statement:</p>
+
+
+
+<blockquote><pre class="code">UPDATE megaliths
+SET location = 'Callanish, Isle of Lewis',
+    description = 'Complex site shaped as a buckled Celtic cross'
+WHERE name = 'Callanish I'</pre></blockquote>
+
+
+
+<p>In some database systems, it is also possible to update multiple
+columns simultaneously by using a subquery to return a list of values
+from another table. Those values are then used as the new values for
+the specified columns. For example, if we wanted to synchronize our
+megalithic database with the Wiltshire Tourist Board Database to use
+the same names and locations, we could use the following SQL
+statement:</p>
+
+
+
+<blockquote><pre class="code">UPDATE megaliths
+SET ( name, location ) =
+    ( SELECT tourist_site_name, tourist_site_location
+      FROM tourist_sites
+      WHERE tourist_site_name LIKE '%Avebury%'
+      AND tourist_site_type = 'Stone Circle' )
+WHERE name = 'Avebury'</pre></blockquote>
+
+
+
+<p>This statement would update the <tt class="literal">name</tt> and
+<tt class="literal">location</tt> fields within the
+<tt class="literal">megaliths</tt> table with values returned by a query
+running against another table. An important note about this technique
+is that the subquery must return only a single row of data, otherwise
+the <tt class="literal">UPDATE</tt> will fail with an error.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch03-ch03_committing_0" /><div class="sect2">
+<h3 class="sect2">3.4.4. Committing and Rolling Back Modifications </h3>
+
+
+
+<p>So, <a name="INDEX-328" />what happens if you make a horrible
+mistake when you are modifying the data within your database? Is the
+only course of action to resign? Fear not! Some database engines have
+a capability known as <em class="emphasis">transaction
+rollback</em>
+<a name="INDEX-329" /> <a name="INDEX-330" /> that will save not only your neck,
+but your data as well.</p>
+
+
+
+<p>The principle of rollback is quite a simple one. For each
+modification to rows of data within the database, a copy of the row
+prior to modification is written into a log that records all the
+modifications made. Once you have decided that these changes are
+indeed correct, you can opt to <em class="emphasis">commit</em> the
+changes to the database. If the committed changes are actually wrong,
+then you're in trouble: you can clear out your desk and dust
+off your resume.</p>
+
+
+
+<p>However, if by some sheer luck you check the modified rows and see
+that they are wrong before you commit the changes, you can rollback
+the modifications you have made, returning the rows to the values
+they held before you started modifying them. Your job is safe.</p>
+
+
+
+<p>Even better, the changes you made within the transaction were not
+visible to anyone else looking at the database at that time. So no
+one need know of your mistake, and your reputation is safe.</p>
+
+
+
+<p>Most <a name="INDEX-331" />databases automatically commit data
+upon disconnection from the database unless a rollback is explicitly
+issued. Therefore, if the software that is being run is not
+performing suitable error checking on the modifications it is making,
+it may disconnect and inadvertently commit wrong data to the
+database. There is a moral in this -- <em class="emphasis">always check for
+errors!</em></p>
+
+
+
+<p>Some database systems don't have a feature as sophisticated as
+rollback or undo. In these cases, it is even more important that
+before unleashing dramatic data manipulation SQL on your database,
+you make a backup. Backups are always a good idea, even in databases
+that do support <a name="INDEX-332" />transactions.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch03_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch03_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">3.3. Querying Data </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">3.5. Creating and Destroying Tables </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

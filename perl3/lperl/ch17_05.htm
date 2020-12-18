@@ -1,0 +1,234 @@
+<html><head><title>More Powerful Regular Expressions (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch17_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch17_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">17.5. More Powerful Regular Expressions</h2>
+
+<p><a name="INDEX-1112" />After already reading three chapters
+about regular expressions, you know that they're a powerful
+feature in the core of Perl. But there are even more features that
+the Perl developers have added; we'll see some of the most
+important ones in this section. At the same time, you'll see a
+little more about the internal operation of the
+<a name="INDEX-1113" />regular expression engine.
+</p>
+
+<a name="lperl3-CHP-17-SECT-5.1" /><div class="sect2">
+<h3 class="sect2">17.5.1. Non-greedy Quantifiers</h3>
+
+<p><a name="INDEX-1114" />The
+four quantifiers we've already seen (in <a href="ch08_01.htm">Chapter 8, "More About Regular Expressions"</a>) are all <em class="firstterm">greedy</em>. That
+means that they match as much as they can, only to reluctantly give
+some back if that's necessary to allow the overall pattern to
+succeed. Here's an example: Suppose you're using the
+pattern <tt class="literal">/fred.+barney/</tt> on the string
+<tt class="literal">fred</tt> <tt class="literal">and barney went bowling last
+night</tt>. Of course, we know that the regular expression will
+match that string, but let's see how it goes about
+it.<a href="#FOOTNOTE-364">[364]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-364" /><p>[364]The regular expression engine makes a few
+optimizations that make the true story different than we tell it
+here, and those optimizations change from one release of Perl to the
+next. You shouldn't be able to tell from the functionality that
+it's not doing as we say, though. If you want to know how it
+really works, you should read the latest source code. Be sure to
+submit patches for any bugs you find.</p> </blockquote>
+
+<p>First, of course, the subpattern <tt class="literal">fred</tt> matches the
+identical literal string. The next part of the pattern is the
+<tt class="literal">.+</tt>, which matches any character except newline, at
+least one time. But the plus quantifier is greedy; it prefers to
+match as much as possible. So it immediately matches all of the rest
+of the string, including the word <tt class="literal">night</tt>. (This may
+surprise you, but the story isn't over yet.)
+</p>
+
+<p>Now the subpattern <tt class="literal">barney</tt> would like to match, but
+it can't -- we're at the end of the string. But since
+the <tt class="literal">.+</tt> could still be successful even if it
+matched one fewer character, it reluctantly gives back the letter
+<tt class="literal">t</tt> at the end of the string. (It's greedy,
+but it wants the whole pattern to succeed even more than it wants to
+match everything all by itself.)
+</p>
+
+<p>The subpattern <tt class="literal">barney</tt> tries again to match, and
+still can't. So the <tt class="literal">.+</tt> gives back the letter
+<tt class="literal">h</tt> and lets it try again. One character after
+another, the <tt class="literal">.+</tt> gives back what it matched until
+finally it gives up all of the letters of <tt class="literal">barney</tt>.
+Now, finally, the subpattern <tt class="literal">barney</tt> can match, and
+the overall match succeeds.
+</p>
+
+<p>Regular expression engines do a lot of backtracking like that, trying
+every different way of fitting the pattern to the string until one of
+them succeeds, or until none of them has.<a href="#FOOTNOTE-365">[365]</a> But as you could see from
+this example, that can involve a lot of backtracking, as the
+quantifier gobbles up too much of the string and has to be forced to
+return some of it.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-365" /><p>[365]In fact,
+some regular expression engines try every different way, even
+continuing on <em class="emphasis">after</em> they find one that fits. But
+Perl's regular expression engine is primarily interested in
+whether the pattern can or cannot match, so finding even one match
+means that the engine's work is done. Again, see Jeffrey
+Friedl's <a name="INDEX-1115" /><em class="emphasis">Mastering Regular
+Expressions</em>.</p> </blockquote>
+
+<p>For each of the greedy quantifiers, though, there's also a
+non-greedy quantifier available. Instead of the plus
+(<tt class="literal">+</tt>), we can use the non-greedy quantifier
+<tt class="literal">+?</tt>, which matches one or more times (just as the
+plus does), except that it prefers to match as few times as possible,
+rather than as many as possible. Let's see how that new
+quantifier works when the pattern is rewritten as
+<tt class="literal">/fred.+?barney/</tt>.
+</p>
+
+<p>Once again, <tt class="literal">fred</tt> matches right at the start. But
+this time the next part of the pattern is <tt class="literal">.+?</tt>,
+which would prefer to match no more than one character, so it matches
+just the space after <tt class="literal">fred</tt>. The next subpattern is
+<tt class="literal">barney</tt>, but that can't match here (since the
+string at the current position begins with <tt class="literal">and
+barney</tt>...). So the <tt class="literal">.+?</tt> reluctantly
+matches the <tt class="literal">a</tt> and lets the rest of the pattern try
+again. Once again, <tt class="literal">barney</tt> can't match, so
+the <tt class="literal">.+?</tt> accepts the letter <tt class="literal">n</tt>
+and so on. Once the <tt class="literal">.+?</tt> has matched five
+characters, <tt class="literal">barney</tt> can match, and the pattern is a
+success.
+</p>
+
+<p>There was still some backtracking, but since the engine had to go
+back and try again just a few times, it should be a big improvement
+in speed. Well, it's an improvement if you'll generally
+find <tt class="literal">barney</tt> near <tt class="literal">fred</tt>. If your
+data often had <tt class="literal">fred</tt> near the start of the string
+and <tt class="literal">barney</tt> only at the end, the greedy quantifier
+might be a faster choice. In the end, the speed of the regular
+expression depends upon the data.
+</p>
+
+<p>But the non-greedy quantifiers aren't just about efficiency.
+Although they'll always match (or fail to match) the same
+strings as their greedy counterparts, they may match different
+amounts of the strings. For example, suppose you had some
+HTML-like<a href="#FOOTNOTE-366">[366]</a> text, and you want to remove all of
+the tags <tt class="literal">&lt;BOLD&gt;</tt> and
+<tt class="literal">&lt;/BOLD&gt;</tt>, leaving their contents intact.
+Here's the text:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-366" /><p>[366]Once again, we aren't using real HTML
+because you can't correctly parse HTML with simple regular
+expressions. If you really need to work with HTML or a similar markup
+language, use a module that's made to handle the
+complexities.</p> </blockquote>
+
+<blockquote><pre class="code">I'm talking about the cartoon with Fred and &lt;BOLD&gt;Wilma&lt;/BOLD&gt;!</pre></blockquote>
+
+<p>And here's a substitution to remove those tags. But
+what's wrong with it?
+</p>
+
+<blockquote><pre class="code">s#&lt;BOLD&gt;(.*)&lt;/BOLD&gt;#$1#g;</pre></blockquote>
+
+<p>The problem is that the star is greedy.<a href="#FOOTNOTE-367">[367]</a> What if the text had said this instead?
+</p><blockquote class="footnote"> <a name="FOOTNOTE-367" /><p>[367]There's
+another possible problem: we should have used the <tt class="literal">/s</tt>
+modifier as well, since the end tag may be on a different
+line than the start tag. It's a good thing that this is just an
+example; if we were writing something like this for real, we would
+have taken our own advice and used a well-written module.</p>
+</blockquote>
+
+<blockquote><pre class="code">I thought you said Fred and &lt;BOLD&gt;Velma&lt;/BOLD&gt;, not &lt;BOLD&gt;Wilma&lt;/BOLD&gt;</pre></blockquote>
+
+<p>In that case, the pattern would match from the first
+<tt class="literal">&lt;BOLD&gt;</tt> to the last
+<tt class="literal">&lt;/BOLD&gt;</tt>, leaving intact the ones in the
+middle of the line. Oops! Instead, we want a non-greedy quantifier.
+The non-greedy form of star is <tt class="literal">*?</tt>, so the
+substitution now looks like this:
+</p>
+
+<blockquote><pre class="code">s#&lt;BOLD&gt;(.*?)&lt;/BOLD&gt;#$1#g;</pre></blockquote>
+
+<p>And it does the right thing. </p>
+
+<p>Since the non-greedy form of the plus was <tt class="literal">+?</tt> and
+the non-greedy form of the star was <tt class="literal">*?</tt>,
+you've probably realized that the other two quantifiers look
+similar. The non-greedy form of any curly-brace quantifier looks the
+same, but with a question mark after the closing brace, like
+<tt class="literal">{5,10}?</tt> or <tt class="literal">{8,}?</tt>.<a href="#FOOTNOTE-368">[368]</a> And
+even the question-mark quantifier has a non-greedy form:
+<tt class="literal">??</tt>. That matches either once or not at all, but it
+prefers not to match anything.<a name="INDEX-1116" /> 
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-368" /><p>[368]In theory, there's also a non-greedy quantifier form that
+specifies an exact number, like <tt class="literal">{3}?</tt>. But since
+that says to match exactly three of the preceding item, it has no
+flexibility to be either greedy or non-greedy.</p> </blockquote>
+
+</div>
+<a name="lperl3-CHP-17-SECT-5.2" /><div class="sect2">
+<h3 class="sect2">17.5.2. Matching Multiple-line Text</h3>
+
+<p>Classic regular expressions were used to match just single lines of
+<a name="INDEX-1117" />text. But since Perl can work with strings
+of any length, Perl's patterns can match multiple lines of text
+as easily as single lines. Of course, you have to include an
+expression that holds more than one line of text. Here's a
+string that's four lines long:
+</p>
+
+<blockquote><pre class="code">$_ = "I'm much better\nthan Barney is\nat bowling,\nWilma.\n";</pre></blockquote>
+
+<p>Now, the
+<a name="INDEX-1118" />anchors <tt class="literal">^</tt> and
+<tt class="literal">$</tt> are normally anchors for the start and end of
+the whole string (see <a href="ch08_03.htm#lperl3-CHP-8-SECT-3">Section 8.3, "Anchors"</a> in
+<a href="ch08_01.htm">Chapter 8, "More About Regular Expressions"</a>). But the
+<tt class="literal">/m</tt><a name="INDEX-1119" /> regular expression option lets them
+match at internal newlines as well (think <tt class="literal">m</tt> for
+multiple lines). This makes them anchors for the start and end of
+each <em class="emphasis">line</em>, rather than the whole string. So this
+pattern can match:
+</p>
+
+<blockquote><pre class="code">print "Found 'wilma' at start of line\n" if /^wilma\b/im;</pre></blockquote>
+
+<p>Similarly, you could do a substitution on each line in a multiline
+string. Here, we read an entire file into one variable,<a href="#FOOTNOTE-369">[369]</a> then add the file's name as a
+prefix at the start of each line:
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-369" /><p>[369]Hope it's a small one. The file, that is, not the
+variable.</p> </blockquote>
+
+<a name="INDEX-1120" /><blockquote><pre class="code">open FILE, $filename
+  or die "Can't open '$filename': $!";
+my $lines = join '', &lt;FILE&gt;;
+$lines =~ s/^/$filename: /gm;</pre></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch17_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch17_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">17.4. Unquoted Hash Keys</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">17.6. Slices</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

@@ -1,0 +1,338 @@
+<?label 17.3. mod_perl?><html><head><title>mod_perl (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch17_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="appa_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">17.3. mod_perl</h2>
+
+
+<p><em class="emphasis">mod_perl</em> is an Apache <a name="INDEX-3276" /> <a name="INDEX-3277" />
+<a name="INDEX-3278" />server extension that <a name="INDEX-3279" />
+<a name="INDEX-3280" />
+<a name="INDEX-3281" />embeds Perl within Apache, providing a
+Perl interface to the Apache API. This allows us to develop
+full-blown Apache modules in Perl to handle particular stages of a
+client request. It was written by Doug MacEachern, and since it was
+introduced, its popularity has grown quickly.</p>
+
+
+<p>The most popular <a name="INDEX-3282" />
+<a name="INDEX-3283" />Apache/Perl
+module is Apache::Registry, which emulates the CGI environment,
+allowing us to write CGI applications that run under
+<em class="emphasis">mod_perl</em>. Since Perl is embedded within the
+server, we avoid the overhead of starting up an external interpreter.
+In addition, we can load and compile all the external Perl modules we
+want to use at server startup, and not during the execution of our
+application. Apache::Registry also caches compiled versions of our
+CGI applications, thereby providing a further boost. Users have
+reported performance gains of up to 2000 percent in their CGI
+applications using a combination of <em class="emphasis">mod_perl</em> and
+Apache::Registry.</p>
+
+
+<p>Apache::Registry is a <a name="INDEX-3284" />
+<a name="INDEX-3285" />response handler, which means that it
+is responsible for generating the response that will be sent back to
+the client. It forms a layer over our CGI applications; it executes
+our applications and sends the resulting output back to the client.
+If you don't want to use Apache::Registry, you can implement
+your own response handler to take care of the request. However, these
+handlers are quite different from standard CGI scripts, so we
+won't discuss how to create handlers with
+<em class="emphasis">mod_perl</em>. To learn about handlers along with
+anything else you might want to know about
+<em class="emphasis">mod_perl</em>, refer to <em class="citetitle">Writing Apache
+Modules with Perl and C</em> by Lincoln Stein and Doug
+MacEachern (O'Reilly &amp; Associates, Inc.).</p>
+
+
+<a name="ch17-12-fm2xml" /><div class="sect2">
+<h3 class="sect2">17.3.1. Installation and Configuration</h3>
+
+
+<p>Before we go <a name="INDEX-3286" /> <a name="INDEX-3287" />any further, let's
+<a name="INDEX-3288" />install
+<em class="emphasis">mod_perl</em>. You can obtain it from CPAN at
+<a href="http://www.cpan.org/modules/by-module/Apache/">http://www.cpan.org/modules/by-module/Apache/</a>.
+The Apache namespace is used by modules that are specific to
+<em class="emphasis">mod_perl</em>. The installation is relatively simple
+and should proceed well:</p>
+
+
+<blockquote><pre class="code">$ cd mod_perl-1.22
+$ perl Makefile.PL \
+&gt; APACHE_PREFIX=/usr/local/apache  \
+&gt; APACHE_SRC=../apache-1.3.12/src  \
+&gt; DO_HTTPD=1                       \
+&gt; USE_APACI=1                      \
+&gt; EVERYTHING=1 
+$ make
+$ make test
+$ su
+# make install</pre></blockquote>
+
+
+<p>Refer to the installation directions that came with Apache and
+<em class="emphasis">mod_perl</em> if you want to perform a custom
+installation. If you're not interested in possibly developing
+and implementing the various Apache/Perl
+<a name="INDEX-3289" />handlers, then you do not need
+the <em class="emphasis">EVERYTHING=1</em> directive, in which case, you
+can implement only a <em class="emphasis">PerlHandler</em>.</p>
+
+
+<p>Once that's complete, we need to
+<a name="INDEX-3290" />configure Apache. Here's a
+simple setup:</p>
+
+
+<blockquote><pre class="code">PerlRequire      /usr/local/apache/conf/startup.pl
+PerlTaintCheck   On
+PerlWarn         On
+
+Alias /perl/ /usr/local/apache/perl/
+
+&lt;Location /perl&gt;
+SetHandler       perl-script
+PerlSendHeader   On
+PerlHandler      Apache::Registry
+Options          ExecCGI
+&lt;/Location&gt;</pre></blockquote>
+
+
+<p>As you can see, this is very similar to the manner in which we
+configured FastCGI. We use the <em class="emphasis">PerlRequire</em>
+directive to execute a startup script. Generally, this is where you
+would pre-load all the modules that you intend to use (see <a href="ch17_03.htm#ch17-80670">Example 17-3</a>).</p>
+
+
+<p>However, if you are interested in loading only a small set of modules
+(a limit of ten), you can use the <em class="emphasis">PerlModule</em>
+directive instead:</p>
+
+
+<blockquote><pre class="code">PerlModule  CGI  DB_File  MLDBM  Storable</pre></blockquote>
+
+
+<p>For <a name="INDEX-3291" /> <a name="INDEX-3292" />
+<a name="INDEX-3293" />Apache::Registry
+to honor taint mode and warnings, we must add directive the
+<tt class="function">PerlTaintMode</tt> and <tt class="function">PerlWarn</tt>
+directives. Otherwise, they won't be enabled. We do this
+globally. Then we configure the directory we are setting up to run
+our scripts.</p>
+
+
+<p>All requests for resources in the <em class="emphasis">/perl</em>
+directory go through the <em class="emphasis">perl-script</em>
+(<em class="emphasis">mod_perl</em>) handler, which then passes the
+request off to the Apache::Registry module. We also need to enable
+the <em class="emphasis">ExecCGI</em> option. Otherwise,
+<a name="INDEX-3294" />Apache::Registry
+will not execute our CGI applications.</p>
+
+
+<p>Now, here's a sample configuration file in <a href="ch17_03.htm#ch17-80670">Example 17-3</a>.</p>
+
+
+
+<a name="ch17-80670" /><div class="example">
+<h4 class="objtitle">Example 17-3. startup.pl </h4>
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use Apache::Registry;
+
+use CGI;
+
+## any other modules that you may need for your
+## other mod_perl applications running ...
+
+print "Finished loading modules. Apache is ready to go!\n";
+
+1;</pre></blockquote>
+</div>
+
+
+<p>It is really a very simple program, which does nothing but load the
+modules. We also want Apache::Registry to be pre-loaded since
+it'll be handling all of our requests. A thing to note here is
+that each of Apache's child processes will have access to these
+modules.</p>
+
+
+<p>If we do not load a module at startup, but use it in our
+applications, then that module will have to be loaded once for each
+child process. The same applies for our CGI applications running
+under Apache::Registry. Each child process compiles and caches the
+CGI application once, so the first request that is handled by that
+child will be relatively slow, but all subsequent requests <a name="INDEX-3295" /> <a name="INDEX-3296" />will be much faster.</p>
+</div>
+
+
+
+
+<a name="ch17-13-fm2xml" /><div class="sect2">
+<h3 class="sect2">17.3.2. mod_perl Considerations</h3>
+
+
+<p>In general, Apache::Registry, does provide <a name="INDEX-3297" /> <a name="INDEX-3298" />a good emulation of a standard CGI
+environment. However, there are some differences you need to keep in
+mind:</p>
+
+
+<ul><li><p>The same precautions that apply to FastCGI apply to
+<em class="emphasis">mod_perl</em>, namely, always use
+<a name="INDEX-3299" />
+<a name="INDEX-3300" />strict mode and it helps to enable
+warnings. You should also always initialize your
+<a name="INDEX-3301" />variables and not assume they are empty
+when your script starts; the warning flag will tell you when you are
+using undefined values. Your environment is not cleaned up with you
+when your script ends, so variables that do not go out of scope and
+global variables remain defined the next time your script is called.</p></li><li><p>Due to the fact that your code is only compiled once and then
+<a name="INDEX-3302" />cached, <a name="INDEX-3303" />lexical variables in the body of your
+scripts that you access within your subroutines create closures. For
+example, it is possible to do this in a standard CGI script:
+<blockquote><pre class="code">
+my $q = new CGI;
+
+check_input(  );
+.
+.
+
+sub check_input {
+    unless ( $q-&gt;param( "email" ) ) {
+        error( $q, "You didn't supply an email address." );
+    }
+    .
+    .</pre></blockquote></p>
+
+
+<p>Note that we do not pass our CGI object to
+<tt class="function">check_input</tt>
+<a name="INDEX-3304" />. However, the
+variable is still visible to us from within that subroutine. This
+works fine in CGI. It will create very subtle, confusing errors in
+<em class="emphasis">mod_perl</em>. The problem is that the first time the
+script is run on a particular Apache child process, the value of the
+CGI object becomes trapped in the cached copy of
+<tt class="function">check_input</tt>. All future calls to that same
+Apache child process will reuse the original value of the CGI object
+within <tt class="function">check_input</tt>. The solution is to pass
+<tt class="literal">$q</tt> to <tt class="function">check_input</tt> as a
+parameter or else change <tt class="literal">$q</tt> from a lexical to a
+global <tt class="function">local</tt> variable.</p>
+
+<p>If you are
+not familiar with closures (they are not commonly used in Perl),
+refer to the <em class="citetitle">perlsub</em> manpage or
+<em class="citetitle">Programming Perl</em>.</p></li>
+
+<li><p>The
+<em class="emphasis">constant</em>
+<a name="INDEX-3305" />
+<a name="INDEX-3306" />
+<a name="INDEX-3307" /> module creates
+constants by defining them internally as subroutines. Since
+Apache::Registry creates a persistent environment, using constants in
+this manner can produce the following warnings in the error log when
+these scripts are recompiled:
+<blockquote><pre class="code">Constant subroutine FILENAME redefined at ...</pre></blockquote></p>
+
+
+<p>It will not affect the output of your scripts, so you can just ignore
+these warnings. Another alternative is to simply make them global
+variables instead; the closure issue is not an problem for variables
+whose values never change. This warning should no longer appear for
+unmodified code in Perl 5.004_05 and higher.</p></li>
+
+<li><p>
+<a name="INDEX-3308" />Regular expressions that are
+compiled with the <em class="emphasis">o</em> flag will remain compiled
+across all requests for that script, not just for one
+request.</p></li>
+
+<li><p>
+<a name="INDEX-3309" /> <a name="INDEX-3310" />File age
+functions, such as <tt class="function">-M</tt>, calculate their values
+relative to the time the application began, but with
+<em class="emphasis">mod_perl</em>, that is typically the time the server
+begins. You can get this value from <tt class="literal">$^T</tt> . Thus
+adding <tt class="literal">(time - $^T)</tt> to the age of a file will
+yield the true age.</p></li>
+
+<li><p><tt class="literal">BEGIN</tt>
+<a name="INDEX-3311" /> <a name="INDEX-3312" /> blocks are executed once when your script
+is compiled, not at the beginning of each request. However,
+<tt class="literal">END</tt> blocks are executed at the end of each
+request, so you can use these as you normally would.</p></li>
+
+<li><p><tt class="literal">__END__</tt>
+<a name="INDEX-3313" /> and <tt class="literal">__DATA__</tt> cannot be used within CGI scripts with
+Apache::Registry. They will cause your scripts to
+fail.</p></li>
+
+<li><p>Typically, your scripts should not call exit in
+<em class="emphasis">mod_perl</em>, or it will cause Apache to exit
+instead (remember, the Perl interpreter is embedded within the web
+server). However, <em class="emphasis">Apache::Registry</em> overrides the
+standard <tt class="function">exit</tt>
+<a name="INDEX-3314" /> command so it is safe for
+these scripts.</p>
+</li>
+</ul>
+
+<p>If it's too much of a hassle to convert your application to run
+effectively under Apache::Registry, then you should investigate the
+<a name="INDEX-3315" />
+<a name="INDEX-3316" />Apache::PerlRun
+module. This module uses the Perl interpreter embedded within Apache,
+but doesn't
+<a name="INDEX-3317" />cache compiled versions of your code. As a
+result, it can run sloppy CGI scripts, but without the full
+performance improvement of Apache::Registry. It will, nonetheless, be
+faster than a typical CGI application.</p>
+
+
+<p>Increasing the speed of CGI scripts is only part of what
+<em class="emphasis">mod_perl</em> can do. It also allows you do write
+code in Perl that interacts with the Apache response cycle, so you
+can do things like handle authentication and authorization yourself.
+A full discussion of <em class="emphasis">mod_perl</em> is certainly
+beyond the scope of this book. If you want to learn more about
+<em class="emphasis">mod_perl</em>, then you should definitely start with
+Stas Bekman's
+<em class="emphasis">mod_perl</em>
+<a name="INDEX-3318" /> guide, available at
+<a href="http://perl.apache.org/guide/">http://perl.apache.org/guide/</a>.
+Then look at <em class="citetitle">Writing Apache Modules with Perl and
+C</em>, which provides <a name="INDEX-3319" /> <a name="INDEX-3320" />a very thorough, <a name="INDEX-3321" /> <a name="INDEX-3322" /> <a name="INDEX-3323" />although technical,
+<a name="INDEX-3324" />
+<a name="INDEX-3325" />
+<a name="INDEX-3326" />overview
+<a name="INDEX-3327" />
+<a name="INDEX-3328" />
+<a name="INDEX-3329" />of
+<em class="emphasis">mod_perl</em>.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch17_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="appa_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">17.2. FastCGI</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">A. Works Cited and Further Reading</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

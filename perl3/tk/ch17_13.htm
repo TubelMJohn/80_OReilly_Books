@@ -1,0 +1,186 @@
+<html><head><title>Simple Photo Rotations (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch17_12.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch18_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">17.13. Simple Photo Rotations</h2>
+
+<p><a name="INDEX-2755" /><a name="INDEX-2756" /><a name="INDEX-2757" />Using standard Photo methods,
+it's possible to rotate an image 90 degrees clockwise, 90
+degrees counter-clockwise, or flip it 180 degrees.<a href="#FOOTNOTE-47">[47]</a> </p><blockquote class="footnote">
+<a name="FOOTNOTE-47" /><p> [47] This algorithm is courtesy of Ryan Casey's
+<em class="emphasis">img_rotate.tcl</em>
+script.</p> </blockquote>
+
+<p>Once encapsulated in a module&#x2014;call
+it Tk::PhotoRotateSimple&#x2014;we can showcase its capabilities with
+this code, the result of which is shown in <a href="ch17_13.htm#mastperltk-CHP-17-FIG-22">Figure 17-22</a>.
+</p>
+
+<blockquote><pre class="code">use Tk;
+use Tk::PhotoRotateSimple;
+use subs qw/rotate/;
+use strict;
+
+my $mw = MainWindow-&gt;new;
+my $p = $mw-&gt;Photo(-file =&gt; Tk-&gt;findINC('Xcamel.gif'));
+
+rotate 'Original';
+rotate 'flip';
+rotate 'l90';
+rotate 'r90';
+
+MainLoop;
+
+sub rotate {
+
+    my $direction = shift;
+
+    my $f = $mw-&gt;Frame(qw/-width 100 -height 100/)-&gt;pack(qw/-side left/);
+    $f-&gt;packPropagate(0);
+    $f-&gt;Label(-text =&gt; $direction)-&gt;pack;
+    my $i = $f-&gt;Label(-image =&gt; $p)-&gt;pack(qw/-expand 1 -fill both -anchor c/);
+
+    return if $direction eq 'Original';
+
+    my $tmp = $mw-&gt;Photo;
+    $tmp-&gt;copy($p);
+    $tmp-&gt;rotate_simple($direction);
+    $i-&gt;configure(-image =&gt; $tmp);
+    
+}</pre></blockquote>
+
+<p><tt class="literal">$p</tt> is our friendly camel Photo object. Using it as
+the original, we call <tt class="literal">rotate</tt> to rotate the image
+three times: 180 degrees, left 90 degrees, and right 90 degrees. The
+first call to <tt class="literal">rotate</tt> does no rotation, it just
+displays the original Photo and returns. The
+<tt class="literal">rotate_simple</tt> method rotates the actual Photo, so
+we make a temporary copy in order to preserve the original. Then call
+<tt class="literal">rotate_simple</tt> with <tt class="literal">flip</tt>,
+<tt class="literal">l90</tt>, or <tt class="literal">r90</tt>.
+</p>
+
+<p>So much for the user's point of view; let's see the
+actual module.
+</p>
+
+<a name="mastperltk-CHP-17-FIG-22" /><div class="figure"><img src="figs/mptk.1722.gif" alt="Figure 17-22" width="332" height="109" /></div><h4 class="objtitle">Figure 17-22. Rotate window</h4>
+
+<p>The first thing to note is that we are extending the class Tk::Photo
+by adding a new method, <tt class="literal">rotate_simple</tt>. The
+method's basic idea is to create a temporary Photo, extract
+pixels from the original, stuff them into the temporary Photo
+appropriately rearranged, then copy the temporary image over the
+original.
+</p>
+
+<blockquote><pre class="code">$Tk::PhotoRotateSimple::VERSION = '1.0';
+
+package Tk::Photo;
+use Carp;
+use strict;
+
+sub rotate_simple {
+
+    my ($photo, $rot) = @_;
+    carp "Illegal rotation '$rot'." unless $rot =~ /l90|r90|flip/i;
+
+    my $tmp = $photo-&gt;Tk::Widget::image('create', 'photo');
+    bless $tmp, 'Tk::Photo';
+
+    my $width = $photo-&gt;width;
+    my $height = $photo-&gt;height;
+
+    if ($rot =~ /l90/i) {
+        for (my $x = 0; $x &lt; $width; $x++) {
+            my $curpix = $photo-&gt;data(-from =&gt; $x, 0, $x + 1, $height);
+            $curpix = "{$curpix}";
+            $tmp-&gt;put($curpix, -to =&gt; 0, $width - $x - 1);
+        }
+    } elsif ($rot =~ /r90/i) {
+        for (my $y = 0; $y &lt; $height; $y++) {
+            my $curpix = $photo-&gt;data(-from =&gt; 0, $y, $width, $y + 1);
+            $curpix =~ s/^{(.*)}$/$1/;
+            $tmp-&gt;put($curpix, -to =&gt; $height - $y - 1, 0);
+        }
+    } else {
+        $tmp-&gt;copy($photo, -subsample =&gt; -1, -1);
+    }
+
+    $photo-&gt;blank;
+    $photo-&gt;copy($tmp);
+    $photo-&gt;configure(-height =&gt; $width, -width =&gt; $height) if $rot !~ /flip/i;
+    $photo-&gt;idletasks;
+    
+    $tmp-&gt;delete;
+    
+} # end rotate
+
+1;</pre></blockquote>
+
+<p>But there's one subtle gotcha: how to create the temporary
+Photo when all we've got to work with is a Photo object from
+the <tt class="literal">rotate_simple</tt> calling sequence. You see, the
+actual Photo method is a widget method, not a Photo method, so we
+can't simply say (and have it succeed):
+</p>
+
+<blockquote><pre class="code">my $tmp = $photo-&gt;Photo;</pre></blockquote>
+
+<p>Instead, we do what we've been taught never to do: look inside
+an opaque object and take advantage of what we glean. In this case,
+we call <tt class="literal">image</tt> directly and bless the resulting
+object as a Tk::Photo.
+</p>
+
+<blockquote><pre class="code">my $tmp = $photo-&gt;Tk::Widget::image('create', 'photo');
+bless $tmp, 'Tk::Photo';</pre></blockquote>
+
+<p>The alternative is to have another parameter&#x2014;say,
+<tt class="literal">-parent</tt>&#x2014;that the user is required to supply
+so we have a widget reference. It's certainly safer to do this,
+if not as pleasing to the eye.
+</p>
+
+<p>The rest of <tt class="literal">rotate_simple</tt> is straightforward. To
+rotate <tt class="literal">l90</tt>, grab to the left-most column and
+<tt class="literal">put</tt> it to the bottom row of the temporary Photo,
+repeating until all columns are rotated. To rotate
+<tt class="literal">r90</tt>, grab to the top-most row and
+<tt class="literal">put</tt> it to the right column of the temporary Photo,
+repeating until all rows are rotated. <tt class="literal">flip</tt> is the
+easiest of all, because <tt class="literal">copy</tt>'s
+<tt class="literal">-subsample</tt> option flips automatically if its
+arguments are negative.
+</p>
+
+<p>If you were actually looking at the earlier rotation code with the
+intent of understanding it, you should be wondering what those two
+regular expressions were all about. They're wrestling with
+vestigial Tcl semantics&#x2014;remember most everything in Tcl is a
+string&#x2014;so in one case we add curly braces, in the other we
+subtract curlies. If you're curious, the curlies are like hard
+quotes in Perl, ensuring that the data is not interpolated.<a name="INDEX-2758" /><a name="INDEX-2759" /><a name="INDEX-2760" />
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch17_12.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch18_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">17.12. Miscellaneous Image Methods</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">18. 
+A Tk Interface Extension Tour</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

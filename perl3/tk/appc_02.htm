@@ -1,0 +1,242 @@
+<html><head><title>Tk::MacCopy (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appc_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="appc_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">C.2. Tk::MacCopy</h2>
+
+<p>This widget simulates a Macintosh file copy dialog. It uses a
+CollapsableFrame widget to hide copy details, and a MacProgressBar
+widget to indicate progress of the copy. See <a href="appc_02.htm#mastperltk-APP-C-FIG-2">Figure C-2</a>.
+</p>
+
+<a name="mastperltk-APP-C-FIG-2" /><div class="figure"><img src="figs/mptk.ac02.gif" alt="Figure C-2" width="370" height="391" /></div><h4 class="objtitle">Figure C-2. Tk::MacCopy, shown with the CollapsableFrame both hidden and viewable</h4>
+
+<p>Here's the code:</p>
+
+<blockquote><pre class="code">$Tk::MacCopy::VERSION = '1.0';
+
+package Tk::MacCopy;
+
+use File::Copy;
+use Tk::widgets qw/CollapsableFrame LabEntry MacProgressBar/;
+
+use base qw/Tk::Toplevel/;
+use strict;
+
+Construct Tk::Widget 'MacCopy';
+
+sub Populate {
+
+    # Create an instance of a MacCopy widget.  Instance variables are:
+    #
+    # {bytes_msg}      = a string showing how many bytes copied,
+    #                    as well as the total byte count.
+    # {file}           = current file being copied.
+    # {file_count}     = number of files left to copy.
+    # {from}           = source directory path.
+    # {to}             = destination directory path.
+
+    my($self, $args) = @_;
+
+    $self-&gt;withdraw;
+    $self-&gt;SUPER::Populate($args);
+
+    $args-&gt;{-width} = 300 unless exists $args-&gt;{-width};
+    my $pb = $self-&gt;MacProgressBar(%$args)-&gt;pack;
+    
+    # Populate the top Frame of the MacProgessBar.
+
+    my $tf = $pb-&gt;Subwidget('tframe');
+    $tf-&gt;Label(-text =&gt; 'Items remaining to be copied:  ')-&gt;
+        pack(qw/-side left -anchor w/);
+    $tf-&gt;Label(-textvariable =&gt; \$self-&gt;{file_count})-&gt;
+        pack(qw/-side right -anchor e/);
+    
+    # Populate the right Frame of the MacProgessBar.
+
+    my $rf = $pb-&gt;Subwidget('rframe');
+    $rf-&gt;Button(-text =&gt; 'Stop', -command =&gt; sub {$self-&gt;destroy})-&gt;pack;
+    
+    # Populate the bottom Frame of the MacProgessBar with a CollapsableFrame.
+
+    my $bf = $pb-&gt;Subwidget('bframe');
+    my $cf = $bf-&gt;CollapsableFrame(-height =&gt; 110);
+    $cf-&gt;pack(qw/-fill x -expand 1/);
+    my $cf_frame = $cf-&gt;Subwidget('colf');
+
+    # Populate the CollapsableFrame with detail information.
+
+    foreach my $item (
+         ['Copying', \$self-&gt;{file}],
+         ['From', \$self-&gt;{from}],
+         ['To', \$self-&gt;{to}],
+         ['Bytes Copied', \$self-&gt;{bytes_msg}],
+        ) {
+	my $l = $item-&gt;[0] . ':';
+	my $le = $cf_frame-&gt;LabEntry(
+            -label        =&gt; ' ' x (13 - length $l) . $l,
+            -labelPack    =&gt; [qw/-side left -anchor w/],
+            -labelFont    =&gt; '9x15bold',
+            -relief       =&gt; 'flat',
+            -state        =&gt; 'disabled',
+            -textvariable =&gt; $item-&gt;[1],
+	    -width        =&gt; 35,
+        );
+	$le-&gt;pack(qw/ -fill x -expand 1/);
+    }
+
+    $self-&gt;Advertise('collapsableframe' =&gt; $cf);
+    $self-&gt;Advertise('progressbar'      =&gt; $pb);
+
+} # end Populate
+
+sub mcopy {
+
+    # Perform the copy, updating copy information on-the-fly. Because
+    # this is just a demo, we don't recursively copy subdirectories.
+
+    my($self, $from, $to) = @_;
+    
+    $self-&gt;{from} = $from;
+    $self-&gt;{to} = $to;
+    $self-&gt;deiconify;
+
+    opendir D, $from;
+    my(@files) = grep(! -d $_, readdir D);
+    closedir D;
+
+    my $total_bytes = 0;
+    foreach my $f (@files) {
+        $total_bytes += -s $f;
+    }
+
+    $self-&gt;{file_count} = scalar @files;
+    $self-&gt;update;
+
+    my $filen = 0;
+    my $bytes = 0;
+
+    foreach my $f (@files) {
+        $filen++;
+        $self-&gt;{file} = $f;
+        my $size = -s $f;
+        my $stat = copy($f, "$to/$f");
+        $self-&gt;messageBox(
+                -title   =&gt; 'MacCopy Failure', 
+                -icon    =&gt; 'warning', 
+                -type    =&gt; 'OK', 
+                -message =&gt; "Copy of '$f' failed: $!",
+            ) unless $stat;
+        $bytes += $size;
+        $self-&gt;{bytes_msg} = $bytes . " of $total_bytes";
+        $self-&gt;{file_count}--;
+        $self-&gt;Subwidget('collapsableframe')-&gt;configure(-text =&gt;
+                "Time Remaining:  About " . $self-&gt;{file_count} . " seconds");
+            $self-&gt;Subwidget('progressbar')-&gt;set($filen / scalar(@files) * 100);
+            $self-&gt;after(1000);
+    }
+
+    $self-&gt;destroy;
+
+} # end mcopy
+
+1;
+
+__END__
+
+=head1 NAME
+
+Tk::MacCopy - simulate a Macintosh copy dialog.
+
+=head1 SYNOPSIS
+
+S&lt;    &gt;I&lt;$cd&gt; = I&lt;$parent&gt;-E&lt;gt&gt;B&lt;MacCopy&gt;(I&lt;-option&gt; =E&lt;gt&gt; I&lt;value&gt;);
+
+=head1 DESCRIPTION
+
+This widget simulates a Macintosh copy dialog using a MacProgressBar
+and a CollapsableFrame.  It does not truly emulate a real Macintosh
+copy, since it doesn't:
+
+ . check that the destination has enough room for the copy.
+ . recursively copy subdirectories.
+ . compute a time remaining figure.
+
+=head1 METHODS
+
+=over 4
+
+=item B&lt;mcopy($to, $from)&gt;
+
+Copies all files from $to directory to $from directory.
+
+=back
+
+=head1 ADVERTISED WIDGETS
+
+Component subwidgets can be accessed via the B&lt;Subwidget&gt; method.
+Valid subwidget names are listed below.
+
+=over 4
+
+=item Name: progressbar, Class:  MacProgressBar
+
+  MacProgressBar widget reference.
+
+=item Name: collapsableframe, Class:  CollapsableFrame
+
+  CollapsableFrame widget reference.
+
+=back
+
+=head1 EXAMPLE
+
+ use Cwd;
+ use Tk;
+ use Tk::MacCopy;
+
+ my $mw = MainWindow-&gt;new;
+
+ my $mc = $mw-&gt;MacCopy;
+ my $cwd = cwd;
+
+ $mw-&gt;Button(
+     -text    =&gt; "Push me to copy all files in '$cwd' to '/tmp'.",
+     -command =&gt; sub {$mc-&gt;mcopy($cwd,  '/tmp'); exit},
+ )-&gt;pack;
+
+=head1 AUTHOR and COPYRIGHT
+
+Stephen.O.Lidie@Lehigh.EDU
+
+Copyright (C) 2000 - 2001, Stephen O.Lidie
+
+This program is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
+
+=head1 KEYWORDS
+
+CollapsableFrame, MacCopy, MacProgressBar
+
+=cut</pre></blockquote>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appc_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="appc_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">C. Complete Program Listings</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">C.3. Tk::ExecuteCommand</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

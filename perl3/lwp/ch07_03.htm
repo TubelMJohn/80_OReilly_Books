@@ -1,0 +1,142 @@
+<html><head><title>Individual Tokens (Perl &amp; LWP)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Sean Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001789L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl &amp; LWP" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; LWP" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch07_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">7.3. Individual Tokens</h2>
+
+<p>Now that you know the
+<a name="INDEX-428" />
+<a name="INDEX-429" />composition of the various types of
+tokens, let's see how to use HTML::TokeParser to
+write useful programs. Many problems are quite simple and require
+only one token at a time. Programs to solve these problems consist of
+a loop over all the tokens, with an <tt class="literal">if</tt> statement
+<a name="INDEX-430" />
+<a name="INDEX-431" />in the
+body of the loop identifying the interesting parts of the HTML:
+</p>
+
+<blockquote><pre class="code">use HTML::TokeParser;
+my $stream = HTML::TokeParser-&gt;new($filename)
+  || die "Couldn't read HTML file $filename: $!";
+# For a string: HTML::TokeParser-&gt;new( \$string_of_html );
+
+while (my $token = $stream-&gt;get_token) {
+   if ($token-&gt;[0] eq 'T') { # text
+     # process the text in $text-&gt;[1]
+
+   } elsif ($token-&gt;[0] eq 'S') { # start-tag
+     my($tagname, $attr) = @$token[1,2];
+     # consider this start-tag...
+
+   } elsif ($token-&gt;[0] eq 'E') {
+     my $tagname = $token-&gt;[1];
+     # consider this end-tag
+   }
+
+   # ignoring comments, declarations, and PIs
+}</pre></blockquote>
+
+<a name="perllwp-CHP-7-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">7.3.1. Checking Image Tags</h3>
+
+<p><a href="ch07_03.htm#perllwp-CHP-7-EX-1">Example 7-1</a> complains about
+<a name="INDEX-432" />
+<a name="INDEX-433" /> <a name="INDEX-434" />
+<a name="INDEX-435" />any <tt class="literal">img</tt> tags in a
+document that are missing <tt class="literal">alt</tt>,
+<tt class="literal">height</tt>, or <tt class="literal">width</tt> attributes:
+</p>
+
+<a name="perllwp-CHP-7-EX-1" /><div class="example">
+<h4 class="objtitle">Example 7-1. Check &lt;img&gt; tags </h4>
+<blockquote><pre class="code">while(my $token = $stream-&gt;get_token) {
+  if($token-&gt;[0] eq 'S' and $token-&gt;[1] eq 'img') {
+    my $i = $token-&gt;[2]; # attributes of this img tag
+    my @lack = grep !exists $i-&gt;{$_}, qw(alt height width);
+    print "Missing for ", $i-&gt;{'src'} || "????", ": @lack\n" if @lack;
+  }
+}</pre></blockquote>
+</div>
+
+<p>When run on an HTML stream (whether from a file or a string), this
+outputs:
+</p>
+
+<blockquote><pre class="code"><b class="emphasis-bold">Missing for liza.jpg: height width</b>
+<b class="emphasis-bold">Missing for aimee.jpg: alt</b>
+<b class="emphasis-bold">Missing for laurie.jpg: alt height width</b></pre></blockquote>
+
+<p>Identifying images has many applications: making HEAD requests to
+ensure the URLs are valid, or making a GET request to fetch the image
+and using Image::Size from CPAN to check or insert the
+<tt class="literal">height</tt> and <tt class="literal">width</tt> attributes.
+</p>
+
+</div>
+<a name="perllwp-CHP-7-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">7.3.2. HTML Filters</h3>
+
+<p>A similar <tt class="literal">while</tt> loop <a name="INDEX-436" />
+<a name="INDEX-437" />can use
+HTML::TokeParser as a simple code filter. You just pass through the
+<tt class="literal">$source</tt> from each token you don't
+mean to alter. Here's one that passes through every
+tag that it sees (by just printing its source as HTML::TokeParser
+passes it in), except for <tt class="literal">img</tt> start-tags, which
+get replaced with the content of their <tt class="literal">alt</tt>
+attributes:
+</p>
+
+<blockquote><pre class="code">while (my $token = $stream-&gt;get_token) {
+  if ($token-&gt;[0] eq 'S') {
+    if ($token-&gt;[1] eq 'img') {
+      print $token-&gt;[2]{'alt'} || '';
+    } else {
+      print $token-&gt;[4];
+    }
+  }
+  elsif($token-&gt;[0] eq 'E' ) { print $token-&gt;[2] }
+  elsif($token-&gt;[0] eq 'T' ) { print $token-&gt;[1] }
+  elsif($token-&gt;[0] eq 'C' ) { print $token-&gt;[1] }
+  elsif($token-&gt;[0] eq 'D' ) { print $token-&gt;[1] }
+  elsif($token-&gt;[0] eq 'PI') { print $token-&gt;[2] }
+}</pre></blockquote>
+
+<p>So, for example, a document consisting just of this:</p>
+
+<blockquote><pre class="code">&lt;!-- new entry --&gt;
+&lt;p&gt;Dear Diary,
+&lt;br&gt;This is me &amp;amp; my balalaika, at BalalaikaCon 1998:
+&lt;img src="mybc1998.jpg" src="BC1998!  WHOOO!"&gt; Rock on!&lt;/p&gt;</pre></blockquote>
+
+<p>is then spat out as this:</p>
+
+<blockquote><pre class="code">&lt;!-- new entry --&gt;
+&lt;p&gt;Dear Diary,
+&lt;br&gt;This is me &amp;amp; my balalaika, at BalalaikaCon 1998:
+BC1998!  WHOOO! Rock on!&lt;/p&gt;</pre></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch07_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">7.2. Basic HTML::TokeParser Use</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">7.4. Token Sequences</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+</map>
+
+</body></html>

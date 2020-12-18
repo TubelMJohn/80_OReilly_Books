@@ -1,0 +1,521 @@
+<?label 11.3. Client-Side Cookies?><html><head><title>Client-Side Cookies (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch11_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch12_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">11.3. Client-Side Cookies</h2>
+
+
+<p>As <a name="INDEX-2290" /> <a name="INDEX-2,291" /> <a name="INDEX-2,292" />we mentioned, there are problems with
+both of the approaches for maintaining state discussed earlier. Most
+importantly, if users travel to other web sites and return, there is
+a good chance that their state information will be lost.</p>
+
+
+<p>Cookies (originally called "magic cookies") were created
+by Netscape as a solution to this problem. Cookies allow the web
+server to ask the <a name="INDEX-2293" />
+<a name="INDEX-2294" />browser for small amounts of
+information on the client machine. Netscape's original proposal
+was adopted by most web browsers and has become the standard manner
+for handling cookies. RFC 2109, <em class="citetitle">HTTP State Management
+Mechanism</em>, which was coauthored by a representative of
+Netscape, proposed a new protocol for handling cookies. However,
+browsers have not adopted this new protocol so Netscape's
+original protocol continues to be the de facto standard.</p>
+
+
+<p>When a user requests a document, a web server can provide the web
+browser with one or more cookies along with the documents. The
+browser adds the cookie to its cookie jar (so to speak) and can pass
+the cookie back to the server on subsequent requests. As a result, we
+can store simple information, such as a <a name="INDEX-2295" />session identifier, on the client side
+and use it to reference more complex data we maintain on the server
+side.</p>
+
+
+<p>Cookies are ideal for <a name="INDEX-2296" />
+<a name="INDEX-2297" />web document personalization. For
+example, when a user visits our server for the first time (a missing
+cookie indicates a first time user), we present the user with a form
+asking for specific preferences. We store these preferences as
+cookies, and so every subsequent time users visit our site, they will
+see documents that match their individual preferences only.</p>
+
+
+<p>
+<a name="INDEX-2298" />Cookies do have restrictions. First,
+clients do not always accept cookies. Some browsers did not support
+cookies (though these browsers are becoming less common), and many
+users disable cookies due to privacy concerns. We will look at how to
+test for cookies later in this section.</p>
+
+
+<p>Second, there are restrictions placed on cookie size and the number
+of cookies. According to Netscape's original cookie
+specification, no cookie can exceed 4KB, only twenty cookies are
+allowed per domain, and a total of 300 cookies can be stored on the
+client side. Some browsers may support more than this, but you should
+not assume this.</p>
+
+
+<a name="ch11-1-fm2xml" /><div class="sect2">
+<h3 class="sect2">11.3.1. Setting Cookies</h3>
+
+
+<p>How do <a name="INDEX-2299" />cookies work? When a CGI application
+identifies a new user, it adds an extra header to its response
+containing an identifier for that user and other information that the
+server may collect from the client's input. This header informs
+the cookie-enabled browser to add this information to the
+client's cookies file. After this, all requests to that URL
+from the browser will include the cookie information as an extra
+header in the request. The CGI application uses this information to
+return a document tailored to that specific client. Because cookies
+can be stored on the client user's <a name="INDEX-2300" />hard
+disk, that information can even remain when the browser is closed and
+reopened.</p>
+
+
+<p>In order to set a cookie, you send a
+<em class="emphasis">Set-Cookie</em>
+<a name="INDEX-2301" />
+HTTP header to the browser with a number of parameters for the cookie
+you wish to set. The browser then returns the cookie in its
+<em class="emphasis">Cookie</em>
+<a name="INDEX-2302" />
+<a name="INDEX-2303" /> header. The
+<em class="emphasis">Set-Cookie</em> header is formatted as follows:</p>
+
+
+<blockquote><pre class="code">Set-Cookie: cart_id=12345; domain=.oreilly.com; path=/cgi;
+            expires=Wed, 14-Feb-2001 05:53:40 GMT; secure</pre></blockquote>
+
+
+<p>In this example, the name of the cookie is
+<tt class="literal">cart_id</tt>, the value is <tt class="literal">12345</tt>,
+and the rest of the parameters are set as name-value pairs except for
+<tt class="literal">secure</tt>, which never has a value -- it is either
+present or not. <a href="ch11_03.htm#ch11-68491">Table 11-2</a> shows a list of the
+<a name="INDEX-2304" />
+<a name="INDEX-2305" />parameters that you can set with a
+cookie<em class="citetitle">.</em></p>
+
+
+
+<a name="ch11-68491" /><h4 class="objtitle">Table 11-2. Netscape Cookies Parameters</h4><table border="1">
+
+
+
+
+<tr>
+<th>
+<p>HTTP Cookie Parameter</p></th>
+<th>
+<p>CGI.pm cookie(  ) Parameter</p></th>
+<th>
+<p>Description</p></th>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p><em class="emphasis">Name</em></p></td>
+<td>
+<p><tt class="literal">-name</tt></p></td>
+<td>
+<p>The name given to the cookie; it is possible to set multiple cookies
+with different names and attributes.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">Value</em></p></td>
+<td>
+<p><tt class="literal">-value</tt></p></td>
+<td>
+<p>The value assigned to the cookie.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">Domain</em></p></td>
+<td>
+<p><tt class="literal">-domain</tt></p></td>
+<td>
+<p>The browser will only return the cookie for URLs within this domain.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">Expires</em></p></td>
+<td>
+<p><tt class="literal">-expires</tt></p></td>
+<td>
+<p>This tells the browser when the cookie expires.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">Path</em></p></td>
+<td>
+<p><tt class="literal">-path</tt></p></td>
+<td>
+<p>The browser will only return the cookie for URLs below this path.</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">Secure</em></p></td>
+<td>
+<p><tt class="literal">-secure</tt></p></td>
+<td>
+<p>The browser will only return the cookie for secure URLs using the
+<em class="emphasis">https</em> protocol.</p></td>
+</tr>
+
+
+</table>
+
+
+<p>
+<a name="INDEX-2306" />CGI.pm supports
+cookies, so you can generate the header above via the following
+commands:</p>
+
+
+<blockquote><pre class="code">my $cookie = $q-&gt;cookie( -name    =&gt; "cart_id",
+                         -value   =&gt; 12345,
+                         -domain  =&gt; ".oreilly.com",
+                         -expires =&gt; "+1y",
+                         -path    =&gt; "/cgi",
+                         -secure  =&gt; 1 );
+
+print "Set-Cookie: $cookie\n";</pre></blockquote>
+
+
+<p>However, there's no need to
+<a name="INDEX-2307" />print the
+<em class="emphasis">Set-Cookie</em> header manually because CGI.pm will
+format it for you along with other HTTP headers:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;header( -type =&gt; "text/html", -cookie =&gt; $cookie );</pre></blockquote>
+
+
+<p>A browser that receives this cookie and accepts it will send it back
+for all future secure connections to any URL that includes a domain
+ending in <em class="emphasis">.oreilly.com</em> and a path
+that starts with <em class="emphasis">/cgi</em>. For
+example, if the browser requests the URL <em class="emphasis">https://www.oreilly.com/cgi/store/checkout.cgi</em>,
+it will supply the following header:</p>
+
+
+<blockquote><pre class="code">Cookie: cart_id=12345</pre></blockquote>
+
+
+<p>This raw <a name="INDEX-2308" />
+<a name="INDEX-2309" /> <a name="INDEX-2,310" />
+<a name="INDEX-2311" />name-value
+pair is available in the HTTP_COOKIE environment variable or via
+CGI.pm's <tt class="function">raw_cookie</tt> method, but it is much
+simpler to have
+<a name="INDEX-2312" />CGI.pm parse cookies for you. To get
+the value of a cookie, call the
+<tt class="function">cookie</tt>
+<a name="INDEX-2313" /> method with the name of the cookie you
+want:</p>
+
+
+<blockquote><pre class="code">my $cookie = $q-&gt;cookie( "cart_id" );</pre></blockquote>
+
+
+<p>The following restrictions apply to the
+<a name="INDEX-2314" />parameters that you provide when
+setting cookies:</p>
+
+
+<ul><li><p><em class="emphasis">Name</em> and <em class="emphasis">value</em> can include
+any characters. CGI.pm will automatically URL-encode any special
+characters. <em class="emphasis">Name</em> and <em class="emphasis">value</em>
+are both required parameters.</p></li><li><p><em class="emphasis">Domain</em> must match the domain name of the server
+setting the cookie. Domains are matched from right to left, so
+<em class="emphasis">.oreilly.com</em> matches <em class="emphasis">www.oreilly.com</em> as well as <em class="emphasis">server3.oreilly.com</em> or even <em class="emphasis">fred.sf.oreilly.com</em>.</p>
+
+
+<p>Domains ending with a three-character top-level domain, such as
+<em class="emphasis">.com</em>, <em class="emphasis">.net</em>, <em class="emphasis">.org</em>, etc., must contain at least two dots.
+Country top-level domains, such as <em class="emphasis">.au</em>, <em class="emphasis">.uk</em>,
+<em class="emphasis">.ca</em>, etc., require at least three
+dots. This prevents someone from setting a cookie for a large common
+domain such as <em class="emphasis">.com</em> or
+<em class="emphasis">.co.uk</em>.</p>
+
+
+<p>If the <em class="emphasis">domain</em> parameter is not explicitly set,
+it defaults to the full, current domain, such as <em class="emphasis">www.oreilly.com</em>.</p></li><li><p><em class="emphasis">Expires</em> contains a timestamp in the following
+format:</p>
+
+
+<blockquote><pre class="code">Wdy, DD-Mon-YY HH:MM:SS GMT</pre></blockquote>
+
+
+
+<p>Fortunately, you don't have to worry about remembering
+this because CGI.pm allows you to specify the expiration date using
+relative values:</p>
+
+<blockquote><pre class="code">-expires =&gt; "+1y"    # 1 year from now
+-expires =&gt; "+6M"    # 6 months from now
+-expires =&gt; "-1d"    # yesterday (i.e., delete it)
+-expires =&gt; "+12h"   # 12 hours from now
+-expires =&gt; "+30m"   # 30 minutes from now
+-expires =&gt; "+15s"   # 15 seconds from now
+-expires =&gt; "now"    # now</pre></blockquote>
+
+
+
+<p>Note that <tt class="literal">M</tt> is used for months and
+<tt class="literal">m</tt> is used for minutes. If a time is specified
+that's in the past, the browser does not save the cookie and
+deletes any previous cookies with the same name for the same domain
+and path.</p>
+
+<p>If an expiration date is not specified, then
+the browser saves the cookie in memory until it exits.</p></li>
+
+<li><p><em class="emphasis">Path</em>, like
+<em class="emphasis">domain</em>, controls when the browser should send
+the cookie to the server. It must be an absolute path, and it must
+match the path of the request that sets the cookie. Paths are matched
+from left to right, and any trailing / is removed from the
+<em class="emphasis">path</em> parameter, so <em class="emphasis">/cgi/</em> matches <em class="emphasis">/cgi/check_cart.cgi</em> as well as <em class="emphasis">/cgi-bin/calendar.cgi</em>.</p>
+
+<p>If
+<em class="emphasis">path</em> is not specified, it defaults to the full
+path of the request that sets the cookie.</p></li><li><p><em class="emphasis">Secure</em> tells the
+browser that it should only return the cookies for future requests if
+they are via <em class="emphasis">https</em>.</p></li></ul> 
+
+<p>Browsers distinguish between
+<a name="INDEX-2315" />cookies with the same name but
+different domains and/or paths. Thus, it is possible for a browser to
+send you multiple cookies with the same name. However, the browser
+should send the most specific cookie first in its response. For
+example, if you set the following two cookies:</p>
+
+
+<blockquote><pre class="code">my $c1 = $q-&gt;cookie( -name =&gt; "user", -value =&gt; "site_value",  -path =&gt; "/" );
+my $c2 = $q-&gt;cookie( -name =&gt; "user", -value =&gt; "store_value", -path =&gt; "/cgi" );
+
+print $q-&gt;header( -type =&gt; "text/html", -cookie =&gt; [ $c1, $c2 ] );
+.
+.</pre></blockquote>
+
+
+<p>then on future requests, the browser should send you the following:</p>
+
+
+<blockquote><pre class="code">Cookie: user=store_value; user=site_value</pre></blockquote>
+
+
+<p>Unlike form parameters, CGI.pm will not return multiple values for
+cookies with the same name; instead, it will always return the first
+value. The following:</p>
+
+
+<blockquote><pre class="code">my $user = $q-&gt;cookie( "user" );</pre></blockquote>
+
+
+<p>sets <tt class="literal">$user</tt> to "store_value". If you
+need to get the second value, you will have to inspect the value of
+the HTTP_COOKIE environment variable (or CGI.pm's
+<tt class="function">raw_cookie</tt> method) yourself.</p>
+
+
+<p>Of course, you would probably never set two cookies with the same
+name in the same script. However, it is quite possible for large
+sites that you end up with different applications each setting a
+cookie that share the same name. Therefore, especially if your site
+is on a domain that is shared with others, it is a good idea with
+cookies to choose a unique name for your cookies and to restrict the
+domain and path as much as possible.</p>
+
+
+<p>Browsers do not consider cookies with different values for
+<em class="emphasis">secure</em> distinct the way that cookies with
+different domains and paths are distinct. Thus, you cannot set one
+value for <em class="emphasis">https</em> connections and another value
+for <em class="emphasis">http</em> connections to the same domain and
+path; the second cookie will simply overwrite the first <a name="INDEX-2316" />cookie.</p>
+</div>
+
+
+
+
+<a name="ch11-2-fm2xml" /><div class="sect2">
+<h3 class="sect2">11.3.2. Testing for Cookies</h3>
+
+
+<p>If a <a name="INDEX-2317" />
+<a name="INDEX-2318" />client does not accept cookies, it will
+not tell you this; instead it just quietly discards them. Thus, a
+client who does not accept cookies looks to your CGI scripts just
+like a new client who has not received any cookies yet. It can be a
+challenge to tell them apart. Some sites do not put much effort into
+distinguishing the two and simply add a notice that their site
+requires cookies and may not work correctly without them. However, a
+better solution is to test for cookie support via redirection.</p>
+
+
+<p>Let's say you have an application at <em class="emphasis">http://www.oreilly.com/cgi/store/store.cgi</em>
+that requires cookies in order to track users' shopping carts.
+The first thing that this CGI script can do is check to see whether
+the client sent a cookie. If so, then the user is ready to shop.
+Otherwise, the CGI script needs to set a cookie first. If the CGI
+script sets a cookie at the same time that it forwards the user to
+another URL, such as <em class="emphasis">http://www.oreilly.com/cgi/store/check_cookies.cgi</em>,
+the second URL can test whether the cookie was in fact set properly.
+<a href="ch11_03.htm#ch11-33985">Example 11-4</a> provides the beginning of the main CGI
+script.</p>
+
+
+
+<a name="ch11-33985" /><div class="example">
+<h4 class="objtitle">Example 11-4. store.cgi </h4>
+<a name="INDEX-2319" /><a name="INDEX-2,320" />
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use CGI;
+
+my $q       = new CGI;
+my $cart_id = $q-&gt;cookie( -name =&gt; "cart_id" ) || set_cookie( $q );
+
+# Script continues for users with cookies
+.
+.
+
+
+sub set_cookie {
+    my $q = shift;
+    my $server = $q-&gt;server_name;
+    my $cart_id = unique_id(  );
+    my $cookie  = $q-&gt;cookie( -name  =&gt; "cart_id",
+                              -value =&gt; $cart_id,
+                              -path  =&gt; "/cgi/store" );
+    print $q-&gt;redirect ( -url =&gt; "http://$server/cgi/store/cookie_test.cgi",
+                         -cookie =&gt; $cookie );
+    exit;
+}</pre></blockquote>
+</div>
+
+
+<p>If we cannot retrieve a cookie for <em class="emphasis">cart_id</em>, we
+calculate a new unique id for the user and format it as a cookie for
+the current session that is only visible within our store. The
+<tt class="function">unique_id</tt> subroutine is the same one used in
+<a href="ch11_01.htm#ch11-50116">Example 11-1</a> and <a href="ch11_02.htm#ch11-79018">Example 11-3</a>; we
+omit it here for brevity. We set the cookie and forward the user to a
+second CGI script that will test the cookie for us.</p>
+
+
+<p>There are a number of issues specifically related to
+<a name="INDEX-2321" />
+<a name="INDEX-2322" />setting cookies as part of a redirection:</p>
+
+
+<ul><li><p>If the domain of the URL in your redirection is different than the
+domain of your script, then you cannot set a cookie for the target
+domain. Browsers are expected to ignore cookies under these
+circumstances to ensure privacy.</p></li><li><p>The URL must use an absolute path; otherwise, the web server may
+attempt to avoid another request and response cycle by simply
+returning the content for the new URL as the content of the initial
+response via an internal redirect.</p></li><li><p>The scope of the cookie must include both the CGI script setting the
+cookie as well as the CGI script testing whether the cookie is set.
+In our case, they are both below <em class="filename">/cgi/store,</em> so
+we set our cookie's path to this.</p></li></ul>
+<p><a href="ch11_03.htm#ch11-91838">Example 11-5</a> contains the source for
+<em class="filename">cookie_test.cgi</em>
+<a name="INDEX-2323" /> <a name="INDEX-2,324" /> <a name="INDEX-2,325" />.</p>
+
+
+
+<a name="ch11-91838" /><div class="example">
+<h4 class="objtitle">Example 11-5. cookie_test.cgi </h4>
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use CGI;
+
+use constant SOURCE_CGI =&gt; "/cgi/store/store.cgi";
+
+my $q      = new CGI;
+my $cookie = $q-&gt;cookie( -name =&gt; "cart_id" );
+
+if ( defined $cookie ) {
+    print $q-&gt;redirect( SOURCE_CGI );
+}
+else {
+    print $q-&gt;header( -type =&gt; "text/html", -expires =&gt; "-1d" ),
+          $q-&gt;start_html( "Cookies Disabled" ),
+          $q-&gt;h1( "Cookies Disabled" ),
+          $q-&gt;p( "Your browser is not accepting cookies. Please upgrade ",
+                 "to a newer browser or enable cookies in your preferences and",
+            $q-&gt;a( { -href =&gt; SOURCE_CGI }, "return to the store" ),
+            "."
+          ),
+          $q-&gt;end_html;
+}</pre></blockquote>
+</div>
+
+
+<p>This script is quite short. First we store the relative URL of the
+script that we came from in a constant. We could pull this from
+<a name="INDEX-2326" />HTTP_REFERER, but not all browsers send
+the <em class="emphasis">Referer</em>
+<a name="INDEX-2327" /> HTTP field; because of privacy concerns,
+some browsers allow the user to disable this field. The safe
+alternative is to hardcode it into our script here.</p>
+
+
+<p>We then create a new CGI.pm object and check for the cookie. If the
+cookie is set, we redirect the user back to the original CGI script,
+which will now see the new cookie and continue. If the cookie is not
+set, then we display a message telling the user the problem and
+providing a link back to the original script to try again. Notice
+that we disable caching for this page by passing an expired parameter
+to CGI.pm's
+<tt class="function">header</tt>
+<a name="INDEX-2328" />
+<a name="INDEX-2329" /> method. This ensures that when the
+user returns, the browser calls the script to test for cookies again
+instead <a name="INDEX-2330" />
+<a name="INDEX-2331" />of
+displaying <a name="INDEX-2332" /> <a name="INDEX-2,333" /> <a name="INDEX-2,334" />a cached copy of the error
+
+<a name="INDEX-2335" /> <a name="INDEX-2,336" /> <a name="INDEX-2,337" /> <a name="INDEX-2,338" />message.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch11_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch12_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">11.2. Hidden Fields</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">12. Searching the Web Server</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

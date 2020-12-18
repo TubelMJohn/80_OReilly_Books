@@ -1,0 +1,458 @@
+<html><head><title>Anatomy of the MainLoop (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch15_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 15. Anatomy of the MainLoop</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#mastperltk-CHP-15-SECT-1">Creating a Callback</a><br />
+<a href="ch15_02.htm">Binding to Events</a><br />
+<a href="ch15_03.htm">The bindtags Command</a><br />
+<a href="ch15_04.htm">Executing Nonblocking System Commands</a><br />
+<a href="ch15_05.htm">Tracing Perl/Tk Variables</a><br />
+<a href="ch15_06.htm">Nonblocking Wait Activities</a><br />
+<a href="ch15_07.htm">Splash Screens</a><br />
+<a href="ch15_08.htm">Synthesizing Virtual Events</a><br />
+<a href="ch15_09.htm">Coexisting with Other GUI Main Loops</a><br /></p></div>
+
+<p><a name="INDEX-2329" /></a>As
+programmers, we all know what a "main loop" is.
+It's the heart of our programs, the repeating chunk of code
+that carries out the task at hand. But Perl/Tk programs are
+<i class="command">event driven</i>, so even if we write what we believe
+is our program's main loop, it must coexist with a higher order
+main loop that's a fundamental part of Tk. The Tk main loop is
+typically referred to as the <em class="emphasis">event loop</em>, and its
+job is to invoke callbacks in response to events such as button
+presses or timer expirations.
+</p>
+
+<p><a name="INDEX-2330" /></a><a name="INDEX-2331" /></a>Callbacks are Perl subroutines
+associated with Tk events. In Perl/Tk, we can define callbacks that,
+from our point of view, are automatically invoked when the
+appropriate event occurs. The Tk core defines hundreds of other
+callbacks on our behalf that we're not even aware of.
+It's the combination of our own callbacks and Tk-defined
+callbacks that gives behavior to our Perl/Tk applications.
+</p>
+
+<p><a name="INDEX-2332" /></a>The event loop is activated once the
+Perl/Tk program's <tt class="literal">MainLoop</tt> statement is
+reached. From that point on, <tt class="literal">MainLoop</tt> controls our
+program. As events happen, <tt class="literal">MainLoop</tt> dispatches
+them to a handler (a callback) for processing and puts the
+application to sleep for a short amount of time when the event queue
+is empty. This repeats until there are no more MainWindows, at which
+time <tt class="literal">MainLoop</tt> returns. Any code after the
+<tt class="literal">MainLoop</tt> statement is then executed.
+</p>
+
+<p>Here is the salient portion of the actual <tt class="literal">MainLoop</tt>
+subroutine from the Perl/Tk source distribution:
+</p>
+
+<blockquote><pre class="code">use Tk ':eventtypes';
+
+while (Tk::MainWindow-&gt;Count) {
+    DoOneEvent(ALL_EVENTS);
+}</pre></blockquote>
+
+<p><a name="INDEX-2333" /></a>As we
+see, the Tk main loop processes all events, one by one, until the
+count of <tt class="literal">MainWindows</tt> becomes
+zero. The <tt class="literal">use</tt> tag <tt class="literal">:eventtypes</tt>
+imports various symbols used by <tt class="literal">DoOneEvent</tt>, the
+subroutine that actually dispatches individual events. We'll
+learn more about <tt class="literal">DoOneEvent</tt> later. For now
+it's sufficient to know that the subroutine expects one
+argument, a bit pattern, specifying what types of events to process
+and whether to return immediately or to wait if there are no such
+events.
+</p>
+
+<p><a name="INDEX-2334" /></a><a name="INDEX-2335" /></a>The symbol <tt class="literal">ALL_EVENTS</tt>
+is the inclusive OR of all the various event types, which we'll
+examine in detail later. The individual event types that
+<tt class="literal">DoOneEvent</tt> recognizes are as follows:
+</p>
+
+<dl>
+<dt><tt class="literal">WINDOW_EVENTS</tt> </dt>
+<dd>
+<a name="INDEX-2336" /></a>These include
+things such as keyboard entry, button clicks, and window size and
+visibility changes.
+<p></p>
+</dd>
+
+
+<dt><tt class="literal">FILE_EVENTS</tt> </dt>
+<dd>
+<a name="INDEX-2337" /></a>These deal with
+reading and writing files and network sockets.
+<p></p>
+</dd>
+
+
+<dt><tt class="literal">TIMER_EVENTS</tt> </dt>
+<dd>
+<a name="INDEX-2338" /></a>These are
+created by the <tt class="literal">after</tt> and
+<tt class="literal">repeat</tt><i class="command"> </i>commands.
+<p></p>
+</dd>
+
+
+<dt><tt class="literal">IDLE_EVENTS</tt> </dt>
+<dd>
+<a name="INDEX-2339" /></a>These are
+low-priority callbacks executed only after all events of the previous
+types have been processed. The most common idle events are those that
+redraw widgets and refresh the display. You can queue idle callbacks
+using <tt class="literal">DoWhenIdle</tt>.
+<p></p>
+</dd>
+
+</dl>
+
+<p><a name="INDEX-2340" /></a><a name="INDEX-2341" /></a>The
+<tt class="literal">:eventtypes</tt> tag defines one other symbol,
+<tt class="literal">DONT_WAIT</tt>, that can be inclusively
+<tt class="literal">OR</tt> ed with a <tt class="literal">DoOneEvent</tt> bit
+pattern to make the subroutine call nonblocking. Notice that
+<tt class="literal">MainLoop</tt> does not include
+<tt class="literal">DONT_WAIT</tt> in its <tt class="literal">DoOneEvent</tt> bit
+pattern, meaning that <tt class="literal">DoOneEvent</tt> sleeps when there
+is nothing to do, instead of returning to
+<tt class="literal">MainLoop</tt>. This is actually a good thing, as it
+allows other programs running on our computer a slice of the CPU pie.
+Later we'll see when including <tt class="literal">DONT_WAIT</tt>
+works to our advantage.
+</p>
+
+<p><tt class="literal">MainLoop</tt><a name="INDEX-2342" /></a><a name="INDEX-2343" /></a>'s job is to dispatch events to
+callbacks in a timely fashion. As you write callbacks, keep in mind
+you are in a mutually cooperative environment; all callbacks should
+be brief and nonblocking so the application remains responsive. A
+common novice mistake is to execute a long-running system command,
+then wonder why Buttons don't work and the display won't
+refresh. The novice fails to realize that <tt class="literal">MainLoop</tt>
+has been locked out, and the events responsible for Button actions
+and screen refreshes are being queued by the underlying operating
+system. We'll examine idioms to avoid blocking situations. The
+principle of mutual cooperation applies also when sharing events with
+other GUI packages, such as OpenGL.
+</p>
+
+<p>And that, in a nutshell, describes the contents of this chapter. In
+summary, we'll learn:
+</p>
+
+<ul><li>
+<p>How to create callbacks</p>
+</li><li>
+<p>About the different events, including virtual events</p>
+</li><li>
+<p>How to associate events with callbacks</p>
+</li><li>
+<p>About nonblocking programming techniques and how to cooperate with
+<tt class="literal">MainLoop</tt>
+</p>
+</li><li>
+<p>How to share the event loop with OpenGL</p>
+</li></ul>
+<p>Let us move on and examine the details.</p>
+<div class="sect1"><a name="mastperltk-CHP-15-SECT-1" /></a>
+<h2 class="sect1">15.1. Creating a Callback</h2>
+
+<p><a name="INDEX-2344" /></a><a name="INDEX-2345" /></a><a name="INDEX-2346" /></a><a name="INDEX-2347" /></a>Perl/Tk
+has an expressive and well-defined callback syntax. Anywhere an
+option expects a callback, you can use this syntax. The most common
+option name is -<tt class="literal">command</tt>, but you'll also see
+-<tt class="literal">validatecommand</tt>, <tt class="literal">-browsecmd</tt>,
+or something similar. For instance, when you create a Button widget,
+you use -<tt class="literal">command</tt> to specify the callback invoked
+when the button is pressed. Similarly, when you create an event
+binding, you specify the event of interest and a callback to invoke
+when the event occurs.
+</p>
+
+<p><a name="INDEX-2348" /></a><a name="INDEX-2349" /></a>At its simplest, a callback is a subroutine
+reference:
+</p>
+
+<blockquote><pre class="code">-command =&gt; \&amp;callback</pre></blockquote>
+
+<p>or:</p>
+
+<blockquote><pre class="code">-command =&gt; sub { ... }</pre></blockquote>
+
+<p>The first example is a code reference to a named subroutine. The
+second is a code reference to an anonymous subroutine. Notice that
+you cannot pass explicit arguments to the subroutines using this
+callback format. A common mistake is to assume a statement of this
+form will work:
+</p>
+
+<blockquote><pre class="code">-command =&gt; \&amp;callback(<em class="replaceable"><tt>arguments</tt></em>)</pre></blockquote>
+
+<p><a name="INDEX-2350" /></a>Well, it "works" in the
+sense that it compiles and produces a result, but the result is
+probably not what you expect. You aren't creating a code
+reference to a subroutine that will execute sometime in the future.
+Instead, the subroutine is executed immediately, and you get a
+reference to the subroutine's return value. A fast session in
+the Perl debugger shows us the scary details:
+</p>
+
+<blockquote><pre class="code">[bug@Pandy Anatomy]$ <tt class="userinput"><b>perl -de 0</b></tt>
+Default die handler restored.
+
+Loading DB routines from perl5db.pl version 1.07
+Editor support available.
+
+Enter h or `h h' for help, or `man perldebug' for more help.
+
+main::(-e:1):   0
+  DB&lt;1&gt; <tt class="userinput"><b>sub frog {print "frog args=@_!\n"; return 456}</b></tt>
+
+  DB&lt;2&gt; <tt class="userinput"><b>&amp;frog(1, 2, 3)</b></tt>
+frog args=1 2 3!
+
+  DB&lt;3&gt; <tt class="userinput"><b>$cref1 = \&amp;frog</b></tt>
+
+  DB&lt;4&gt; <tt class="userinput"><b>p $cref1</b></tt>
+CODE(0x82c45f8)
+  DB&lt;5&gt; <tt class="userinput"><b>$cref2 = \&amp;frog(789)</b></tt>
+frog args=789!
+
+  DB&lt;6&gt; <tt class="userinput"><b>p $cref2</b></tt>
+SCALAR(0x82c6818)
+  DB&lt;7&gt; <tt class="userinput"><b>p $$cref2</b></tt>
+456
+  DB&lt;8&gt;<tt class="userinput"><b> q</b></tt></pre></blockquote>
+
+<p>Debug line 1 first creates the subroutine <tt class="literal">frog</tt>
+that prints its arguments and returns the integer 456. Line 2 then
+calls <tt class="literal">frog</tt> as a test. Line 3 takes a reference to
+<tt class="literal">frog</tt>, verified in line 4. Notice in line 5 that
+<tt class="literal">frog</tt> is called immediately and prints its argument
+789. Line 6 shows us that we have failed to create a code reference
+but have a reference to a scalar instead. Line 7 dereferences
+<tt class="literal">$cref2</tt> and prints the result, which is 456,
+<tt class="literal">frog</tt>'s return value. You have been warned!
+</p>
+
+<p>When you want to pass arguments to a callback, specify an array
+reference, with the callback code reference as first element and the
+callback arguments as subsequent array elements:
+</p>
+
+<blockquote><pre class="code">-command =&gt; [ \&amp;callback, <em class="replaceable"><tt>arg1</tt></em><tt>, <em class="replaceable">arg2</em></tt> ...]</pre></blockquote>
+
+<p>or:</p>
+
+<blockquote><pre class="code">-command =&gt; [ sub { ... }, <em class="replaceable"><tt>arg1</tt></em><tt>, <em class="replaceable">arg2</em></tt>, ... ]</pre></blockquote>
+
+<p>Finally, there's a third callback form in which you specify a
+method name as a string. This form is used more often in binding
+commands and when writing mega-widgets, because it's very easy
+for a subclass to override the subroutine by providing it's own
+method with the same name. We'll see examples later on in this
+chapter. <a href="ch15_01.htm#mastperltk-CHP-15-TABLE-1">Table 15-1</a> shows legal callback syntax.
+</p>
+
+<a name="mastperltk-CHP-15-TABLE-1" /></a><h4 class="objtitle">Table 15-1. Legal callback syntax </h4><table border="1">
+
+
+
+<tr>
+<th>
+<p>Callback formats without arguments</p>
+</th>
+<th>
+<p>Callback formats with arguments</p>
+</th>
+</tr>
+
+
+<tr>
+<td>
+<p><tt class="literal">\&amp;callback</tt></p>
+</td>
+<td>
+<p><tt class="literal">[ \&amp;callback, arg1, arg2, ... ]</tt></p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">sub { ... }</tt></p>
+</td>
+<td>
+<p><tt class="literal">[ sub { ... }, arg1, arg2, ... ]</tt></p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">'methodname'</tt></p>
+</td>
+<td>
+<p><tt class="literal">[ 'methodname', arg1, arg2, ... ]</tt></p>
+</td>
+</tr>
+
+</table><p>
+
+<p>Regardless of the syntax you use, Perl/Tk ends up creating a
+Tk::Callback object.
+</p>
+
+<p><a name="INDEX-2351" /></a><a name="INDEX-2352" /></a>One final note: for callbacks with
+arguments, Perl/Tk evaluates the contents of the (anonymous) array
+when the callback is parsed. To defer evaluation of an argument until
+the callback is executed, use the <tt class="literal">Ev</tt> method,
+described in <a href="ch15_02.htm#mastperltk-CHP-15-SECT-2.5">Section 15.2.5, "Binding to a MouseWheel Event"</a>.
+The <tt class="literal">Ev</tt> method should only be used to construct
+parameters for event callbacks.
+</p>
+
+<a name="mastperltk-CHP-15-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">15.1.1. Callbacks and Closures</h3>
+
+<p>Creating a number of widgets using a Perl loop construct is a common
+programming task, which in itself is easy enough:
+</p>
+
+<blockquote><pre class="code">foreach $b (1 .. 5) {
+    $mw-&gt;Button(
+        -text    =&gt; $b, 
+    )-&gt;pack;
+}</pre></blockquote>
+
+<p>This code produces five Buttons aligned vertically, labeled 1 through
+5. But the Buttons don't do anything, and trouble usually
+begins when you try to specify a callback. Since we're creating
+Buttons in a loop, the assumption is that they do similar things but
+vary slightly depending upon which one is pressed. So the problem
+reduces to how to tell the callback which button invoked it.
+</p>
+
+<p>Here's a first attempt at creating a series of Buttons with
+unique identifiers (differences are shown in bold type). It's
+doomed to failure, because the scope of <tt class="literal">$b</tt> is
+local to the <tt class="literal">for</tt> loop only, and although the
+Button text is correct, by the time a Button callback is executed,
+<tt class="literal">$b</tt> has gone out of scope and no longer exists.
+</p>
+
+<blockquote><pre class="code">foreach $b (1 .. 5) {
+    $mw-&gt;Button(
+        -text    =&gt; $b, 
+        <tt class="userinput"><b>-command =&gt; sub {print "Button $b\n"},</b></tt>
+    )-&gt;pack;
+}</pre></blockquote>
+
+<p>In the previous example, every time you click on any of the Buttons,
+you see this:
+</p>
+
+<blockquote><pre class="code">Use of uninitialized value in concatenation (.) at ./close1 line 12.
+Button </pre></blockquote>
+
+<p>Our second attempt at creating a series of Buttons with unique
+identifiers also fails, because the callback uses the value that
+<tt class="literal">$n</tt> had at the end of the <tt class="literal">for</tt>
+statement. This is simply a variation of our first attempt.
+</p>
+
+<blockquote><pre class="code"><tt class="userinput"><b>$n = 1;</b></tt>
+foreach $b (1 .. 5) {
+    $mw-&gt;Button(
+        -text    =&gt; $b, 
+        -command =&gt; sub {print "Button <tt class="userinput"><b>$n</b></tt>\n"},
+    )-&gt;pack;
+    <tt class="userinput"><b>$n++;</b></tt>
+}</pre></blockquote>
+
+<p>When you click on any Button, you see this:</p>
+
+<blockquote><pre class="code">Button 6</pre></blockquote>
+
+<p>For our third attempt, we declare <tt class="literal">$b</tt>
+a <tt class="literal">my</tt>, or <em class="emphasis">lexical</em>, variable, and
+voil&#xE0;, it works! Every Button callback correctly prints its
+Button ID number.
+</p>
+
+<blockquote><pre class="code">foreach <tt class="userinput"><b>my</b></tt> $b (1 .. 5) {
+    $mw-&gt;Button(
+        -text    =&gt; $b, 
+        -command =&gt; sub {print "Button $b\n"},
+    )-&gt;pack;
+}</pre></blockquote>
+
+<p><a name="INDEX-2353" /></a><a name="INDEX-2354" /></a><a name="INDEX-2355" /></a>What's so magical about
+lexicals? In simple terms, when an anonymous subroutine is defined,
+the values of lexical variables it references outside its scope
+become "closed," or finalized, as the subroutine is
+defined. Closures are ideal for creating callbacks, because they can
+enclose current information in their definitions, which are available
+later in a different scope. For an authoritative essay on closures,
+please read the <em class="filename">perlref</em> manpage.
+</p>
+
+<p>Here's another version, which also works as expected because
+Perl/Tk creates the closures for us. It's somewhat verbose, but
+it does the job.
+</p>
+
+<blockquote><pre class="code">foreach $b (1 .. 5) {
+    $mw-&gt;Button(
+        -text    =&gt; $b, 
+        -command =&gt; <tt class="userinput"><b>[\&amp;do_button, $b]</b></tt>,
+    )-&gt;pack;
+}
+
+MainLoop;
+
+<tt class="userinput"><b>sub do_button {</b></tt>
+<tt class="userinput"><b>    $n = shift;</b></tt>
+<tt class="userinput"><b>    print "Button $n\n";</b></tt>
+<tt class="userinput"><b>}</b></tt></pre></blockquote>
+
+<p>Here's our final attempt at creating a series of Buttons with
+unique identifiers. This is a variation of our previous attempt that
+avoids the use of an explicit subroutine.
+</p>
+
+<blockquote><pre class="code">foreach $b (1 .. 5) {
+    $mw-&gt;Button(
+        -text    =&gt; $b, 
+        -command =&gt; <tt class="userinput"><b>[sub {print "Button $_[0]\n"}, $b],</b></tt>
+    )-&gt;pack;
+}</pre></blockquote>
+
+<p>Generally, the preferred solution to this problem is either this most
+recent attempt or to use the lexical <tt class="literal">for</tt> loop
+variable (our third attempt).<a name="INDEX-2356" /></a> 
+</p>
+
+</div>
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch15_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">14.6. Packaging a Mega-Widget for Public Distribution</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">15.2. Binding to Events</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

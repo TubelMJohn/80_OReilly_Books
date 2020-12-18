@@ -1,0 +1,190 @@
+<html><head><title>Extending the Saxon Processor (XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Doug Tidwell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596000537L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XSL" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch08_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+    <h2 class="sect1">8.2. Extending the Saxon Processor</h2>
+      <p>
+<a name="INDEX-690" />
+<a name="INDEX-691" />
+<a name="INDEX-692" />
+<a name="INDEX-693" />
+<a name="INDEX-694" />
+<a name="INDEX-695" />
+
+
+Michael Kay's excellent Saxon processor also provides an extension mechanism. One of the nice features of Saxon's extensibility mechanism is that you can implement your own sort functions. When we discussed the <tt class="literal">&lt;xsl:sort&gt;</tt> element a couple of chapters ago, we mentioned that it has a <tt class="literal">lang</tt> attribute that defines the language of the things being sorted. While Xalan doesn't currently support this attribute (although by the time you're reading this, it might), Saxon lets you create your own extension function to handle the sorting. Your extension function must extend the <tt class="literal">com.icl.saxon.sort.TextComparer</tt> class. Here's a sample XML document we'll use to illustrate this function:</p>
+      
+      <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;wordlist&gt;
+  &lt;word&gt;campo&lt;/word&gt;
+  &lt;word&gt;luna&lt;/word&gt;
+  &lt;word&gt;ciudad&lt;/word&gt;
+  &lt;word&gt;llaves&lt;/word&gt;
+  &lt;word&gt;chihuahua&lt;/word&gt;
+  &lt;word&gt;arroz&lt;/word&gt;
+  &lt;word&gt;limonada&lt;/word&gt;
+&lt;/wordlist&gt;</pre></blockquote>
+      <p>This document contains Spanish words that are sorted differently than they would be in English. (In Spanish, "ch" and "ll" are separate letters that sort after "c" and "l," respectively.)  We'll write a stylesheet that uses three <tt class="literal">&lt;xsl:template&gt;</tt>s to illustrate how our extension function works. Here's the stylesheet:</p>
+      
+      <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+
+  &lt;xsl:output method="text" indent="no"/&gt;
+  &lt;xsl:strip-space elements="*"/&gt;
+
+  &lt;xsl:variable name="newline"&gt;
+&lt;xsl:text&gt;
+&lt;/xsl:text&gt;
+  &lt;/xsl:variable&gt;
+
+  &lt;xsl:template match="/"&gt;
+    &lt;xsl:value-of select="$newline"/&gt;
+    &lt;xsl:apply-templates select="wordlist" mode="unsorted"/&gt;
+    &lt;xsl:apply-templates select="wordlist" mode="default"/&gt;
+    &lt;xsl:apply-templates select="wordlist" mode="Spanish"/&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="wordlist" mode="unsorted"&gt;
+    &lt;xsl:text&gt;Word list - unsorted:&lt;/xsl:text&gt;
+    &lt;xsl:value-of select="$newline"/&gt;
+    &lt;xsl:for-each select="word"&gt;
+      &lt;xsl:value-of select="."/&gt;
+      &lt;xsl:value-of select="$newline"/&gt;
+    &lt;/xsl:for-each&gt;
+    &lt;xsl:value-of select="$newline"/&gt;
+  &lt;/xsl:template&gt;
+
+
+  &lt;xsl:template match="wordlist" mode="default"&gt;
+    &lt;xsl:text&gt;Word list - sorted with default rules:&lt;/xsl:text&gt;
+    &lt;xsl:value-of select="$newline"/&gt;
+    &lt;xsl:for-each select="word"&gt;
+      &lt;xsl:sort select="."/&gt;
+      &lt;xsl:value-of select="."/&gt;
+      &lt;xsl:value-of select="$newline"/&gt;
+    &lt;/xsl:for-each&gt;
+    &lt;xsl:value-of select="$newline"/&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="wordlist" mode="Spanish"&gt;
+    &lt;xsl:text&gt;Word list - sorted with Spanish rules:&lt;/xsl:text&gt;
+    &lt;xsl:value-of select="$newline"/&gt;
+    &lt;xsl:for-each select="word"&gt;
+      &lt;xsl:sort select="." lang="es"/&gt;
+      &lt;xsl:value-of select="."/&gt;
+      &lt;xsl:value-of select="$newline"/&gt;
+    &lt;/xsl:for-each&gt;
+    &lt;xsl:value-of select="$newline"/&gt;
+  &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+      <p>When we run the stylesheet against our document, it invokes the three templates with three different <tt class="literal">mode</tt>s. One template simply lists the <tt class="literal">&lt;word&gt;</tt> elements as they appear in the original document, the second sorts the <tt class="literal">&lt;word&gt;</tt> elements using the default sorting sequence, and the third sorts the <tt class="literal">&lt;word&gt;</tt> elements using the traditional rules of Spanish sorting. Refreshingly enough, the code that implements the sorting function is simple. Here's the entire listing:</p>
+      
+      <blockquote><pre class="code">
+package com.icl.saxon.sort;
+
+import java.text.ParseException;
+import java.text.RuleBasedCollator;
+import java.util.Locale;
+
+public class Compare_es extends TextComparer
+{
+  private static String smallnTilde  = new String("\u00F1");
+  private static String capitalNTilde = new String("\u00D1");
+  
+  private static String traditionalSpanishRules = 
+    ("&lt; a,A &lt; b,B &lt; c,C " +
+     "&lt; ch, cH, Ch, CH "  +
+     "&lt; d,D &lt; e,E &lt; f,F " +
+     "&lt; g,G &lt; h,H &lt; i,I &lt; j,J &lt; k,K &lt; l,L " +
+     "&lt; ll, lL, Ll, LL "  +
+     "&lt; m,M &lt; n,N " +
+     "&lt; " + smallnTilde + "," + capitalNTilde + " " +
+     "&lt; o,O &lt; p,P &lt; q,Q &lt; r,R " +
+     "&lt; s,S &lt; t,T &lt; u,U &lt; v,V &lt; w,W &lt; x,X " +
+     "&lt; y,Y &lt; z,Z");
+
+  private static RuleBasedCollator rbc = null;
+
+  static 
+  {
+    try
+    {
+      rbc = new RuleBasedCollator(traditionalSpanishRules);
+    }
+    catch (ParseException pe)
+    {
+      System.err.println("Error creating RuleBasedCollator: " + rbc);
+    }
+  }
+
+  public int compare(Object a, Object b)
+  {
+    if (rbc != null)
+      return rbc.compare((String)a, (String)b);
+    else
+      return 0;
+  }
+}</pre></blockquote>
+      <p>(See the documentation for the <tt class="literal">java.text.RuleBasedCollator</tt> class for an explanation of the <tt class="literal">traditionalSpanishRules</tt> string.)</p>
+      <p>When Saxon sees an <tt class="literal">&lt;xsl:sort&gt;</tt> element with a <tt class="literal">lang</tt> attribute of <tt class="literal">es</tt>, it attempts to load a Java class named <tt class="literal">com.icl.saxon.sort.Compare_es</tt>. If that class can be loaded, Saxon calls that class's <tt class="literal">compare</tt> method as it sorts the <tt class="literal">&lt;word&gt;</tt> elements. When we run the stylesheet against our earlier example document, here are the results:</p>
+      <blockquote><pre class="code">
+
+Word list - unsorted:
+campo
+luna
+ciudad
+llaves
+chihuahua
+arroz
+limonada
+
+Word list - sorted with default rules:
+arroz
+campo
+chihuahua
+ciudad
+limonada
+llaves
+luna
+
+Word list - sorted with Spanish rules:
+arroz
+campo
+ciudad
+chihuahua
+limonada
+luna
+llaves
+</pre></blockquote>
+      <p>In the output, our Spanish sorting routine puts <tt class="literal">chihuahua</tt> after <tt class="literal">ciudad</tt>, and <tt class="literal">llaves</tt> after <tt class="literal">luna</tt>. With less than 20 lines of code, we've been able to add a new sorting function to our stylesheet. Most of the work is done for us by the Saxon processor and the methods of the <tt class="literal">java.text.RuleBasedCollator</tt> class. </p>
+      <p>The Saxon documentation has more information on extending Saxon with your own code. As you'll see in the examples in this chapter, most of the Java extensions you'll need to write will be simple pieces of code that simply make Java library methods and classes available to the XSLT processor.
+<a name="INDEX-696" />
+<a name="INDEX-697" />
+<a name="INDEX-698" />
+
+
+</p>
+  
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch08_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">8. Extending XSLT</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">8.3. More Examples</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

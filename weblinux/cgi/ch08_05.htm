@@ -1,0 +1,195 @@
+<?label 8.5. Data Storage?><html><head><title>Data Storage (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch08_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">8.5. Data Storage</h2>
+
+
+<p>There <a name="INDEX-1781" /> <a name="INDEX-1,782" />are a number of security issues
+specifically related to reading and writing data. We'll discuss
+data storage in much greater detail in <a href="ch10_01.htm">Chapter 10, "Data Persistence"</a>.
+Let's review the security issues now.</p>
+
+
+<a name="ch08-13-fm2xml" /><div class="sect2">
+<h3 class="sect2">8.5.1. Dynamic Filenames</h3>
+
+
+<p>You <a name="INDEX-1783" />
+<a name="INDEX-1784" />
+<a name="INDEX-1785" />should be extra careful when opening
+files where the
+<a name="INDEX-1786" /> <a name="INDEX-1,787" />filename is dynamically generated
+based upon user input. For example, you may have data arranged
+according to date, with a separate directory for each year and a
+separate file for each month. If you have a CGI script that allows
+the user to search for records in this file according to month and
+year, you would <em class="emphasis">not</em> want to use this code:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use CGI;
+use CGIBook::Error;
+
+my $q = new CGI;
+my @missing;
+
+my $month = $q-&gt;param( "month" ) or push @missing, "month";
+my $year  = $q-&gt;param( "year"  ) or push @missing, "year";
+my $key   = quotemeta( $q-&gt;param( "key" ) ) or push @missing, "key";
+
+if ( @missing ) {
+    my $fields = join ", ", @missing;
+    error( $q, "You left the following required fields blank: $fields."  );
+}
+
+local *FILE;
+
+## This is INSECURE unless you first check the validity of $year and $month
+open FILE, "/usr/local/apache/data/$year/$month" or
+    error( $q, "Invalid month or year" );
+
+print $q-&gt;header( "text/html" ),
+      $q-&gt;start_html( "Results" ),
+      $q-&gt;h1( "Results" ),
+      $q-&gt;start_pre;
+
+while (&lt;FILE&gt;) {
+    print if /$key/;
+}
+
+print $q-&gt;end_pre,
+      $q-&gt;end_html;</pre></blockquote>
+
+
+<p>Any user who supplied "../../../../../etc/passwd" as a
+month could browse <em class="filename">/etc/passwd </em> -- probably
+not a feature you want to provide. Assuming that your web form passes
+two-digit numbers for months and days, you should add the following
+lines:</p>
+
+
+<blockquote><pre class="code">unless ( $year =~ /^\d\d$/ and $month =~ /^\d\d$/ ) {
+    error( $q, "Invalid month or year" );
+}</pre></blockquote>
+
+
+<p>You may have noticed that taint mode is enabled and wondered why it
+did not catch this security problem. Remember, the function of taint
+mode is to not allow you to accidentally use data that comes from
+outside your program to change resources outside your program. This
+code does not attempt to change any outside resources, so taint mode
+sees no reason to stop the script from reading
+<em class="filename">/etc/passwd</em>. Taint mode will only stop you from
+opening a file with an user-supplied filename if you are opening the
+file to write to it.</p>
+
+
+<p>In this example, we were reading from a text file, but this security
+issue applies to other forms of data storage too. We could have just
+as easily been reading from a DBM file instead. Likewise when you use
+a RDBMS, you must specify what database you wish to connect to, and
+it is very poor design to allow the user to specify what database to
+open and read.</p>
+</div>
+
+
+
+
+<a name="ch08-14-fm2xml" /><div class="sect2">
+<h3 class="sect2">8.5.2. Location of Files</h3>
+
+
+<p>Your <a name="INDEX-1788" />
+<a name="INDEX-1789" />data files should not be directly
+browsable by the user, so they should not be in the web
+<a name="INDEX-1790" />server's
+document tree. This is a mistake people frequently make when
+installing third party web applications. Many freely available web
+applications are distributed with all of their files -- including
+configuration files that contain important data like administrative
+passwords -- in one directory to make them easy to install. If you
+install the application as it comes packaged, then anyone who is
+familiar with the application can access the configuration
+information and possibly exploit it. Often these applications allow
+you to change filenames relatively easily, so some developers try to
+hide important data files by renaming them from their default name to
+a more obscure name. A much better solution is to move them out of
+the web document tree altogether.</p>
+
+
+<p>Unless you store all of your data in an RDBMS, you should have a
+standard data tree just like your web document tree where you can
+store all your application data. Give each web application a
+subdirectory under the root data directory. Do
+<em class="emphasis">not</em> configure the web server to serve files out
+of this directory. In our examples, we use
+<em class="filename">/usr/local/apache/data</em> as the root of our data
+tree.</p>
+</div>
+
+
+
+
+<a name="ch08-15-fm2xml" /><div class="sect2">
+<h3 class="sect2">8.5.3. File Permissions</h3>
+
+
+<p>You should use your
+<a name="INDEX-1791" />
+<a name="INDEX-1792" />
+<a name="INDEX-1793" />
+<a name="INDEX-1794" />
+<a name="INDEX-1795" />web
+<a name="INDEX-1796" />server's
+filesystem to help you control read and write access to data files.
+On Unix systems, each directory and file has an owner, a group, and a
+set of permissions. The web server also runs as a particular user and
+group, such as <em class="emphasis">nobody</em>.</p>
+
+
+<p>The web server should not have write access to any file it
+doesn't need to write to. This simple guideline may sound
+obvious, but it is often ignored in practice.</p>
+
+
+<p>Data files that your scripts only need to read should be owned by
+<em class="emphasis">nobody</em>
+<a name="INDEX-1797" />, and they should have a restrictive file
+permission like <tt class="literal">0644</tt>. If the web server needs to
+be able to write to a file and it is not the creator of the file, you
+may want to set the group of the file to <em class="emphasis">nobody</em>
+and enable the group write bit by setting its permission to
+<tt class="literal">0664</tt>.</p>
+
+
+<p>If the web server needs to be able to create files or subdirectories
+within a directory, then that directory must be writable. Assign its
+group to <em class="emphasis">nobody</em> and change the permissions to
+<tt class="literal">0775</tt>; otherwise, directories should be
+<tt class="literal">0755</tt>. Realize that if you make a directory
+writable, then existing files can be deleted or replaced even if
+these files themselves <a name="INDEX-1798" /> <a name="INDEX-1,799" />are read-only.</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch08_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch08_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">8.4. Perl's Taint Mode</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">8.6. Summary</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

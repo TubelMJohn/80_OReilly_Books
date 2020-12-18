@@ -1,0 +1,2368 @@
+<?label 15.3. The Module Structure?><html><head><title>The Module Structure (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch15_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch15_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">15.3. The Module Structure</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-1581" /> <a name="INDEX-1582" />
+<a name="INDEX-1583" />Now
+we will look in detail at each entry in the <tt class="literal">module</tt>
+structure. We examine the entries in the order in which they are
+used, which is not the order in which they appear in the structure,
+and also show how they are used in the standard Apache modules.</p>
+
+
+
+
+
+<a name="ch15-27928" /><div class="sect2">
+<h3 class="sect2">15.3.1. Create Per-Server Config Structure</h3>
+
+
+
+
+
+<blockquote><pre class="code">void *<a name="INDEX-1584" />module_create_svr_config(pool *pPool, server_rec *pServer)</pre></blockquote>
+
+
+
+
+
+<p>This <a name="INDEX-1585" /> <a name="INDEX-1586" /> <a name="INDEX-1587" />structure creates the per-server
+configuration structure for the module. It is called once for the
+main server and once per virtual host. It allocates and initializes
+the memory for the per-server configuration and returns a pointer to
+it. <tt class="literal">pServer</tt> points to the
+<tt class="literal">server_rec</tt> for the current server.</p>
+
+
+
+
+
+<a name="ch15-1-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.1.1. Example</h3>
+
+
+
+
+
+<p>From <em class="filename">mod_env.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">typedef struct {
+    table *vars;
+    char *unsetenv;
+    int vars_present;
+} env_server_config_rec;
+
+void *create_env_server_config (pool *p, server_rec *dummy)
+{
+    env_server_config_rec *new =
+      (env_server_config_rec *) palloc (p, sizeof(env_server_config_rec));
+    new-&gt;vars = make_table (p, 50);
+    new-&gt;unsetenv = "";
+    new-&gt;vars_present = 0;
+    return (void *) new;
+}</pre></blockquote>
+
+
+
+
+
+<p>All this code does is allocate and initialize a copy of
+<tt class="literal">env_server_config_rec</tt>, which gets filled in during
+configuration.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-34113" /><div class="sect2">
+<h3 class="sect2">15.3.2. Create Per-Directory Config Structure</h3>
+
+
+
+
+
+<blockquote><pre class="code">void *<a name="INDEX-1588" />module_create_dir_config(pool *pPool,char *szDir)</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-1589" />
+<a name="INDEX-1590" />This structure is called once per
+module, with <tt class="literal">szDir</tt> set to <tt class="literal">NULL</tt>,
+when the main host's configuration is initialized, and again
+for each <tt class="literal">&lt;Directory&gt;</tt>,
+<tt class="literal">&lt;Location&gt;</tt>, or
+<tt class="literal">&lt;File&gt;</tt> section in the Config files
+containing a directive from this module, with
+<tt class="literal">szPath</tt> set to the directory. Any per-directory
+directives found outside <tt class="literal">&lt;Directory&gt;</tt>,
+<tt class="literal">&lt;Location&gt;</tt>, or
+<tt class="literal">&lt;File&gt;</tt> sections end up in the
+<tt class="literal">NULL</tt> configuration. It is also called when
+<em class="filename">.htaccess</em> files are parsed, with the name of the
+directory in which they reside. Because this function is used for
+<em class="filename">.htaccess</em> files, it may also be called after the
+initializer is called. Also, the core caches per-directory
+configurations arising from <em class="filename">.htaccess</em> files for
+the duration of a request, so this function is called only once per
+directory with an <em class="filename">.htaccess</em> file.</p>
+
+
+
+
+
+<p>If a module does not support per-directory configuration, any
+directives that appear in a <tt class="literal">&lt;Directory&gt;</tt>
+section override the per-server configuration unless precautions are
+taken. The usual way to avoid this is to set the <tt class="literal">req
+_overrides</tt> member appropriately.</p>
+
+
+
+
+
+<p>The purpose of this function is to allocate and initialize the memory
+required for any per-directory configuration. It returns a pointer to
+the allocated memory.</p>
+
+
+
+
+
+<a name="ch15-2-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.2.1. Example</h3>
+
+
+
+
+
+<p>From <em class="filename">mod_rewrite.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">static void *config_perdir_create(pool *p, char *path)
+{
+    rewrite_perdir_conf *a;
+    a = (rewrite_perdir_conf *)pcalloc(p, sizeof(rewrite_perdir_conf));
+
+    a-&gt;state           = ENGINE_DISABLED;
+    a-&gt;rewriteconds    = make_array(p, 2, sizeof(rewritecond_entry));
+    a-&gt;rewriterules    = make_array(p, 2, sizeof(rewriterule_entry));
+    a-&gt;directory       = pstrdup(p, path);
+    a-&gt;baseurl         = NULL;
+    return (void *)a;
+}</pre></blockquote>
+
+
+
+
+
+<p>This function allocates memory for a <tt class="literal">rewrite_
+perdir_conf</tt> structure (defined elsewhere in
+<em class="filename">mod_rewrite.c</em>) and initializes it. Since this
+function is called for every <tt class="literal">&lt;Directory&gt;</tt>
+section, regardless of whether it contains any rewriting directives,
+the initialization makes sure the engine is disabled unless
+specifically enabled later.<a name="INDEX-1591" /></p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-18602" /><div class="sect2">
+<h3 class="sect2">15.3.3. Per-Server Merger</h3>
+
+
+
+
+
+<blockquote><pre class="code">void *module_merge_server(pool *pPool, void *base_conf, void *new_conf)</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-1592" /> <a name="INDEX-1593" /> <a name="INDEX-1594" /> <a name="INDEX-1595" />Once the
+Config files have been read, this function is called once for each
+virtual host, with <tt class="literal">base_conf</tt> pointing to the main
+server's configuration (for this module), and
+<tt class="literal">new_conf</tt> pointing to the virtual host's
+configuration. This gives you the opportunity to inherit any unset
+options in the virtual host from the main server or to merge the main
+server's entries into the virtual server, if appropriate. It
+returns a pointer to the new configuration structure for the virtual
+host (or it just returns <tt class="literal">new_conf</tt>, if
+appropriate).</p>
+
+
+
+
+
+<p>It is possible that future changes to Apache will allow merging of
+hosts other than the main one, so don't rely on
+<tt class="literal">base_conf</tt> pointing to the main server.</p>
+
+
+
+
+
+<a name="ch15-3-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.3.1. Example</h3>
+
+
+
+
+
+<p>From <em class="filename">mod_env.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">void *<a name="INDEX-1596" />merge_env_server_configs (pool *p, void *basev, void *addv)
+{
+    env_server_config_rec *base = (env_server_config_rec *)basev;
+    env_server_config_rec *add = (env_server_config_rec *)addv;
+    env_server_config_rec *new =
+      (env_server_config_rec *)palloc (p, sizeof(env_server_config_rec));
+    table *new_table;
+    table_entry *elts;
+    int i;
+    char *uenv, *unset;
+
+    new_table = copy_table( p, base-&gt;vars );
+    elts = (table_entry *) add-&gt;vars-&gt;elts;
+    for ( i = 0; i &lt; add-&gt;vars-&gt;nelts; ++i ) {
+        table_set( new_table, elts[i].key, elts[i].val ); 
+    }
+    unset = add-&gt;unsetenv;
+    uenv = getword_conf( p, &amp;unset );
+    while ( uenv[0] != '\0' ) {
+        table_unset( new_table, uenv );
+        uenv = getword_conf( p, &amp;unset );
+    }
+    new-&gt;vars = new_table;
+    new-&gt;vars_present = base-&gt;vars_present || add-&gt;vars_present;
+    return new;
+}</pre></blockquote>
+
+
+
+
+
+<p>This function creates a new configuration into which it then copies
+the <tt class="literal">base</tt> <tt class="literal">vars</tt> table (a table of
+environment variable names and values). It then runs through the
+individual entries of the <tt class="literal">addv</tt>
+<tt class="literal">vars</tt> table, setting them in the new table. It does
+this rather than use <tt class="literal">overlay_tables()</tt> because
+<tt class="literal">overlay_tables()</tt> does not deal with duplicated
+keys. Then the <tt class="literal">addv</tt> configuration's
+<tt class="literal">unsetenv</tt> (which is a space-separated list of
+environment variables to unset) unsets any variables specified to be
+unset for <tt class="literal">addv </tt>'s server.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-14240" /><div class="sect2">
+<h3 class="sect2">15.3.4. Per-Directory Merger</h3>
+
+
+
+
+
+<blockquote><pre class="code">void *<a name="INDEX-1597" />module_dir_merge(pool *pPool, void *base_conf, void *new_conf)</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-1598" /> <a name="INDEX-1599" />
+<a name="INDEX-1600" />Like the per-server merger, this
+is called once for each virtual host (not for each directory). It is
+handed the per-server document root per-directory Config (that is,
+the one that was created with a <tt class="literal">NULL</tt> directory
+name).</p>
+
+
+
+
+
+<p>Whenever a request is processed, this function merges all relevant
+<tt class="literal">&lt;Directory&gt;</tt> sections and then merges
+<em class="filename">.htacess</em> files (interleaved, starting at the
+root and working downward), then <tt class="literal">&lt;File&gt;</tt> and
+<tt class="literal">&lt;Location&gt;</tt> sections, in that order.</p>
+
+
+
+
+
+<p>Unlike the per-server merger, per-directory merger is called as the
+server runs, possibly with different combinations of directory,
+location, and file configurations for each request, so it is
+important that it copies the configuration (in
+<tt class="literal">new_conf</tt>) if it is going to change it.</p>
+
+
+
+
+
+<a name="ch15-4-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.4.1. Example</h3>
+
+
+
+
+
+<p>Now the reason we chose <em class="filename">mod_rewrite.c</em> for the
+per-directory creator becomes apparent, as it is a little more
+interesting than most:</p>
+
+
+
+
+
+<blockquote><pre class="code">static void *config_perdir_merge(pool *p, void *basev, void *overridesv)
+{
+    rewrite_perdir_conf *a, *base, *overrides;
+    a     = (rewrite_perdir_conf *)pcalloc(p, sizeof(rewrite_perdir_conf));
+    base  = (rewrite_perdir_conf *)basev;
+    overrides = (rewrite_perdir_conf *)overridesv;
+
+    a-&gt;state           = overrides-&gt;state;
+    a-&gt;options         = overrides-&gt;options;
+    a-&gt;directory       = overrides-&gt;directory;
+    a-&gt;baseurl         = overrides-&gt;baseurl;
+    if (a-&gt;options &amp; OPTION_INHERIT) {
+        a-&gt;rewriteconds = append_arrays(p, overrides-&gt;rewriteconds,     
+             base-&gt;rewriteconds);
+        a-&gt;rewriterules = append_arrays(p, overrides-&gt;rewriterules,
+             base-&gt;rewriterules);
+    }
+    else {
+        a-&gt;rewriteconds = overrides-&gt;rewriteconds;
+        a-&gt;rewriterules = overrides-&gt;rewriterules;
+    }
+    return (void *)a;
+}</pre></blockquote>
+
+
+
+
+
+<p>As you can see, this merges the configuration from the base
+conditionally, depending on whether the new configuration specified
+an <tt class="literal">INHERIT</tt> option or not.<a name="INDEX-1601" /> <a name="INDEX-1602" /> <a name="INDEX-1603" /></p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-40027" /><div class="sect2">
+<h3 class="sect2">15.3.5. Command Table</h3>
+
+
+
+
+
+<blockquote><pre class="code">command_rec aCommands[]</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-1604" /> <a name="INDEX-1605" />This structure points to an array of
+directives that configure the module. Each entry names a directive,
+specifies a function that will handle the command, and specifies
+which <tt class="literal">AllowOverride</tt> directives must be in force
+for the command to be permitted. Each entry then specifies how the
+directive's arguments are to be parsed and supplies an error
+message in case of syntax errors (such as the wrong number of
+arguments, or a directive used where it shouldn't be).</p>
+
+
+
+
+
+<p>The definition of
+<tt class="literal">command_rec</tt>
+<a name="INDEX-1606" /> can be found in
+<em class="filename">http_config.h</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">typedef struct command_struct {
+  char *name;               /* Name of this command */
+  char *(*func)();          /* Function invoked */
+  void *cmd_data;           /* Extra data, for functions that
+                             * implement multiple commands...
+                             */
+  int req_override;         /* What overrides need to be allowed to
+                             * enable this command
+                             */
+  enum cmd_how args_how;    /* What the command expects as arguments */
+  
+  char *errmsg;             /* 'usage' message, in case of syntax errors */
+} command_rec;</pre></blockquote>
+
+
+
+
+
+<p><tt class="literal">cmd_how</tt> is defined as
+follows:
+<a name="INDEX-1607" /></p>
+
+
+
+
+
+<blockquote><pre class="code">enum cmd_how {
+  RAW_ARGS,                     /* cmd_func parses command line itself */
+  TAKE1,                        /* one argument only */
+  TAKE2,                        /* two arguments only */
+  ITERATE,                      /* one argument, occurring multiple times
+                                 * (e.g., IndexIgnore)
+                                 */
+  ITERATE2,                     /* two arguments, 2nd occurs multiple times
+                                 * (e.g., AddIcon)
+                                 */
+  FLAG,                         /* One of 'On' or 'Off' */
+  NO_ARGS,                      /* No args at all, e.g. &lt;/Directory&gt; */
+  TAKE12,                       /* one or two arguments */
+  TAKE3,                        /* three arguments only */
+  TAKE23,                       /* two or three arguments */
+  TAKE123,                      /* one, two, or three arguments */
+  TAKE13                        /* one or three arguments */
+};</pre></blockquote>
+
+
+
+
+
+<p>These options determine how the function <tt class="literal">func</tt> is
+called when the matching directive is found in a Config file, but
+first we must look at one more structure,
+<tt class="literal">cmd_parms</tt>
+<a name="INDEX-1608" />:</p>
+
+
+
+
+
+<blockquote><pre class="code">typedef struct {
+    void *info;                /* Argument to command from cmd_table */
+    int override;              /* Which allow-override bits are set */
+    int limited;               /* Which methods are &lt;Limit&gt;ed */
+
+    char *config_file;         /* Filename cmd read from */
+    int config_line;           /* Line cmd read from */
+    FILE *infile;              /* fd for more lines (not currently used) */
+
+    pool *pool;                /* Pool to allocate new storage in */
+    pool *temp_pool;           /* Pool for scratch memory; persists during
+                                * configuration, but wiped before the first
+                                * request is served...
+                                */
+    server_rec *server;        /* server_rec being configured for */
+    char *path;                /* If configuring for a directory,
+                                * pathname of that directory
+                                */
+    command_rec *cmd;          /* Configuration command */
+} cmd_parms;</pre></blockquote>
+
+
+
+
+
+<p>This structure is filled in and passed to the function associated
+with each directive. Note that <tt class="literal">cmd_parms.info</tt> is
+filled in with the value of <tt class="literal">command_rec.cmd_data</tt>,
+allowing arbitrary extra information to be passed to the function.
+The function is also passed its per-directory configuration
+structure, if there is one, shown in the following definitions as
+<tt class="literal">mconfig</tt>. The per-server configuration is accessed
+by a call similar to:</p>
+
+
+
+
+
+<blockquote><pre class="code"><a name="INDEX-1609" />get_module_config(parms-&gt;server-&gt;module_config, &amp;module_struct)</pre></blockquote>
+
+
+
+
+
+<p>replacing <tt class="literal">module_struct</tt> with your own
+module's <tt class="literal">module</tt> structure. Extra information
+may also be passed, depending on the value of <tt class="literal">args_how
+</tt>:</p>
+
+
+
+
+
+<dl>
+<dt><b><tt class="literal">RAW_ARGS</tt></b></dt>
+<dd><p><tt class="literal">func(cmd_parms *parms, void *mconfig, char *args)</tt></p>
+
+
+
+
+
+<p><tt class="literal">args</tt> is simply the rest of the line (that is,
+excluding the directive).</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">NO_ARGS</tt></b></dt>
+<dd><p><tt class="literal">func(cmd_parms *parms, void *mconfig)</tt></p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">TAKE1</tt></b></dt>
+<dd><p><tt class="literal">func(cmd_parms *parms, void *mconfig, char *w)</tt></p>
+
+
+
+
+
+<p><tt class="literal">w</tt> is the single argument to the directive.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">TAKE2</tt>, <tt class="literal">TAKE12</tt></b></dt>
+<dd><p><tt class="literal">func(cmd_parms *parms, void *mconfig, char *w1, char
+*w2)</tt></p>
+
+
+
+
+
+<p><tt class="literal">w1</tt> and <tt class="literal">w2</tt> are the two arguments
+to the directive. <tt class="literal">TAKE12</tt> means the second argument
+is optional. If absent, <tt class="literal">w2</tt> is
+<tt class="literal">NULL</tt>.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">TAKE3</tt>, <tt class="literal">TAKE13</tt>, <tt class="literal">TAKE23</tt>, <tt class="literal">TAKE123</tt></b></dt>
+<dd><p><tt class="literal">func(cmd_parms *parms, void *mconfig, char *w1, char *w2, char *w3)</tt></p>
+
+
+
+
+
+<p><tt class="literal">w1</tt>, <tt class="literal">w2</tt>, and
+<tt class="literal">w3</tt> are the three arguments to the directive.
+<tt class="literal">TAKE13</tt>, <tt class="literal">TAKE23</tt>, and
+<tt class="literal">TAKE123</tt> mean that the directive takes one or
+three, two or three, and one, two, or three arguments, respectively.
+Missing arguments are <tt class="literal">NULL</tt>.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">ITERATE</tt></b></dt>
+<dd><p><tt class="literal">func(cmd_parms *parms, void *mconfig, char *w)</tt></p>
+
+
+
+
+
+<p><tt class="literal">func</tt> is called repeatedly, once for each argument
+following the directive.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">ITERATE2</tt></b></dt>
+<dd><p><tt class="literal">func(cmd_parms *parms, void *mconfig, char *w1, char
+*w2)</tt></p>
+
+
+
+
+
+<p>There must be at least two arguments. <tt class="literal">func</tt> is
+called once for each argument, starting with the second. The first is
+passed to <tt class="literal">func</tt> every time.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">FLAG</tt></b></dt>
+<dd><p><tt class="literal">func(cmd_parms *parms, void *mconfig, int f)</tt></p>
+
+
+
+
+
+<p>The argument must be either <tt class="literal">On</tt> or
+<tt class="literal">Off</tt>. If <tt class="literal">On</tt>, then
+<tt class="literal">f</tt> is nonzero; if <tt class="literal">Off</tt>,
+<tt class="literal">f</tt> is zero.</p></dd>
+
+</dl>
+
+
+
+
+
+<p><tt class="literal">req_override</tt> can be any combination of the
+following (ORed together):</p>
+
+
+
+
+
+<blockquote><pre class="code">#define OR_NONE 0
+#define OR_LIMIT 1
+#define OR_OPTIONS 2
+#define OR_FILEINFO 4
+#define OR_AUTHCFG 8
+#define OR_INDEXES 16
+#define OR_UNSET 32
+#define ACCESS_CONF 64
+#define RSRC_CONF 128
+#define OR_ALL (OR_LIMIT|OR_OPTIONS|OR_FILEINFO|OR_AUTHCFG|OR_INDEXES)</pre></blockquote>
+
+
+
+
+
+<p>This structure defines the circumstances under which a directive is
+permitted. The logical AND of this field and the current override
+state must be nonzero for the directive to be allowed. In
+configuration files, the current override state is:</p>
+
+
+
+
+
+<blockquote><pre class="code">RSRC_CONF|OR_OPTIONS|OR_FILEINFO|OR_INDEXES</pre></blockquote>
+
+
+
+
+
+<p>when outside a <tt class="literal">&lt;Directory&gt;</tt> section, and is:</p>
+
+
+
+
+
+<blockquote><pre class="code">ACCESS_CONF|OR_LIMIT|OR_OPTIONS|OR_FILEINFO|OR_AUTHCFG|OR_INDEXES</pre></blockquote>
+
+
+
+
+
+<p>when inside a <tt class="literal">&lt;Directory&gt; </tt>section.</p>
+
+
+
+
+
+<p>In <em class="filename">.htaccess</em> files, the state is determined by
+the <tt class="literal">AllowOverride</tt>
+<a name="INDEX-1610" /> directive.</p>
+
+
+
+
+
+<a name="ch15-5-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.5.1. Example</h3>
+
+
+
+
+
+<p>From <em class="filename">mod_mime.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">command_rec mime_cmds[] = {
+{ "AddType", add_type, NULL, OR_FILEINFO, ITERATE2,
+    "a mime type followed by one or more file extensions" },
+{ "AddEncoding", add_encoding, NULL, OR_FILEINFO, ITERATE2,
+    "an encoding (e.g., gzip), followed by one or more file extensions" },
+{ "AddLanguage", add_language, NULL, OR_FILEINFO, ITERATE2,
+    "a language (e.g., fr), followed by one or more file extensions" },
+{ "AddHandler", add_handler, NULL, OR_FILEINFO, ITERATE2,
+    "a handler name followed by one or more file extensions" },
+{ "ForceType", set_string_slot, (void*)XtOffsetOf(mime_dir_config, type),
+    OR_FILEINFO, TAKE1, "a media type" },
+{ "SetHandler", set_string_slot, (void*)XtOffsetOf(mime_dir_config,
+    handler), OR_FILEINFO, TAKE1, "a handler name" },
+{ "TypesConfig", set_types_config, NULL, RSRC_CONF, TAKE1,
+    "the MIME types config file" },
+{ NULL }
+};</pre></blockquote>
+
+
+
+
+
+<p>Note the use of <tt class="literal">set_string_slot()</tt>. This standard
+function uses the offset defined in <tt class="literal">cmd_data</tt>,
+using <tt class="literal">XtOffsetOf</tt> to set a <tt class="literal">char*</tt>
+in the per-directory configuration of the module.<a name="INDEX-1611" /> <a name="INDEX-1612" /></p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-31016" /><div class="sect2">
+<h3 class="sect2">15.3.6. Initializer</h3>
+
+
+
+
+
+<blockquote><pre class="code">void module_init(server_rec *pServer, pool *pPool)</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-1613" />
+<a name="INDEX-1614" />This function
+is called after the server configuration files have been read but
+before any requests are handled. Like the configuration functions, it
+is called each time the server is reconfigured, so care must be taken
+to make sure it behaves correctly on the second and subsequent calls.
+This is the last function to be called before Apache forks the
+request-handling children. <tt class="literal">pServer</tt> is a pointer to
+the <tt class="literal">server_rec</tt> for the main host.
+<tt class="literal">pPool</tt> is a <tt class="literal">pool</tt> that persists
+until the server is reconfigured. Note that, at least in the current
+version of Apache:</p>
+
+
+
+
+
+<blockquote><pre class="code">pServer-&gt;server_hostname</pre></blockquote>
+
+
+
+
+
+<p>may not yet be initialized. If the module is going to add to the
+version string with <tt class="literal">ap_add_version_component()</tt>,
+then this is a good place to do it.</p>
+
+
+
+
+
+<p>It is possible to iterate through all the server configurations by
+following the <tt class="literal">next</tt> member of
+<tt class="literal">pServer</tt>, as in the following:</p>
+
+
+
+
+
+<blockquote><pre class="code">for( ; pServer ; pServer=pServer-&gt;next)
+    ;</pre></blockquote>
+
+
+
+
+
+<a name="ch15-6-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.6.1. Example</h3>
+
+
+
+
+
+<p>From <em class="filename">mod_mime.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">#define MIME_HASHSIZE 27
+#define hash(i) (isalpha(i) ? (tolower(i)) - 'a' : 26)
+
+static table *hash_buckets[MIME_HASHSIZE];
+
+void init_mime (server_rec *s, pool *p)
+{
+    FILE *f;
+    char l[MAX_STRING_LEN];
+    int x;
+    char *types_confname = get_module_config (s-&gt;module_config, 
+               &amp;mime_module);
+
+    if (!types_confname) types_confname = TYPES_CONFIG_FILE;
+
+    types_confname = server_root_relative (p, types_confname);
+
+    if(!(f = fopen(types_confname,"r"))) {
+        fprintf(stderr,"httpd: could not open mime types file %s\n",
+               types_confname);
+        perror("fopen");
+        exit(1);
+    }
+
+    for(x=0;x&lt;27;x++) 
+        hash_buckets[x] = make_table (p, 10);
+
+    while(!(cfg_getline(l,MAX_STRING_LEN,f))) {
+        char *ll = l, *ct;
+
+        if(l[0] == '#'. continue;
+        ct = getword_conf (p, &amp;ll);
+
+        while(ll[0]) {
+            char *ext = getword_conf (p, &amp;ll);
+            str_tolower (ext);  /* ??? */
+            table_set (hash_buckets[hash(ext[0])], ext, ct);
+        }
+    }
+    fclose(f);
+}</pre></blockquote>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-7-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.3.7. Child Initialization</h3>
+
+
+
+
+
+<blockquote><pre class="code">static void <a name="INDEX-1615" />
+<a name="INDEX-1616" />module_child_init(server_rec *pServer,pool *pPool)</pre></blockquote>
+
+
+
+
+
+<p>An Apache server may consist of many processes (on Unix, for example)
+or a single process with many threads (on Win32) or, in the future, a
+combination of the two. <tt class="literal">module_child_init()</tt> is
+called once for each instance of a heavyweight process, that is,
+whatever level of execution corresponds to a separate address space,
+file handles, etc. In the case of Unix, this is once per child
+process, but on Win32 it is called only once in total,
+<em class="emphasis">not</em> once per thread. This is because threads
+share address space and other resources. There is not currently a
+corresponding per-thread call, but there may be in the future. There
+is a corresponding call for child exit, described later in this
+chapter.</p>
+
+
+
+
+
+<a name="ch15-8-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.7.1. Example</h3>
+
+
+
+
+
+<p>From <em class="firstterm">mod_unique_id.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">static void <a name="INDEX-1617" />unique_id_child_init(server_rec *s, pool *p)
+{
+    pid_t pid;
+#ifndef NO_GETTIMEOFDAY
+    struct timeval tv;
+#endif
+
+    pid = getpid();
+    cur_unique_id.pid = pid;
+
+    if (cur_unique_id.pid != pid) {
+        ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_CRIT, s,
+                    "oh no! pids are greater than 32-bits!  I'm broken!");
+    }
+
+    cur_unique_id.in_addr = global_in_addr;
+
+#ifndef NO_GETTIMEOFDAY
+    if (gettimeofday(&amp;tv, NULL) == -1) {
+        cur_unique_id.counter = 0;
+    }
+    else {
+        cur_unique_id.counter = tv.tv_usec / 10;
+    }
+#else
+    cur_unique_id.counter = 0;
+#endif
+
+    cur_unique_id.pid = htonl(cur_unique_id.pid);
+    cur_unique_id.counter = htons(cur_unique_id.counter);
+}</pre></blockquote>
+
+
+
+
+
+<p><em class="filename">mod_unique_id.c </em>'s purpose in life is to
+provide an ID for each request that is unique across all web servers
+everywhere (or, at least at a particular site). In order to do this
+it uses various bits of uniqueness, including the process ID of the
+child and the time at which it was forked, which is why it uses this
+hook.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-9-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.3.8. Post Read Request</h3>
+
+
+
+
+
+<blockquote><pre class="code">static int <a name="INDEX-1618" />
+<a name="INDEX-1619" />
+<a name="INDEX-1620" />module_post_read_request(request_rec *pReq)</pre></blockquote>
+
+
+
+
+
+<p>This function is called immediately after the request headers have
+been read, or, in the case of an internal redirect, synthesized. It
+is not called for subrequests. It can return <tt class="literal">OK</tt>,
+<tt class="literal">DECLINED</tt>, or a status code. If something other
+than <tt class="literal">DECLINED</tt> is returned, no further modules are
+called. This can be used to make decisions based purely on the header
+content. Currently the only standard Apache module to use this hook
+is the proxy module.</p>
+
+
+
+
+
+<a name="ch15-10-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.8.1. Example</h3>
+
+
+
+
+
+<p>From <em class="filename">mod_proxy.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">/* Detect if an absolute URI should be proxied or not. Note that we
+ * have to do this during this phase because later phases are
+ * "short-circuiting"... i.e., translate_names will end when the first
+ * module returns OK. So for example, if the request is something like:
+ *
+ * GET http://othervhost/cgi-bin/printenv HTTP/1.0
+ *
+ * mod_alias will notice the /cgi-bin part and ScriptAlias it and
+ * short-circuit the proxy... just because of the ordering in the
+ * configuration file.
+ */
+static int proxy_detect(request_rec *r)
+{
+    void *sconf = r-&gt;server-&gt;module_config;
+    proxy_server_conf *conf;
+
+    conf = (proxy_server_conf *) ap_get_module_config(sconf, &amp;proxy_module);
+
+    if (conf-&gt;req &amp;&amp; r-&gt;parsed_uri.scheme) {
+    /* but it might be something vhosted */
+       if (!(r-&gt;parsed_uri.hostname
+           &amp;&amp; !strcasecmp(r-&gt;parsed_uri.scheme, ap_http_method(r))
+           &amp;&amp; ap_matches_request_vhost(r, r-&gt;parsed_uri.hostname,
+               r-&gt;parsed_uri.port_str ? r-&gt;parsed_uri.port : ap_default_port(r)))) {
+        r-&gt;proxyreq = 1;
+        r-&gt;uri = r-&gt;unparsed_uri;
+        r-&gt;filename = ap_pstrcat(r-&gt;pool, "proxy:", r-&gt;uri, NULL);
+        r-&gt;handler = "proxy-server";
+        }
+    }
+    /* We need special treatment for CONNECT proxying: it has no scheme part */
+    else if (conf-&gt;req &amp;&amp; r-&gt;method_number == M_CONNECT
+        &amp;&amp; r-&gt;parsed_uri.hostname
+        &amp;&amp; r-&gt;parsed_uri.port_str) {
+        r-&gt;proxyreq = 1;
+        r-&gt;uri = r-&gt;unparsed_uri;
+        r-&gt;filename = ap_pstrcat(r-&gt;pool, "proxy:", r-&gt;uri, NULL);
+        r-&gt;handler = "proxy-server";
+    }
+    return DECLINED;
+}</pre></blockquote>
+
+
+
+
+
+<p>This code checks for a request that includes a hostname that does
+<em class="emphasis">not</em> match the current virtual host (which, since
+it will have been chosen on the basis of the hostname in the request,
+means it doesn't match any virtual host), or a
+<tt class="literal">CONNECT</tt> method (which only proxies use). If either
+of these conditions are true, the handler is set to
+<tt class="literal">proxy-server</tt>, and the filename is set to
+<tt class="literal">proxy:</tt><em class="replaceable">uri</em> so that the
+later phases will be handled by the proxy module.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-33482" /><div class="sect2">
+<h3 class="sect2">15.3.9. Translate Name</h3>
+
+
+
+
+
+<blockquote><pre class="code">int <a name="INDEX-1621" />module_translate(request_rec *pReq)</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-1622" />
+<a name="INDEX-1623" />
+<a name="INDEX-1624" />This function's task is to translate
+the URL in a request into a filename. The end result of its
+deliberations should be placed in
+<tt class="literal">pReq-&gt;filename</tt>. It should return
+<tt class="literal">OK</tt>, <tt class="literal">DECLINED</tt>, or a status code.
+The first module that doesn't return
+<tt class="literal">DECLINED</tt> is assumed to have done the job, and no
+further modules are called. Since the order in which modules are
+called is not defined, it is a good thing if the URLs handled by the
+modules are mutually exclusive. If all modules return
+<tt class="literal">DECLINED</tt>, a configuration error has occurred.
+Obviously, the function is likely to use the per-directory and
+per-server configurations (but note that at this stage, the
+per-directory configuration refers to the root configuration of the
+current server) in order to determine whether it should handle the
+request, as well as the URL itself (in
+<tt class="literal">pReq-&gt;uri</tt>). If a status is returned, the
+appropriate headers for the response should also be set in
+<tt class="literal">pReq-&gt;headers_out</tt>.</p>
+
+
+
+
+
+<a name="ch15-11-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.9.1. Example</h3>
+
+
+
+
+
+<p>Naturally enough, this comes from <em class="filename">mod_alias.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">char *try_alias_list (request_rec *r, array_header *aliases, int doesc)
+{
+    alias_entry *entries = (alias_entry *)aliases-&gt;elts;
+    int i;
+    
+    for (i = 0; i &lt; aliases-&gt;nelts; ++i) {
+        alias_entry *p = &amp;entries[i];
+        int l = alias_matches (r-&gt;uri, p-&gt;fake);
+        if (l &gt; 0) {
+            if (p-&gt;handler) { /* Set handler and leave a note for mod_cgi */
+                r-&gt;handler = pstrdup(r-&gt;pool, p-&gt;handler);
+                table_set (r-&gt;notes, "alias-forced-type", p-&gt;handler);
+            }
+            if (doesc) {
+                char *escurl;
+                escurl = os_escape_path(r-&gt;pool, r-&gt;uri + l, 1);
+                return pstrcat(r-&gt;pool, p-&gt;real, escurl, NULL);
+            } else
+                return pstrcat(r-&gt;pool, p-&gt;real, r-&gt;uri + l, NULL);
+        }
+    }
+    return NULL;
+}
+
+int translate_alias_redir(request_rec *r)
+{
+    void *sconf = r-&gt;server-&gt;module_config;
+    alias_server_conf *serverconf =
+        (alias_server_conf *)get_module_config(sconf, &amp;alias_module);
+    char *ret;
+#ifdef __EMX__
+    /* Add support for OS/2 drive names */
+    if ((r-&gt;uri[0] != '/' &amp;&amp; r-&gt;uri[0] != '\0'. &amp;&amp; r-&gt;uri[1] != ':'.
+#else    
+    if (r-&gt;uri[0] != '/' &amp;&amp; r-&gt;uri[0] != '\0'. 
+#endif    
+        return DECLINED;
+    if ((ret = try_alias_list (r, serverconf-&gt;redirects, 1)) != NULL) {
+        table_set (r-&gt;headers_out, "Location", ret);
+        return REDIRECT;
+    }
+
+    if ((ret = try_alias_list (r, serverconf-&gt;aliases, 0)) != NULL) {
+        r-&gt;filename = ret;
+        return OK;
+    }
+
+    return DECLINED;
+}</pre></blockquote>
+
+
+
+
+
+<p>First of all, this example tries to match a
+<tt class="literal">Redirect</tt> directive. If it does, the
+<tt class="literal">Location</tt> header is set in
+<tt class="literal">headers_out</tt>, and <tt class="literal">REDIRECT</tt> is
+returned. If not, it translates into a filename. Note that it may
+also set a handler (in fact, the only handler it can possibly set is
+<em class="emphasis">cgi-script</em>, which it does if the alias was
+created by a <tt class="literal">ScriptAlias</tt> directive). An
+interesting feature is that it sets a note for
+<em class="filename">mod_cgi.c</em>, namely
+<em class="emphasis">alias-forced-type</em>. This is used by
+<em class="filename">mod_cgi.c</em> to determine whether the CGI script is
+invoked via a <tt class="literal">ScriptAlias</tt>, in which case
+<tt class="literal">Options</tt> <tt class="literal">ExecCGI</tt> is not
+needed.<a href="#FOOTNOTE-83">[83]</a> For completeness, here is the code from
+<em class="filename">mod_cgi.c</em> that makes the test:</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-83" /><p>[83]This is a backward-compatibility
+feature.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<blockquote><pre class="code">int is_scriptaliased (request_rec *r)
+{
+    char *t = table_get (r-&gt;notes, "alias-forced-type");
+    return t &amp;&amp; (!strcmp (t, "cgi-script"));
+}</pre></blockquote>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-21556" /><div class="sect2">
+<h3 class="sect2">15.3.10. An Interjection</h3>
+
+
+
+
+
+<p>At this point, the filename is known as well as the URL, and Apache
+reconfigures itself to hand subsequent module functions the relevant
+per-directory configuration (actually composed of all matching
+directory, location, and file configurations, merged with each other
+via the per-directory merger, in that order).<a href="#FOOTNOTE-84">[84]</a></p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-84" /><p>[84]In
+fact, some of this is done before the Translate Name phase, and some
+after, since the location information can be used before name
+translation is done, but filename information obviously cannot be. If
+you really want to know exactly what is going on, probe the behavior
+with<em class="filename"> mod_reveal.c</em>.</p>
+
+
+
+
+</blockquote>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-12-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.3.11. Header Parser</h3>
+
+
+
+
+
+<blockquote><pre class="code">static int <a name="INDEX-1625" />
+<a name="INDEX-1626" />
+<a name="INDEX-1627" />module_header_parser(request_rec *pReq)</pre></blockquote>
+
+
+
+
+
+<p>This routine is similar in intent to the Post Read Request phase. It
+can return <tt class="literal">OK</tt>, <tt class="literal">DECLINED</tt>, or a
+status code. If something other than <tt class="literal">DECLINED</tt> is
+returned, no further modules are called. The intention was to make
+decisions based on the headers sent by the client. However, its use
+has been superseded by Post Read Request (which was introduced later
+in the development process) and it is not currently used by any
+standard module. For that reason, it is not possible to illustrate it
+with an example.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-13972" /><div class="sect2">
+<h3 class="sect2">15.3.12. Check Access</h3>
+
+
+
+
+
+<blockquote><pre class="code">int <a name="INDEX-1628" />module_check_access(request_rec *pReq)</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-1629" />
+<a name="INDEX-1630" />
+<a name="INDEX-1631" />This
+routine checks access, in the allow/deny sense. It can return
+<tt class="literal">OK </tt>, <tt class="literal">DECLINED</tt>, or a status
+code. All modules are called until one of them returns something
+other than <tt class="literal">DECLINED</tt> or <tt class="literal">OK</tt>. If
+all modules return <tt class="literal">DECLINED</tt>, it is considered a
+configuration error. At this point, the URL and the filename (if
+relevant) are known, as are the client's address, user agent,
+and so forth. All of these are available through
+<tt class="literal">pReq</tt>. As long as everything says
+<tt class="literal">DECLINED</tt> or <tt class="literal">OK</tt>, the request can
+proceed.</p>
+
+
+
+
+
+<a name="ch15-13-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.12.1. Example</h3>
+
+
+
+
+
+<p>The only example available in the standard modules is,
+unsurprisingly, from <em class="filename">mod_access.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">int find_allowdeny (request_rec *r, array_header *a, int method)
+{
+    allowdeny *ap = (allowdeny *)a-&gt;elts;
+    int mmask = (1 &lt;&lt; method);
+    int i, gothost=0;
+    const char *remotehost=NULL;
+
+    for (i = 0; i &lt; a-&gt;nelts; ++i) {
+        if (!(mmask &amp; ap[i].limited))
+            continue;
+        if (ap[i].from &amp;&amp; !strcmp(ap[i].from, "user-agents")) {
+            char * this_agent = table_get(r-&gt;headers_in, "User-Agent");
+            int j;
+
+            if (!this_agent) return 0;
+
+            for (j = i+1; j &lt; a-&gt;nelts; ++j) {
+                if (strstr(this_agent, ap[j].from)) return 1;
+            }
+            return 0;
+        }
+
+        if (!strcmp (ap[i].from, "all"))
+            return 1;
+        if (!gothost)
+        {
+            remotehost = get_remote_host(r-&gt;connection, r-&gt;per_dir_config,
+                                         REMOTE_HOST);
+            gothost = 1;
+        }
+        if (remotehost != NULL &amp;&amp; isalpha(remotehost[0]))
+            if (in_domain(ap[i].from, remotehost))
+                return 1;
+        if (in_ip (ap[i].from, r-&gt;connection-&gt;remote_ip))
+            return 1;
+    }
+    return 0;
+}
+
+int check_dir_access (request_rec *r)
+{
+    int method = r-&gt;method_number;
+    access_dir_conf *a =
+        (access_dir_conf *)
+           get_module_config (r-&gt;per_dir_config, &amp;access_module);
+    int ret = OK;
+
+    if (a-&gt;order[method] == ALLOW_THEN_DENY) {
+        ret = FORBIDDEN;
+        if (find_allowdeny (r, a-&gt;allows, method))
+            ret = OK;
+        if (find_allowdeny (r, a-&gt;denys, method))
+            ret = FORBIDDEN;
+    } else if (a-&gt;order[method] == DENY_THEN_ALLOW) {
+        if (find_allowdeny (r, a-&gt;denys, method))
+            ret = FORBIDDEN;
+        if (find_allowdeny (r, a-&gt;allows, method))
+            ret = OK;
+    }
+    else {
+        if (find_allowdeny(r, a-&gt;allows, method) 
+            &amp;&amp; !find_allowdeny(r, a-&gt;denys, method))
+            ret = OK;
+        else
+            ret = FORBIDDEN;
+    }
+
+    if (ret == FORBIDDEN)
+        log_reason ("Client denied by server configuration", r-&gt;filename, r);
+
+    return ret;
+}</pre></blockquote>
+
+
+
+
+
+<p>Pretty straightforward stuff. <tt class="literal">in_ip()</tt> and
+<tt class="literal">in_domain()</tt> check whether an IP address or domain
+name, respectively, match the IP or domain of the client.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-16516" /><div class="sect2">
+<h3 class="sect2">15.3.13. Check User ID</h3>
+
+
+
+
+
+<blockquote><pre class="code">int module_check_user_id(request_rec *pReq)</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-1632" /> <a name="INDEX-1633" />This
+function is responsible for acquiring and checking a user ID. The
+user ID should be stored in
+<tt class="literal">pReq-&gt;connection-&gt;user</tt>. The function should
+return <tt class="literal">OK</tt>, <tt class="literal">DECLINED</tt>, or a
+status code. Of particular interest is
+<tt class="literal">HTTP_UNAUTHORIZED</tt> (formerly known as
+<tt class="literal">AUTH_REQUIRED</tt>), which should be returned if the
+authorization fails (either because the user agent presented no
+credentials, or because those presented were not correct). All
+modules are polled until one returns something other than
+<tt class="literal">DECLINED</tt>. If all decline, a configuration error is
+logged, and an error returned to the user agent. When
+<tt class="literal">HTTP_UNAUTHORIZED</tt> is returned, an appropriate
+header should be set to inform the user agent of the type of
+credentials to present when it retries. Currently the appropriate
+header is <tt class="literal">WWW-Authenticate</tt> (see the HTTP/1.1
+specification for details). Unfortunately, Apache's modularity
+is not quite as good as it might be in this area, so this hook
+usually provides alternate ways of accessing the user/password
+database, rather than changing the way authorization is actually
+done, as evidenced by the fact that the protocol side of
+authorization is currently dealt with in
+<em class="filename">http_protocol.c</em>, rather than in the module. Note
+that this function checks the validity of the username and password,
+and not whether the particular user has permission to access the URL.</p>
+
+
+
+
+
+<a name="ch15-14-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.13.1. Example</h3>
+
+
+
+
+
+<p>An obvious user of this hook is <em class="filename">mod_auth.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">int authenticate_basic_user (request_rec *r)
+{
+    auth_config_rec *sec =
+      (auth_config_rec *)get_module_config (r-&gt;per_dir_config, &amp;auth_module);
+    conn_rec *c = r-&gt;connection;
+    char *sent_pw, *real_pw;
+    char errstr[MAX_STRING_LEN];
+    int res;
+
+    if ((res = get_basic_auth_pw (r, &amp;sent_pw))) return res;
+
+    if(!sec-&gt;auth_pwfile) 
+        return DECLINED;
+
+    if (!(real_pw = get_pw(r, c-&gt;user, sec-&gt;auth_pwfile))) {
+        sprintf(errstr,"user %s not found",c-&gt;user);
+        log_reason (errstr, r-&gt;uri, r);
+        note_basic_auth_failure (r);
+        return AUTH_REQUIRED;
+    }
+
+    if(strcmp(real_pw,(char *)crypt(sent_pw,real_pw))) {
+        sprintf(errstr,"user %s: password mismatch",c-&gt;user);
+        log_reason (errstr, r-&gt;uri, r);
+        note_basic_auth_failure (r);
+        return AUTH_REQUIRED;
+    }
+
+    return OK;
+}</pre></blockquote>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-21395" /><div class="sect2">
+<h3 class="sect2">15.3.14. Check Auth</h3>
+
+
+
+
+
+<blockquote><pre class="code">int <a name="INDEX-1634" />
+<a name="INDEX-1635" />module_check_auth(request_rec *pReq)</pre></blockquote>
+
+
+
+
+
+<p>This hook is called to check whether the authenticated user (found in
+<tt class="literal">pReq-&gt;connection-&gt;user</tt>) is permitted to
+access the current URL. It normally uses the per-directory
+configuration (remembering that this is actually the combined
+directory, location, and file configuration) to determine this. It
+must return <tt class="literal">OK</tt>, <tt class="literal">DECLINED</tt>, or a
+status code. Again, the usual status to return is
+<tt class="literal">HTTP_UNAUTHORIZED</tt> if access is denied, thus giving
+the user a chance to present new credentials. Modules are polled
+until one returns something other than <tt class="literal">DECLINED</tt>.</p>
+
+
+
+
+
+<a name="ch15-15-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.14.1. Example</h3>
+
+
+
+
+
+<p>Again, the natural example to use is from
+<em class="filename">mod_auth.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">int check_user_access (request_rec *r) {
+    auth_config_rec *sec =
+      (auth_config_rec *)get_module_config (r-&gt;per_dir_config, &amp;auth_module);
+    char *user = r-&gt;connection-&gt;user;
+    int m = r-&gt;method_number;
+    int method_restricted = 0;
+    register int x;
+    char *t, *w;
+    table *grpstatus;
+    array_header *reqs_arr = requires (r);
+    require_line *reqs;
+
+    if (!reqs_arr)
+        return (OK);
+    reqs = (require_line *)reqs_arr-&gt;elts;
+
+    if(sec-&gt;auth_grpfile)
+        grpstatus = groups_for_user (r-&gt;pool, user, sec-&gt;auth_grpfile);
+    else
+        grpstatus = NULL;
+
+    for(x=0; x &lt; reqs_arr-&gt;nelts; x++) {
+
+        if (! (reqs[x].method_mask &amp; (1 &lt;&lt; m))) continue;
+
+        method_restricted = 1;
+
+        t = reqs[x].requirement;
+        w = getword(r-&gt;pool, &amp;t, ' ');
+        if(!strcmp(w,"valid-user"))
+            return OK;
+        if(!strcmp(w,"user")) {
+            while(t[0]) {
+                w = getword_conf (r-&gt;pool, &amp;t);
+                if(!strcmp(user,w))
+                    return OK;
+            }
+        }
+        else if(!strcmp(w,"group")) {
+            if(!grpstatus) 
+                return DECLINED;        /* DBM group?  Something else? */
+            
+            while(t[0]) {
+                w = getword_conf(r-&gt;pool, &amp;t);
+                if(table_get (grpstatus, w))
+                    return OK;
+            }
+        }
+    }
+
+    if (!method_restricted)
+        return OK;
+
+    note_basic_auth_failure (r);<a name="INDEX-1636" />
+<a name="INDEX-1637" />
+    return AUTH_REQUIRED;}<a name="INDEX-1638" />
+<a name="INDEX-1639" /></pre></blockquote>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-35762" /><div class="sect2">
+<h3 class="sect2">15.3.15. Type Checker</h3>
+
+
+
+
+
+<blockquote><pre class="code">int module_type_checker(request_rec *pReq)</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-1640" /> <a name="INDEX-1641" /> <a name="INDEX-1642" />
+<a name="INDEX-1643" />At
+this stage, we have almost finished processing the request. All that
+is left to decide is who actually handles it. This is done in two
+stages: first, by converting the URL or filename into a MIME type or
+handler string, a language, and an encoding; and second, by calling
+the appropriate function for the type. This hook deals with the first
+part. If it generates a MIME type, it should be stored in
+<tt class="literal">pReq-&gt;content_type</tt>. Alternatively, if it
+generates a handler string, it should be stored in
+<tt class="literal">pReq-&gt;handler</tt>. The languages go in
+<tt class="literal">pReq-&gt;content_languages</tt>, and the encoding in
+<tt class="literal">pReq-&gt;content_encoding</tt>. Note that there is no
+defined way of generating a unique handler string. Furthermore,
+handler strings and MIME types are matched to the request handler
+through the same table, so the handler string should probably not be
+a MIME type.<a href="#FOOTNOTE-85">[85]</a></p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-85" /><p>[85]Old hands may recall that earlier
+versions of Apache used "magic" MIME types to cause
+certain request handlers to be invoked, such as the CGI handler.
+Handler strings were invented to remove this kludge.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<a name="ch15-16-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.15.1. Example</h3>
+
+
+
+
+
+<p>One obvious place that this must go on is in
+<em class="filename">mod_mime.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">int find_ct(request_rec *r)
+{
+    char *fn = strrchr(r-&gt;filename, '/'.;
+    mime_dir_config *conf =
+      (mime_dir_config *)get_module_config(r-&gt;per_dir_config, &amp;mime_module);
+    char *ext, *type, *orighandler = r-&gt;handler;
+
+    if (S_ISDIR(r-&gt;finfo.st_mode)) {
+        r-&gt;content_type = DIR_MAGIC_TYPE;
+        return OK;
+    }
+
+    if(fn == NULL) fn = r-&gt;filename;
+
+    /* Parse filename extensions, which can be in any order */
+    while ((ext = getword(r-&gt;pool, &amp;fn, '.')) &amp;&amp; *ext) {
+      int found = 0;
+
+      /* Check for Content-Type */
+      if ((type = table_get (conf-&gt;forced_types, ext))
+          || (type = table_get (hash_buckets[hash(*ext)], ext))) {
+          r-&gt;content_type = type;
+          found = 1;
+      }
+
+      /* Check for Content-Language */
+      if ((type = table_get (conf-&gt;language_types, ext))) {
+          r-&gt;content_language = type;
+          found = 1;
+      }
+
+      /* Check for Content-Encoding */
+      if ((type = table_get (conf-&gt;encoding_types, ext))) {
+          if (!r-&gt;content_encoding)
+              r-&gt;content_encoding = type;
+          else
+              r-&gt;content_encoding = pstrcat(r-&gt;pool, r-&gt;content_encoding,
+                                            ", ", type, NULL);
+          found = 1;
+      }
+
+      /* Check for a special handler, but not for proxy request */
+      if ((type = table_get (conf-&gt;handlers, ext)) &amp;&amp; !r-&gt;proxyreq) {
+          r-&gt;handler = type;
+          found = 1;
+      }
+
+      /* This is to deal with cases such as foo.gif.bak, which we want
+       * to not have a type. So if we find an unknown extension, we
+       * zap the type/language/encoding and reset the handler.
+       */
+
+      if (!found) {
+        r-&gt;content_type = NULL;
+        r-&gt;content_language = NULL;
+        r-&gt;content_encoding = NULL;
+        r-&gt;handler = orighandler;
+      }
+    }
+
+    /* Check for overrides with ForceType/SetHandler */
+
+    if (conf-&gt;type &amp;&amp; strcmp(conf-&gt;type, "none"))
+        r-&gt;content_type = pstrdup(r-&gt;pool, conf-&gt;type);
+    if (conf-&gt;handler &amp;&amp; strcmp(conf-&gt;handler, "none"))
+        r-&gt;handler = pstrdup(r-&gt;pool, conf-&gt;handler);
+
+    if (!r-&gt;content_type) return DECLINED;
+
+    return OK;
+}</pre></blockquote>
+
+
+
+
+
+<p>Another example can be found in
+<em class="filename">mod_negotiation.c</em>, but it is rather more
+complicated than is needed to illustrate the point.<a name="INDEX-1644" /> <a name="INDEX-1645" /> <a name="INDEX-1646" /> <a name="INDEX-1647" /></p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-35307" /><div class="sect2">
+<h3 class="sect2">15.3.16. Prerun Fixups</h3>
+
+
+
+
+
+<blockquote><pre class="code">int <a name="INDEX-1648" />
+<a name="INDEX-1649" />
+<a name="INDEX-1650" />
+<a name="INDEX-1651" />module_fixups(request_rec *pReq)</pre></blockquote>
+
+
+
+
+
+<p>Nearly there! This is your last chance to do anything that might be
+needed before the request is finally handled. At this point, all
+processing that is going to be done before the request is handled has
+been completed, the request is going to be satisfied, and all that is
+left to do is anything the request handler won't do. Examples
+of what you might do here include setting environment variables for
+CGI scripts, adding headers to
+<tt class="literal">pReq-&gt;header_out</tt>, or even setting something to
+modify the behavior of another module's handler in
+<tt class="literal">pReq-&gt;notes</tt>. Things you probably
+shouldn't do at this stage are many, but, most importantly, you
+should leave anything security-related alone, including, but
+certainly not limited to, the URL, the filename, and the username.
+Most modules won't use this hook because they do their real
+work elsewhere.</p>
+
+
+
+
+
+<a name="ch15-17-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.16.1. Example</h3>
+
+
+
+
+
+<p>As an example, we will set the environment variables for a shell
+script. Here's where it's done in
+<em class="filename">mod_env.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">int fixup_env_module(request_rec *r)
+{
+    table *e = r-&gt;subprocess_env;
+    server_rec *s = r-&gt;server;
+    env_server_config_rec *sconf = get_module_config (s-&gt;module_config,
+                                                      &amp;env_module);
+    table *vars = sconf-&gt;vars;
+    if ( !sconf-&gt;vars_present ) return DECLINED;
+    r-&gt;subprocess_env = overlay_tables( r-&gt;pool, e, vars );
+    return OK;  
+}</pre></blockquote>
+
+
+
+
+
+<p>Notice that this doesn't directly set the environment
+variables; that would be pointless because a subprocess's
+environment variables are created anew from
+<tt class="literal">pReq-&gt;subprocess_env</tt>. Also notice that, as is
+often the case in computing, considerably more effort is spent in
+processing the configuration for <em class="filename">mod_env.c</em> than
+is spent at the business end.</p>
+
+
+
+
+
+<p>Another example can be found in
+<em class="filename">mods_pics_simple.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">static int pics_simple_fixup (request_rec *r) {
+    char **stuff = (char **)get_module_config (r-&gt;per_dir_config,
+                                               &amp;pics_simple_module);
+    if (!*stuff) return DECLINED;
+    table_set (r-&gt;headers_out, "PICS-label", *stuff);
+    return DECLINED;
+}</pre></blockquote>
+
+
+
+
+
+<p>This has such a simple configuration (just a string) that it
+doesn't even bother with a configuration structure.<a href="#FOOTNOTE-86">[86]</a> All it does is set the <tt class="literal">PICS-label</tt>
+header with the string derived from the directory, location, and file
+relevant to the current request.<a name="INDEX-1652" /> <a name="INDEX-1653" /> <a name="INDEX-1654" /> <a name="INDEX-1655" /></p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-86" /><p>[86]Not a technique we particularly like, but there we are.</p>
+
+
+
+
+</blockquote>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-34958" /><div class="sect2">
+<a name="INDEX-1656" /><h3 class="sect2">15.3.17. Handlers</h3>
+
+
+
+
+
+<blockquote><pre class="code"><a name="INDEX-1657" />handler_rec aModuleHandlers[];</pre></blockquote>
+
+
+
+
+
+<p>The definition of a <tt class="literal">handler_rec</tt> can be found in
+<em class="filename">http_config.h </em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">typedef struct {
+    char *content_type;
+    int (*handler)(request_rec *);
+} handler_rec;</pre></blockquote>
+
+
+
+
+
+<p>Finally, we are ready to handle the request. The core now searches
+through the modules' handler entries, looking for an exact
+match for either the handler type or the MIME type, in that order
+(that is, if a handler type is set, that is used; otherwise, the MIME
+type is used). When a match is found, the corresponding handler
+function is called. This will do the actual business of serving the
+user's request. Often you won't want to do this, because
+you'll have done the work of your module earlier, but this is
+the place to run your Java, translate to Swedish, or whatever you
+might want to do to serve actual content to the user. Most handlers
+either send some kind of content directly (in which case, they must
+remember to call <tt class="literal">send_http_header()</tt> before sending
+the content) or use one of the internal redirect methods (e.g.,
+<tt class="literal">internal_redirect()</tt>).</p>
+
+
+
+
+
+<a name="ch15-18-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.17.1. Example</h3>
+
+
+
+
+
+<p><em class="filename">mod_status.c</em>
+<a name="INDEX-1658" /> only implements a handler; here's
+the handler's table:</p>
+
+
+
+
+
+<blockquote><pre class="code">handler_rec status_handlers[] =
+{
+{ STATUS_MAGIC_TYPE, status_handler },
+{ "server-status", status_handler },
+{ NULL }
+};</pre></blockquote>
+
+
+
+
+
+<p>We don't show the actual handler here, because it is big and
+boring. All it does is trawl through the scoreboard (which records
+details of the various child processes) and generate a great deal of
+HTML. The user invokes this handler with either a
+<tt class="literal">SetHandler</tt> or an <tt class="literal">AddHandler</tt>;
+however, since the handler makes no use of a file,
+<tt class="literal">SetHandler</tt> is the more natural way to do it.
+Notice the reference to <tt class="literal">STATUS_MAGIC_TYPE</tt>. This is
+a "magic" MIME type, the use of which is now deprecated,
+but we must retain it for backward compatibility in this particular
+module.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-35610" /><div class="sect2">
+<h3 class="sect2">15.3.18. Logger</h3>
+
+
+
+
+
+<blockquote><pre class="code">int module_logger(request_rec *pRec)</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-1659" />
+<a name="INDEX-1660" />Now that
+the request has been processed and the dust has settled, you may want
+to log the request in some way. Here's your chance to do that.
+Although the core stops running the logger function as soon as a
+module returns something other than <tt class="literal">OK</tt> or
+<tt class="literal">DECLINED</tt>, that is rarely done, as there is no way
+to know whether another module needs to be able to log something.</p>
+
+
+
+
+
+<a name="ch15-19-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.18.1. Example</h3>
+
+
+
+
+
+<p>Although
+<em class="filename">mod_log_agent.c</em>
+<a name="INDEX-1661" /> is more or less out of date since
+<em class="filename">mod_log_config.c</em> was introduced, it makes a
+nice, compact example:</p>
+
+
+
+
+
+<blockquote><pre class="code">int agent_log_transaction(request_rec *orig)
+{
+    agent_log_state *cls = get_module_config (orig-&gt;server-&gt;module_config,
+                                              &amp;agent_log_module);
+
+    char str[HUGE_STRING_LEN];
+    char *agent;
+    request_rec *r;
+    if(cls-&gt;agent_fd &lt;0)
+      return OK;
+
+    for (r = orig; r-&gt;next; r = r-&gt;next)
+        continue;
+    if (*cls-&gt;fname == '\0'.    /* Don't log agent */
+        return DECLINED;
+
+    agent = table_get(orig-&gt;headers_in, "User-Agent");
+    if(agent != NULL) 
+      {
+        sprintf(str, "%s\n", agent);
+        write(cls-&gt;agent_fd, str, strlen(str));
+      }
+
+    return OK;
+}</pre></blockquote>
+
+
+
+
+
+<p>This is not a good example of programming practice. With its
+fixed-size buffer <tt class="literal">str</tt>, it leaves a gaping security
+hole. It wouldn't be enough to simply split the
+<tt class="literal">write</tt> into two parts to avoid this problem.
+Because the log file is shared among all server processes, the
+<tt class="literal">write</tt> must be atomic or the log file could get
+mangled by overlapping <tt class="literal">write</tt>s.
+<em class="filename">mod_log_config.c</em> carefully avoids this problem.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch15-20-fm2xml" /><div class="sect2">
+<h3 class="sect2">15.3.19. Child Exit</h3>
+
+
+
+
+
+<blockquote><pre class="code">void <a name="INDEX-1662" />
+<a name="INDEX-1663" />child_exit(server_rec *pServer,pool *pPool)</pre></blockquote>
+
+
+
+
+
+<p>This function is called immediately before a particular child exits.
+See "Child Initialization," earlier in this chapter, for
+an explanation of what "child" means in this context.
+Typically, this function will be used to release resources that are
+persistent between connections, such as database or file handles.</p>
+
+
+
+
+
+<a name="ch15-21-fm2xml" /><div class="sect3">
+<h3 class="sect3">15.3.19.1. Example</h3>
+
+
+
+
+
+<p>From <em class="filename">mod_log_config.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">static void flush_all_logs(server_rec *s, pool *p)
+{
+    multi_log_state *mls;
+    array_header *log_list;
+    config_log_state *clsarray;
+    int i;
+
+    for (; s; s = s-&gt;next) {
+        mls = ap_get_module_config(s-&gt;module_config, &amp;config_log_module);
+        log_list = NULL;
+        if (mls-&gt;config_logs-&gt;nelts) {
+            log_list = mls-&gt;config_logs;
+        }
+        else if (mls-&gt;server_config_logs) {
+            log_list = mls-&gt;server_config_logs;
+        }
+        if (log_list) {
+            clsarray = (config_log_state *) log_list-&gt;elts;
+            for (i = 0; i &lt; log_list-&gt;nelts; ++i) {
+                flush_log(&amp;clsarray[i]);
+            }
+        }
+    }
+}</pre></blockquote>
+
+
+
+
+
+<p>This routine is only used when <tt class="literal">BUFFERED_LOGS</tt> is
+defined. Predictably enough, it flushes all the buffered logs, which
+would otherwise be lost when the child exited.<a name="INDEX-1664" /></p>
+</div>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch15_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch15_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">15.2. Status Codes</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">15.4. A Complete Example</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

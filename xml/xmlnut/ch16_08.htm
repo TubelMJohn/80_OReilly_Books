@@ -1,0 +1,447 @@
+<html><head><title>Allowing Any Content (XML in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Elliotte Rusty Harold and W. Scott Means" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0-596-00292-0" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XML in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XML in a Nutshell" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch16_07.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch16_09.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">16.8. Allowing Any Content</h2>
+
+<p>It <a name="xmlnut2-IDXTERM-1518" />
+<a name="xmlnut2-IDXTERM-1519" />
+<a name="xmlnut2-IDXTERM-1520" />is often
+necessary to allow users to include any type of markup content they
+see fit. Also, it is useful to tell the schema processor to validate
+the content of a particular element against another
+application's schema. Incorporating XHTML content
+into another document is an example of this usage.
+</p>
+
+<p>These applications are supported by the
+<tt class="literal">xs:any</tt><a name="IXT-16-240166" /> element. This element accepts
+attributes that indicate what level of validation should be performed
+on the included content, if any. Also, it accepts a target namespace
+that can be used to limit the vocabulary of included content. For
+instance, going back to the address-book example, to associate a
+rich-text <tt class="literal">notes</tt> element with an address entry, you
+could add the following element declaration to the
+<tt class="literal">address</tt> element declaration:
+</p>
+
+<blockquote><pre class="code">&lt;xs:element name="notes" minOccurs="0"&gt;
+  &lt;xs:complexType&gt;
+    &lt;xs:sequence&gt;
+      &lt;xs:any namespace="http://www.w3.org/1999/xhtml"
+           minOccurs="0" maxOccurs="unbounded"
+           processContents="skip"/&gt;
+    &lt;/xs:sequence&gt;
+  &lt;/xs:complexType&gt;
+&lt;/xs:element&gt;</pre></blockquote>
+
+<p>The attributes of the <tt class="literal">xs:any</tt> element tell the
+schema processor that zero or more elements belonging to the XHTML
+namespace (<a href="http://www.w3.org/1999/xhtml">http://www.w3.org/1999/xhtml</a>) may occur at
+this location. Notice that this is done by setting
+<tt class="literal">minOcccurs</tt> to <tt class="literal">0</tt> and
+<tt class="literal">maxOccurs</tt> to <tt class="literal">unbounded</tt>. It also
+states that these elements should be skipped. This means that no
+validation will be performed against the actual XHTML namespace by
+the parser. Other possible values for the
+<tt class="literal">processContents</tt> attribute are
+<tt class="literal">lax</tt> and <tt class="literal">strict</tt>. When set to
+<tt class="literal">lax</tt>, the processor will attempt to validate any
+element it can find a declaration for and silently ignore any
+unrecognized elements. The <tt class="literal">strict</tt> option requires
+every element to be declared and valid per the schema associated with
+the namespace given.
+</p>
+
+<p>There is also support in schemas to declare that any attribute may
+appear within a given element. The
+<tt class="literal">xs:anyAttribute</tt><a name="IXT-16-240167" /> element may include the
+<tt class="literal">namespace</tt> and <tt class="literal">processContents</tt>
+attributes, which perform the same function as they do in the
+<tt class="literal">xs:any</tt> element. For example, adding the following
+markup to the <tt class="literal">address</tt> element would allow any
+XLink attributes to appear in an instance document:
+</p>
+
+<blockquote><pre class="code">&lt;xs:element name="address"&gt;
+  &lt;xs:complexType&gt;
+. . .
+  &lt;xs:attributeGroup ref="addr:nationality"/&gt;
+  &lt;xs:attribute name="ssn" type="addr:ssn"/&gt;
+  &lt;xs:anyAttribute namespace="http://www.w3.org/1999/xlink"
+      processContents="skip"/&gt;
+  &lt;/xs:complexType&gt;
+ &lt;/xs:element&gt;</pre></blockquote>
+
+<p>As an application grows and becomes more complex, it is important to
+take steps to maintain readability and extensibility. Things like
+separating a large schema into multiple documents, importing
+declarations from external schemas, and deriving new types from
+existing types are all typical tasks that will face designers of
+real-world schemas.
+</p>
+
+<a name="xmlnut2-CHP-16-SECT-8.1" /><div class="sect2">
+<h3 class="sect2">16.8.1. Using Multiple Documents</h3>
+
+<p>Just <a name="xmlnut2-IDXTERM-1523" />as large computer programs are
+separated into multiple physical source files, large schemas can be
+separated into smaller, self-contained schema documents. Although a
+single large schema could be arbitrarily separated into multiple
+smaller documents, taking the time to group related declarations into
+reusable modules can simplify future schema development.
+</p>
+
+<p>There are three mechanisms that include declarations from external
+schemas for use within a given schema: <tt class="literal">xs:include</tt>,
+<tt class="literal">xs:redefine</tt>, and <tt class="literal">xs:import</tt>. The
+next three sections will discuss the differences between these
+methods and when and where they should be used.
+</p>
+
+<a name="xmlnut2-CHP-16-SECT-8.1.1" /><div class="sect3">
+<h3 class="sect3">16.8.1.1. Including external declarations</h3>
+
+<p>The <tt class="literal">xs:include</tt><a name="IXT-16-240168" /> <a name="IXT-16-240169" />
+<a name="IXT-16-240170" />element
+is the most straightforward way to bring content from an external
+document into a schema. To demonstrate how
+<tt class="literal">xs:include</tt> might be used, <a href="ch16_08.htm#xmlnut2-CHP-16-EX-12">Example 16-12</a> shows a new schema document called
+<tt class="literal">physical-address.xsd</tt> that contains a declaration
+for a new complex type called <tt class="literal">physicalAddressType</tt>.
+</p>
+
+<a name="xmlnut2-CHP-16-EX-12" /><div class="example">
+<h4 class="objtitle">Example 16-12. physical-address.xsd </h4>
+<blockquote><pre class="code">&lt;xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  targetNamespace="http://namespaces.oreilly.com/xmlnut/address"
+  xmlns:addr="http://namespaces.oreilly.com/xmlnut/address"
+  attributeFormDefault="qualified" elementFormDefault="qualified"&gt;
+  
+  &lt;xs:annotation&gt;
+    &lt;xs:documentation xml:lang="en-us"&gt;
+      Simple schema example from O'Reilly's
+      &lt;a href="http://www.oreilly.com/catalog/xmlnut"&gt;XML in a
+        Nutshell.&lt;/a&gt;
+      Copyright 2002 O'Reilly &amp;amp; Associates
+    &lt;/xs:documentation&gt;
+  &lt;/xs:annotation&gt;
+  
+  &lt;xs:complexType name="physicalAddressType"&gt;
+    &lt;xs:sequence&gt;
+      &lt;xs:element name="street" type="xs:string" maxOccurs="3"/&gt;
+      &lt;xs:element name="city" type="xs:string"/&gt;
+      &lt;xs:element name="state" type="xs:string"/&gt;
+    &lt;/xs:sequence&gt;
+  &lt;/xs:complexType&gt;
+  
+&lt;/xs:schema&gt;</pre></blockquote>
+</div>
+
+<p>The <tt class="literal">address-book.xsd</tt> schema document can include
+and reference this declaration:
+</p>
+
+<blockquote><pre class="code">&lt;xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  targetNamespace="http://namespaces.oreilly.com/xmlnut/address"
+  xmlns:addr="http://namespaces.oreilly.com/xmlnut/address"
+  attributeFormDefault="qualified" elementFormDefault="qualified"&gt;
+. . .
+ 
+ &lt;xs:include schemaLocation="physical-address.xsd"/&gt;
+ 
+ &lt;xs:element name="address"&gt;
+  &lt;xs:complexType&gt;
+    &lt;xs:sequence&gt;
+. . .
+      &lt;xs:element name="physicalAddress" 
+         type="addr:physicalAddressType"/&gt;
+. . .
+    &lt;/xs:sequence&gt;
+. . .
+  &lt;/xs:complexType&gt;
+ &lt;/xs:element&gt;</pre></blockquote>
+
+<p>Content that has been included using the
+<tt class="literal">xs:include</tt> element is treated as though it were
+actually a part of the including schema document. But unlike external
+entities, the included document must be a valid schema in its own
+right. That means that it must be a well-formed XML document and have
+an <tt class="literal">xs:schema</tt> element as its root element. Also,
+the target namespace of the included schema must match that of the
+including document.
+</p>
+
+</div>
+
+<a name="xmlnut2-CHP-16-SECT-8.1.2" /><div class="sect3">
+<h3 class="sect3">16.8.1.2. Modifying external declarations</h3>
+
+<p>The <tt class="literal">xs:include</tt> element allows
+<a name="IXT-16-240171" />
+<a name="IXT-16-240172" />external
+declarations to be included and used as-is by another schema
+document. But sometimes it is useful to extend and modify types and
+declarations from another schema, which is where the
+<tt class="literal">xs:redefine</tt><a name="IXT-16-240173" /> element comes in.
+</p>
+
+<p>Functionally, the <tt class="literal">xs:redefine</tt> elements works very
+much like the <tt class="literal">xs:include</tt> element. The major
+difference is that within the scope of the
+<tt class="literal">xs:redefine</tt> element, types from the included
+schema may be redefined without generating an error from the schema
+processor. For example, the <tt class="literal">xs:redefine</tt> element
+could extend the <tt class="literal">physicalAddressType</tt> type to
+include longitude and latitude attributes without modifying the
+original declaration in <tt class="literal">physical-address.xs:</tt>
+</p>
+
+<blockquote><pre class="code">&lt;xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  targetNamespace="http://namespaces.oreilly.com/xmlnut/address"
+  xmlns:addr="http://namespaces.oreilly.com/xmlnut/address"
+  attributeFormDefault="qualified" elementFormDefault="qualified"&gt;
+. . .
+&lt;xs:redefine schemaLocation="physical-address.xsd"&gt;
+  &lt;xs:complexType name="physicalAddressType"&gt;
+    &lt;xs:complexContent&gt;
+      &lt;xs:extension base="addr:physicalAddressType"&gt;
+        &lt;xs:attribute name="latitude" type="xs:decimal"/&gt;
+        &lt;xs:attribute name="longitude" type="xs:decimal"/&gt;
+      &lt;/xs:extension&gt;
+    &lt;/xs:complexContent&gt;
+  &lt;/xs:complexType&gt;
+ &lt;/xs:redefine&gt;
+. . .
+&lt;/xs:schema&gt;</pre></blockquote>
+
+</div>
+
+<a name="xmlnut2-CHP-16-SECT-8.1.3" /><div class="sect3">
+<h3 class="sect3">16.8.1.3. Importing schemas for other namespaces</h3>
+
+<p>The <tt class="literal">xs:include</tt> and <tt class="literal">xs:redefine</tt>
+elements are useful when the declarations are all part of the same
+application. But as more public schemas become available,
+incorporating declarations from external sources into custom
+applications will be important. The
+<tt class="literal">xs:import</tt><a name="IXT-16-240174" /> element is provided for this purpose.
+</p>
+
+<p>Using <tt class="literal">xs:import</tt>, it is possible to make the global
+types and elements that are declared by a schema belonging to another
+namespace accessible from within an arbitrary schema. The W3C has
+used this functionality to create <em class="emphasis">type
+libraries</em><a name="IXT-16-240175" />. A sample type library was developed
+by the schema working group and can be viewed on the W3C web site at
+<a href="http://www.w3.org/2001/03/XMLSchema/TypeLibrary.xsd">http://www.w3.org/2001/03/XMLSchema/TypeLibrary.xsd</a>.
+</p>
+
+<p>To use some of the types from this library in a schema, include the
+following <tt class="literal">xs:import</tt> element as a child of the root
+schema <a name="IXTR3-199" />element: 
+</p>
+
+<blockquote><pre class="code">&lt;xs:import namespace="http://www.w3.org/2001/03/XMLSchema/TypeLibrary"
+    schemaLocation="http://www.w3.org/2001/03/XMLSchema/TypeLibrary.xsd"/&gt;</pre></blockquote>
+
+</div>
+</div>
+<a name="xmlnut2-CHP-16-SECT-8.2" /><div class="sect2">
+<h3 class="sect2">16.8.2. Derived Complex Types</h3>
+
+<p>We have been using the <tt class="literal">xs:extension</tt> and
+<tt class="literal">xs:restriction</tt> elements without going too deeply
+into how or why they work. The schema language provides functionality
+for extending existing types, which is conceptually similar to that
+of inheritance in object-oriented programming. The extension and
+restriction elements allow new types to be defined either by
+expanding or limiting the potential values of existing types.
+</p>
+
+<a name="xmlnut2-CHP-16-SECT-8.2.1" /><div class="sect3">
+<h3 class="sect3">16.8.2.1. Deriving by extension</h3>
+
+<p>When <a name="IXT-16-240176" />deriving <a name="IXT-16-240177" />a <a name="IXT-16-240178" />new type from an existing type, the
+resulting type is equivalent to appending the contents of the new
+declaration to the contents of the base declaration. For instance,
+the following example declares a new type called
+<tt class="literal">mailingAddressType</tt> that extends the
+<tt class="literal">physicalAddressType</tt> type to include a zip code:
+</p>
+
+<blockquote><pre class="code">&lt;xs:complexType name="mailingAddressType"&gt;
+  &lt;xs:complexContent&gt;
+    &lt;xs:extension base="addr:physicalAddressType"&gt;
+      &lt;xs:sequence&gt;
+        &lt;xs:element name="zipCode" type="xs:string"/&gt;
+      &lt;/xs:sequence&gt;
+    &lt;/xs:extension&gt;
+  &lt;/xs:complexContent&gt;
+&lt;/xs:complexType&gt;</pre></blockquote>
+
+<p>This declaration appends a required element,
+<tt class="literal">zipCode</tt>, to the existing
+<tt class="literal">physicalAddressType</tt> type. The biggest benefit of
+this approach is that as new declarations are added to the underlying
+type, the derived type will automatically inherit them.
+</p>
+
+</div>
+
+<a name="xmlnut2-CHP-16-SECT-8.2.2" /><div class="sect3">
+<h3 class="sect3">16.8.2.2. Deriving by restriction</h3>
+
+<p>When <a name="IXT-16-240179" />a <a name="IXT-16-240180" />new type is a logical subset of an
+existing type, the
+<tt class="literal">xs:restriction</tt><a name="IXT-16-240181" /> element allows this relationship to be
+expressed directly. Like the <tt class="literal">xs:extension</tt> type, it
+allows a new type to be created based on an existing type. In the
+case of simple types, this restriction is a straightforward
+application of additional constraints on the value of that simple
+value.
+</p>
+
+<p>In the case of complex types, it is not quite so straightforward.
+Unlike the extension process, it is necessary to completely reproduce
+the parent type definition as part of the restriction definition. By
+omitting parts of the parent definition, the restriction element
+creates a new, constrained type. As an example, this
+<tt class="literal">xs:complexType</tt> element derives a new type from the
+<tt class="literal">physicalAddressType</tt> that only allows a single
+<tt class="literal">street</tt> element to contain the street address. The
+original <tt class="literal">physicalAddressType</tt> looks like:
+</p>
+
+<blockquote><pre class="code">&lt;xs:complexType name="physicalAddressType"&gt;
+  &lt;xs:sequence&gt;
+    &lt;xs:element name="street" type="xs:string" maxOccurs="3"/&gt;
+    &lt;xs:element name="city" type="xs:string"/&gt;
+    &lt;xs:element name="state" type="xs:string"/&gt;
+  &lt;/xs:sequence&gt;
+&lt;/xs:complexType&gt;</pre></blockquote>
+
+<p>The restricted version looks like:</p>
+
+<blockquote><pre class="code">&lt;xs:complexType name="simplePhysicalAddressType"&gt;
+  &lt;xs:complexContent&gt;
+    &lt;xs:restriction base="addr:physicalAddressType"&gt;
+      &lt;xs:sequence&gt;
+        &lt;xs:element name="street" type="xs:string"/&gt;
+        &lt;xs:element name="city" type="xs:string"/&gt;
+        &lt;xs:element name="state" type="xs:string"/&gt;
+      &lt;/xs:sequence&gt;
+    &lt;/xs:restriction&gt;
+  &lt;/xs:complexContent&gt;
+ &lt;/xs:complexType&gt;</pre></blockquote>
+
+<p>Notice that this type very closely resembles the
+<tt class="literal">physicalAddressType</tt>, except the
+<tt class="literal">maxOccurs="3"</tt> attribute has been removed from the
+<tt class="literal">street</tt> element declaration.
+</p>
+
+</div>
+
+<a name="xmlnut2-CHP-16-SECT-8.2.3" /><div class="sect3">
+<h3 class="sect3">16.8.2.3. Using derived types</h3>
+
+<p>One <a name="IXT-16-240182" />of the chief
+benefits of creating derived types is that the derived type may
+appear in place of the parent type within an
+<a name="IXT-16-240183" />instance document. The
+<tt class="literal">xsi:type</tt><a name="IXT-16-240184" /> attribute tells the schema processor
+that the element on which it appears conforms to a type that is
+derived from the normal type expected. For example, take the instance
+document in <a href="ch16_08.htm#xmlnut2-CHP-16-EX-13">Example 16-13</a>, which conforms to the
+address schema.
+</p>
+
+<a name="xmlnut2-CHP-16-EX-13" /><div class="example">
+<h4 class="objtitle">Example 16-13. addressdoc.xml using a derived type </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+&lt;addr:address xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://namespaces.oreilly.com/xmlnut/address 
+      address-schema.xsd"
+    xmlns:addr="http://namespaces.oreilly.com/xmlnut/address"
+    addr:language="en"
+    addr:ssn="123-45-6789"&gt;
+. . .
+  &lt;physicalAddress addr:latitude="34.003855" addr:longitude="-81.034808"
+    xsi:type="addr:simplePhysicalAddressType"&gt;
+    &lt;street&gt;1400 Main St.&lt;/street&gt;
+    &lt;city&gt;Columbia&lt;/city&gt;
+    &lt;state&gt;SC&lt;/state&gt;
+  &lt;/physicalAddress&gt;
+. . .
+&lt;/addr:address&gt;</pre></blockquote>
+</div>
+
+<p>Notice that the <tt class="literal">physicalAddress</tt> element has an
+<tt class="literal">xsi:type</tt> attribute that informs the validator that
+the current element conforms to the
+<tt class="literal">simplePhysicalAddressType</tt>, rather than the
+<tt class="literal">physicalAddressType</tt> that would normally be
+expected. This feature is particularly useful when developing
+internationalized applications, as distinct address types could be
+derived for each country and then flagged in the instance document
+for proper validation.
+</p>
+
+</div>
+</div>
+<a name="xmlnut2-CHP-16-SECT-8.3" /><div class="sect2">
+<h3 class="sect2">16.8.3. Substitution Groups</h3>
+
+<p>A feature that is closely related to derived types is the
+<em class="emphasis">substitution
+group</em><a name="IXT-16-240185" />. A substitution group is a collection of
+elements that are all interchangeable with a particular element,
+called the <em class="emphasis">head element</em><a name="IXT-16-240186" />, within an
+<a name="IXT-16-240187" />instance document. To create a
+substitution group, all that is required is that an
+<a name="IXT-16-240188" />element declaration include a
+<tt class="literal">substitutionGroup</tt> attribute that names the head
+element for that group. Then, anywhere that the head
+element's declaration is referenced in the schema,
+any member of the substitution group may also appear. Unlike derived
+types, it isn't necessary to use the
+<tt class="literal">xsi:type</tt> attribute in an instance document to
+identify the type of the substituted element.
+</p>
+
+
+
+<a name="ch16-59-fm2xml" /><blockquote><b>TIP:</b> 
+The primary restriction on substitution groups is that every element
+in the group must either be of the same type as or derived from the
+head element's type. Declaring a numeric element and
+trying to add it to a substitution group based on a string element
+would generate an error from the schema processor. The elements must
+also be declared globally and in the target namespace of <a name="IXTR3-200" /> <a name="IXTR3-201" /> <a name="IXTR3-202" />the schema.
+</p>
+</blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch16_07.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch16_09.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">16.7. Mixed Content</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">16.9. Controlling Type Derivation</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

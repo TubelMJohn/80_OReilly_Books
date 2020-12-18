@@ -1,0 +1,1408 @@
+<html><head><title>Perl/Tk and the Web (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch21_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch22_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 22. Perl/Tk and the Web</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#mastperltk-CHP-22-SECT-1">Library for WWW Access in Perl</a><br />
+<a href="ch22_02.htm">The PerlPlus Browser Plug-in</a><br /></p></div>
+
+<p><a name="INDEX-3145" /></a>In this chapter, we'll examine
+how Tk can access the wealth of information available on the World
+Wide Web. Using the Library for WWW Access in Perl (LWP), we'll
+develop <i class="command">tkcomics</i>, a web client to fetch images of
+our favorite comics and display them in a Perl/Tk window.
+</p>
+
+<p>One of the Web's most popular Clients is
+<i class="command">Netscape</i>. It's an extensible application
+that allows developers to write
+<em class="emphasis">plug-ins</em>&#x2014;loadable chunks of code often
+written in C&#x2014;which add functionality to the basic browser.
+We'll learn how to execute client-side Perl/Tk programs via the
+PerlPlus plug-in.
+</p>
+<div class="sect1"><a name="mastperltk-CHP-22-SECT-1" /></a>
+<h2 class="sect1">22.1. Library for WWW Access in Perl</h2>
+
+<p><a name="INDEX-3146" /></a><a name="INDEX-3147" /></a><a name="INDEX-3148" /></a><a name="INDEX-3149" /></a><a name="INDEX-3150" /></a><a name="INDEX-3151" /></a><a name="INDEX-3152" /></a><a name="INDEX-3153" /></a>LWP is a Perl library providing
+access to the Web, used primarily for writing client applications. It
+"speaks" Hypertext Transfer Protocol (HTTP),<a href="#FOOTNOTE-61">[61]</a> and one of its most basic duties is
+fetching the content of URLs. The beauty of LWP is that it hides all
+the operational details while allowing us to do our work with simple
+objects and methods.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-61" /></a><p> [61] Using HTTP as the underlying transport medium, LWP also
+supports gopher, FTP, news, file, mailto, and secure HTTP
+services.</p> </blockquote>
+
+<p><a name="INDEX-3154" /></a><a name="INDEX-3155" /></a><a name="INDEX-3156" /></a>In essence, a <em class="emphasis">user
+agent</em> object working on our behalf takes a
+<em class="emphasis">request</em> object and does whatever low-level
+communication and error handling is required to send a request for
+web content on its way. The user agent then waits for the reply (or
+error) and hands it back to our program in the form of a
+<em class="emphasis">response</em> object. Our job is to create the user
+agent, then use various LWP methods to manipulate requests and
+responses. But if all we want to do is simply fetch web content, we
+can use LWP in "simple" mode and just say "fetch
+this URL," and LWP creates the user agent and request/response
+objects internally, eventually returning content data to our program.
+</p>
+
+<p>At first glance, the simple LWP mechanism would appear to suffice for
+a client such as <i class="command">tkcomics</i>, but it has some
+drawbacks. As you might suspect, they have to do with blocking,
+because there might be a considerable time delay between a request
+and when the network finally delivers the response. Even handling
+LWP's user agent manually can't surmount all of these
+problems. Thus, eventually, we'll have to resort to a
+multiprocess scheme. So let's begin and see how
+<i class="command">tkcomics</i> might have evolved.
+</p>
+
+<p><a name="INDEX-3157" /></a>An excellent
+place for private viewing of your favorite comics is <a href="http://www.comics.com">http://www.comics.com</a>, although all the
+glamour, glitz, and advertisements may be too much for the stomach.
+But there's nothing to stop us from fetching just the comics
+and using Tk to display them.<a href="#FOOTNOTE-62">[62]</a> We'll start by learning how to fetch and interpret
+the <a href="http://www.comics.com">http://www.comics.com</a> home
+page, and then build our Tk client around that framework.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-62" /></a><p> [62] We can only use this
+material for private consumption. Any other use is illegal. Please
+read the letter of the law at <a href="http://www.comics.com/info/site/copyright.html">http://www.comics.com/info/site/copyright.html</a>.</p>
+</blockquote>
+
+<a name="mastperltk-CHP-22-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">22.1.1. LWP::Simple, the Easiest Way to the Web</h3>
+
+<p><a name="INDEX-3158" /></a><a name="INDEX-3159" /></a>The LWP::Simple module is so simple,
+it's not even object oriented; rather, it exports a handful of
+subroutines for fetching and mirroring web content. All we're
+interested in is fetching web content, accomplished with the
+<tt class="literal">get</tt> subroutine:
+</p>
+
+<blockquote><pre class="code">use LWP::Simple qw/get/;</pre></blockquote>
+
+<p>To retrieve a web page, we call <tt class="literal">get</tt> with the
+desired URL:
+</p>
+
+<blockquote><pre class="code">my $comics_home = 'http://www.comics.com';
+my $comics = get $comics_home or die "Can't get $comics_home.";</pre></blockquote>
+
+<p>So now <tt class="literal">$comics</tt> contains a ton of raw Hypertext
+Markup Language (HTML), stuff we normally let our browser interpret
+and display for us. If we actually did browse that URL, one of the
+things we'd see is the actual comic selector widget, which
+appears to be an Optionmenu (see <a href="ch22_01.htm#mastperltk-CHP-22-FIG-1">Figure 22-1</a>).
+</p>
+
+<a name="mastperltk-CHP-22-FIG-1" /></a><div class="figure"><img src="figs/mptk.2201.gif" alt="Figure 22-1" width="182" height="14" /></div><h4 class="objtitle">Figure 22-1. Comic selector widget</h4>
+
+<p><a name="INDEX-3160" /></a><a name="INDEX-3161" /></a>It's not a Tk Optionmenu, of
+course, but it's what the browser renders when it encounters a
+<tt class="literal">&lt;SELECT&gt;</tt> tag. Looking at the HTML, either by
+printing <tt class="literal">$comics</tt> or viewing the page source in the
+browser, we see this:
+</p>
+
+<blockquote><pre class="code">&lt;SELECT NAME= ... &gt;
+    &lt;OPTION&gt;Click to select a comic
+    &lt;OPTION VALUE="/universal/adam/ab.html"&gt;Adam
+    &lt;OPTION VALUE="/comics/alleyoop/ab.html"&gt;Alley Oop
+    &lt;OPTION VALUE="/comics/andycapp/ab.html"&gt;Andy Capp
+    &lt;OPTION VALUE="/comics/arlonjanis/ab.html"&gt;Arlo &amp; Janis
+    &lt;OPTION VALUE="/comics/askshagg/ab.html"&gt;Ask Shagg
+    &lt;OPTION VALUE="/comics/bc/ab.html"&gt;B.C.
+
+...
+
+    &lt;OPTION VALUE="/comics/wizardofid/ab.html"&gt;Wizard of Id
+    &lt;OPTION VALUE="/universal/ziggy/ab.html"&gt;Ziggy
+&lt;/SELECT&gt;</pre></blockquote>
+
+<p>That looks promising. We seem to have a list of URLs, one per comic.
+If we're lucky, we should be able to key on the string
+<tt class="literal">"OPTION VALUE"</tt>, then use the following code to
+pick out the comic names and their associated URLs:
+</p>
+
+<blockquote><pre class="code">my $n = 0;
+foreach (split /\n/, $comics) {
+    next unless /OPTION\s+VALUE/i;
+    if (my($comic_url, $comic) = m\"([^"]+)"&gt;(.*)\) {
+        $comic =~ s/\t//g;
+        $comic =~ s/\r//g;
+        printf "%-30s : %s\n", $comic, $comic_url;
+        $n++;
+    }
+}
+print "\nfound $n comics\n";</pre></blockquote>
+
+<p>Indeed, luck is with us, for if we run the code, we see this output:</p>
+
+<blockquote><pre class="code">Adam                           : /universal/adam/ab.html
+Alley Oop                      : /comics/alleyoop/ab.html
+Andy Capp                      : /comics/andycapp/ab.html
+Arlo &amp; Janis                   : /comics/arlonjanis/ab.html
+Ask Shagg                      : /comics/askshagg/ab.html
+B.C.                           : /comics/bc/ab.html
+
+...
+
+Wizard of Id                   : /comics/wizardofid/ab.html
+Ziggy                          : /universal/ziggy/ab.html
+
+found 91 comics</pre></blockquote>
+
+<p><a name="INDEX-3162" /></a><a name="INDEX-3163" /></a>As it happens,
+these URLs are not the comic images, but another page, relative to
+the site's home address, within which the actual URL of the
+comic is embedded. For instance, if we concatenate Ask Shagg's
+relative URL with <tt class="literal">$comics_home</tt> and view the HTML
+at <a href="http://www.comics.com/comics/askshagg/ab.html">http://www.comics.com/comics/askshagg/ab.html</a>,
+we see an <tt class="literal">&lt;IMG&gt;</tt> tag with the relative URL of
+the actual GIF image:
+</p>
+
+<blockquote><pre class="code">&lt;IMG
+SRC="/comics/askshagg/archive/images/askshagg21461240000515.gif" ALT="today's 
+comics strip" ALIGN=TOP BORDER="0"&gt;</pre></blockquote>
+
+<p><i class="command">tkcomics</i> can easily extract this URL, fetch the
+image file, convert it to a Photo, and display it. So, we have
+proof-of-concept code. On the upside, it's extremely simple,
+but on the downside, it's blocking, and there's no
+timeout mechanism. Let's try to address these
+concerns.<a name="INDEX-3164" /></a>
+</p>
+
+</div>
+<a name="mastperltk-CHP-22-SECT-1.2" /></a><div class="sect2">
+<h3 class="sect2">22.1.2. Fetching Web Content with LWP::UserAgent</h3>
+
+<p><a name="INDEX-3165" /></a><a name="INDEX-3166" /></a><a name="INDEX-3167" /></a>Although a tad more
+complicated than LWP::Simple, most people use LWP::UserAgent for
+their web clients, because it gives them complete control over their
+applications. Unlike LWP::Simple, we create the user agent manually
+and exert control by sending messages to it. All this means is that
+we create a user agent object and invoke methods on it. For instance,
+this is how we set a timeout so network requests won't take
+longer than 20 seconds:
+</p>
+
+<blockquote><pre class="code">use LWP::UserAgent;
+
+my $ua = LWP::UserAgent-&gt;new;
+$ua-&gt;timeout(20);</pre></blockquote>
+
+<p>Nevertheless, at this (the Perl) level, a timeout still doesn't
+buy us anything, because no matter how short the timeout is, Tk is
+blocked until the LWP request is complete.
+</p>
+
+<p>Even this trick of configuring a callback to read small chunks of
+network data is unlikely to be sufficient; blocking for 1 byte of
+data still prevents Tk from processing events. The following code
+defines a callback that appends data to a string. As network data
+arrives, the user agent invokes the callback on every byte. When the
+request completes (or times out), we use the response object to check
+the status of the request and <tt class="literal">die</tt> if there's
+an error. In addition to not solving our problem, processing data a
+byte at a time is incredibly inefficient.
+</p>
+
+<blockquote><pre class="code">my $comics_home = 'http://www.comics.com';
+my $comics;
+
+sub req_callback {
+    my($content, $response, $protocol) = @_;
+    $comics .= $content;
+}
+
+my $req_object = HTTP::Request-&gt;new('GET' =&gt; $comics_home);
+my $res_object = $ua-&gt;request($req_object, \&amp;req_callback, 1);
+die "request failed" if $res_object-&gt;is_error;</pre></blockquote>
+
+<p>Assuming the <tt class="literal">get</tt> request succeeds,
+<tt class="literal">$comics</tt> contains the same HTML page content as the
+LWP::Simple example, which can be processed as before.
+</p>
+
+<p>While the LWP::UserAgent solution is slightly cooler than the
+LWP::Simple one, it can still block and ruin our comic-viewing
+experience. What we need is a nonblocking LWP request, and one
+sure-fire way to implement that is to use the
+<i class="command">fork</i>/<i class="command">pipe</i>/<i class="command">exec</i>
+idiom we developed in <a href="ch19_01.htm">Chapter 19, "Interprocess Communication with Pipes and Sockets"</a>. In that chapter,
+we saw that piping information between two asynchronous
+processes&#x2014;one of which was a Tk program&#x2014;and using
+<tt class="literal">fileevent</tt> prevented Tk from blocking. We can use
+the same technique here, and let the child fetch web content and pipe
+it back to <i class="command">tkcomics</i> whenever the data becomes
+available.
+</p>
+
+</div>
+<a name="mastperltk-CHP-22-SECT-1.3" /></a><div class="sect2">
+<h3 class="sect2">22.1.3. lwp-request and fileevent Rule</h3>
+
+<p><a name="INDEX-3168" /></a><a name="INDEX-3169" /></a>To
+keep Tk events flowing, we need to use a separate process (or thread)
+and ensure that the two processes can talk in a nonblocking way. The
+first process, the Tk parent, handles the GUI and event processing,
+while the child fetches comic images and forwards them to the parent.
+</p>
+
+<p>The IPC solution developed in <a href="ch19_01.htm">Chapter 19, "Interprocess Communication with Pipes and Sockets"</a> was
+unusually specialized, because it used bidirectional pipes for a
+two-way conversation between the Tk parent and the child. In
+contrast, if the <em class="emphasis">tkcomics</em> child can get its URL
+from the command line and send comics to standard output, we can use
+the pipe form of the <tt class="literal">open</tt> command and let Perl do
+the hard work.
+</p>
+
+<p><a name="INDEX-3170" /></a>Included in the LWP package is
+<i class="command">lwp-request</i>, a standalone program perfectly
+matched for our needs. It accepts a URL on the command line and
+prints the resulting web content on its STDOUT. So that's our
+plan, and with Perl 5.6.0, it might work on Win32 too.
+</p>
+
+<p><a name="INDEX-3171" /></a><a name="INDEX-3172" /></a>We
+start with needed declarations. All the comic images are binary data,
+but to use them in Tk we must first Base64 encode them; that's
+why we need MIME::Base64. Additionally, although most of the comics
+are GIFs, a few are in JPEG or PNG format. Note that Tk::JPEG and
+Tk::PNG are not bundled with Perl/Tk, so you'll have to install
+them yourself:
+</p>
+
+<blockquote><pre class="code">#!/usr/local/bin/perl -w
+#
+# tkcomics - display comics courtesy of http://www.comics.com
+#
+# Because LWP::Simple and LWP::UserAgent can block, do the
+# network I/O in another thread, er, child, with fileevent( ).
+# Add a Stop/Cancel button that kills the pipe.
+
+use MIME::Base64;
+use Tk;
+use Tk::JPEG;
+use Tk::PNG;
+use subs qw/get_url show_comic status stop_get/;
+use strict;</pre></blockquote>
+
+<p>Here we open the MainWindow in the standard fashion, then initialize
+a few global variables. <tt class="literal">$photo</tt> holds the comic
+image object reference. <tt class="literal">$status</tt> displays periodic
+status messages that keep the user informed of the state of data
+transfers. <tt class="literal">$eof</tt> is set either when the
+<i class="command">lwp-request</i> child completes, signaling the web
+fetch is complete, or by a user button click that prematurely
+interrupts a transfer. <tt class="literal">$pid</tt> is the process ID of
+the child, used to kill it if we tire of waiting for the network. The
+<tt class="literal">%ext</tt> hash maps a comic filename extension to a Tk
+Photo image processor.
+</p>
+
+<blockquote><pre class="code">my $mw = MainWindow-&gt;new;
+my $photo = '';
+my $status = '';
+my($eof, $pid);
+my %ext = qw/
+    gif gif
+    jpg jpeg
+    png png
+    tif tiff
+    xbm xbm
+    ppm ppm
+/;                             # file extension =&gt; Photo format map
+my $help = '&lt;Button-1&gt; fetch comic, &lt;Button-2&gt; interrupt transfer';</pre></blockquote>
+
+<p>As <a href="ch22_01.htm#mastperltk-CHP-22-FIG-2">Figure 22-2</a> shows, the entire application
+consists of just three Tk widgets: a Listbox that holds the names of
+the comics, one Label that displays the comic images (except
+initially, when it displays the string "tkcomics" in
+large italic letters), and a second Label that displays relevant
+status information:
+</p>
+
+<blockquote><pre class="code">my $s = $mw-&gt;Label(-textvariable =&gt; \$status, -width =&gt; 100);
+my $lb = $mw-&gt;Scrolled(qw/Listbox -selectforeground blue/);
+my $l = $mw-&gt;Label(
+    -text       =&gt; 'tkcomics',
+    -foreground =&gt; 'blue',
+    -font       =&gt; [qw/-size 100 -slant italic/],
+);
+$s-&gt;pack(qw/-side bottom -fill x -expand 1/);
+$lb-&gt;pack(qw/side left -fill y -expand 1 -anchor w/);
+$l-&gt;pack(-side =&gt; 'right');</pre></blockquote>
+
+<p>The following code is essentially our old proof-of-concept example,
+except instead of printing comic names and URLs, we build a hash of
+comic URLs indexed by comic name. It's important to note that
+we've eliminated LWP::Simple, using our own
+<tt class="literal">get_url</tt> subroutine in place of
+<tt class="literal">LWP::Simple::get</tt>.
+</p>
+
+<blockquote><pre class="code">my $comics_home = 'http://www.comics.com';
+my $comics = get_url $comics_home or die "Can't get $comics_home.";
+
+my(%comics, $comic_url, $comic);
+foreach (split /\n/, $comics) {
+    next unless /OPTION\s+VALUE/i;
+    if (($comic_url, $comic) = m\"([^"]+)"&gt;(.*)\) {
+        $comic =~ s/\t//g;
+        $comic =~ s/\r//g;
+        $comics{$comic} = $comic_url;
+    }
+}</pre></blockquote>
+
+<p>At this point, we display our first status message, telling us how
+many comics were found and how to use <i class="command">tkcomics</i>.
+We'll stuff the names of all available comics in a List widget
+and use a <tt class="literal">&lt;Button-1&gt;</tt> event to select one for
+viewing. <tt class="literal">&lt;Button-2&gt;</tt>, obviously, is used to
+interrupt a long (or hung) transfer. Subroutine
+<tt class="literal">status</tt> simply sets the status Label's
+-<tt class="literal">textvariable</tt>, then invokes
+<tt class="literal">idletasks</tt> to flush Tk's low-priority idle
+events queue. This updates the entire Tk display so the status
+message appears immediately.
+</p>
+
+<blockquote><pre class="code">my $help = scalar(keys %comics) .
+    ' comics, &lt;Button-1&gt; fetch comic, &lt;Button-2&gt; interrupt transfer';
+status $help;
+
+sub status {
+    $status = $_[0];
+    $mw-&gt;idletasks;
+}</pre></blockquote>
+
+<p>Finally, populate the Listbox with the comic names, sorted
+alphabetically; establish two button bindings that give life to
+<em class="emphasis">tkcomics</em>; and enter the main Tk event loop:
+</p>
+
+<blockquote><pre class="code">foreach (sort keys %comics) {
+    $lb-&gt;insert('end', $_);
+}
+
+$lb-&gt;bind('&lt;ButtonRelease-1&gt;' =&gt; \&amp;show_comic);
+$mw-&gt;bind('&lt;ButtonRelease-2&gt;' =&gt; \&amp;stop_get);
+
+MainLoop;</pre></blockquote>
+
+<a name="mastperltk-CHP-22-FIG-2" /></a><div class="figure"><img src="figs/mptk.2202.gif" alt="Figure 22-2" width="481" height="161" /></div><h4 class="objtitle">Figure 22-2.  Initial tkcomics display</h4>
+
+<p>The heart of <i class="command">tkcomics</i> is the subroutine
+<tt class="literal">get_url</tt>, shown in the following code. Look it over
+before we explain it. Note that there's an implicit tradeoff
+between efficiency and simplicity. For an "important"
+program, it would be better to fork a persistent child once and
+establish a dialog between it and the Tk parent. In this case,
+however, it's considerably easier just to use a pipe
+<tt class="literal">open</tt> and run <i class="command">lwp-request</i> for
+every URL:
+</p>
+
+<blockquote><pre class="code">sub get_url {
+
+    my($url) = @_;
+    
+    status "Fetching $url";
+    $pid = open PIPE, "lwp-request -m GET -t 20 -e $url 2&gt;&amp;1 |" or
+        die "Open error: $!";
+    binmode PIPE if $^O eq 'MSWin32';
+
+    my $content;
+    $mw-&gt;fileevent(\*PIPE, 'readable' =&gt; sub {
+        my($stat, $data);
+        while ($stat = sysread PIPE, $data, 4096) {
+            $content .= $data;
+        }
+        die "sysread error:  $!" unless defined $stat;
+        $eof = 1 if $stat == 0;
+    });
+    $mw-&gt;waitVariable(\$eof);
+    $mw-&gt;fileevent(\*PIPE, 'readable' =&gt; '');
+    close PIPE;
+    
+    $pid = undef;
+    
+    (my $response, $content) = $content =~ /(.*?)\n\n(.*)/is if $content;
+
+    return wantarray ? ($response, $content) : $content;
+                   
+} # end get_url</pre></blockquote>
+
+<p><a name="INDEX-3173" /></a>Subroutine
+<tt class="literal">get_url</tt> is passed a single argument, the URL to
+fetch, which is immediately posted in the status Label. The
+<tt class="literal">open</tt> statement does the requisite
+<tt class="literal">pipe</tt>, <tt class="literal">fork</tt>, and
+<tt class="literal">exec</tt>-ing of <i class="command">lwp-request</i> for us,
+so all we (the TK parent) need do is establish a
+<tt class="literal">fileevent</tt> handler to read web content. The
+<em class="emphasis">lwp-request</em> option <em class="emphasis">-t</em>
+effects a 20-second timeout, and the <em class="emphasis">-e</em> option
+says to return the response headers along with the web content. The
+response headers are returned first, separated from the content by an
+empty line.
+</p>
+
+<p>If you're running a Win32 operating system, the
+<tt class="literal">binmode</tt> statement is very important, because the
+comic images are binary data. On Unix, <tt class="literal">binmode</tt>
+isn't required, but it does no harm, either.
+</p>
+
+<p>Now we set up the <tt class="literal">fileevent</tt> readable callback on
+the <i class="command">lwp-request</i> output pipe. The callback simply
+appends up to 4K of web data to the <tt class="literal">$content</tt>
+variable and nominally ends at end-of-file. Meanwhile, Tk event
+processing continues because the Tk parent is spinning on the
+<tt class="literal">waitVariable</tt> statement, waiting for the
+<tt class="literal">$eof</tt> variable to change. <tt class="literal">$eof</tt>
+changes in one of two ways, either when the
+<tt class="literal">fileevent</tt> callback detects end-of-file, or, as we
+shall see, when the user clicks <tt class="literal">&lt;Button-2&gt;</tt>.
+</p>
+
+<p>Once the <tt class="literal">waitVariable</tt> is satisfied, we cancel the
+<tt class="literal">fileevent</tt> readable callback, close the pipe
+handle, and undef <tt class="literal">$pid</tt>. Notice that
+<tt class="literal">get_url</tt> uses <tt class="literal">wantarray</tt> to
+determine if it was called in scalar or list context. In list
+context, we assume the caller wants two strings, the response headers
+and the actual URL content, or else just the content. We'll see
+how the response headers are used shortly.
+</p>
+
+<p>To stop a web GET, we click <tt class="literal">&lt;Button-2&gt;</tt>,
+which invokes the <tt class="literal">stop_get</tt> subroutine. We then set
+<tt class="literal">$eo</tt> f so the <tt class="literal">fileevent</tt> readable
+callback terminates, and, if <tt class="literal">$pid</tt> is defined
+(i.e., the <i class="command">lwp-request</i> child is still running) we
+<tt class="literal">kill</tt> it. <a name="INDEX-3174" /></a>
+</p>
+
+<blockquote><pre class="code">sub stop_get {
+    status "Stopping transfer ...";
+    $mw-&gt;after(5000, sub {status $help});
+    $eof = -1;
+    kill 'TERM', $pid if defined $pid;
+}</pre></blockquote>
+
+</div>
+<a name="mastperltk-CHP-22-SECT-1.4" /></a><div class="sect2">
+<h3 class="sect2">22.1.4. The Recipe for Displaying Web Images</h3>
+
+<p><a name="INDEX-3175" /></a><a name="INDEX-3176" /></a><a name="INDEX-3177" /></a><a name="INDEX-3178" /></a>Let's
+take a peek at what the <i class="command">tkcomics</i> application looks
+like rendering a comic. <a href="ch22_01.htm#mastperltk-CHP-22-FIG-3">Figure 22-3</a> depicts the
+program displaying a GIF file. To see how to render it, read on.
+Basically, using the active Listbox element, find the comic URL and
+fetch its contents. Within the page is an
+<tt class="literal">&lt;IMG&gt;</tt> tag with another URL pointing to the
+actual image, which we then fetch, convert to a Photo, and display.
+Periodically, we examine <tt class="literal">$eof</tt> to see if any
+transfer was aborted.
+</p>
+
+<a name="mastperltk-CHP-22-FIG-3" /></a><div class="figure"><img src="figs/mptk.2203.gif" alt="Figure 22-3" width="481" height="155" /></div><h4 class="objtitle">Figure 22-3.  Ask Shagg Camel Facts</h4>
+
+<p>As with any binding callback of the form:</p>
+
+<blockquote><pre class="code">$lb-&gt;bind('&lt;ButtonRelease-1&gt;' =&gt; \&amp;show_comic);</pre></blockquote>
+
+<p>Perl/Tk implicitly passes the bound object reference (the Listbox) as
+the callback's first argument, which we assign to the variable
+<tt class="literal">$lb</tt>.
+</p>
+
+<blockquote><pre class="code">sub show_comic {
+
+    my($lb) = @_;</pre></blockquote>
+
+<p>Since we got here on a <tt class="literal">&lt;ButtonRelease-1&gt;</tt>
+event, we're guaranteed that the active Listbox entry is our
+target comic. We <tt class="literal">get</tt> it and index into the
+<tt class="literal">%comics</tt> hash to get the URL of the page containing
+the comic image URL. We return immediately if the transfer was
+interrupted.
+</p>
+
+<blockquote><pre class="code">    my $comic = $lb-&gt;get('active');
+    my $comic_url = $comics{$comic};
+    my $comic_html = get_url 
+        $comic_url =~ /^http:/i ? $comic_url : "$comics_home$comic_url";
+    return if $eof == -1;</pre></blockquote>
+
+<p>Now extract the image URL from the mass of HTML sitting in
+<tt class="literal">$comic_html</tt>. Unfortunately, web content changes
+over time, which is why we use multiple pattern matches. Once we
+actually find a URL, call <tt class="literal">get_url</tt> in list context
+to get both the response header and the binary comic image. If the
+transfer wasn't interrupted, we can assume all the returned
+data is correct. And given a valid data transfer, we can extract the
+image size (in bytes) from the response header's
+<tt class="literal">Content-Length</tt> attribute. As an added touch,
+we'll adorn the comic's Listbox entry with this
+information, just to show we've already viewed the comic (see
+<a href="ch22_01.htm#mastperltk-CHP-22-FIG-3">Figure 22-3</a>).
+</p>
+
+<blockquote><pre class="code">    my $image_url;
+
+    if ( ($image_url) = $comic_html =~ m\.*&lt;IMG SRC="([^"]+)".*? ALT="(today|daily)\is ) {
+        print "1: $image_url!\n";
+    } elsif ( ($image_url) = $comic_html =~ m\.*bgcolor="#FFFFCC" ALIGN="MIDDLE" COLSPAN="3"&gt;&lt;BR&gt;&lt;IMG SRC="([^"]+)"\is ) {
+        print "2: $image_url!\n";
+    } else  {
+        status "Cannot find a comic image in $comic_url.";
+        print STDERR $comic_html;
+        return;
+    }
+
+    my ($response, $image) = get_url "$comics_home$image_url";
+    return if $eof == -1;
+    my($bytes) = $response =~ /Content-Length: (\d+)/is;</pre></blockquote>
+
+<p><a name="INDEX-3179" /></a>Perl/Tk images
+are generated from either an external file or embedded data. You may
+recall from <a href="ch17_01.htm">Chapter 17, "Images and Animations"</a> that because in Tcl
+"everything is a string,"<a href="#FOOTNOTE-63">[63]</a> embedded image data must be in printable
+characters, which is why we first Base64 encode the image data. Now
+we do a little bookkeeping on the variable <tt class="literal">$photo</tt>;
+the second and subsequent invocations of this callback delete any
+previous image to stem a possible memory leak. Then we create an
+image of the appropriate format and configure the image Label to
+display it. Finally, we append the comic's size, in bytes, to
+its Listbox entry and update the status help message. The
+<tt class="literal">update</tt> method is carefully placed so Tk adjusts
+the application's geometry based on the new image's
+dimensions, ensuring that <tt class="literal">see</tt> positions the
+Listbox properly. <tt class="literal">selectionSet</tt> rehighlights the
+current comic name.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-63" /></a><p> [63] Well, more
+accurately, everything was a string; recent Tks can handle binary
+objects.</p> </blockquote>
+
+<a name="INDEX-3180" /></a><a name="INDEX-3181" /></a><blockquote><pre class="code">    my $photo_data = encode_base64($image);
+    $photo-&gt;delete if UNIVERSAL::isa($photo =&gt; 'Tk::Photo');
+    my($ext) = $image_url =~ /\.(.*)?/;
+    $ext ||= 'gif';
+    status "Creating $bytes byte $ext Photo";
+    $photo = $mw-&gt;Photo(-data =&gt; $photo_data, -format =&gt; $ext{lc $ext});
+    $l-&gt;configure(-image =&gt; $photo);
+
+    my $index = $lb-&gt;index('active');
+    $comic .= " ($bytes)";
+    $lb-&gt;delete($index);
+    $lb-&gt;insert($index, $comic);
+    $lb-&gt;update;
+    $lb-&gt;see($index);
+    $lb-&gt;selectionSet($index);
+
+    status $help;
+
+} # end show_comic</pre></blockquote>
+
+</div>
+<a name="mastperltk-CHP-22-SECT-1.5" /></a><div class="sect2">
+<h3 class="sect2">22.1.5. Win32 Considerations</h3>
+
+<p><a name="INDEX-3182" /></a>Under
+Win32, the code is sound and should work with Perl 5.6.0 and a recent
+Tk, such as Tk 800.022. But, alas, it doesn't. It hangs on the
+<tt class="literal">fileevent</tt>, which is never triggered. So, what can
+we do?
+</p>
+
+<p>Threads are out, as Tk is not thread-safe. TCP/IP comes to mind and,
+since sockets are available on both Unix and Win32, this solution
+retains compatibility, if not simplicity. So let's rewrite
+<tt class="literal">get_url</tt> to fork a child that uses local Win32
+sockets.
+</p>
+
+<a name="mastperltk-CHP-22-SECT-1.5.1" /></a><div class="sect3">
+<h3 class="sect3">22.1.5.1. fork and local Win32 sockets</h3>
+
+<p><a name="INDEX-3183" /></a><a name="INDEX-3184" /></a>The parent begins by opening a listen
+socket on a well-known (but arbitrary) port on the
+localhost;<a href="#FOOTNOTE-64">[64]</a> it then forks a second process to run
+<i class="command">lwp-request</i>:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-64" /></a><p> [64] Similar to the <i class="command">ipadm
+</i>daemon described in <a href="ch19_01.htm">Chapter 19, "Interprocess Communication with Pipes and Sockets"</a>.</p>
+</blockquote>
+
+<blockquote><pre class="code">sub get_url {
+
+    use IO::Socket;
+    use POSIX;
+
+    my $url = shift;
+    my $port = 9917;
+    my($pid, $handle);
+
+    my $server = IO::Socket::INET-&gt;new(
+        LocalHost =&gt; 'localhost',
+        LocalPort =&gt; $port,
+        Proto     =&gt; 'tcp',
+        Listen    =&gt; SOMAXCONN,
+        Reuse =&gt; 1,
+    );
+    die "Parent socket open failure: $!" unless defined $server;
+
+    die "fork failure: $!" unless defined($pid = fork);</pre></blockquote>
+
+<p>The Tk parent then waits on the <tt class="literal">accept</tt> call until
+it receives a connect, puts the socket in binary mode, unbuffers it,
+and then uses <tt class="literal">fileevent</tt> to read all the incoming
+HTML, just like in the pipe-open version of
+<tt class="literal">get_url</tt>.
+</p>
+
+<blockquote><pre class="code">    if ($pid) {         # parent
+        $handle = $server-&gt;accept;
+        binmode $handle;
+        $handle-&gt;autoflush(1);
+
+        $eof = 0;
+        my $content;
+        $mw-&gt;fileevent($handle, 'readable' =&gt; sub {
+            my($stat, $data);
+            while ($stat = sysread $handle, $data, 4096) {
+                $content .= $data;
+            }
+            die "sysread error:  $!" unless defined $stat;
+            $eof = 1 if $stat == 0;
+        });
+        $mw-&gt;waitVariable(\$eof);
+        $mw-&gt;fileevent($handle, 'readable' =&gt; '');
+        close $handle;
+        $pid = undef;
+        return $content;</pre></blockquote>
+
+<p>Meanwhile, the child creates its unbuffered binary socket and outputs
+the HTML generated by a backticked <i class="command">lwp-request</i>:
+</p>
+
+<blockquote><pre class="code">    } else {            # child
+        $handle = IO::Socket::INET-&gt;new(
+            PeerAddr =&gt; 'localhost',
+            PeerPort =&gt; $port,
+            Proto    =&gt; 'tcp',
+        );
+        die "Child socket open failure: $!" unless defined $handle;
+        binmode $handle;
+        $handle-&gt;autoflush(1);
+        print $handle `lwp-request -m GET -t 20s -e $url`;
+        close $handle;
+        POSIX::_exit(0);
+
+    } # ifend fork
+
+} # end get_url</pre></blockquote>
+
+<p>This code works perfectly well on Unix but, once again, hangs on the
+<tt class="literal">fileevent</tt> under Win32. Perhaps we're pushing
+Win32's new fork capability too far by using backticks within a
+forked process. Well, we can test that theory by replacing:
+</p>
+
+<blockquote><pre class="code">print $handle `lwp-request -m GET -t 20s -e $url`;</pre></blockquote>
+
+<p>with equivalent LWP code. The new code needs a 20-second timeout and
+must return the response headers in addition to the web content.
+Here's how we do it.
+</p>
+
+</div>
+
+<a name="mastperltk-CHP-22-SECT-1.5.2" /></a><div class="sect3">
+<h3 class="sect3">22.1.5.2. fork and LWP::UserAgent</h3>
+
+<p><a name="INDEX-3185" /></a><a name="INDEX-3186" /></a>We begin as before, by creating a new
+user agent and sending it a <i class="command">timeout</i> message,
+building a request object, passing it to the user agent, and checking
+for errors. Now we return the response headers in the same format as
+<i class="command">lwp-request</i>'s <em class="emphasis">-e</em>
+option, an empty line, and the web content:
+</p>
+
+<blockquote><pre class="code">use LWP::UserAgent;
+my $ua = LWP::UserAgent-&gt;new;
+$ua-&gt;timeout(20);
+my $req_object = HTTP::Request-&gt;new('GET' =&gt; $url);
+my $res_object = $ua-&gt;request($req_object);
+die "request failed" if $res_object-&gt;is_error;
+foreach my $response (keys %{$res_object-&gt;headers}) {
+    print $handle "$response: ", $res_object-&gt;headers-&gt;{$response}, "\n";
+}
+print $handle "\n";
+print $handle $res_object-&gt;content;</pre></blockquote>
+
+<p>Once again, this code runs perfectly on Unix but fails on Win32, so
+we need to take a completely different tack. I suppose we could
+arrange for the child to write a file and signal the Tk parent by
+some means, perhaps a semaphore, but that lacks style. We can't
+use shared memory, since the Unix
+<i class="command">shmctl/shmget/shmread/shmwrite</i> shared memory
+functions aren't available in Win32, right? True, but Win32 has
+its own shared memory capabilities, so let's investigate
+further.
+</p>
+
+</div>
+
+<a name="mastperltk-CHP-22-SECT-1.5.3" /></a><div class="sect3">
+<h3 class="sect3">22.1.5.3. Win32::Process and shared memory</h3>
+
+<p><a name="INDEX-3187" /></a><a name="INDEX-3188" /></a><a name="INDEX-3189" /></a><a name="INDEX-3190" /></a><a name="INDEX-3191" /></a><a name="INDEX-3192" /></a><a name="INDEX-3193" /></a>A chance email with Grant Hopwell clued
+me in to his Tie::Win32MemMap module. With it, Grant would spin off
+Win32 children using Win32::Process::Create, and the two processes
+would talk using a shared Perl hash! This seemed an interesting
+possibility: create a shared hash with two keys, CONTENT and
+COMPLETE, and have the child run <i class="command">lwp-request</i> and
+store web content in <tt class="literal">$shared_hash{CONTENT}</tt>, while
+the Perl/Tk parent watches (using <tt class="literal">waitVariable</tt>)
+for a change in <tt class="literal">$shared_hash{COMPLETE}</tt>, set by the
+child when ready.
+</p>
+
+<p><a name="INDEX-3194" /></a><a name="INDEX-3195" /></a><a name="INDEX-3196" /></a>Tie::Win32MemMap
+requires Storable, available from CPAN, and Win32::MemMap, written by
+Amine Moulay Ramdane, available at <a href="http://www.generation.net/~aminer/Perl">http://www.generation.net/~aminer/Perl</a>.
+</p>
+
+<p>As it happens, we can indeed write a drop-in replacement for the
+subroutine <tt class="literal">get_url</tt>, specifically for Win32, and
+keep the rest of <i class="command">tkcomics</i> intact. Let's look
+at <tt class="literal">get_url</tt> for Win32 now.
+</p>
+
+<blockquote><pre class="code">sub get_url {
+
+    my($url) = @_;
+    
+    status "Fetching $url";</pre></blockquote>
+
+<p>Here we create and initialize a new chunk of shared memory and
+<tt class="literal">tie</tt> it to the hash <tt class="literal">%content</tt>.
+The shared memory is tagged with the name
+<tt class="literal">'tkcomics'</tt>, which any Win32 process can access if
+it uses the proper MapName.
+</p>
+
+<blockquote><pre class="code">    use Win32::Process;
+    use Tie::Win32MemMap;
+
+    my %content;
+    tie %content, 'Tie::Win32MemMap', {
+        Create  =&gt; MEM_NEW_SHARE,
+        MapName =&gt; 'tkcomics',
+    };
+    $content{'COMPLETE'} = 0;
+    $content{'CONTENT'}  = '';</pre></blockquote>
+
+<p>Now fire up the child process, another Perl program stored in the
+file <em class="filename">tkcwin32.kid</em>, whose job is to connect to
+the shared memory <tt class="literal">'tkcomics'</tt>, fill the CONTENT key
+with web data from the URL passed on the command line, and set the
+COMPLETE key when it's finished.
+</p>
+
+<blockquote><pre class="code">    Win32::Process::Create(
+        my $child,
+        'c:\\perl\\bin\\perl.exe',
+        "perl tkcwin32.kid $url",
+        0,
+        NORMAL_PRIORITY_CLASS,
+       '.',
+    ) or die Win32::FormatMessage(Win32::GetLastError);
+
+    $eof = 0;
+    $mw-&gt;update;</pre></blockquote>
+
+<p>Here we wait for the signal from the child that it has completed.
+Normally we would use a
+<tt class="literal">waitVariable(\$content{'COMPLETE'})</tt> statement, but
+there is competing magic between the Tie module and Tk, so we have to
+synthesize our own using this loop:
+</p>
+
+<blockquote><pre class="code">    while ( $content{'COMPLETE'} != 1 ) {
+        last if $eof == -1;
+        $mw-&gt;after(10);
+        $mw-&gt;update;
+    }</pre></blockquote>
+
+<p>Once the child completes, we separate the response headers from the
+actual content and return the particular data required by our caller,
+just like the Unix version.
+</p>
+
+<blockquote><pre class="code">    my $content = $content{'CONTENT'};
+    (my $response, $content) = $content =~ /(.*?)\n\n(.*)/is if $content;
+    return wantarray ? ($response, $content) : $content;
+                   
+} # end get_url</pre></blockquote>
+
+<p>For our purposes, the child, <em class="filename">tkcwin32.kid</em>, must
+reside in the current working directory, because we haven't
+qualified the pathname in the
+<tt class="literal">Win32::Process::Create</tt> call. It's certainly
+trivial to embed the child in <em class="emphasis">tkcomics</em> proper
+and create it during initialization; we'll do just that in
+short order. Until then, this is the Win32 child program.
+</p>
+
+<p>Because we're not in the context of a subroutine, the naked
+<tt class="literal">shift</tt> statement uses as its argument
+<tt class="literal">@ARGV</tt> (the command line) rather that
+<tt class="literal">@_</tt>, thus providing the child the URL specified by
+the parent:
+</p>
+
+<blockquote><pre class="code">#!/usr/local/bin/perl -w
+#
+# Win32 tkcomics helper program that shovels web content to the Tk parent.
+
+use Tie::Win32MemMap;
+
+my $url = shift;</pre></blockquote>
+
+<p>By this point in real time, the Tk parent has already created and
+tied the shared memory to its hash, so all the child need do is tie
+to the same MapName in "share" mode.
+</p>
+
+<blockquote><pre class="code">my %content;
+tie %content, 'Tie::Win32MemMap', {
+    Create  =&gt; MEM_VIEW_SHARE,
+    MapName =&gt; 'tkcomics',
+};</pre></blockquote>
+
+<p>Once again, with Perl 5.6.0 and higher, the child is free to do a
+pipe <tt class="literal">open</tt> and run <i class="command">lwp-request</i>
+in the same manner as the Unix code. Do not forget the
+<tt class="literal">binmode</tt> statement!
+</p>
+
+<blockquote><pre class="code">open(PIPE, "lwp-request -m GET -t 20s -e $url|") or die "open failure: $!";
+binmode PIPE;</pre></blockquote>
+
+<p>Once again, read 4K chunks of web content and build up the scalar
+<tt class="literal">$content{'CONTENT'}</tt>. When end-of-file is reached,
+close the pipe and set the complete marker, signaling the Tk parent
+to proceed.
+</p>
+
+<blockquote><pre class="code">my($stat, $data);
+while ($stat = sysread PIPE, $data, 4096) {
+    $content{'CONTENT'} .= $data;
+}
+die "sysread error:  $!" unless defined $stat;
+close PIPE;
+
+$content{'COMPLETE'} = 1;
+exit(0);</pre></blockquote>
+
+<p>If you don't believe all this actually works, gaze upon <a href="ch22_01.htm#mastperltk-CHP-22-FIG-4">Figure 22-4</a> and witness <i class="command">tkcomics</i> for
+Win32!<a name="INDEX-3197" /></a><a name="INDEX-3198" /></a><a name="INDEX-3199" /></a>
+</p>
+
+<a name="mastperltk-CHP-22-FIG-4" /></a><div class="figure"><img src="figs/mptk.2204.gif" alt="Figure 22-4" width="481" height="153" /></div><h4 class="objtitle">Figure 22-4.  tkcomics works in Win32 too</h4>
+
+</div>
+</div>
+<a name="mastperltk-CHP-22-SECT-1.6" /></a><div class="sect2">
+<h3 class="sect2">22.1.6. Tidying an Ugly Mess</h3>
+
+<p><a name="INDEX-3200" /></a>So now we have at least three distinct
+ways of fetching web content without blocking. If this has to be the
+state of the world, then so be it, but we can at least encapsulate
+the pipe-open, TCP/IP socket, and the Win32 memmap code directly into
+<i class="command">tkcomics</i> and conditionally use the variant
+appropriate for the operating system at hand. We'll do this by
+testing <tt class="literal">$^O</tt> and <tt class="literal">eval</tt>-ing the
+correct code.
+</p>
+
+<p>First, let's change <tt class="literal">get_url</tt>, effectively
+factoring out the essence of the subroutine, leaving
+<tt class="literal">_get_url</tt> (defined at compile time) to do the
+operating system-specific work.
+</p>
+
+<blockquote><pre class="code">sub get_url {
+
+    my($url) = @_;
+    
+    status "Fetching $url";
+    my $content = &amp;_get_url($url);
+    (my $response, $content) = $content =~ /(.*?)\n\n(.*)/is if $content;
+    return wantarray ? ($response, $content) : $content;
+                   
+}</pre></blockquote>
+
+<p>Now, in a <tt class="literal">BEGIN</tt> block, store our three definitions
+for <tt class="literal">_get_url</tt> in three separate variables, then
+<tt class="literal">eval</tt> just the one desired for this invocation of
+<i class="command">tkcomics</i>. Note that we can override the default
+selection from the command line and that we have to relax our coding
+strictness in order to <tt class="literal">eval</tt> the symbolic
+reference.
+</p>
+
+<blockquote><pre class="code">BEGIN {
+
+    # Different mechanisms to get web content without blocking.
+
+    use vars qw/
+        $pipe_open_fileevent
+        $tcp_socket_fileevent
+        $win32_memmap_waitvariable
+    /;
+
+    $pipe_open_fileevent = &lt;&lt;'END';
+    # Pipe/open/fileevent version of _get_url( ) here ...
+END
+
+    $tcp_socket_fileevent = &lt;&lt;'END';
+    # TCP/IP socket/fileevent version of _get_url( ) here ...
+END
+
+    $win32_memmap_waitvariable = &lt;&lt;'END';
+    # Win32 memmap/waitVariable version of _get_url( ) here ...
+END
+
+    my $get_url;
+    if (defined $ARGV[0]) {
+        $get_url = $ARGV[0];
+    } else {
+        if ($^O eq 'MSWin32') {
+            $get_url = 'win32_memmap_waitvariable';
+        } else {
+            $get_url = 'pipe_open_fileevent';
+        }
+    }
+
+    {
+        no strict 'refs';
+        print "Using $get_url method ...\n";
+        eval $$get_url;
+        die "_get_url eval error: $@" if $@;
+    }
+
+} # end BEGIN</pre></blockquote>
+
+<p>Finally, here's <i class="command">tkcomics</i> in its entirety. It
+fetches web content in a nonblocking mode so that Tk events flow and
+configures itself according to the operating system on which
+it's running. Enjoy.
+</p>
+
+<a name="INDEX-3201" /></a><a name="INDEX-3202" /></a><blockquote><pre class="code">#!/usr/local/bin/perl -w
+#
+# tkcomics - display comics courtesy of http://www.comics.com
+#
+# Because LWP::Simple and LWP::UserAgent can block, do the network
+# I/O in another thread, or, child, and using fileevent( ) or
+# waitVariable( ) to keep events flowing.
+#
+# Add a Stop/Cancel button that kills the pipe.
+#
+# Command line options:
+#
+#   pipe_open_fileevent
+#   tcp_socket_fileevent
+#   win32_memmap_waitvariable
+
+
+use MIME::Base64;
+use Tk;
+use Tk::JPEG;
+use Tk::PNG;
+use subs qw/get_url show_comic status stop_get unix_pipe win32_memmap/;
+use strict;
+
+my $mw = MainWindow-&gt;new;
+my $photo = '';
+my $status = '';
+my($eof, $pid);
+my %ext = qw/
+    gif gif
+    jpg jpeg
+    png png
+    tif tiff
+    xbm xbm
+    ppm ppm
+/;                # file extension =&gt; Photo format map
+
+my $s = $mw-&gt;Label(-textvariable =&gt; \$status, -width =&gt; 100);
+my $lb = $mw-&gt;Scrolled(qw/Listbox -selectforeground blue/);
+my $l = $mw-&gt;Label(
+    -text       =&gt; 'tkcomics',
+    -foreground =&gt; 'blue',
+    -font       =&gt; [qw/-size 100 -slant italic/],
+);
+$s-&gt;pack(qw/-side bottom -fill x -expand 1/);
+$lb-&gt;pack(qw/side left -fill y -expand 1 -anchor w/);
+$l-&gt;pack(-side =&gt; 'right');
+
+# Fetch the main comics page, build a hash of comic URLs
+# indexed by comic name,  note the total comic count, and
+# populate a Listbox.  Listbox B1 fetches and displays a
+# comic. B2 anywhere cancels a transfer.
+
+my $comics_home = 'http://www.comics.com';
+my $comics = get_url $comics_home or die "Can't get $comics_home.";
+
+my(%comics, $comic_url, $comic);
+foreach (split /\n/, $comics) {
+    next unless /OPTION\s+VALUE/i;
+    if (($comic_url, $comic) = m\"([^"]+)"&gt;(.*)\) {
+        $comic =~ s/\t//g;
+        $comic =~ s/\r//g;
+        $comics{$comic} = $comic_url;
+    }
+}
+my $help = scalar(keys %comics) .
+    ' comics, &lt;Button-1&gt; fetch comic, &lt;Button-2&gt; interrupt transfer';
+status $help;
+
+foreach (sort keys %comics) {
+    $lb-&gt;insert('end', $_);
+}
+
+$lb-&gt;bind('&lt;ButtonRelease-1&gt;' =&gt; \&amp;show_comic);
+$mw-&gt;bind('&lt;ButtonRelease-2&gt;' =&gt; \&amp;stop_get);
+
+MainLoop;
+
+sub get_url {
+
+    # Given a URL, return its contents. The exact nonblocking
+    # mechanism is adjustable, and either defaults to the best
+    # method for the operating system at hand, or is specified
+    # on the command line.
+
+    my($url) = @_;
+    
+    status "Fetching $url";
+    my $content = &amp;_get_url($url);
+    (my $response, $content) = $content =~ /(.*?)\n\n(.*)/is if $content;
+    return wantarray ? ($response, $content) : $content;
+                   
+} # end get_url
+
+sub show_comic {
+
+    # Using the active listbox element, find the comic URL and fetch
+    # its contents.  Within the content is another URL pointing to
+    # the actual image, which we then fetch, convert to a Photo and
+    # then display.  $eof is -1 if any transfer was aborted.
+
+    my($lb) = @_;
+
+    my $comic = $lb-&gt;get('active');
+    $comic =~ s/\s\(\d+\)//;
+    my $comic_url = $comics{$comic};
+    my $comic_html = get_url 
+        $comic_url =~ /^http:/i ? $comic_url : "$comics_home$comic_url";
+    return if $eof == -1;
+
+    my($image_url);
+
+    if ( ($image_url) = $comic_html =~ m\.*&lt;IMG SRC="([^"]+)".*? ALT="(today|daily)\is ) {
+        print "1: $image_url!\n";
+    } elsif ( ($image_url) = $comic_html =~ m\.*bgcolor="#FFFFCC" ALIGN="MIDDLE" COLSPAN="3"&gt;&lt;BR&gt;&lt;IMG SRC="([^"]+)"\is ) {
+        print "2: $image_url!\n";
+    } else  {
+        status "Cannot find a comic image in $comic_url.";
+        print STDERR $comic_html;
+        return;
+    }
+
+    my ($response, $image) = get_url "$comics_home$image_url";
+    return if $eof == -1;
+    my($bytes) = $response =~ /Content-Length: (\d+)/is;
+
+    my $photo_data = encode_base64($image);
+    $photo-&gt;delete if UNIVERSAL::isa($photo =&gt; 'Tk::Photo');
+    my($ext) = $image_url =~ /\.(.*)?/;
+    $ext ||= 'gif';
+    status "Creating $bytes byte $ext Photo";
+    $photo = $mw-&gt;Photo(-data =&gt; $photo_data, -format =&gt; $ext{lc $ext});
+    $l-&gt;configure(-image =&gt; $photo);
+
+    my $index = $lb-&gt;index('active');
+    $comic .= " ($bytes)";
+    $lb-&gt;delete($index);
+    $lb-&gt;insert($index, $comic);
+    $lb-&gt;update;
+    $lb-&gt;see($index);
+    $lb-&gt;selectionSet($index);
+
+    status $help;
+
+} # end show_comic
+
+sub status {
+    $status = $_[0];
+    $mw-&gt;idletasks;
+}
+
+sub stop_get {
+    status "Stopping transfer ...";
+    $mw-&gt;after(5000, sub {status $help});
+    $eof = -1;
+    kill 'TERM', $pid if defined $pid;;
+}
+
+BEGIN {
+
+    # Different mechanisms to get web content without blocking.
+
+    use vars qw/
+        $pipe_open_fileevent
+        $tcp_socket_fileevent
+        $win32_memmap_waitvariable
+    /;
+
+    $pipe_open_fileevent = &lt;&lt;'END';
+
+sub _get_url {
+
+    my $url = shift;
+    my $pid = open PIPE, "lwp-request -m GET -t 20s -e $url 2&gt;&amp;1 |" or
+        die "Open error: $!";
+    $eof = 0;
+
+    my $content;
+    $mw-&gt;fileevent(\*PIPE, 'readable' =&gt; sub {
+        my($stat, $data);
+        while ($stat = sysread PIPE, $data, 4096) {
+            $content .= $data;
+        }
+        die "sysread error:  $!" unless defined $stat;
+        $eof = 1 if $stat == 0;
+    });
+    $mw-&gt;waitVariable(\$eof);
+    $mw-&gt;fileevent(\*PIPE, 'readable' =&gt; '');
+    close PIPE;
+    $pid = undef;
+    return $content;
+
+} # end pipe_open_fileevent
+
+END
+
+    $tcp_socket_fileevent = &lt;&lt;'END';
+
+sub _get_url {
+
+    # The parent opens a listen socket on a well known port on the
+    # localhost, and then starts a second process to run lwp-request.
+    # When the parent receives a connect it reads all the HTML sent
+    # by the child.
+
+    use IO::Socket;
+    use POSIX;
+
+    my $url = shift;
+    my $port = 9917;
+    my($pid, $handle);
+
+    my $server = IO::Socket::INET-&gt;new(
+        LocalHost =&gt; 'localhost',
+        LocalPort =&gt; $port,
+        Proto     =&gt; 'tcp',
+        Listen    =&gt; SOMAXCONN,
+        Reuse =&gt; 1,
+    );
+    die "Parent socket open failure: $!" unless defined $server;
+
+    die "fork failure: $!" unless defined($pid = fork);
+    if ($pid) {        # parent
+        $handle = $server-&gt;accept;
+        binmode $handle;
+        $handle-&gt;autoflush(1);
+
+        $eof = 0;
+        my $content;
+        $mw-&gt;fileevent($handle, 'readable' =&gt; sub {
+            my($stat, $data);
+            while ($stat = sysread $handle, $data, 4096) {
+                $content .= $data;
+            }
+            die "sysread error:  $!" unless defined $stat;
+            $eof = 1 if $stat == 0;
+        });
+        $mw-&gt;waitVariable(\$eof);
+        $mw-&gt;fileevent($handle, 'readable' =&gt; '');
+        close $handle;
+        $pid = undef;
+        return $content;
+
+    } else {        # child
+        $handle = IO::Socket::INET-&gt;new(
+            PeerAddr =&gt; 'localhost',
+            PeerPort =&gt; $port,
+            Proto    =&gt; 'tcp',
+        );
+        die "Child socket open failure: $!" unless defined $handle;
+        binmode $handle;
+        $handle-&gt;autoflush(1);
+
+        use LWP::UserAgent;
+        my $ua = LWP::UserAgent-&gt;new;
+        $ua-&gt;timeout(20);
+        my $req_object = HTTP::Request-&gt;new('GET' =&gt; $url);
+        my $res_object = $ua-&gt;request($req_object);
+        die "request failed" if $res_object-&gt;is_error;
+        foreach my $response (keys %{$res_object-&gt;headers}) {
+            print $handle "$response: ", $res_object-&gt;headers-&gt;{$response}, "\n";
+        }
+        print $handle "\n";
+        print $handle $res_object-&gt;content;
+
+        close $handle;
+        POSIX::_exit(0);
+
+    } # ifend fork
+
+} # end tcp_socket_fileevent
+
+END
+
+    $win32_memmap_waitvariable = &lt;&lt;'END';
+
+use vars qw/$kidfile/;    
+$kidfile = 'tkcwin32.kid';
+
+sub _get_url {
+
+    # The parent creates and initializes a new chunk of shared
+    # memory, then starts a child process that shares the same
+    # memory.  The parent waits for the child to run lwp-request
+    # and save the web content by (essentially) doing a
+    # waitvariable( ) on one particular hash element.
+
+    use Win32::Process;
+    use Tie::Win32MemMap;
+
+    my $url = shift;
+
+    my %content;
+    tie %content, 'Tie::Win32MemMap', {
+        Create  =&gt; MEM_NEW_SHARE,
+        MapName =&gt; 'tkcomics',
+    };
+    $content{'COMPLETE'} = 0;
+    $content{'CONTENT'}  = '';
+
+    Win32::Process::Create(
+        my $child,
+        'c:\\perl\\bin\\perl.exe',
+        "perl $kidfile $url",
+        0,
+        NORMAL_PRIORITY_CLASS,
+       '.',
+    ) or die Win32::FormatMessage(Win32::GetLastError);
+
+    $eof = 0;
+    $mw-&gt;update;
+
+    while ( $content{'COMPLETE'} != 1 ) {
+        last if $eof == -1;
+        $mw-&gt;update;
+    }
+    return $content{'CONTENT'};
+
+} # end win32_memmap
+
+open(KID, "&gt;$kidfile") or die "cannot open file $kidfile: $!";
+print KID &lt;&lt;'END-OF-KID';
+#!/usr/local/bin/perl -w
+#
+# Win32 tkcomics helper program that shovels web content to the Tk parent.
+
+use Tie::Win32MemMap;
+
+my $url = shift;
+
+my %content;
+tie %content, 'Tie::Win32MemMap', {
+    Create  =&gt; MEM_VIEW_SHARE,
+    MapName =&gt; 'tkcomics',
+};
+
+open(PIPE, "lwp-request -t 20s -e $url|") or die "open failure: $!";
+binmode PIPE;
+
+my($stat, $data);
+while ($stat = sysread PIPE, $data, 4096) {
+    $content{'CONTENT'} .= $data;
+}
+die "sysread error:  $!" unless defined $stat;
+close PIPE;
+
+$content{'COMPLETE'} = 1;
+exit(0);
+END-OF-KID
+close KID;
+
+END
+
+
+    my $get_url;
+    if (defined $ARGV[0]) {
+        $get_url = $ARGV[0];
+    } else {
+        if ($^O eq 'MSWin32') {
+            $get_url = 'win32_memmap_waitvariable';
+        } else {
+            $get_url = 'pipe_open_fileevent';
+        }
+    }
+
+    {
+        no strict 'refs';
+        print "Using $get_url method ...\n";
+        eval $$get_url;
+        die "_get_url eval error: $@" if $@;
+    }
+
+} # end BEGIN</pre></blockquote>
+
+</div>
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch21_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch22_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">21.4. How Not to Port Tk::Square</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">22.2. The PerlPlus Browser Plug-in</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

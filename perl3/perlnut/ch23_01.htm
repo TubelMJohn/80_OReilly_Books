@@ -1,0 +1,184 @@
+<html><head><title>OLE Automation (Perl in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Stephen Spainhour" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002416L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch22_19.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch23_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 23. OLE Automation</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#perlnut2-CHP-23-SECT-1">Creating Objects</a><br />
+<a href="ch23_02.htm">Automation Methods and Properties</a><br />
+<a href="ch23_03.htm">Win32::OLE::Enum</a><br />
+<a href="ch23_04.htm">Win32::OLE::Variant</a><br />
+<a href="ch23_05.htm">Win32::OLE::Const</a><br /></p></div>
+
+<p><a name="INDEX-3430" /></a><a name="INDEX-3431" /></a>The Win32::OLE modules give Perl
+support for OLE automation. OLE automation is a Microsoft technology
+based on COM that allows objects created by another application to be
+used and manipulated by a program through a common interface.
+</p>
+
+<p><a name="INDEX-3432" /></a>The
+application (or DLL) that implements the automation interface is
+called the <em class="emphasis">automation server</em>. The application
+that creates and uses the interface is called the
+<em class="emphasis">automation
+controller</em><a name="INDEX-3433" /></a> or <em class="emphasis">automation
+client</em><a name="INDEX-3434" /></a>. Many popular applications expose their
+objects through automation. Microsoft Word, Excel, and other Office
+applications can be used as automation servers. Automation is widely
+used by Active Server Pages (ASP) and CGI scripts to access data
+repositories, perhaps via ActiveX Data Objects (ADO). You can even
+use automation to control many development environments and editors.
+</p>
+
+<p>To create an <a name="INDEX-3435" /></a>automation object, the server needs to be
+<em class="emphasis">registered</em> on the system. This is typically done
+by the server's installation program, but can be
+done manually using a utility such as
+<em class="emphasis">regsvr32.exe</em>. This involves adding entries to
+the system registry to tell COM how to find the component, the types
+of interfaces it provides, the type of server it is, etc. You should
+be able to find the object model, available methods, and properties
+of the interface in the documentation provided by the application.
+This object model can be used via Perl's object
+syntax to create and control objects in your programs.
+</p>
+
+<p><a name="INDEX-3436" /></a>Four
+modules provide automation functionality to Perl:
+</p>
+
+
+<dl>
+<a name="INDEX-3437" /></a><dt><i>Win32::OLE</i></dt>
+<dd>
+Provides the main interface for OLE automation. You can create or
+open automation objects, use their methods, and set their properties.
+<p></p>
+</dd>
+
+
+<a name="INDEX-3438" /></a><dt><i>Win32::OLE::Enum</i></dt>
+<dd>
+Creates objects for collections and defines an interface for
+enumerating them.
+<p></p>
+</dd>
+
+
+<a name="INDEX-3439" /></a><dt><i>Win32::OLE::Variant</i></dt>
+<dd>
+Allows you to convert the Variant data type used in OLE.<p></p>
+</dd>
+
+
+<a name="INDEX-3440" /></a><dt><i>Win32::OLE::Const</i></dt>
+<dd>
+Imports constants from an automation object into your script.<p></p>
+</dd>
+
+</dl>
+
+<p>Note that there are a few limitations to Win32::OLE. There is
+currently no support for OCXs or OLE events (notifications generated
+by the automation server). Win32::OLE implements the
+<tt class="literal">IDispatch</tt> interface only, and therefore cannot
+access a custom OLE interface.
+</p>
+<div class="sect1"><a name="perlnut2-CHP-23-SECT-1" /></a>
+<h2 class="sect1">23.1. Creating Objects</h2>
+
+<p>Automation objects are represented in Perl as instances of Win32::OLE
+objects. The module provides three constructors for creating objects
+from a registered automation server.
+</p>
+
+<a name="INDEX-3441" /></a><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>new</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" true align="left" color="black" /><pre>
+Win32::OLE-&gt;new(<em class="replaceable">progid</em>, [<em class="replaceable">destructor</em>])
+</pre><p><a name="INDEX-3441" /></a>Creates a new automation object. This
+method always creates a new instance of the server, even if a
+previous instance of the server is running. If the object cannot be
+created, <tt class="literal">new</tt> returns <tt class="literal">undef</tt>.
+</p><p><em class="replaceable"><tt>progid</tt></em>, the program identifier (ProgID),
+is a string that uniquely identifies an automation object.
+<em class="replaceable"><tt>progid</tt></em> is used to look up the
+object's class ID (CLSID), which is stored in the
+registry.
+</p><p>The second, optional argument to the <tt class="literal">new</tt> method
+describes a way to destroy the object in case the Perl program dies
+unexpectedly. <em class="replaceable"><tt>destructor</tt></em> can be either a
+string with the name of the defined OLE destructor method, or a code
+reference that will destroy the object. You should use some form of
+<em class="replaceable"><tt>destructor</tt></em> to close out all your objects,
+for they can be extremely expensive in terms of system resources. You
+can explicitly destroy an object using the <tt class="literal">undef</tt>
+function. If you don't explicitly destroy the
+object, Perl takes care of it for you when the last reference to the
+object goes away.
+</p><p>Here is what <tt class="literal">new</tt> would look like with the
+destructor arguments:
+</p><blockquote><pre class="code"># Quit is the OLE-defined destructor method
+$x1 = Win32::OLE-&gt;new("Excel.Application", 'Quit');
+
+# The object reference is the first argument ($_[0]) passed to new
+# The code reference will undef it to destroy the object
+$x2 = Win32::OLE-&gt;new("Excel.Application", sub{undef $_[0];})</pre></blockquote><p>Notice that we're supplying Excel.Application as the
+ProgID. Excel supports several different automation objects,
+including an Application object, WorkBook objects, and several more.
+You don't necessarily have to create the top-level
+object (Application, in this case) when dealing with automation
+objects (this is determined by the automation server). In
+Excel's case, we could have directly created a
+WorkSheet object (e.g., Excel.Sheet) or a Chart object, for example.
+</p></div>
+
+<a name="INDEX-3442" /></a><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>GetActiveObject</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" true align="left" color="black" /><pre>
+Win32::OLE-&gt;GetActiveObject(<em class="replaceable">progid</em>)
+</pre><p><a name="INDEX-3442" /></a>Creates an
+object for a currently active instance of a server, if one exists. If
+the server is registered, but no instance of it is running, the
+method returns <tt class="literal">undef</tt>. If the server is not
+registered, the method will <tt class="literal">croak</tt>.
+</p><p>You should probably call <tt class="literal">GetActiveObject</tt> inside an
+<tt class="literal">eval</tt> so that you can do exception handling in the
+event that the server is unregistered or is not currently running. If
+the method returns <tt class="literal">undef</tt>, you can just create a
+new instance of the server and the object with
+<tt class="literal">new</tt>.
+</p></div>
+
+<a name="INDEX-3443" /></a><div class="refentry"><table width="515" border="0" cellpadding="5"><tr><td align="left"><font size="+1"><b>GetObject</b></font></td><td align="right"><i></i></td></tr></table><hr width="515" size="3" true align="left" color="black" /><pre>
+Win32::OLE-&gt;GetObject(<em class="replaceable">filename</em>)
+</pre><p><a name="INDEX-3443" /></a>Creates an automation object
+based on a document. <em class="replaceable"><tt>filename</tt></em> is the full
+pathname of the document, which can be optionally followed by
+additional item subcomponents separated by exclamation marks
+(<tt class="literal">!</tt>). For example:
+</p><blockquote><pre class="code">$doc = 'c:\test\test.xls';
+$x1 = Win32::OLE-&gt;GetObject($doc);</pre></blockquote><p>This code creates an Excel instance based on an Excel file. It is not
+always clear what type of object <tt class="literal">GetObject</tt> will
+return from a document since applications may register for more than
+one document type (e.g., worksheets, charts, macro files, etc. for
+Excel). You can use <tt class="literal">QueryObjectType</tt> on an object
+to get the class name of the object.
+</p></div>
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch22_19.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch23_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">22.19. Win32 Extensions</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">23.2. Automation Methods and Properties</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+      </map>
+
+</body></html>

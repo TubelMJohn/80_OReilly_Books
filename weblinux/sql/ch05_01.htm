@@ -1,0 +1,417 @@
+<?label 5. mSQL?><html><head><title>mSQL (MySQL &amp; mSQL)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Randy Jay Yarger, George Reese and Tim King" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924347L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="MySQL &amp; mSQL" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="MySQL and mSQL" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">MySQL &amp; mSQL</a></td><td width="172" valign="top" align="right"><a href="ch05_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 5. mSQL</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch05_01.htm">Design</a><br />
+<a href="ch05_02.htm">mSQL Versions</a><br />
+<a href="ch05_03.htm">Installing mSQL</a><br />
+<a href="ch05_04.htm">Running mSQL</a><br />
+<a href="ch05_05.htm">Database Administration</a><br />
+<a href="ch05_06.htm">mSQL Utilities</a><br /></p></div>
+
+
+
+
+
+
+
+
+
+
+<p>Database concepts and design are all extremely important, but you
+probably want to dive in and work with mSQL or MySQL. Chances are
+that you have chosen one database engine or the other to serve your
+needs. Perhaps, however, you are looking to this book to help you
+with that decision. In this chapter, we start diving into the details
+with mSQL. If you are already a committed MySQL user, you can skip
+over this chapter. If, on the other hand, you are a committed mSQL
+user or you want to learn about both database engines, this chapter
+is the place to start.</p>
+
+
+
+
+
+<p>
+<a name="INDEX-278" />mSQL
+is the <a name="INDEX-279" />relational
+database management system (RDBMS) that initiated the era of cheap
+SQL database engines for small-to-medium sized database needs. Its
+small footprint, impressive speed, and short learning curve turned it
+into an excellent database choice for the growing population of
+start-up web developers who do not want to spend the time to become
+expert database programmers. The author of the mSQL database engine
+intentionally included all of these advantages when he set out to
+create a database product that could fill a gaping hole in database
+products.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch05-40788" />
+<h2 class="sect1">5.1. Design</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-280" />David Hughes had three specific design
+goals in mind for mSQL:<a name="INDEX-281" /></p>
+
+
+
+
+
+<ul><li><p>mSQL had to be fast.</p></li><li><p>mSQL had to have a small footprint.</p></li><li><p>mSQL had to be able to handle multiple simultaneous connections.</p></li></ul>
+
+<p>Speed was the primary motivation behind mSQL. Because most commercial
+SQL servers try to implement the full SQL2 specification in addition
+to their own proprietary extensions, they pay for that support in
+terms of performance and footprint. mSQL, however, sacrifices some of
+the more advanced features of the commercial database engines for
+speed. Minerva needed to be able to run many simple SQL queries
+quickly. mSQL does exactly that.</p>
+
+
+
+
+
+<p>Speed and footprint go hand-in-hand. As Hughes discovered, if you
+start from the ground up and implement only the necessary
+functionality, you can design an SQL server that does not take up so
+many resources that it must be run on a machine by itself in order to
+be useful. As a result, mSQL has a large amount of the functionality
+of the major database engines using a fraction of the resources.</p>
+
+
+
+
+
+<p>The speed and footprint improvements of mSQL would have been enough
+to make it a viable replacement for Postgres on the Minerva project.
+Hughes, however, also wanted to change the behavior that caused him
+to seek an alternative in the first place. Hughes specifically
+designed mSQL to handle multiple simultaneous connections within a
+single process. The result of these design goals is a small, fast,
+efficient SQL server capable of handling multiple connections,
+locally or over the network.</p>
+
+
+
+
+
+<p>In order to implement this design, Hughes first needed to limit the
+functionality of the server. The mSQL dialect of SQL is a subset of
+the ANSI SQL2 standard that contains the most commonly used
+statements like <tt class="literal">CREATE</tt>, <tt class="literal">INSERT</tt>,
+<tt class="literal">SELECT</tt>, <tt class="literal">UPDATE</tt>, and
+<tt class="literal">DELETE</tt>.<a href="#FOOTNOTE-6">[6]</a> Hughes
+left out resource intensive operations like transaction support.
+Because of the kind of applications mSQL supports, the functionality
+Hughes left out is generally not needed.</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-6" /><p>[6]We will cover the mSQL SQL
+dialect in <a href="ch06_01.htm">Chapter 6, "SQL According to MySQL and mSQL"</a>.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-282" />mSQL
+is a queuing, single-threaded server. Any number of clients may
+connect to mSQL at the same time -- up to a defined limit. As each
+of these clients send queries to mSQL, the database engine sticks the
+queries into a synchronous queue and processes each query one at a
+time. The efficiency of this design is thus dependent on the ability
+of the server to handle each query quickly. If the queries are not
+processed in a timely manner, the queue will grow and eventually the
+server will crash from exceeding system limitations. Speed is
+therefore critical to the successful operation of mSQL. <a href="ch05_01.htm#ch05-27777">Figure 5-1</a> illustrates mSQL's queuing,
+single-threaded processing.</p>
+
+
+
+
+
+<a name="ch05-27777" /><div class="figure"><img width="502" src="figs/MSQL.0501.gif" height="252" alt="Figure 5-1" /></div><h4 class="objtitle">Figure 5-1. The client/server design of mSQL</h4>
+
+<p>The single-threaded nature of mSQL eliminates the need for batch
+processing. Because queries are handled one at a time, SQL statements
+do not have the ability to overwrite each other. It would, of course,
+be nice if mSQL supported transactions, but they are not necessary
+for the proper operation of a database engine with mSQL's
+design goals.</p>
+
+
+
+
+
+<p>On the client side, mSQL supports two kinds of connections.
+<a name="INDEX-283" />Remote clients connect to the server
+through a well-known TCP/IP port. By basing connectivity on TCP/IP,
+an mSQL database can be made available to any machine in the world
+via the Internet. Local connections can also make use of the TCP/IP
+port, but they can get better performance by using a standard
+<a name="INDEX-284" />Unix socket. Unix socket connections
+are about 20 percent faster than TCP/IP
+connections.<a name="INDEX-285" /></p>
+
+
+
+
+
+<p>Bundled with mSQL is a suite of programs that enables complete access
+to the database system. The mSQL monitor, <em class="emphasis">msql</em>,
+enables a user to submit queries directly to the server. While this
+tool is useful during development, most users will want to interface
+with the database through some sort of application. In order to
+support application development, mSQL has a built-in C API that
+enables any C program to connect to a mSQL server through either a
+TCP/IP or Unix socket.</p>
+
+
+
+
+
+<p>
+<a name="INDEX-286" />mSQL also provides a network protocol
+that enables other languages to connect to mSQL over a network
+without the need for using the C API. With these two types of
+interfaces, developers in a host of languages have put together
+libraries for connecting to mSQL in just about any language you can
+imagine. In this book, we cover the C, Perl, Java, and Python
+APIs.<a name="INDEX-287" /></p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch05_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">4.6. Performance Tuning</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">5.2. mSQL Versions</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

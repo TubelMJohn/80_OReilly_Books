@@ -1,0 +1,498 @@
+<?label 19.2. mSQL C API
+?><html><head><title>mSQL C API
+ (MySQL &amp; mSQL)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Randy Jay Yarger, George Reese and Tim King" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924347L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="MySQL &amp; mSQL" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="MySQL and mSQL" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch19_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">MySQL &amp; mSQL</a></td><td width="172" valign="top" align="right"><a href="ch20_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<a name="INDEX-1890" /><a name="INDEX-1891" /><h2 class="sect1">19.2. mSQL C API
+</h2>
+
+
+
+
+
+<p>The mSQL C API has remained relatively stable between mSQL Versions 1
+and 2. However, several new functions have been added, and there have
+been a few changes in the existing function. Wherever a function or
+feature can only be used with mSQL 2, it is noted.</p>
+
+
+
+
+
+<a name="ch19-97-fm2xml" /><div class="sect2">
+<a name="INDEX-1892" /><a name="INDEX-1893" /><h3 class="sect2">19.2.1. Datatypes
+</h3>
+
+
+
+
+
+<p>The mSQL C API uses a few defined datatypes beyond the standard C
+types. These types are defined in the `msql.h' header
+file that must be included when compiling any program that uses the
+MySQL library.</p>
+
+
+
+
+
+<dl>
+<dt><b><tt class="literal">m_result</tt></b></dt>
+<dd><p>A structure containing the results of a <tt class="literal">SELECT</tt> (or
+<tt class="literal">SHOW</tt>) statement. The actual output of the query
+must be accessed through <tt class="literal">m_row</tt> elements of this
+structure.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">m_row</tt></b></dt>
+<dd><p>A single row of data returned from a <tt class="literal">SELECT</tt> query.
+Output of all mSQL datatypes are stored in this type (as an array of
+character strings).</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">m_field</tt></b></dt>
+<dd><p>A structure containing all of the information concerning a specific
+field in the table. The elements of the <tt class="literal">m_field</tt>
+structure can be directly examined and are as follows:</p>
+
+
+
+
+
+<dl>
+<dt><b>char *name</b></dt>
+<dd><p>The name of the field.</p></dd>
+
+
+
+
+
+<dt><b>char *table</b></dt>
+<dd><p>The name of the table containing the field. This is a null value if the result set does not correspond to a real table.</p></dd>
+
+
+
+
+
+<dt><b>int type</b></dt>
+<dd><p>The type of the field. This is an integer corresponding to the mSQL SQL datatypes defined in the <tt class="function">msql.h</tt> header file.</p></dd>
+
+
+
+
+
+<dt><b>int length</b></dt>
+<dd><p>The byte length of the field.</p></dd>
+
+
+
+
+
+<dt><b>int flags</b></dt>
+<dd><p>Zero or more option flags. The flags are accessed through the following macros:</p>
+
+
+
+
+
+<dl>
+<dt><b>IS_PRI_KEY(flags)</b></dt>
+<dd><p>Returns true if the field is a primary key.</p></dd>
+
+
+
+
+
+<dt><b>IS_NOT_NULL(flags)</b></dt>
+<dd><p>Returns true if the field is defined as <tt class="literal">NOT NULL</tt>.</p></dd>
+
+</dl></dd>
+
+</dl></dd>
+
+</dl>
+
+<!--starts mSQL functions - wrong, they belong in the next section -->
+<a name="INDEX-1894" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlConnect</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>int msqlConnect ( char *host ) </pre></td><td align="right" /></tr></table><p>Creates a connection to the mSQL server whose hostname or IP address
+is given. If a null value is passed as the argument, the connection
+is made to the mSQL server on the local host using Unix sockets. The
+return value is a database handle used to communicate with the
+database server. In the case of an error, -1 is returned.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">/* Create a connection to the database server on the local host */
+dbh = msqlConnect( (char *)NULL );
+if (dbh == -1) { 
+   print "Error connecting!\n"; 
+   exit(1); 
+}</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1895" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlSelectDB</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>int msqlSelectDB ( int sock , char *dbName ) </pre></td><td align="right" /></tr></table><p>Chooses a database for the specified connection. A database must be
+chosen before any queries are sent to the database server. In the
+case of an error, -1 is returned.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">/* Select the "mydatabase" database */
+result = msqlSelectDB( dbh, "mydatabase" );
+if (result == -1) { 
+   print "Error selecting database!\n"; 
+   exit(1); 
+}</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1896" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlQuery</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>int msqlQuery( int sock , char *query )</pre></td><td align="right" /></tr></table><p>Executes the given SQL query. In mSQL 2, the return value is the
+number of rows affected by the query (or selected by a
+<tt class="literal">SELECT</tt> query). In mSQL 1, zero is returned upon
+success. In both versions, in the case of an error, -1 is returned.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">rows_returned = msqlQuery( dbh, "SELECT * FROM people" );</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1897" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlStoreResult</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>m_result *msqlStoreResult()</pre></td><td align="right" /></tr></table><p>Stores the result of a <tt class="literal">SELECT</tt> query. This function
+is called immediately after calling <tt class="literal">msqlQuery</tt> with
+an SQL <tt class="literal">SELECT</tt> query. The results of the query are
+then stored in the <tt class="literal">m_result</tt> structure. Only after
+this function has been called, can other queries be sent to the
+database server. Every <tt class="literal">m_result</tt> structure must be
+freed using <tt class="literal">msqlFreeResult</tt> when you are finished
+with it.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">m_result *results;
+
+rows_returned = msqlQuery( dbh, "SELECT * FROM people" );
+results = msqlStoreResult();
+/* Other queries may now be submitted and the data from this query can be
+   accessed through 'results' */</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1898" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlFreeResult</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>void msqlFreeResult ( m_result *result )</pre></td><td align="right" /></tr></table><p>Frees the memory associated with an <tt class="literal">m_result</tt>
+structure.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">m_result *results;
+
+rows_returned = msqlQuery( dbh, "SELECT * FROM people" );
+results = msqlStoreResult();
+
+/* Do work */
+
+msqlFreeResult(results);</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1899" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlFetchRow</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>m_row msqlFetchRow ( m_result *result ) </pre></td><td align="right" /></tr></table><p>Retrieves a single row of data from a result set. This data is placed
+in an <tt class="literal">m_row</tt> structure, which is an array of
+character strings. With each successive call to
+<tt class="literal">msqlFetchRow</tt>, another row is returned until there
+are no more rows left, then a null value is returned.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">m_result *results;
+m_row *row;
+
+rows_returned = msqlQuery( dbh, "SELECT * FROM people" );
+results = msqlStoreResult();
+row = msqlFetchRow(results);
+printf("The third field of the first row of the table is: %s\n", row[2]);</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1900" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlDataSeek</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>void msqlDataSeek ( m_result *result, int pos )</pre></td><td align="right" /></tr></table><p>Sets the cursor that tells <tt class="literal">msqlFetchRow</tt> which row
+to fetch next. Setting a position of
+will move the cursor to the beginning of the data. Setting the cursor
+to a position past the last row of data will place the cursor at the
+end of the data.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">m_result *results;
+m_row *row;
+
+rows_returned = msqlQuery( dbh, "SELECT * FROM people" );
+results = msqlStoreResult();
+row = msqlFetchRow(results);
+/* Now go back to the beginning */
+msqlDataSeek(results, 0);</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1901" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlNumRows</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>int msqlNumRows ( m_result *result )</pre></td><td align="right" /></tr></table><p>Returns the number of rows in the result set.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">rows_returned = msqlQuery( dbh, "SELECT * FROM people" );
+results = msqlStoreResult();
+rows = msqlNumRows(results);</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1902" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlFetchField</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>m_field *msqlFetchField ( m_result *result )</pre></td><td align="right" /></tr></table><p>Returns the information about the fields in the result set. Each
+successive call to <tt class="literal">msqlFetchField</tt> will return a
+<tt class="literal">m_field</tt> structure for the next field until there
+are no more fields left, then a null value will be returned.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">m_field *field;
+
+rows_returned = msqlQuery( dbh, "SELECT * FROM people" );
+results = msqlStoreResult();
+field = msqlFetchField(results);
+/* 'field' now contains information about the first field in the result set */
+field = msqlFetchField(results);
+/* 'field' now contains information about the second field in the result set */</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1903" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlFieldSeek</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>void msqlFieldSeek ( m_result *result , int pos )</pre></td><td align="right" /></tr></table><p>Sets the cursor that tells <tt class="literal">msqlFetchField</tt> which
+field to fetch next. Setting a position of
+will move the cursor to the beginning of the fields. Setting the
+cursor to a position past the last field places the cursor just past
+the last field.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">m_result *results;
+m_field *field;
+
+rows_returned = msqlQuery( dbh, "SELECT * FROM people" );
+results = msqlStoreResult();
+field = msqlFetchField(results);
+/* Now go back to the beginning */
+msqlFieldSeek(results, 0);</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1904" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlNumFields</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>int msqlNumFields ( m_result *result )</pre></td><td align="right" /></tr></table><p>Returns the number of fields in the result set.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">rows_returned = msqlQuery( dbh, "SELECT * FROM people" );
+results = msqlStoreResult();
+fields = msqlNumFields(results);</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1905" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlClose</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>int msqlClose ( int sock )</pre></td><td align="right" /></tr></table><p>Closes the connection to the mSQL database server.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">dbh = msqlConnect( (char *)NULL );
+/* Do work */
+msqlClose(dbh);</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1906" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlListDBs</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>m_result *msqlListDBs ( int sock )</pre></td><td align="right" /></tr></table><p>Returns an <tt class="literal">m_result</tt> structure containing the names
+of all of the databases available in the database server. Like all
+<tt class="literal">m_result</tt> structures, the return value of this
+function must be freed with <tt class="literal">msqlFreeResult</tt> when
+you are done with it.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">databases = msqlListDBs(dbh);
+/* 'databases' now contains the names of all of the databases on the server */</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1907" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlListTables</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>m_result *msqlListTables ( int sock )</pre></td><td align="right" /></tr></table><p>Returns an <tt class="literal">m_result</tt> structure containing the names
+of all of the tables in the current database. Like all
+<tt class="literal">m_result</tt> structures, the return value of this
+function must be freed with <tt class="literal">msqlFreeResult</tt> when
+you are done with it.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">tables = msqlListTables(dbh);
+/* 'tables' now contains the names of all of the tables in the 
+    current database */</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1908" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlListFields</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>m_result *msqlListFields ( int sock , char *tableName )</pre></td><td align="right" /></tr></table><p>Returns an <tt class="literal">m_result</tt> structure containing the names
+of all of the fields in the given table. Like all
+<tt class="literal">m_result</tt> structures, the return value of this
+function must be freed with <tt class="literal">msqlFreeResult</tt> when
+you are done with it.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">fields = msqlListFields(dbh, "people");
+/* 'fields' now contains the names of all of the fields in the 
+    'people' table */</pre></blockquote>
+
+
+
+
+
+</div>
+
+<a name="INDEX-1909" /><div class="refentry"><table cellpadding="5" border="0" width="515"><tr><td align="left"><font size="+1"><b><i>msqlListIndex</i></b></font></td><td align="right"><i /></td></tr></table><hr color="black" align="left" noshade="true" size="3" width="515" /><table cellpadding="5" border="0" width="515"><tr><td align="left"><pre>m_result *msqlListIndex ( int sock , char *tableName , char *index )</pre></td><td align="right" /></tr></table><p>Returns an <tt class="literal">m_result</tt> structure containing
+information about the given index. The returned result set will
+contain the type of index (currently, `avl' is the only
+supported type), and the names of the fields contained in the index.
+Like all <tt class="literal">m_result</tt> structures, the return value of
+this function must be freed with <tt class="literal">msqlFreeResult</tt>
+when you are done with it.</p>
+<h4 class="refsect1">Example</h4>
+
+
+
+
+
+<blockquote><pre class="code">index = msqlListIndex(dbh, "people", "idx1");
+/* 'index' now contains the information about the 'idx1' index in the 'people'
+   table */</pre></blockquote>
+
+
+
+
+
+
+
+
+
+
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch19_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch20_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">19. C Reference</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">20. Python Reference</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

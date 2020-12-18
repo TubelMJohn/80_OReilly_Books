@@ -1,0 +1,146 @@
+<html><head><title>The local Operator (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch04_08.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">4.7. The local Operator</h2>
+
+<p>You might consider this next section a giant footnote, but then we
+couldn't have footnotes on footnotes, so we decided to put it
+up in the main text. Skip over this text on first reading, and pop
+right on down to <a href="ch04_08.htm#lperl3-CHP-4-SECT-8">Section 4.8, "Variable-length Parameter Lists"</a>.
+You won't need any of it to do the exercises or write Perl code
+for a long time. But someone invariably asks us in class something
+like "What is that <tt class="literal">local</tt> thing I see in some
+programs?" so we're including what we normally say as an
+aside in class for your enjoyment and edification.
+</p>
+
+<p>Occasionally, mostly in older code or older Perl books, you'll
+see the <tt class="literal">local</tt><a name="INDEX-343" /> operator used instead of
+<tt class="literal">my</tt>. It often looks much the same as
+<tt class="literal">my</tt>:
+</p>
+
+<blockquote><pre class="code">sub max {
+  local($a, $b) = @_;  # looks a lot like my
+  if ($a &gt; $b) { $a } else { $b }
+}</pre></blockquote>
+
+<p>But <tt class="literal">local</tt> is misnamed, or at least
+<em class="emphasis">misleadingly</em> named. Our friend Chip Salzenberg
+says that if he ever gets a chance to go back in a time machine to
+1986 and give Larry one piece of advice, he'd tell Larry to
+call <tt class="literal">local</tt> by the name "save"
+instead.<a href="#FOOTNOTE-110">[110]</a>
+That's because <tt class="literal">local</tt> actually will save the
+given global variable's value away, so it will later
+automatically be restored to the global
+<a name="INDEX-344" />
+<a name="INDEX-345" />variable. (That's right: these
+so-called "<tt class="literal">local</tt>" variables are
+actually globals!) This save-and-restore mechanism is the same one
+we've already seen twice now, in the control variable of a
+<tt class="literal">foreach</tt> loop, and in the <tt class="literal">@_</tt>
+array of subroutine parameters.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-110" /><p>[110]We would tell Larry to buy stock in Yahoo!,
+but Chip is more idealistic than we are.</p> </blockquote>
+
+<p>What <tt class="literal">local</tt> actually does, then, is to save away a
+copy of the variable's value in a secret place (called the
+<a name="INDEX-346" />stack). That value
+can't be accessed, modified, or deleted<a href="#FOOTNOTE-111">[111]</a> while it is saved. Then
+<tt class="literal">local</tt> sets the variable to an empty value
+(<tt class="literal">undef</tt> for scalars, or empty list for arrays), or
+to whatever value is being assigned. When Perl returns from the
+subroutine,<a href="#FOOTNOTE-112">[112]</a> the variable is automatically restored to its original
+value. In effect, the variable was borrowed for a time and given back
+(hopefully) before anyone noticed that it was borrowed.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-111" /><p>[111]Or
+damaged, defiled, read, checked, touched, seen, changed, or printed,
+for that matter. There's no way from within Perl to get at the
+saved value.</p> </blockquote><blockquote class="footnote"> <a name="FOOTNOTE-112" /><p>[112]Or when it finishes execution of the
+smallest enclosing block or file, to be more precise.</p>
+</blockquote>
+
+<a name="lperl3-CHP-4-SECT-7.1" /><div class="sect2">
+<h3 class="sect2">4.7.1. The Difference Between local and my</h3>
+
+<p>But what if the subroutine called another subroutine, one that
+<em class="emphasis">did</em> notice that the variable was being borrowed
+by <tt class="literal">local</tt>? For example:
+</p>
+
+<blockquote><pre class="code">$office = "global";  # Global $office
+&amp;say( );                                # says "global", accessing $office directly
+
+&amp;fred( );                               # says "fred", dynamic scope,
+    # because fred's local $office hides the global
+
+&amp;barney( );                             # says "global", lexical scope;
+    # barney's $office is visible only in that block
+
+sub say { print "$office\n"; }         # print the currently visible $office
+sub fred { local($office) = "fred"; &amp;say( ); }
+sub barney { my($office) = "barney"; &amp;say( ); }</pre></blockquote>
+
+<p>First, we call the subroutine <tt class="literal">&amp;say</tt>, which
+tells us which <tt class="literal">$office</tt> it sees -- the global
+<tt class="literal">$office</tt>. That's normal.
+</p>
+
+<p>But then we call Fred's subroutine. Fred has made his own
+<tt class="literal">local $office</tt>, so he has actually changed the
+behavior of the <tt class="literal">&amp;say</tt> subroutine; now it tells
+us what's in Fred's <tt class="literal">$office</tt>. We
+can't tell whether that's what Fred wanted to do or not
+without understanding the meaning of his code. But it's a
+little odd.
+</p>
+
+<p>Barney, however, is a little smarter, as well as being shorter, so he
+uses the shorter (and smarter) operator, <tt class="literal">my</tt>.
+Barney's variable <tt class="literal">$office</tt> is private, and
+Barney's private <tt class="literal">$office</tt> can't be
+accessed from outside his subroutine, so the
+<tt class="literal">&amp;say</tt> subroutine is back to normal; it can see
+only the global <tt class="literal">$office</tt>. Barney didn't
+change the way <tt class="literal">&amp;say</tt> works, which is more like
+what most programmers would want and expect.
+</p>
+
+<p>Now, if you're confused about these two operators at this
+point, that's to be expected. But any time that you see
+<tt class="literal">local</tt>, think "save," and that may
+help. In any new code, just use <tt class="literal">my</tt>, since
+<tt class="literal">my</tt><a name="INDEX-347" /> variables (lexical variables) are
+faster than globals -- remember, so-called
+<tt class="literal">local</tt> variables are really globals -- and
+they'll work more like the traditional variables in other
+modern programming languages. But when you're maintaining
+someone else's old code, you can't necessarily change
+every <tt class="literal">local</tt> to <tt class="literal">my</tt> without
+checking upon whether the programmer was using that save-and-restore
+functionality.
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch04_08.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4.6. Private Variables in Subroutines</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">4.8. Variable-length Parameter Lists</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

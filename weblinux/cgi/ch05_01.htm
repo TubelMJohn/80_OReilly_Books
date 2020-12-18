@@ -1,0 +1,444 @@
+<?label 5. CGI.pm?><html><head><title>CGI.pm (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch05_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 5. CGI.pm</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch05_01.htm">Overview</a><br>
+<a href="ch05_02.htm">Handling Input with CGI.pm</a><br>
+<a href="ch05_03.htm">Generating Output with CGI.pm</a><br>
+<a href="ch05_04.htm">Alternatives for Generating Output</a><br>
+<a href="ch05_05.htm">Handling Errors</a><br></p></div>
+
+
+
+<p>The<a name="INDEX-936" />
+<a name="INDEX-937" />
+CGI.pm module has become the standard tool for creating CGI scripts
+in Perl. It provides a simple interface for most of the common CGI
+tasks. Not only does it easily parse input parameters, but it also
+provides a clean interface for outputting headers and a powerful yet
+elegant way to output HTML code from your scripts.</p>
+
+
+<p>We will cover most of the basics here and will revisit CGI.pm later
+to look at some of its other features when we discuss other
+components of CGI programming. For example, CGI.pm provides a simple
+way to read and write to browser cookies, but we will wait to review
+that until we get to our discussion about maintaining state, in <a href="ch11_01.htm">Chapter 11, "Maintaining State"</a>.</p>
+
+
+<p>If after reading this chapter you are interested in more information,
+the author of CGI.pm has written an entire book devoted to it:
+<em class="citetitle">The Official Guide to Programming with CGI.pm</em> by Lincoln
+Stein ( John Wiley &amp; Sons).</p>
+
+
+<p>Because CGI.pm offers so many methods, we'll organize our
+discussion of CGI.pm into three parts: handling input, generating
+output, and handling errors. We will look at ways to generate output
+both with and without CGI.pm. Here is the structure of our chapter:</p>
+
+
+<ul><li><p>Handling Input with CGI.pm</p>
+
+
+<ul>
+<li><p><em class="emphasis">Information about the environment</em>. CGI.pm has
+methods that provide information that is similar, but somewhat
+different from the information available in <tt class="literal">%ENV</tt>.</p></li>
+<li><p><em class="emphasis">Form input</em>. CGI.pm automatically parses
+parameters passed to you via HTML forms and provides a simple method
+for accessing these parameters.</p></li>
+<li><p><em class="emphasis">File uploads</em>. CGI.pm allows your CGI script to
+handle HTTP file uploads easily and transparently.</p></li></ul></li>
+
+<li><p>Generating Output with CGI.pm</p>
+
+
+<ul><li><p><em class="emphasis">Generating headers</em>. CGI.pm has methods to help
+you output HTTP headers from your CGI script.</p></li>
+<li><p><em class="emphasis">Generating HTML</em>. CGI.pm allows you to generate
+full HTML documents via corresponding method calls.</p></li></ul></li>
+
+<li><p>Alternatives for Generating Output</p>
+
+
+<ul><li><p><em class="emphasis">Quoted HTML and here documents.</em> We will compare
+alternative strategies for outputting HTML.</p></li></ul></li>
+
+<li><p>Handling Errors</p>
+
+
+<ul><li><p><em class="emphasis">Trapping die.</em> The standard way to handle errors
+with Perl, <tt class="function">die</tt>, does not work cleanly with CGI.</p></li>
+
+<li><p><em class="emphasis">CGI::Carp.</em> The CGI::Carp module distributed with
+CGI.pm makes it easy to trap <tt class="function">die</tt> and other error
+conditions that may kill your script.</p></li>
+<li><p><em class="emphasis">Custom solutions.</em> If you want more control when
+displaying errors to your users, you may want to create a custom
+subroutine or module.</p></li></ul></li></ul>
+
+<p>Let's start with a general overview of CGI.pm.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch05-92399" />
+<h2 class="sect1">5.1. Overview</h2>
+
+
+<p>CGI.pm requires Perl 5.003_07 or higher and has been included with
+the standard Perl distribution since 5.004. You can check which
+version of Perl you are running with the
+<a name="INDEX-938" /><em class="emphasis">-v</em> option:</p>
+
+
+<blockquote><pre class="code">$ perl -v
+
+This is perl, version 5.005
+
+Copyright 1987-1997, Larry Wall
+
+Perl may be copied only under the terms of either the Artistic License or the
+GNU General Public License, which may be found in the Perl 5.0 source kit.</pre></blockquote>
+
+
+<p>You can verify whether CGI.pm is installed and which version by doing
+this:</p>
+
+
+<blockquote><pre class="code">$ perl -MCGI -e 'print "CGI.pm version $CGI::VERSION\n";'
+CGI.pm version 2.56</pre></blockquote>
+
+
+<p>If you get something like the following, then you do not have CGI.pm
+installed, and you will have to download and install it. <a href="appb_01.htm">Appendix B, "Perl Modules"</a>, explains how to do this.</p>
+
+
+<blockquote><pre class="code">
+Can't locate CGI.pm in @INC (@INC contains:  /usr/lib/perl5/i386-linux/5.005 /usr/
+lib/perl5 /usr/lib/perl5/site_perl/i386-linux /usr/lib/perl5/site_perl .).
+BEGIN failed--compilation aborted.</pre></blockquote>
+
+
+<p>New <a name="INDEX-939" />versions of CGI.pm are released
+regularly, and most releases include bug fixes.<a href="#FOOTNOTE-6">[6]</a> We therefore
+recommend that you install the latest version and monitor new
+releases (you can find a version history at the bottom of the
+<em class="filename">cgi_docs.html</em> file distributed with CGI.pm).
+This chapter discusses features introduced as late as 2.47.</p><blockquote>
+
+<a name="FOOTNOTE-6" /><p>[6]These
+are not necessarily bugs in CGI.pm; CGI.pm strives to maintain
+compatibility with new servers and browsers that sometimes include
+buggy, or at least nonstandard, code.</p>
+
+</blockquote>
+
+
+<a name="ch05-33739" /><div class="sect2">
+<h3 class="sect2">5.1.1. Denial of Service Attacks</h3>
+
+
+<p>Before we get started, you should make a minor change to your copy of
+CGI.pm. CGI.pm handles HTTP
+<a name="INDEX-940" /> <a name="INDEX-941" />
+<a name="INDEX-942" />file uploads and
+automatically saves the contents of these uploads to temporary files.
+This is a very convenient feature, and we'll talk about this
+later. However, file uploads are enabled by default in CGI.pm, and it
+does not impose any limitations on the size of files it will accept.
+Thus, it is possible for someone to upload multiple large files to
+your web server and fill up your disk.</p>
+
+
+<p>Clearly, the vast majority of your CGI scripts do not accept file
+uploads. Thus, you should disable this feature and enable it only in
+those scripts where you wish to use it. You may also wish to limit
+the size of <a name="INDEX-943" />POST requests, which includes file uploads
+as well as standard forms submitted via the POST method.</p>
+
+
+<p>To make these changes, locate CGI.pm in your Perl libraries and then
+search for text that looks like the following:</p>
+
+
+<blockquote><pre class="code"># Set this to a positive value to limit the size of a POSTing
+# to a certain number of bytes:
+$POST_MAX = -1;
+
+# Change this to 1 to disable uploads entirely:
+$DISABLE_UPLOADS = 0;</pre></blockquote>
+
+
+<p>Set <tt class="literal">$DISABLE_UPLOADS</tt> to 1. You may wish to set
+<tt class="literal">$POST_MAX</tt> to a reasonable upper bound as well,
+such as 100KB. POST requests that are not file uploads are processed
+in memory, so restricting the size of POST requests avoids someone
+submitting multiple large POST requests that quickly use up available
+memory on your server. The result looks like this:</p>
+
+
+<blockquote><pre class="code"># Set this to a positive value to limit the size of a POSTing
+# to a certain number of bytes:
+$POST_MAX = 102_400;  # 100 KB
+
+# Change this to 1 to disable uploads entirely:
+$DISABLE_UPLOADS = 1;</pre></blockquote>
+
+
+<p>If you then want to enable uploads and/or allow a greater size for
+POST requests, you can override these values in your script by
+setting <tt class="literal">$CGI::DISABLE_UPLOADS</tt> and
+<tt class="literal">$CGI::POST_MAX</tt> after you use the CGI.pm module,
+but before you create a CGI.pm object. We will look at how to receive
+file uploads later in this chapter.</p>
+
+
+<p>You may need special permission to update your CGI.pm file. If your
+system administrator for some reason will not make these changes,
+then you must disable file uploads and limit POST requests on a
+script by script basis. Your <a name="INDEX-944" />scripts should begin like this:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use CGI;
+
+$CGI::DISABLE_UPLOADS = 1;
+$CGI::POST_MAX        = 102_400; # 100 KB
+
+my $q = new CGI;
+.
+.</pre></blockquote>
+
+
+<p>Throughout our examples, we will assume that the module has been
+patched and omit these lines.</p>
+</div>
+
+
+
+
+<a name="ch05-1-fm2xml" /><div class="sect2">
+<h3 class="sect2">5.1.2. The Kitchen Sink</h3>
+
+
+<p>
+<a name="INDEX-945" />
+<a name="INDEX-946" />CGI.pm is a big module. It provides
+functions for accessing CGI environment variables and printing
+outgoing headers. It automatically interprets form data submitted via
+POST, via GET, and handles multipart-encoded file uploads. It
+provides many utility functions to do common CGI-related tasks, and
+it provides a simple <a name="INDEX-947" /> <a name="INDEX-948" />interface for
+outputting HTML. This interface does not eliminate the need to
+understand HTML, but it makes including HTML inside a Perl script
+more natural and easier to validate.</p>
+
+
+<p>Because CGI.pm is so large, some people consider it bloated and
+complain that it wastes memory. In fact, it uses many creative ways
+to increase the efficiency of CGI.pm including a custom
+implementation of SelfLoader. This means that it loads only code that
+you need. If you use CGI.pm only to parse input, but do not use it to
+produce HTML, then CGI.pm does not load the code for producing HTML.</p>
+
+
+<p>There have also been some alternative,
+<a name="INDEX-949" />
+<a name="INDEX-950" />lightweight CGI modules written.
+One of the lightweight alternatives to CGI.pm was begun by David
+James; he got together with Lincoln Stein and the result is a new and
+improved version of CGI.pm that is even smaller, faster, and more
+modular than the original. It should be available as CGI.pm 3.0 by
+the time you read this book.</p>
+</div>
+
+
+
+
+<a name="ch05-48461" /><div class="sect2">
+<h3 class="sect2">5.1.3. Standard and Object-Oriented Syntax</h3>
+
+
+<p>
+<a name="INDEX-951" />
+<a name="INDEX-952" />
+<a name="INDEX-953" />CGI.pm, like Perl, is powerful yet
+flexible. It supports two styles of usage: a
+<a name="INDEX-954" />standard interface and an object-oriented
+interface. Internally, it is a fully object-oriented module. Not all
+Perl programmers are comfortable with object-oriented notation,
+however, so those developers can instead request that CGI.pm make its
+subroutines available for the developer to call directly.</p>
+
+
+<p>Here is an example. The object-oriented syntax looks like this:</p>
+
+
+<blockquote><pre class="code">use strict;
+use CGI;
+
+my $q    = new CGI;
+my $name = $q-&gt;param( "name" );
+
+print $q-&gt;header( "text/html" ),
+      $q-&gt;start_html( "Welcome" ),
+      $q-&gt;p( "Hi $name!" ),
+      $q-&gt;end_html;</pre></blockquote>
+
+
+<p>The standard syntax looks like this:</p>
+
+
+<blockquote><pre class="code">use strict;
+use CGI qw( :standard );
+
+my $name = param( "name" );
+
+print header( "text/html" ),
+      start_html( "Welcome" ),
+      p( "Hi $name!" ),
+      end_html;</pre></blockquote>
+
+
+<p>Don't worry about the details of what the code does right now;
+we will cover all of it during this chapter. The important thing to
+notice is the different syntax. The first script creates a
+<a name="INDEX-955" />CGI.pm object and stores it in
+<tt class="literal">$q</tt>
+<a name="INDEX-956" /> (<tt class="literal">$q</tt> is short for
+<em class="emphasis">query</em> and is a common convention for CGI.pm
+objects, although <tt class="literal">$cgi</tt> is used sometimes, too).
+Thereafter, all the CGI.pm
+<a name="INDEX-957" /> <a name="INDEX-958" />functions are preceded by
+<tt class="literal">$q-&gt;</tt>. The second asks CGI.pm to export the
+standard functions and simply uses them directly. CGI.pm provides
+several predefined groups of functions, like <tt class="literal">:standard
+</tt>, that can be exported into your CGI script.</p>
+
+
+<p>The standard CGI.pm syntax certainly has less noise. It doesn't
+have all those <tt class="literal">$q-&gt;</tt> prefixes. Aesthetics aside,
+however, there are good arguments for using the object oriented
+syntax with CGI.pm.</p>
+
+
+<p>Exporting functions has its costs. Perl maintains a separate
+<a name="INDEX-959" />namespace for
+different chunks of code referred to as <a name="INDEX-960" />
+<a name="INDEX-961" />packages. Most modules, like CGI.pm, load
+themselves into their own package. Thus, the
+<a name="INDEX-962" />
+<a name="INDEX-963" />functions and variables that modules
+see are different from the modules and variables you see in your
+scripts. This is a good thing, because it prevents collisions between
+variables and functions in different packages that happen to have the
+same name. When
+a<a name="INDEX-964" /> <a name="INDEX-965" /> <a name="INDEX-966" /> module exports symbols
+(whether they are variables or functions), Perl has to create and
+maintain an alias of each of the these symbols in your
+program's namespace, the <em class="emphasis">main</em> namespace.
+These aliases consume <a name="INDEX-967" />memory. This memory usage
+becomes especially critical if you decide to use your CGI scripts
+with FastCGI or <em class="emphasis">mod_perl</em>.</p>
+
+
+<p>The object-oriented syntax also helps you avoid any possible
+collisions that would occur if you create a
+<a name="INDEX-968" />subroutine with the same name as one of
+CGI.pm's exported subroutines. Also, from a maintenance
+standpoint, it is clear from looking at the object-oriented script
+where the code for the <a name="INDEX-969" />header
+function is: it's a method of a CGI.pm object, so it must be in
+the CGI.pm module (or one of its associated modules). Knowing where
+to look for the header function in the second example is much more
+difficult, especially if your CGI scripts grow large and complex.</p>
+
+
+<p>Some people avoid the object-oriented syntax because they believe it
+is slower. In Perl, <a name="INDEX-970" />
+<a name="INDEX-971" />
+<a name="INDEX-972" />methods typically are slower than
+functions. However, CGI.pm is truly an object-oriented module at
+heart, and in order to provide the function syntax, it must do some
+fancy footwork to manage an object for you internally. Thus with
+CGI.pm, the object-oriented syntax is not any slower than the
+function syntax. In fact, it can be slightly faster.</p>
+
+
+<p>We will use CGI.pm's object-oriented syntax in most of our
+examples.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch04_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch05_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">4.3. Decoding Form Input</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">5.2. Handling Input with CGI.pm</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

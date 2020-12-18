@@ -1,0 +1,587 @@
+<?label 15.2. Dial-up PPP?><html><head><title>Dial-up PPP (Running Linux)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Running Linux" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch15_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm" /></td><td width="172" valign="top" align="right"><a href="ch15_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">15.2. Dial-up PPP</h2>
+
+<p><a name="INDEX-3086" />
+<a name="INDEX-3087" />
+<a name="INDEX-3088" />
+In order to communicate over TCP/IP using a modem (such as through a
+dial-up account to an Internet service provider) or through some other
+serial device (such as a "null modem" serial cable between two machines),
+Linux provides the Point-to-Point Protocol software suite, commonly known
+as PPP. PPP is a protocol that takes packets sent
+over a network (such as TCP/IP) and converts them to a format that can
+be easily sent over a modem or serial wire. Chances are, if you have an
+Internet account with an ISP, the ISP's server uses PPP to communicate
+with dialup accounts. By configuring PPP under Linux, you can directly
+connect to your ISP account in this way.</p>
+
+<p><a name="INDEX-3089" />
+<a name="INDEX-3090" />
+SLIP (Serial Line Internet Protocol) is an earlier protocol
+that has the same basic features as PPP. However, it lacks certain
+important qualities, such as the ability to negotiate IP addresses and
+packet sizes. These days SLIP has more or less been supplanted
+entirely by PPP; however, some older  ISPs
+may still use SLIP rather than PPP. If this is the case, we refer you
+to other sources of information, such as the <em class="emphasis">Linux Network
+Administrator's Guide</em>.</p>
+
+<p>In this section, we will cover configuration of a PPP
+<em class="emphasis">client</em>--that is, a system that will connect to an ISP
+(or other PPP server) in order to communicate with the
+Internet. Setting up a Linux machine as a PPP server itself is also
+possible but is somewhat more involved; this is covered in the
+<em class="emphasis">Linux Network Administrator's Guide</em>.</p>
+
+<div class="sect2">
+<h3 class="sect2">15.2.1. Basic PPP Configuration for Modems</h3>
+
+<p><a name="INDEX-3091" />
+In the United States and many parts of the world, people use
+traditional dial-up modems to send digital data over telephone lines.
+So we'll cover configuration for modems first. Then we'll show how to
+configure PPP for the faster and more convenient type of line called
+Integrated Services Digital Network (ISDN), which is especially
+popular in Europe and available but not very well marketed in most of
+the United States.</p>
+
+<div class="sect3">
+<h3 class="sect3">15.2.1.1. Requirements</h3>
+
+<p><a name="INDEX-3092" />
+<a name="INDEX-3093" />
+Most Linux systems come preinstalled with all of the software needed
+to run PPP. Essentially, you need a kernel compiled with PPP
+support and the <tt class="command">pppd</tt> daemon and related tools,
+including the <tt class="command">chat</tt> program.</p>
+
+<p>Most Linux distributions include PPP support in the preconfigured
+kernel or as a kernel module that is loaded on demand. However, it
+may necessary to compile kernel PPP support yourself; this is a simple
+matter of enabling the PPP options during the kernel configuration
+process and rebuilding the kernel. PPP is usually compiled as a
+separate module, so it is sufficient to recompile only the kernel
+modules if this is the case. See "<a href="ch07_04.htm#x-100-3-sec-sysadm-kernel-build">Section 7.4.2, "Building the Kernel"</a>" in <a href="ch07_01.htm">Chapter 7, "Upgrading Software and the Kernel"</a> for information on
+compiling the kernel and modules.</p>
+
+<p>The <tt class="command">pppd</tt> and <tt class="command">chat</tt> utilities are
+user-level applications that control the use of PPP on your system;
+they are included with nearly every Linux distribution. On Red Hat
+systems, these utilities are installed in
+<em class="filename">/usr/sbin</em> and are found in the
+<tt class="command">ppp</tt> RPM package.</p>
+
+<p>Also required for PPP usage is a modem that is compatible with both
+Linux and the type of modems used by your ISP's server. Most 14.4, 28.8,
+56K and other standard modem types fit into this category; there are very
+few modem types not supported by Linux, and it would be unusual for an
+ISP to use anything so esoteric as to require you to buy something else.</p>
+
+<p><a name="INDEX-3094" />
+One type of modem to watch out for is the so-called
+"Winmodem."  This was originally a product sold by US
+Robotics but has now been produced in several varieties by other
+vendors. Winmodems use the host CPU to convert digital signals into
+analog signals so they can be sent over the phone line, unlike regular
+modems which have a special chip to perform this function. The problem
+with Winmodems is that, as of this writing, the programming details for
+these devices are proprietary, meaning that there are no Linux drivers
+for this class of devices. (Besides, some people scoff at the idea of
+wasting precious CPU cycles to generate modem signals, a job best left
+to specialized hardware. One perceived advantage of these so-called
+"software modems," on the other hand, is that upgrading
+their functionality is simply a matter of upgrading the operating
+system driver which controls them, rather than buying new hardware.)</p>
+</div>
+
+
+<div class="sect3">
+<h3 class="sect3">15.2.1.2. Serial device names</h3>
+
+<p><a name="INDEX-3095" />
+<a name="INDEX-3096" />
+<a name="INDEX-3097" />
+Under Windows 95/98 and MS-DOS, modems and other serial devices are
+named COM1 (for the first serial device), COM2 (for the second), and
+so forth, up to COM4. (Most systems support up to four serial devices,
+although multiport cards are available that can increase this
+number.)  Under Linux, these same devices are referred to as
+<a name="INDEX-3098" />
+<em class="filename">/dev/ttyS0</em>, <em class="filename">/dev/ttyS1</em>, on
+up to <em class="filename">/dev/ttyS3</em>.<a href="#FOOTNOTE-60">[60]</a>
+On most systems, at installation time a
+symbolic link called <em class="filename">/dev/modem</em> will be created. This link points to the serial device on which the modem can be found, as
+shown in the following listing:
+<blockquote><pre class="code">% <tt class="userinput"><b>ls -l /dev/modem</b></tt>
+lrwxrwxrwx   1 root     root      10 May  4 12:41 /dev/modem -&gt; /dev/ttyS0</pre></blockquote>
+
+If this link is incorrect for your system (say, because you know that
+your modem is not on <em class="filename">/dev/ttyS0</em> but on
+<em class="filename">/dev/ttyS2</em>), you can easily fix it as <b class="emphasis-bold">root</b> by
+entering:
+<blockquote><pre class="code"># <tt class="userinput"><b>ln -sf /dev/ttyS2 /dev/modem</b></tt></pre></blockquote></p><blockquote>
+
+<a name="FOOTNOTE-60" /><p>[60]Older versions of Linux also used special "callout"
+devices, called <em class="filename">/dev/cua0</em> through
+<em class="filename">/dev/cua3</em>. These are obsolete as of Linux
+kernel Version 2.2.</p>
+
+</blockquote>
+</div>
+
+
+<div class="sect3">
+<h3 class="sect3">15.2.1.3. Setting up PPP</h3>
+
+<p><a name="INDEX-3099" />
+There are several steps involved in PPP configuration. The first is to
+write a so-called "chat script," which performs the
+"handshaking" necessary to set up a PPP connection between
+your machine and the ISP. During this handshaking phase, various pieces
+of information might be exchanged, such as your ISP username and
+password.  The second step is to write a script that fires up the
+<tt class="command">pppd</tt> daemon; running this script causes the
+modem to dial the ISP and start up PPP. The final step is to configure
+<a name="INDEX-3100" />
+<a name="INDEX-3101" />
+your system's <em class="filename">/etc/resolv.conf</em> file so it knows
+where to find a domain name server. We'll go through each of these
+steps in turn.</p>
+
+<p>Before you start, you need to know the following pieces of information:</p>
+
+<ul><li><p> The ISP dialin account phone number</p></li><li><p> Your ISP username and password</p></li><li><p> The IP address of the ISP's domain name server</p></li></ul><p>
+Your ISP should have told you this information when you established
+the account.</p>
+
+<p>In addition, you might need to know the following:</p>
+
+<ul><li><p> The IP address of the ISP's server</p></li><li><p> The IP address of your system (if not dynamically assigned by the ISP)</p></li><li><p> The subnet mask you should use</p></li></ul><p>
+These last three items can usually be determined automatically during the
+PPP connection setup; however, occasionally this negotiation does not work
+properly. It can't hurt to have this information in case you need it.</p>
+
+<div class="sect4">
+<h4 class="sect4">15.2.1.3.1. Writing a chat script</h4>
+
+<p><a name="INDEX-3102" />
+<tt class="command">chat</tt> is a program that can perform simple
+handshaking between a PPP client and server during connection setup,
+such as exchange usernames and passwords. <tt class="command">chat</tt> is
+also responsible for causing your modem to dial the ISP's phone
+number and other simple tasks.</p>
+
+<p><tt class="command">chat</tt> itself is automatically invoked by
+<tt class="command">pppd</tt> when started (this is discussed later). All
+you need to do is write a simple shell script that invokes
+<tt class="command">chat</tt> to handle the negotiation.  A simple chat
+script is shown in the following example. Edit the file
+<em class="filename">/etc/ppp/my-chat-script</em> (as <b class="emphasis-bold">root</b>) and place in it
+the following lines:</p>
+
+<blockquote><pre class="code">#!/bin/sh
+# my-chat-script: a program for dialing up your ISP
+exec chat -v		\
+     '' ATZ		\
+     OK ATDT555-1212	\
+     CONNECT ''		\
+     ogin: mdw		\
+     assword: my-password</pre></blockquote>
+
+<p>Be sure that the file <em class="filename">my-chat-script</em> is
+executable; the command <tt class="literal">chmod 755
+/etc/ppp/my-chat-script</tt> will accomplish this.</p>
+
+<p>Note that each line ending in a backslash should not have any
+characters <em class="emphasis">after</em> the backslash; the backslash forces
+line-wrapping in the shell script.</p>
+
+<p>The third line of this script runs <tt class="command">chat</tt> itself with
+the options on the following lines. Each line contains two
+whitespace-delimited fields: an "expect" string and a
+"send" string.  The idea is that the chat script will
+respond with the send string when it receives the expect string from
+the modem connection. For example, the last line of the script informs
+chat to respond with <tt class="literal">my-password</tt> when the prompt
+<tt class="literal">assword</tt><a href="#FOOTNOTE-61">[61]</a>
+is given by the ISP's server.</p><blockquote>
+
+<a name="FOOTNOTE-61" /><p>[61]This is not meant as an expletive. Rather, leaving off the first
+letter of the prompt admits the possibility of either
+<tt class="literal">Password:</tt> or <tt class="literal">password:</tt> to be
+used as the prompt!</p>
+
+</blockquote>
+
+<p><a name="INDEX-3103" />
+The first line of the handshaking script instructs
+<tt class="command">chat</tt> to send <tt class="literal">ATZ</tt> to the modem,
+which should cause the modem to reset itself. (Specifying an expect
+string as <tt class="literal">''</tt> means that nothing is expected before
+<tt class="literal">ATZ</tt> is sent.) The second line waits for the modem
+to respond with <tt class="literal">OK</tt>, after which the number is
+dialed using the string <tt class="literal">ATDT555-1212</tt>. (If you use
+pulse dialing, rather than tone dialing, change this to
+<tt class="literal">ATDP555-1212</tt>. The phone number, of course, should
+be that of the remote system's modem line.)</p>
+
+<p><a name="INDEX-3104" />
+When the modem responds with <tt class="literal">CONNECT</tt>, a newline is
+sent (indicated by <tt class="literal">''</tt> as the send string). After
+this, <tt class="command">chat</tt> waits for the prompt
+<tt class="literal">ogin:</tt> before sending the username and
+<tt class="literal">assword:</tt> before sending the password.</p>
+
+<p>The various send strings starting with <tt class="literal">AT</tt> in the
+previous example are simply Hayes-modem-standard modem control strings.
+The manual that came with your modem should explain their usage; this
+is not specific to Linux or any other operating system.  As one
+example, using a comma in a phone number indicates that the modem
+should pause before sending the following digits; one might use
+<tt class="literal">ATDT9,,,555-1212</tt> if a special digit (9 in this
+case) must be dialed to reach an outside line.</p>
+
+<p>Note that this is a very simple <tt class="command">chat</tt> script that
+doesn't deal with timeouts, errors, or any other extraordinary cases
+that might arise while you're attempting to dial into the ISP. See the <tt class="command">chat</tt> manual pages for information on how to
+spruce up your script to deal with these cases. Also, note that you
+need to know in advance what prompts the ISP's server will use (we
+assumed <tt class="literal">login</tt> and
+<tt class="literal">password</tt>). There are several ways of finding out this
+information; possibly, the ISP has told you this information in
+advance, or supplied a handshaking script for another system such as
+Windows 95 (which uses a mechanism very similar to
+<tt class="command">chat</tt>). Otherwise, you can dial into the ISP server
+"by hand," using a simple terminal emulator, such as
+<a name="INDEX-3105" />
+<a name="INDEX-3106" />
+<a name="INDEX-3107" />
+<tt class="command">minicom</tt> or <tt class="command">seyon</tt>. The man pages
+for those commands can help you to do this.</p>
+</div>
+
+<div class="sect4">
+<h4 class="sect4">15.2.1.3.2. Starting up pppd</h4>
+
+<p><a name="INDEX-3108" />
+Now, we're ready to configure the <tt class="command">pppd</tt> daemon to initiate
+the PPP connection using the <tt class="command">chat</tt> script we just wrote.
+Generally, this is done by writing another shell script that
+invokes <tt class="command">pppd</tt> with a set of options.</p>
+
+<p>The format of the <tt class="command">pppd</tt> command is:</p>
+
+<blockquote><pre class="code">pppd <em class="replaceable">device-name</em> <em class="replaceable">baudrate</em> <em class="replaceable">options</em></pre></blockquote>
+
+<p><a href="ch15_02.htm#x-100-3-table-pppd-options">Table 15-1</a> shows the options
+supported by <tt class="command">pppd</tt>. You almost certainly won't need
+all of them.</p>
+
+<a name="x-100-3-table-pppd-options" /><h4 class="objtitle">Table 15-1. Common pppd Options</h4><table border="1">
+
+<tr>
+<th><p>Option</p></th>
+<th><p>Effect</p></th>
+</tr>
+
+
+
+
+<tr>
+<td rowspan="0"><p><tt class="literal">lock</tt></p></td>
+<td rowspan="0"><p>Locks the serial device to restrict access to <tt class="command">pppd</tt>.</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><p><tt class="literal">crtscts</tt></p></td>
+<td rowspan="0"><p>Uses hardware flow control.</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><p><tt class="literal">noipdefault</tt></p></td>
+<td rowspan="0"><p>Doesn't try to determine the local IP address from the hostname.  The IP is assigned by the remote system.</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><p><tt class="literal">user</tt> <em class="replaceable">username</em></p></td>
+<td rowspan="0"><p>Specifies the hostname or username for PAP or CHAP identification.</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><p><tt class="literal">netmask</tt> <em class="replaceable">mask</em></p></td>
+<td rowspan="0"><p>Specifies the netmask for the connection.</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><p><tt class="literal">defaultroute</tt></p></td>
+<td rowspan="0"><p>Adds a default route to the local system's routing table, using the
+remote IP address as the gateway.</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><p><tt class="literal">connect</tt> <em class="replaceable">command</em></p></td>
+<td rowspan="0"><p>Uses the given <em class="replaceable">command</em> to initiate the
+connection.  <tt class="command">pppd</tt> assumes this script is in
+<em class="filename">/etc/ppp</em>. If not, specify the full
+path of the script.</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><p><em class="replaceable">local_IP_address</em>: <em class="replaceable">remote_IP_address</em></p></td>
+<td rowspan="0"><p>Specifies the local and/or remote IP addresses.  Either or both of these
+could be 0.0.0.0 to indicate that the address should be assigned by the
+remote system.</p></td>
+</tr>
+
+<tr>
+<td rowspan="0"><p><tt class="literal">debug</tt></p></td>
+<td rowspan="0"><p>Logs connection information through the syslog daemon.</p></td>
+</tr>
+
+
+</table>
+
+<p>It is common to invoke the <tt class="command">pppd</tt> command from a shell script.
+Edit the file <em class="filename">/etc/ppp/ppp-on</em> and add the following lines:</p>
+
+<blockquote><pre class="code">#!/bin/sh
+# the ppp-on script
+
+exec /usr/sbin/pppd /dev/modem 38400 lock crtscts noipdefault \
+     defaultroute 0.0.0.0:0.0.0.0 connect my-chat-script</pre></blockquote>
+
+<p>As with the <em class="filename">my-chat-script</em> file in the earlier example, be sure
+this is executable and watch out for extra characters after a
+backslash at the end of a line.</p>
+
+<p>With this script in place, it should be possible to connect to the ISP
+using the
+<?troff \p?> command:
+<blockquote><pre class="code">% <tt class="userinput"><b>/etc/ppp/ppp-on</b></tt></pre></blockquote>
+
+You need not be <b class="emphasis-bold">root</b> to execute this command. Upon running this script,
+you should hear your modem dialing, and if all goes well, after a
+minute PPP should be happily connected. The
+<tt class="command">ifconfig</tt> command should report an entry for
+<tt class="literal">ppp0</tt> if PPP is up and running:</p>
+
+<blockquote><pre class="code"># <tt class="userinput"><b>ifconfig</b></tt>
+lo        Link encap:Local Loopback
+          inet addr:127.0.0.1  Bcast:127.255.255.255  Mask:255.0.0.0
+          UP BROADCAST LOOPBACK RUNNING  MTU:3584  Metric:1
+<?troff .ne 10?>
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0
+
+ppp0      Link encap:Point-to-Point Protocol
+          inet addr:207.25.97.248  P-t-P:207.25.97.154  Mask:255.255.255.0
+          UP POINTOPOINT RUNNING  MTU:1500  Metric:1
+          RX packets:1862 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:1288 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0
+          Memory:73038-73c04</pre></blockquote>
+
+<p>Here, we can see that PPP is up, the local IP address is 207.25.97.248,
+and the remote server IP address is 207.25.97.154.</p>
+
+<p>If you wish to be notified when the PPP connection is established (the
+<em class="filename">ppp-on</em> script returns immediately), add the
+following line to <em class="filename">/etc/ppp/ip-up </em>:
+<blockquote><pre class="code">/usr/bin/wall "PPP is up!"</pre></blockquote>
+
+<em class="filename">/etc/ppp/ip-up</em> is executed when PPP establishes
+an IP connection, so you can use this script to trigger the
+<tt class="command">wall</tt> command when the connection is complete.</p>
+
+<p>Another simple shell script can be used to kill the PPP session.  Edit
+the file <em class="filename">/etc/ppp/ppp-off</em> as follows:</p>
+
+<blockquote><pre class="code">#!/bin/sh
+# A simple ppp-off script
+
+kill `cat /var/run/ppp0.pid`</pre></blockquote>
+
+<p>Running <em class="filename">/etc/ppp/ppp-off</em> now kills the PPP
+daemon and shuts down the modem connection.</p>
+</div>
+
+<div class="sect4">
+<h4 class="sect4">15.2.1.3.3. Configuring DNS</h4>
+
+<p><a name="INDEX-3109" />
+<a name="INDEX-3110" />
+<a name="INDEX-3111" />
+<a name="INDEX-3112" />
+By itself, use of <tt class="command">pppd</tt> along with
+<tt class="command">chat</tt> only establishes a PPP connection and assigns
+you an IP address; in order to use domain names, you need to configure
+the system to be aware of the domain name server provided by your
+ISP. This is done by editing <em class="filename">/etc/resolv.conf</em>.
+The man page for <em class="filename">resolver</em> describes this file in
+detail, however, for most purposes it suffices to simply include lines
+of two forms: one that specifies the list of domains to search
+whenever a domain name is used and another that specifies the
+address of a DNS server.</p>
+
+<p>A sample <em class="filename">/etc/resolv.conf</em> file might look like:
+
+<blockquote><pre class="code"># Sample /etc/resolv.conf
+search cs.nowhere.edu nowhere.edu
+nameserver 207.25.97.8
+nameserver 204.148.41.1</pre></blockquote>
+
+
+The first line indicates that every time a domain name is used (such
+as orange or papaya), it should be searched for in
+the list of specified domains. In this case, resolver software would
+first expand a name like papaya
+to papaya.cs.nowhere.edu and
+try to find a system by that name, then expand it to papaya.nowhere.edu if necessary and try
+again.</p>
+
+<p>The lines beginning with <tt class="literal">nameserver</tt> specify the IP
+address of domain name servers (which should be provided by your ISP)
+that your system contacts to resolve domain names. If you specify more
+than one <tt class="literal">nameserver</tt> line, the given DNS servers
+will be contacted in order, until one returns a match; in this way,
+one DNS server is treated as a primary and the others as backups.</p>
+</div>
+
+<div class="sect4">
+<h4 class="sect4">15.2.1.3.4. Troubleshooting PPP Configuration</h4>
+
+<p><a name="INDEX-3113" />
+<a name="INDEX-3114" />
+The PPP configuration described here is meant to be very simple and
+will certainly not cover all cases; the best sources for additional
+information are the man pages for <tt class="command">pppd</tt> and
+<tt class="command">chat</tt> as well as the Linux PPP HOWTO and related
+documents.</p>
+
+<p>Happily, both <tt class="command">chat</tt> and <tt class="command">pppd</tt>
+log messages on their progress, as well as any errors, using the
+standard syslog daemon facility. By editing
+<em class="filename">/etc/syslog.conf</em>, you can cause these messages to
+be captured to a file. To do this, add the following lines:
+
+<blockquote><pre class="code"># Save messages from chat
+local2.*                                           /var/log/chat-log
+
+# Save messages from pppd
+daemon.*                                           /var/log/pppd-log</pre></blockquote>
+
+This will cause messages from <tt class="command">chat</tt> to be logged to
+<em class="filename">/var/log/chat-log</em> and messages from
+<tt class="command">pppd</tt> to be logged to
+<em class="filename">/var/log/pppd-log</em>.</p>
+
+<p>
+<img src="figs/bomb.gif">&nbsp;&nbsp;Note that these log messages will contain private information, such as
+ISP usernames and passwords! It is important that you leave this
+logging enabled only while you are debugging your PPP configuration;
+after things are working, remove these two log files and remove the
+lines from <em class="filename">/etc/syslog.conf</em>.</p>
+
+<p><tt class="command">chat</tt> will also log certain errors to
+<em class="filename">/etc/ppp/connect-errors</em>, which is not controlled
+through the syslog daemon. (It should be safe to leave this log in
+place, however.)</p>
+</div>
+
+<div class="sect4">
+<h4 class="sect4">15.2.1.3.5. PAP and CHAP</h4>
+
+<p><a name="INDEX-3115" />
+<a name="INDEX-3116" />
+<a name="INDEX-3117" />
+<a name="INDEX-3118" />
+Some ISPs may require you to use a special authentication protocol,
+such as PAP (Password Authentication Protocol) or CHAP (Challenge
+Handshake Authentication Protocol). The protocols rely on some form of
+"shared secret" known to both the client and the server;
+in most cases, this is just your ISP account password.</p>
+
+<p>If PAP or CHAP is required by your ISP, they are configured by adding
+information to the files <em class="filename">/etc/ppp/pap-secrets</em> and
+<em class="filename">/etc/ppp/chap-secrets</em>, respectively.  Each file
+has four fields separated by spaces or tabs.  Here is an example of a
+<em class="filename">pap-secrets</em> file:</p>
+
+<blockquote><pre class="code"># Secrets for authentication using PAP
+# client      server	     secret		IP or Domain
+mdw	      *		     my-password</pre></blockquote>
+
+<p>The first field is your system's name as expected by the remote
+system, usually your ISP username. The second field specifies the
+ISP's server name; an asterisk allows this entry to match all ISP
+servers to which you might connect. The third field specifies the
+shared secret provided by your ISP; as stated earlier, this is usually
+your ISP password. The fourth field is primarily used by PPP servers
+to limit the IP addresses to which users dialing in have access. These
+addresses can be specified as either IP addresses or domain names.
+For most PPP client configurations, however, this field is not
+required.</p>
+
+<p>The <em class="filename">chap-secrets</em> file has the same four fields,
+but you need to include an entry other than <tt class="literal">*</tt>
+for the service provider's system; this is a secret the ISP shares
+with you when you establish the account.</p>
+
+<p>If PAP or CHAP is being used, it's not necessary for the
+<tt class="command">chat</tt> script to include handshaking information
+after <tt class="literal">CONNECT</tt> is received; <tt class="command">pppd</tt>
+will take care of the rest. Therefore, you can edit
+<em class="filename">/etc/ppp/my-chat-script</em> to contain only the
+lines:</p>
+
+<blockquote><pre class="code">#!/bin/sh
+# my-chat-script: a program for dialing up your ISP
+exec chat -v            \
+     '' ATZ             \
+     OK ATDT555-1212    \
+     CONNECT ''</pre></blockquote>
+
+<p>You will also need to add the <tt class="literal">user</tt> option
+to the <tt class="command">pppd</tt> command line in
+<em class="filename">/etc/ppp/ppp-on</em>, as so:</p>
+
+<blockquote><pre class="code">#!/bin/sh
+# the ppp-on script
+
+exec /usr/sbin/pppd /dev/modem 38400 lock crtscts noipdefault \
+     user mdw defaultroute 0.0.0.0:0.0.0.0 connect my-chat-script</pre></blockquote>
+</div>
+</div>
+
+
+<a name="INDEX-3119" />
+</div>
+
+
+
+
+<a name="INDEX-3120" /><a name="INDEX-3,121" /><a name="INDEX-3,122" />
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch15_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch15_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">15. TCP/IP and PPP</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">15.3. PPP over ISDN</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

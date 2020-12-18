@@ -1,0 +1,164 @@
+<html><head><title>Gotcha! (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch07_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">7.5. Gotcha!</h2>
+
+<p>Not to disappoint, I want to warn you of some common JDOM pitfalls. I
+hope this will save you a little time in your JDOM programming.
+</p>
+
+<a name="javaxml2-CHP-7-SECT-5.1" /><div class="sect2">
+<h3 class="sect2">7.5.1. JDOM isn't DOM</h3>
+
+<p><a name="INDEX-768" />First and foremost, you should realize
+that JDOM isn't DOM. It doesn't wrap DOM, and
+doesn't provide extensions to DOM. In other words, the two have
+no technical relation to each other. Realizing this basic truth will
+save you a lot of time and effort; there are many articles out there
+today that talk about getting the DOM interfaces to use JDOM, or
+avoiding JDOM because it hides some of DOM's methods. These
+statements confuse more people than almost anything else. You
+don't need to have the DOM interfaces, and DOM calls (like
+<tt class="literal">appendChild( )</tt> or <tt class="literal">createDocument(
+)</tt>) simply won't work on JDOM. Sorry, wrong API!
+</p>
+
+</div>
+<a name="javaxml2-CHP-7-SECT-5.2" /><div class="sect2">
+<h3 class="sect2">7.5.2. Null Return Values</h3>
+
+<p><a name="INDEX-769" />Another
+interesting facet of JDOM, and one that has raised some controversy,
+is the return values from methods that retrieve element content. For
+example, the various <tt class="literal">getChild( )</tt> methods on the
+<tt class="literal">Element</tt> class may return a <tt class="literal">null</tt>
+value. I mentioned this, and demonstrated it, in the
+<tt class="literal">PropsToXML</tt> example code. The gotcha occurs when
+instead of checking if an element exists (as was the case in the
+example code), you assume that an element already exists. This is
+most common when some other application or component sends you XML,
+and your code expects it to conform to a certain format (be it a DTD,
+XML Schema, or simply an agreed-upon standard). For example, take a
+look at the following code:
+</p>
+
+<blockquote><pre class="code">Document doc = otherComponent.getDocument( );
+String price = doc.getRootElement( ).getChild("item")
+                                   .getChild("price")
+                                   .getTextTrim( );</pre></blockquote>
+
+<p>The problem in this code is that if there is no
+<tt class="literal">item</tt> element under the root, or no
+<tt class="literal">price</tt> element under that, a
+<tt class="literal">null</tt> value is returned from the <tt class="literal">getChild(
+)</tt> method invocations. Suddenly, this innocuous-looking code
+begins to emit <tt class="literal">NullPointerException</tt>s, which are
+quite painful to track down. You can handle this situation in one of
+two ways. The first is to check for <tt class="literal">null</tt> values at
+each step of the way:
+</p>
+
+<blockquote><pre class="code">Document doc = otherComponent.getDocument( );
+Element root = doc.getRootElement( );
+Element item = root.getChild("item");
+if (item != null) {
+    Element price = item.getChild("price");
+    if (price != null) {
+        String price = price.getTextTrim( );
+    } else {
+        // Handle exceptional condition
+    }
+} else {
+    // Handle exceptional condition
+}</pre></blockquote>
+
+<p>The second option is to wrap the entire code fragment in a
+<tt class="literal">try</tt><a name="INDEX-770" />/<tt class="literal">catch</tt>
+block:
+</p>
+
+<blockquote><pre class="code">Document doc = otherComponent.getDocument( );
+try {
+    String price = doc.getRootElement( ).getChild("item")
+                                       .getChild("price")
+                                       .getTextTrim( );
+} catch (NullPointerException e) {
+    // Handle exceptional condition
+}</pre></blockquote>
+
+<p>While either approach works, I recommend the first; it allows
+finer-grained error handling, as it is possible to determine exactly
+which test failed, and therefore exactly what problem occurred. The
+second code fragment informs you only that somewhere a problem
+occurred. In any case, careful testing of return values can save you
+some rather annoying <tt class="literal">NullPointerException</tt>s.
+</p>
+
+</div>
+<a name="javaxml2-CHP-7-SECT-5.3" /><div class="sect2">
+<h3 class="sect2">7.5.3. DOMBuilder</h3>
+
+<p>Last but not least, you should be very careful when working with the
+<tt class="literal">DOMBuilder</tt><a name="INDEX-771" />
+<a name="INDEX-772" />
+<a name="INDEX-773" /> class. It's not
+<em class="emphasis">how</em> you use the class, but
+<em class="emphasis">when</em> you use it. As I mentioned, this class
+works for input in a similar fashion to
+<tt class="literal">SAXBuilder</tt>. And like its SAX sister class, it has
+<tt class="literal">build( )</tt> methods that take in input forms like a
+Java <tt class="literal">File</tt> or <tt class="literal">InputStream</tt>.
+However, building a JDOM <tt class="literal">Document</tt> from a file,
+URL, or I/O stream is always slower than using
+<tt class="literal">SAXBuilder</tt>; that's because SAX is used to
+build a DOM tree in <tt class="literal">DOMBuilder</tt>, and then that DOM
+tree is converted to JDOM. Of course, this is much slower than
+leaving out the intermediary step (creating a DOM tree), and simply
+going straight from SAX to JDOM.
+</p>
+
+<p>So, any time you see code like this:</p>
+
+<blockquote><pre class="code">DOMBuilder builder = new DOMBuilder( );
+
+// Building from a file
+Document doc = builder.build(new File("input.xml"));
+
+// Building from a URL
+Document doc = builder.build(
+    new URL("http://newInstance.com/javaxml2/copyright.xml"));
+
+// Building from an I/O stream
+Document doc = builder.build(new FileInputStream("input.xml"));</pre></blockquote>
+
+<p>You should run screaming! Seriously, <tt class="literal">DOMBuilder</tt>
+has its place: it's great for taking existing DOM structures
+and going to JDOM. But for raw, speedy input, it's simply an
+inferior choice in terms of performance. Save yourself some headaches
+and commit this fact to memory now!
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch07_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">7.4. Is JDOM a Standard?</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">7.6. What's Next?</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

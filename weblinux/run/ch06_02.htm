@@ -1,0 +1,291 @@
+<?label 6.2. Managing Swap Space?><html><head><title>Managing Swap Space (Running Linux)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Running Linux" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm" /></td><td width="172" valign="top" align="right"><a href="ch06_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">6.2. Managing Swap Space</h2>
+
+<p> 
+<a name="INDEX-1505" />
+<a name="INDEX-1506" />
+<em class="emphasis">Swap space</em> is a generic term for disk storage used
+to increase the amount of apparent memory available on the system. 
+Under Linux, swap space is used to implement <em class="emphasis">paging</em>, a process
+whereby memory pages (a page is 4096 bytes on Intel systems; this
+value can differ on other architectures) are written out
+to disk when physical memory is low and read back into physical memory
+when needed. The process by which paging works is rather involved, but
+it is optimized for certain cases. The virtual memory subsystem under
+Linux allows memory pages to be shared between running programs. For
+example, if you have multiple copies of Emacs running simultaneously, 
+there is only one copy of the Emacs code actually in memory. Also,
+text pages (those pages containing program code, not data) are 
+usually read-only, and therefore not written to disk when swapped out.
+Those pages are instead freed directly from main memory and read
+from the original executable file when they are accessed again.</p>
+
+<p>Of course, swap space cannot completely make up for a lack of physical
+<span class="acronym">RAM</span>. Disk access is much slower than <span class="acronym">RAM</span> access, by several orders
+of magnitude. Therefore, swap is useful primarily as a means to run
+a number of programs simultaneously that would not otherwise fit
+into physical <span class="acronym">RAM</span>; if you are switching between these programs rapidly
+you'll notice a lag as pages are swapped to and from disk.</p>
+
+<p>At any rate, Linux supports swap space in two forms: as a separate disk 
+partition or a file somewhere on your existing Linux filesystems. 
+You can have up to 16 swap areas, with each swap area being a disk file
+or partition up to 128 MB in size (again, these values can differ on
+non-Intel systems). You math whizzes out there will 
+realize that this allows up to 2 GB of swap space.  (If anyone has 
+actually attempted to use this much swap, the authors would love to hear 
+about it, whether you're a math whiz or not.)</p>
+
+<p>Note that using a swap partition can yield better performance, because
+the disk blocks are guaranteed to be contiguous. In the case of a 
+swap file, however, the disk blocks may be scattered around the filesystem,
+which can be a serious performance hit in some cases. Many people use 
+a swap file when they must add additional swap space temporarily--for
+example, if the system is thrashing because of lack of physical <span class="acronym">RAM</span>
+and swap. Swap files are a good way to add swap on demand.</p>
+
+<p>
+Nearly all Linux systems utilize swap space of some kind--usually a
+single swap partition. In <a href="ch03_01.htm">Chapter 3, "Installation
+ and Initial
+ Configuration"</a>, we explained
+how to create a swap partition on your system during the Linux installation
+procedure. In this section we describe how to add and 
+remove swap files and partitions. If you already have swap space and
+are happy with it, this section may not be of interest to you.</p>
+
+<p> 
+<a name="INDEX-1507" />
+How much swap space do you have? The <tt class="command">free</tt> command
+reports information on system-memory usage:
+<blockquote><pre class="code">rutabaga% <tt class="userinput"><b>free</b></tt>
+            total       used       free     shared    buffers     cached
+Mem:        127888     126744       1144      27640       1884      51988
+-/+ buffers:            72872      55016
+Swap:       130748      23916     106832</pre></blockquote>
+
+ 
+All the numbers here are reported in 1024-byte blocks. Here, we see
+a system with 127,888 blocks (about 127 MB) of physical <span class="acronym">RAM</span>, with
+126,744 (about 126 MB) currently in use. Note that your system
+actually has more physical <span class="acronym">RAM</span> than that given in the "total" column;
+this number does not include the memory used by the kernel for its
+own sundry needs.</p>
+
+<p>The "shared" column lists the amount of physical memory
+shared between multiple processes. Here, we see that about 27 MB
+of pages are being shared, which means that memory is being utilized
+well. The "buffers" column shows the amount of memory being used by
+the kernel buffer cache. The buffer cache (described briefly in the
+previous section) is used to speed up disk operations, by allowing
+disk reads and writes to be serviced directly from memory. The buffer
+cache size will increase or decrease as memory usage on the system
+changes; this memory is reclaimed if it is needed by applications. 
+Therefore, although we see that 126 MB of system memory is in use,
+not all (but most) of it is being used by application programs. The
+"cache" column indicates how many memory pages the kernel
+has cached for faster access later.</p>
+
+<p>Since the memory used for buffers and cache can easily be reclaimed
+for use by applications, the second line (-/+ buffers/cache) provides
+an indication of the memory actually used by applications (the "used"
+column) or available to applications (the "free" column).  The sum of
+the memory used by buffers and cache reported in the first line is
+subtracted from the total used memory and added to the total free
+memory to give the two figures on the second line.</p>
+
+<p>In the third line, we see the total amount of swap,
+130,748 blocks (about 128 MB). In this case, only very little of the
+swap is being used; there is plenty of physical <span class="acronym">RAM</span>
+available. If 
+additional applications were started, larger parts of the buffer cache memory
+would be used to host them. Swap space is generally used as a last
+resort when the system can't reclaim physical memory in other ways.</p>
+
+<p>Note that the amount of swap reported by <tt class="command">free</tt> is somewhat less
+than the total size of your swap partitions and files. This is because
+several blocks of each swap area must be used to store a map of how 
+each page in the swap area is being utilized. This overhead should be
+rather small; only a few kilobytes per swap area.</p>
+
+<p>If you're considering creating a swap file, the <tt class="command">df</tt> command
+gives you information on the amount of space remaining on your various
+filesystems.  This command prints a list of filesystems, showing each
+one's size and what percentage is currently occupied.</p>
+
+<div class="sect2">
+<h3 class="sect2">6.2.1. Creating Swap Space</h3>
+
+<p><a name="INDEX-1508" />
+The first step in adding additional swap is to create a file or
+partition to host the swap area. If you wish to create an additional
+swap partition, you can create the partition using the <tt class="command">fdisk</tt>
+
+utility, as described in the section "<a href="ch03_01.htm#x-100-3-sec-install-linux-fdisk">Section 3.1.3, "Creating Linux Partitions"</a>"
+in <a href="ch03_01.htm">Chapter 3, "Installation
+ and Initial
+ Configuration"</a>.</p>
+
+<p>To create a swap file, you'll need to open a file and write
+bytes to it equaling the amount of swap you wish to add. One
+easy way to do this is with the <tt class="command">dd</tt> command. 
+<a name="INDEX-1509" />
+For example, to
+create an 8-MB swap file, you can use the command:
+
+<blockquote><pre class="code">dd if=/dev/zero of=/swap bs=1024 count=8192</pre></blockquote>
+
+
+This will write 8192 blocks (8 MB) of data from <em class="filename">/dev/zero</em>
+to the file <em class="filename">/swap</em>. (<em class="filename">/dev/zero</em> is a special device in which
+read operations always return null bytes. It's something like the inverse 
+of <em class="filename">/dev/null</em>.) After creating a file of this size, it's a good
+idea to use the <tt class="command">sync</tt> command
+to sync the filesystems in case of a system crash.</p>
+
+<p> 
+<a name="INDEX-1510" />
+Once you have created the swap file or partition, you can use the
+<tt class="command">mkswap</tt> command to "format" the swap area. As described in
+
+the section "<a href="ch03_01.htm#x-100-3-sec-install-linux-mkswap">Section 3.1.4, "Creating Swap Space"</a>" in 
+<a href="ch03_01.htm">Chapter 3, "Installation
+ and Initial
+ Configuration"</a>, the format of the <tt class="command">mkswap</tt> command
+is:
+<blockquote><pre class="code">mkswap -c <em class="replaceable">device</em> <em class="replaceable">size</em></pre></blockquote>
+
+where <em class="replaceable">device</em> is the name of the swap
+partition or file, and <em class="replaceable">size</em> is the size of
+the swap area in blocks (again, one block is equal to one
+kilobyte). You normally do not need to specify this when creating a
+swap area, because <tt class="command">mkswap</tt> can detect the partition
+size on its own. The <span class="option">-c</span> switch is optional and causes
+the swap area to be checked for bad blocks as it is formatted.</p>
+
+<p>For example, for the swap file created in the previous example, you would use the command:
+
+<blockquote><pre class="code">mkswap -c /swap 8192</pre></blockquote>
+
+
+If the swap area is a partition, you would substitute the name
+of the partition (such as <em class="filename">/dev/hda3</em>) and the size of the partition,
+also in blocks.</p>
+
+<p><a name="INDEX-1511" />
+After running <tt class="command">mkswap</tt> on a swap file, use the 
+<tt class="command">sync</tt> command to ensure the format information has been
+physically written to the new swap file. Running <tt class="command">sync</tt> is
+not necessary when formatting a swap partition.</p>
+
+<a name="INDEX-1512" />
+</div>
+
+
+
+
+<?troff .sp -.3?><div class="sect2">
+<h3 class="sect2">6.2.2. Enabling the Swap Space</h3>
+
+<p> 
+<a name="INDEX-1513" />
+In order for the new swap space to be utilized, you must enable it
+with the <tt class="command">swapon</tt> command. For example, after creating the
+previous swap file and running <tt class="command">mkswap</tt> and
+<tt class="command">sync</tt>, we could use the command:
+
+<blockquote><pre class="code">swapon /swap</pre></blockquote>
+
+<?troff .ne 10?>
+This adds the new swap area to the total amount of available 
+swap; use the <tt class="command">free</tt> command to verify that this is indeed the
+case. If you are using a new swap partition, you can enable it with
+a command such as:
+<blockquote><pre class="code">swapon /dev/hda3</pre></blockquote>
+
+if <em class="filename">/dev/hda3</em> is the name of the swap partition.</p>
+
+<p>If you are using a swap file (and not a swap partition), you
+need to change its permissions first, like:</p>
+
+<blockquote><pre class="code">chmod 0600 /swap</pre></blockquote>
+
+<p> 
+Like filesystems, swap areas are automatically enabled at boot time
+using the <tt class="command">swapon -a</tt> command from one of the system startup
+files (usually in <em class="filename">/etc/rc.d/rc.sysinit</em>). This command looks in the
+file <em class="filename">/etc/fstab</em>, which, as you'll remember from the
+section "<a href="ch06_01.htm#x-100-3-sec-sysadm-fs-mount">Section 6.1.2, "Mounting Filesystems"</a>,"
+includes information on filesystems and swap areas. All entries in 
+<em class="filename">/etc/fstab</em> with the <em class="replaceable">options</em> field set to <tt class="literal">sw</tt> are
+enabled by <tt class="command">swapon -a</tt>.</p>
+
+<p> 
+Therefore, if <em class="filename">/etc/fstab</em> contains the entries:
+<blockquote><pre class="code"># device     directory    type   options
+/dev/hda3    none         swap   sw
+/swap        none         swap   sw</pre></blockquote>
+
+
+then the two swap areas <em class="filename">/dev/hda3</em> and <em class="filename">/swap</em> will be enabled
+at boot time. For each new swap area, you should add an entry
+to <em class="filename">/etc/fstab</em>.</p>
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">6.2.3. Disabling Swap Space</h3>
+
+<p><a name="INDEX-1514" />
+<a name="INDEX-1515" />
+As is usually the case, undoing a task is easier than doing it. 
+To disable swap space, simply use the command:
+<blockquote><pre class="code">swapoff <em class="replaceable">device</em></pre></blockquote>
+
+where <em class="replaceable">device</em> is the name of the swap partition or file
+that you wish to disable. For example, to disable swapping on
+the device <em class="filename">/dev/hda3</em>, use the command:
+<blockquote><pre class="code">swapoff /dev/hda3</pre></blockquote></p>
+
+<p> 
+If you wish to disable a swap file, you can simply remove the file,
+using <tt class="command">rm</tt>, <em class="emphasis">after</em> using <tt class="command">swapoff</tt>. Don't remove a
+swap file before disabling it; this can cause disaster.</p>
+
+<p>If you have disabled a swap partition using <tt class="command">swapoff</tt>, you are
+free to reuse that partition as you see fit: remove it using
+<tt class="command">fdisk</tt>, or do whatever.</p>
+
+<p>Also, if there is a corresponding entry for the swap area in 
+<em class="filename">/etc/fstab</em>, remove it. Otherwise, you'll get errors when you
+next reboot the system and the swap area can't be found.</p>
+
+<a name="INDEX-1516" />
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch06_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch06_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">6. Managing
+ Filesystems, Swap,
+ and Devices</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">6.3. Device Files</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

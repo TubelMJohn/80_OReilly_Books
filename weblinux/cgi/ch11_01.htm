@@ -1,0 +1,730 @@
+<?label 11. Maintaining State?><html><head><title>Maintaining State (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch10_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch11_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Chapter 11. Maintaining State</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch11_01.htm">Query Strings and Extra Path Information</a><br>
+<a href="ch11_02.htm">Hidden Fields</a><br>
+<a href="ch11_03.htm">Client-Side Cookies</a><br></p></div>
+
+
+
+<p>HTTP is a stateless protocol. As we discussed in <a href="ch02_01.htm">Chapter 2, "The Hypertext Transport Protocol "</a>, the <a name="INDEX-2179" />HTTP protocol defines how web clients and
+servers communicate with each other to provide documents and
+resources to the user. Unfortunately, as we noted in our discussion
+of HTTP (see <a href="ch02_05.htm#ch02-99950">Section 2.5.1, "Identifying Clients"</a>), HTTP does not provide a
+direct way of identifying clients in order to keep track of them
+across multiple page requests. There are ways to track users through
+indirect methods, however, and we'll explore these methods in
+this chapter. Web developers refer to the practice of tracking users
+as <em class="firstterm">maintaining state</em>
+<a name="INDEX-2180" />
+<a name="INDEX-2181" /> <a name="INDEX-2,182" />
+<a name="INDEX-2183" />.
+The series of interactions that a particular user has with our site
+is a <em class="firstterm">session</em>
+<a name="INDEX-2184" /> <a name="INDEX-2,185" />. The information that we collect for a
+user is <em class="firstterm">session information</em>.</p>
+
+
+<p>Why would we want to maintain state? If you value privacy, the idea
+of tracking users may raise concerns. It is true that tracking users
+can be used for questionable purposes. However, there are legitimate
+instances when you must track users. Take an online store: in order
+to allow a customer to browse products, add some to a shopping cart,
+and then check out by purchasing the selected items, the server must
+maintain a separate shopping cart for each user. In this case,
+collecting selected items in a user's session information is
+not only acceptable, but expected.</p>
+
+
+<p>Before we discuss methods for maintaining state, let's briefly
+review what we learned earlier about the <a name="INDEX-2186" />HTTP transaction model. This will
+provide a context to understand the options we present later. Each
+and every HTTP transaction follows the same general format: a
+<a name="INDEX-2187" />
+<a name="INDEX-2188" />
+<a name="INDEX-2189" />request
+from a client followed by a response from the server. Each of these
+is divided into a request/response line, header lines, and possibly
+some message content. For example, if you open your favorite browser
+and type in the URL:</p>
+
+
+<blockquote class="simplelist">
+
+<p><em class="emphasis">http://www.oreilly.com/catalog/cgi2/index.html</em></p>
+
+</blockquote>
+
+
+<p>Your browser then connects to <em class="emphasis">www.oreilly.com</em> on
+port 80 (the default port for HTTP) and issues a request for
+<em class="emphasis">/catalog/cgi2/index.html</em>. On the server side,
+because the web server is bound to port 80, it answers any requests
+that are issued through that port. Here is how the request would look
+from a browser supporting HTTP 1.0:</p>
+
+
+<blockquote><pre class="code">GET /index.html HTTP/1.0
+Accept: image/gif, image/x-xbitmap, image/jpeg, image/png, */*
+Accept-Language: en
+Accept-Charset: iso-8859-1,*,utf-8
+User-Agent: Mozilla/4.5 (Macintosh; I; PPC)</pre></blockquote>
+
+
+<p>The browser uses the <a name="INDEX-2190" />GET request method to ask for the
+document, specifies the HTTP protocol to use, and supplies a number
+of headers to pass information about itself and the format of the
+content it will accept. Because the request is sent via GET and not
+POST, the browser is not passing any content to the server.</p>
+
+
+<p>Here is how the
+<a name="INDEX-2191" />server would respond to the request:</p>
+
+
+<blockquote><pre class="code">HTTP/1.0 200 OK
+Date: Sat, 18 Mar 2000 20:35:35 GMT
+Server: Apache/1.3.9 (Unix)
+Last-Modified: Wed, 20 May 1998 14:59:42 GMT
+Content-Length: 141
+Content-Type: text/html
+
+(content)
+...</pre></blockquote>
+
+
+<p>In Version 1.0 of HTTP, the server returns the requested document and
+then closes the
+<a name="INDEX-2192" />connection.
+Yes, that's right: the server doesn't keep the connection
+open between itself and the browser. So, if you were to click on a
+link on the returned page, the browser then issues another request to
+the server, and so on. As a result, the server has no way of knowing
+that it's you that is requesting the successive document. This
+is what we mean by
+<em class="emphasis">stateless</em>
+<a name="INDEX-2193" />
+<a name="INDEX-2194" />, or nonpersistent; the server
+doesn't maintain or store any request-related information from
+one transaction to the next. You do know the network address of the
+client who is connecting to you, but as you'll recall from our
+earlier discussion of
+<a name="INDEX-2195" />proxies (see <a href="ch02_05.htm#ch02-54689">Section 2.5, "Proxies"</a>), multiple users may be making connections via
+the same proxy.</p>
+
+
+<p>You may be waiting to hear what's changed in Version 1.1 of
+HTTP. In fact, a
+<a name="INDEX-2196" />connection may remain open across
+multiple requests, although the request and response cycle is the
+same as above. However, you cannot rely on the network connection
+remaining open since the connection can be closed or lost for any
+number of reasons, and in any event CGI has not been modified to
+allow you access any information that would associate requests made
+across the same connection. So in HTTP 1.1 as in HTTP 1.0, the job of
+maintaining state falls to us.</p>
+
+
+<p>Consider our <a name="INDEX-2197" />shopping cart example: it should allow
+consumers to navigate through many pages and selectively place items
+in their carts. A consumer typically places an item in a cart by
+selecting a product, entering the desired quantity, and submitting
+the form. This action sends the data to the web server, which, in
+turn, invokes the requested CGI application. To the server,
+it's simply another request. So, it's up to the
+application to not only keep track of the data between multiple
+invocations, but also to identify the data as belonging to a
+particular consumer.</p>
+
+
+<p>In order to maintain state, we must get the client to pass us some
+<a name="INDEX-2198" />
+<a name="INDEX-2199" />unique identifier
+with each request. As you can see from the HTTP request example
+earlier, there are only three different ways the client can pass
+information to us: via the request line, via a header line, or via
+the content (in the case of a POST request). Thus, in order to
+maintain state, we can have the client pass a unique identifier to us
+via any of these methods. In fact, the techniques we'll explore
+will cover all three of these ways:</p>
+
+
+<dl>
+<dt><b>
+<a name="INDEX-2200" />
+<a name="INDEX-2201" />
+<a name="INDEX-2202" />Query strings and extra path information</b></dt>
+<dd><p>It's possible to embed an identifier in the query string or as
+extra path information within a document's URL. As users
+traverse through a site, a CGI application generates documents on the
+fly, passing the identifier from document to document. This allows us
+to keep track of all the documents requested by each user, and in the
+order in which they were requested. The browser sends this
+information to us via the request line.</p></dd>
+
+
+<dt><b>
+<a name="INDEX-2203" />Hidden fields</b></dt>
+<dd><p>Hidden form fields allow us to embed "invisible"
+name-value information within forms that the user cannot see without
+viewing the source of the HTML page. Like typical form fields and
+values, this information is sent to the CGI application when the user
+presses the submit button. We generally use this technique to
+maintain the user's selections and preferences when multiple
+forms are involved. We'll also look at how CGI.pm can do much
+of this work for us. The browser sends this information to us via the
+request line or via the message content depending on whether the
+request was GET or POST, respectively.</p></dd>
+
+
+<dt><b>
+<a name="INDEX-2204" />
+<a name="INDEX-2205" />
+<a name="INDEX-2206" />Client-side cookies</b></dt>
+<dd><p>All modern browsers support client-side cookies, which allow us to
+store information on the client machine and have it pass it back to
+us with each request. We can use this to store semi-permanent data on
+the client-side, which will be available to us whenever the user
+requests future resources from the server. Cookies are sent back to
+us by the client in the <em class="emphasis">Cookie</em> HTTP header line.</p></dd>
+
+</dl>
+
+
+<p>The advantages and disadvantages of each technique are summarized in
+<a href="ch11_01.htm#ch11-81511">Table 11-1</a>. We will review each technique
+separately, so if some of the points in the table are unclear you may
+want to refer back to this table after reading the sections below. In
+general, though, you should note that client-side cookies are the
+most powerful option for maintaining state, but they require
+something from the client. The other options work regardless of the
+client, but both have limits in the number of the pages that we can
+track the user across.</p>
+
+
+
+<a name="ch11-81511" /><h4 class="objtitle">Table 11-1. Summary of the Techniques for Maintaining 
+State </h4><table border="1">
+
+
+
+
+
+<tr>
+<th>
+<p>Technique</p></th>
+<th>
+<p>Scope</p></th>
+<th>
+<p>Reliability and Performance</p></th>
+<th>
+<p>Client Requirements</p></th>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p>Query strings and extra path information</p></td>
+<td>
+<p>Can be configured to apply to a particular group of pages or an
+entire web site, but state information is lost if the user leaves the
+web site and later returns</p></td>
+<td>
+<p>Difficult to reliably parse all links in a document;</p>
+<p>significant performance cost to pass static content through CGI
+scripts</p></td>
+<td>
+<p>Does not require any special behavior from the client</p></td>
+</tr>
+
+<tr>
+<td>
+<p>Hidden fields</p></td>
+<td>
+<p>Only works across a series of form submissions</p></td>
+<td>
+<p>Easy to implement; does not affect performance</p></td>
+<td>
+<p>Does not require any special behavior from the client</p></td>
+</tr>
+
+<tr>
+<td>
+<p>Cookies</p></td>
+<td>
+<p>Works everywhere, even if the user visits another site and later
+returns</p></td>
+<td>
+<p>Easy to implement; does not affect performance</p></td>
+<td>
+<p>Requires that the client supports (and accepts) cookies</p></td>
+</tr>
+
+
+</table>
+
+
+
+
+
+
+
+
+
+
+<div class="sect1"><a name="ch11-36070" />
+<h2 class="sect1">11.1. Query Strings and Extra Path Information</h2>
+
+
+<p>We've passed <a name="INDEX-2209" /> <a name="INDEX-2,210" /> <a name="INDEX-2,211" />query
+information to <a name="INDEX-2212" /> <a name="INDEX-2,213" />CGI applications many times
+throughout this book. In this section, we'll use queries in a
+slightly less obvious manner, namely to track a user's browsing
+trail while traversing from one document to the next on the server.</p>
+
+
+<p>In order to do this, we'll have a <a name="INDEX-2214" /> <a name="INDEX-2,215" />CGI script handle every request for
+a static HTML page. The CGI script will check whether the request URL
+contains an identifier matching our format. If it doesn't, the
+script assumes that this is a new user and generates a new
+identifier. The script then parses the requested HTML document by
+looking for links to other URLs within our web site and appending a
+unique identifier to each URL. Thus, the identifier will be passed on
+with future requests and propagated from document to document. Of
+course, if we want to track users across CGI applications then
+we'll also need to parse the output of these CGI scripts. The
+simplest way to
+<a name="INDEX-2216" />accomplish both
+goals is to create a general module that handles reading the
+identifier and parsing the output. This way, we need to write our
+code only once and can have the script for our HTML pages as well as
+allow all our other CGI scripts share it.</p>
+
+
+<p>As you may have guessed, this is not a very efficient process, since
+a request for each and every HTML document triggers a CGI application
+to be executed. Tools such as <em class="emphasis">mod_perl</em> and
+FastCGI, discussed in <a href="ch17_01.htm">Chapter 17, "Efficiency and Optimization"</a>, help because both
+of these tools effectively embed the Perl interpreter into the web
+server.</p>
+
+
+<p>Another strategy to help improve performance is to perform some
+processing in advance. If you are willing to preprocess your
+documents, you can reduce the amount of work that happens when the
+customer accesses the document. The majority of the work involved in
+parsing a document and replacing
+<a name="INDEX-2217" />links
+is identifying the links. <a name="INDEX-2218" />
+<a name="INDEX-2219" />
+<a name="INDEX-2220" /> <a name="INDEX-2,221" />HTML::Parser
+is a good module, but the work it does is rather complex. If you
+parse the links and add a special keyword instead of one for a
+particular user, then later you can look for this keyword and not
+have to worry about recognizing links. For example, you could parse
+<a name="INDEX-2222" />URLs and add
+<tt class="literal">#USERID#</tt> as the identifier for each document. The
+resulting code becomes much simpler. You can effectively handle
+documents this way:</p>
+
+
+<blockquote><pre class="code">sub parse {
+    my( $filename, $id ) = @_;
+    local *FH;
+    open FH, $filename or die "Cannot open file: $!";
+    
+    while (&lt;FH&gt;) {
+        s/#USERID#/$id/g;
+        print;
+    }
+}</pre></blockquote>
+
+
+<p>However, when a user traverses through a set of static HTML
+documents, CGI applications are typically not involved. If
+that's the case, how do we pass session information from one
+HTML document to the next, and be able to keep track of it on the
+server?</p>
+
+
+<p>The answer to our problem is to configure the
+<a name="INDEX-2223" />server such that when the user
+requests an HTML document, the server executes a CGI application. The
+application would then be responsible for transparently embedding
+special identifying information (such as a query string) into all the
+hyperlinks within the requested HTML document and returning the newly
+created content to the browser.</p>
+
+
+<p>Let's look at how we're actually going to implement the
+application. It's only a two-step process. To reiterate, the
+problem we're trying to solve is to determine what documents a
+particular user requests and how much time he or she spends viewing
+them. First, we need to identify the set of documents for which we
+want to obtain the users' browsing history. Once we do that, we
+simply move these documents to a specific directory under the web
+server's document root directory.</p>
+
+
+<p>Next, we need to configure the web server to execute a CGI
+application each and every time a user requests a document from this
+directory. We'll use the Apache web server for this example,
+but the configuration details are very similar for other web servers,
+as well.</p>
+
+
+<p>We simply need to insert the following directives into
+<a name="INDEX-2224" />
+<a name="INDEX-2225" />Apache's access configuration
+file, <em class="emphasis">access.conf</em>:</p>
+
+
+<blockquote><pre class="code">&lt;Directory /usr/local/apache/htdocs/store&gt;
+    AddType text/html   .html
+    AddType Tracker     .html
+    Action  Tracker     /cgi/track.cgi
+&lt;/Directory&gt;</pre></blockquote>
+
+
+<p>When a user requests a document from the
+<em class="filename">/usr/local/apache/htdocs/store</em> directory, Apache
+executes the <em class="emphasis">query_track</em> application, passing to
+it the relative URL of the requested document as extra path
+information. Here's an example. When the user requests a
+document from the directory for the first time:</p>
+
+
+<blockquote class="simplelist">
+
+<p><em class="emphasis">http://localhost/store/index.html</em></p>
+
+</blockquote>
+
+
+<p>the web server will execute <em class="emphasis">query_track</em>, like so:</p>
+
+
+<blockquote class="simplelist">
+
+<p><em class="emphasis">http://localhost/cgi/track.cgi/store/index.html</em></p>
+
+</blockquote>
+
+
+<p>The application uses the <a name="INDEX-2226" />
+<a name="INDEX-2227" />PATH_TRANSLATED
+environment variable to get the full path of
+<em class="emphasis">index.html</em>. Then, it opens the file, creates a
+new identifier for the user, embeds it into each relative URL within
+the document, and returns the modified HTML stream to the browser. In
+addition, we log the transaction to a special log file, which you can
+use to analyze users' browsing habits at a later time.</p>
+
+
+<p>If you're curious as to what a modified
+<a name="INDEX-2228" />URL looks like, here's an example:</p>
+
+
+<blockquote class="simplelist">
+
+<p><em class="emphasis">http://localhost/store/.CC7e2BMb_H6UdK9KfPtR1g/faq.html</em></p>
+
+</blockquote>
+
+
+<p>The identifier is a modified Base64 <a name="INDEX-2229" />MD5 message digest, computed using
+various pieces of information from the request. The code to generate
+it looks like this:</p>
+
+
+<blockquote><pre class="code">use Digest::MD5;
+
+my $md5 = new Digest::MD5;
+my $remote = $ENV{REMOTE_ADDR} . $ENV{REMOTE_PORT};
+my $id = $md5-&gt;md5_base64( time, $$, $remote );
+$id =~ tr|+/=|-_.|;  # Make non-word chars URL-friendly</pre></blockquote>
+
+
+<p>This does a good job of generating a unique key for each request.
+However, it is not intended to create keys that cannot be cracked. If
+you are generating session identifiers that provide access to
+sensitive data, then you should use a more sophisticated method to
+generate an identifier.</p>
+
+
+<p>If you use Apache, you do not have to generate a unique identifier
+yourself if you build <a name="INDEX-2230" />
+<a name="INDEX-2231" />
+<a name="INDEX-2232" />Apache with the
+<em class="emphasis">mod_unique_id</em> module. It creates a unique
+identifier for each request, which is available to your CGI script as
+<tt class="literal">$ENV{UNIQUE_ID}</tt>.
+<em class="emphasis">mod_unique_id</em> is included in the Apache
+distribution but not compiled by default.</p>
+
+
+<p>Let's look at how we could construct code to <a name="INDEX-2233" /> <a name="INDEX-2,234" /> <a name="INDEX-2,235" />parse HTML documents and insert
+identifiers. <a href="ch11_01.htm#ch11-50116">Example 11-1</a> shows a Perl module that we
+use to parse the request URL and HTML output.</p>
+
+
+
+<a name="ch11-50116" /><div class="example">
+<h4 class="objtitle">Example 11-1. CGIBook::UserTracker.pm </h4>
+
+<a name="INDEX-2236" /><a name="INDEX-2,237" /><a name="INDEX-2,238" />
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+#/----------------------------------------------------------------
+# UserTracker Module
+# 
+# Inherits from HTML::Parser
+# 
+# 
+
+package CGIBook::UserTracker;
+
+push @ISA, "HTML::Parser";
+
+use strict;
+use URI;
+use HTML::Parser;
+
+1;
+
+
+#/----------------------------------------------------------------
+# Public methods
+# 
+
+sub new {
+    my( $class, $path ) = @_;
+    my $id;
+    
+    if ( $ENV{PATH_INFO} and
+         $ENV{PATH_INFO} =~ s|^/\.([a-z0-9_.-]*)/|/|i ) {
+        $id = $1;
+    }
+    else {
+        $id ||= unique_id(  );
+    }
+    
+    my $self = $class-&gt;SUPER::new(  );
+    $self-&gt;{user_id}    = $id;
+    $self-&gt;{base_path}  = defined( $path ) ? $path : "";
+        
+    return $self;
+}
+
+sub base_path {
+    my( $self, $path ) = @_;
+    $self-&gt;{base_path} = $path if defined $path;
+    return $self-&gt;{base_path};
+}
+
+sub user_id {
+    my $self = shift;
+    return $self-&gt;{user_id};
+}
+
+
+#/----------------------------------------------------------------
+# Internal (private) subs
+# 
+
+sub unique_id {
+    # Use Apache's mod_unique_id if available
+    return $ENV{UNIQUE_ID} if exists $ENV{UNIQUE_ID};
+    
+    require Digest::MD5;
+    
+    my $md5 = new Digest::MD5;
+    my $remote = $ENV{REMOTE_ADDR} . $ENV{REMOTE_PORT};
+    
+    # Note this is intended to be unique, and not unguessable
+    # It should not be used for generating keys to sensitive data
+    my $id = $md5-&gt;md5_base64( time, $$, $remote );
+    $id =~ tr|+/=|-_.|;  # Make non-word chars URL-friendly
+    return $id;
+}
+
+sub encode {
+    my( $self, $url ) = @_;
+    my $uri  = new URI( $url, "http" );
+    my $id   = $self-&gt;user_id(  );
+    my $base = $self-&gt;base_path;
+    
+    my $path = $uri-&gt;path;
+    $path =~ s|^$base|$base/.$id| or
+        die "Invalid base path configured\n";
+    $uri-&gt;path( $path );
+    
+    return $uri-&gt;as_string;
+}
+
+
+#/----------------------------------------------------------------
+# Subs to implement HTML::Parser callbacks
+# 
+
+sub start {
+    my( $self, $tag, $attr, $attrseq, $origtext ) = @_;
+    my $new_text = $origtext;
+    
+    my %relevant_pairs = (
+        frameset    =&gt; "src",
+        a           =&gt; "href",
+        area        =&gt; "href",
+        form        =&gt; "action",
+# Uncomment these lines if you want to track images too
+#        img         =&gt; "src",
+#        body        =&gt; "background",
+    );
+    
+    while ( my( $rel_tag, $rel_attr ) = each %relevant_pairs ) {
+        if ( $tag eq $rel_tag and $attr-&gt;{$rel_attr} ) {
+            $attr-&gt;{$rel_attr} = $self-&gt;encode( $attr-&gt;{$rel_attr} );
+            my @attribs = map { "$_=\"$attr-&gt;{$_}\"" } @$attrseq;
+            $new_text = "&lt;$tag @attribs&gt;";
+        }
+    }
+    
+    # Meta refresh tags have a different format, handled separately
+    if ( $tag eq "meta" and $attr-&gt;{"http-equiv"} eq "refresh" ) {
+        my( $delay, $url ) = split ";URL=", $attr-&gt;{content}, 2;
+        $attr-&gt;{content} = "$delay;URL=" . $self-&gt;encode( $url );
+        my @attribs = map { "$_=\"$attr-&gt;{$_}\"" } @$attrseq;
+        $new_text = "&lt;$tag @attribs&gt;";
+    }
+    
+    print $new_text;
+}
+
+sub declaration {
+    my( $self, $decl ) = @_;
+    print $decl;
+}
+
+sub text {
+    my( $self, $text ) = @_;
+    print $text;
+}
+
+sub end {
+    my( $self, $tag ) = @_;
+    print "&lt;/$tag&gt;";
+}
+
+sub comment {
+    my( $self, $comment ) = @_;
+    print "&lt;!--$comment--&gt;";
+}</pre></blockquote>
+</div>
+
+
+<p><a href="ch11_01.htm#ch11-81204">Example 11-2</a> shows the CGI application that we use to
+process static HTML pages.</p>
+
+
+
+<a name="ch11-81204" /><div class="example">
+<h4 class="objtitle">Example 11-2. query_track.cgi </h4>
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use CGIBook::UserTracker;
+
+local *FILE;
+my $track = new CGIBook::UserTracker;
+$track-&gt;base_path( "/store" );
+
+my $requested_doc = $ENV{PATH_TRANSLATED};
+unless ( -e $requested_doc ) {
+    print "Location: /errors/not_found.html\n\n";
+}
+
+open FILE, $requested_doc or die "Failed to open $requested_doc: $!";
+
+my $doc = do {
+    local $/ = undef;
+    &lt;FILE&gt;;
+};
+
+close FILE;
+
+# This assumes we're only tracking HTML files:
+print "Content-type: text/html\n\n";
+$track-&gt;parse( $doc );</pre></blockquote>
+</div>
+
+
+<p>Once we have inserted the identifier into all the URLs, we simply
+send the modified content to the standard output stream, along with
+the <a name="INDEX-2239" />
+<a name="INDEX-2240" />
+<a name="INDEX-2241" />content
+header.</p>
+
+
+<p>Now that we've looked at how to maintain state between views of
+multiple HTML documents, our next step is to discuss persistence when
+using multiple forms. An online store, for example, is typically
+broken into multiple pages. We need to able to identify users as they
+fill out each page. We'll look at techniques for solving such
+<a name="INDEX-2242" />
+<a name="INDEX-2243" />
+<a name="INDEX-2244" />problems
+in the <a name="INDEX-2245" />
+<a name="INDEX-2246" />next
+<a name="INDEX-2247" />
+<a name="INDEX-2248" />
+<a name="INDEX-2249" />section.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch10_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch11_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">10.4. DBI</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">11.2. Hidden Fields</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

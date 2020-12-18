@@ -1,0 +1,370 @@
+<html><head><title>Forms Programming (HTML &amp; XHTML: The Definitive Guide, 4th Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Chuck Musciano and Bill Kennedy" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600026XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="HTML &amp; XHTML: The Definitive Guide, 4th Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="HTML &amp; XHTML: The Definitive Guide" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch09_11.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm">HTML &amp; XHTML: The Definitive Guide, 4th Edition</a></td><td align="right" valign="top" width="228"><a href="ch10_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+<hr width="684" align="left" />
+
+
+<h2 class="sect1">9.12. Forms Programming</h2>
+
+<p><a name="INDEX-1984" />
+<a name="INDEX-1985" />
+<a name="INDEX-1986" />
+<a name="INDEX-1987" />If you create forms, sooner or
+later you'll need to create the server-side application that
+processes your form. Don't panic. There is nothing magic about
+server-side programming, nor is it overly difficult. With a little
+practice and some perseverance, you'll be cranking out forms
+applications.
+</p>
+
+<p>The most important advice we can give about forms programming is easy
+to remember: copy others' work. Writing a forms application
+from scratch is fairly hard; copying a functioning forms application
+and modifying it to support your form is far easier.
+</p>
+
+<p>Fortunately, server vendors know this, and they usually supply sample
+forms applications with their server. Rummage about for a directory
+named <em class="emphasis">cgi-src</em>, and you'll discover a
+number of useful examples you can easily copy and reuse.
+</p>
+
+<p>We can't hope to replicate all the useful stuff that came with
+your server, nor can we provide a complete treatise on forms
+programming. What we can do is offer a simple example of both GET and
+POST applications, giving you a feel for the work involved and
+hopefully getting you moving you in the right direction.
+</p>
+
+<p>Before we begin, keep in mind that not all servers invoke these
+applications in the same manner. Our examples cover the broad class
+of servers derived from the original NCSA HTTP server. They also
+should work with the Netscape Communications family of server
+products and the public-domain Apache server. In all cases, consult
+your server documentation for complete details. You will find more
+detailed information in <em class="emphasis">CGI Programming with Perl</em>, by Scott
+Guelich, Shishir Gundavaram, and Gunther Birznieks, and
+<em class="emphasis">Webmaster in a Nutshell</em>, by Stephen
+Spainhour and Robert Eckstein, both published by
+O'Reilly &amp; Associates.
+</p>
+
+<p>An alternative to CGI programming is the Java servlet model, covered
+in <em class="emphasis">Java Servlet Programming, by Jason Hunter with William
+Crawford</em> (O'Reilly &amp; Associates). Servlets can
+be used to process GET and POST form submissions, although they are
+actually more general objects. There are no examples of servlets in
+this book.
+</p>
+
+<a name="html4-CHP-9-SECT-12.1" /><div class="sect2">
+<h3 class="sect2">9.12.1. Returning Results</h3>
+
+<p>Before we begin, we need to discuss how
+<a name="INDEX-1988" />server-side applications end. All
+server-side applications pass their results back to the server (and
+on to the user) by writing that result to the application's
+standard output as a MIME-encoded file. Hence, the first line of the
+application's output must be a MIME content-type descriptor. If
+your application returns an HTML document, the first line is:
+</p>
+
+<blockquote><pre class="code">Content-type: text/html</pre></blockquote>
+
+<p>The second line must be completely empty. Your application can return
+some other content type, too -- just include the correct MIME
+type. A GIF image, for example, is preceded with:
+</p>
+
+<blockquote><pre class="code">Content-type: image/gif</pre></blockquote>
+
+<p>Generic text that is not to be interpreted as HTML can be returned
+with:
+</p>
+
+<blockquote><pre class="code">Content-type: text/plain</pre></blockquote>
+
+<p>This is often useful for returning the output of other commands that
+generate plain text instead of HTML.
+</p>
+
+</div>
+<a name="html4-CHP-9-SECT-12.2" /><div class="sect2">
+<h3 class="sect2">9.12.2. Handling GET Forms</h3>
+
+<p><a name="INDEX-1989" />One of two methods for passing form
+parameters from client to server is the GET method. In that way,
+parameters are passed as part of the URL that invokes the server-side
+forms application. A typical invocation of a GET-style application
+might use a URL like this:
+</p>
+
+<blockquote><pre class="code">http://www.kumquat.com/cgi-bin/dump_get?name=bob&amp;phone=555-1212</pre></blockquote>
+
+<p>When the server processes this URL, it invokes the application named
+<em class="emphasis">dump_get</em> stored in the directory named
+<em class="emphasis">cgi-bin</em>. Everything after the question mark is
+passed to the application as parameters.
+</p>
+
+<p>Things diverge a bit at this point, due to the nature of the
+GET-style URL. While forms place name/value pairs in the URL, it is
+possible to invoke a GET-style application with only values in the
+URL. Thus:
+</p>
+
+<blockquote><pre class="code">http://www.kumquat.com/cgi-bin/dump_get?bob+555-1212</pre></blockquote>
+
+<p>is a valid invocation as well, with parameters separated by a plus
+sign (+). This is a common invocation when the application is
+referenced by a searchable document with the
+<tt class="literal">&lt;isindex&gt;</tt> tag. The parameters typed by the
+user into the document's text entry field are passed to the
+server-side application as unnamed parameters separated by plus
+signs.
+</p>
+
+<p>If you invoke your GET application with named parameters, your server
+will pass those parameters to the application in one way; unnamed
+parameters are passed differently.
+</p>
+
+<a name="html4-CHP-9-SECT-12.2.1" /><div class="sect3">
+<h3 class="sect3">9.12.2.1. Using named parameters with GET applications</h3>
+
+<p><a name="INDEX-1990" />
+<a name="INDEX-1991" />Named <a name="INDEX-1992" /> <a name="INDEX-1993" />parameters are passed to GET
+applications by creating an environment variable named
+<tt class="literal">QUERY_STRING</tt> and setting its value to the entire
+portion of the URL following the question mark. Using our previous
+example, the value of <tt class="literal">QUERY_STRING</tt> would be set
+to:
+</p>
+
+<blockquote><pre class="code">name=bob&amp;phone=555-1212</pre></blockquote>
+
+<p>Your application must retrieve this variable and extract from it the
+parameter name/value pairs. Fortunately, most servers come with a set
+of utility routines that performs this task for you, so a simple C
+program that just dumps the parameters might look like:
+</p>
+
+<blockquote><pre class="code">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+
+#define MAX_ENTRIES 10000
+
+typedef struct {char *name;
+                char *val;
+               }entry;
+
+char *makeword(char *line, char stop);
+char x2c(char *what);
+void unescape_url(char *url);
+void plustospace(char *str);
+
+main(int argc, char *argv[])
+
+{  entry entries[MAX_ENTRIES];
+    int num_entries, i;
+    char *query_string;
+
+/* Get the value of the QUERY_STRING environment variable */
+    query_string = getenv("QUERY_STRING");
+
+/* Extract the parameters, building a table of entries */
+    for (num_entries = 0; query_string[0]; num_entries++) {
+       entries[num_entries].val = makeword(query_string, '&amp;');
+       
+       plustospace(entries[num_entries].val);
+       unescape_url(entries[num_entries].val);
+       entries[num_entries].name = 
+          makeword(entries[num_entries].val, '=');
+       }
+
+/* Spit out the HTML boilerplate */
+    printf("Content-type: text/html\n");
+    printf("\n");
+    
+    printf("&lt;html&gt;");
+    printf("&lt;head&gt;");
+    printf("&lt;title&gt;Named Parameter Echo&lt;/title&gt;\n");
+    printf("&lt;/head&gt;");
+    printf("&lt;body&gt;");
+    printf("You entered the following parameters:\n");
+    printf("&lt;ul&gt;\n");
+
+/* Echo the parameters back to the user */
+    for(i = 0; i &lt; num_entries; i++)
+        printf("&lt;li&gt; %s = %s\n", entries[i].name, 
+                  entries[i].val);
+
+/* And close out with more boilerplate */
+    printf("&lt;/ul&gt;\n");
+    printf("&lt;/body&gt;\n");
+    printf("&lt;/html&gt;\n");
+}</pre></blockquote>
+
+<p>The example program begins with a few declarations that define the
+utility routines that scan through a character string and extract the
+parameter names and values.<a href="#FOOTNOTE-62">[62]</a> The body of the
+program obtains the value of the <tt class="literal">QUERY_STRING</tt>
+environment variable using the <tt class="literal">getenv( )</tt> system
+call, uses the utility routines to extract the parameters from that
+value, and then generates a simple HTML document that echoes those
+values back to the user.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-62" /><p>[62]These routines are
+usually supplied by the server vendor. They are not part of the
+standard C or UNIX libraries.</p> </blockquote>
+
+<p>For real applications, you should insert your actual processing code
+after the parameter extraction and before the HTML generation. Of
+course, you'll also need to change the HTML generation to match
+your application's functionality.
+</p>
+
+</div>
+
+<a name="html4-CHP-9-SECT-12.2.2" /><div class="sect3">
+<h3 class="sect3">9.12.2.2. Using unnamed parameters with GET applications</h3>
+
+<p><a name="INDEX-1994" />Unnamed parameters are passed to the
+application as command-line parameters. This makes writing the
+server-side application almost trivial. Here is a simple shell script
+that dumps the parameter values back to the user:
+</p>
+
+<blockquote><pre class="code">#!/bin/csh -f
+#
+# Dump unnamed GET parameters back to the user
+
+echo "Content-type: text/html"
+echo
+echo '&lt;html&gt;'
+echo '&lt;head&gt;'
+echo '&lt;title&gt;Unnamed Parameter Echo&lt;/title&gt;'
+echo '&lt;/head&gt;'
+echo '&lt;body&gt;'
+echo 'You entered the following parameters:'
+echo '&lt;ul&gt;'
+
+foreach i ($*)
+   echo '&lt;li&gt;' $i
+end
+
+echo '&lt;/ul&gt;'
+echo '&lt;/body&gt;'
+
+exit 0</pre></blockquote>
+
+<p>Again, we follow the same general style: output a generic document
+header, including the MIME content type, followed by the parameters
+and some closing boilerplate. To convert this to a real application,
+replace the <tt class="literal">foreach</tt> loop with commands that
+actually do something. <a name="INDEX-1995" />
+</p>
+
+</div>
+</div>
+<a name="html4-CHP-9-SECT-12.3" /><div class="sect2">
+<h3 class="sect2">9.12.3. Handling POST Forms</h3>
+
+<p><a name="INDEX-1996" />Applications that use POST-style
+parameters expect to read encoded parameters from their standard
+input. Like GET-style applications with named parameters, they can
+take advantage of the server's utility routines to parse these
+parameters.
+</p>
+
+<p>Here is a program that echoes the POST-style parameters back to the
+user:
+</p>
+
+<blockquote><pre class="code">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+
+#define MAX_ENTRIES 10000
+
+typedef struct {char *name;
+                char *val;
+               } entry;
+
+char *makeword(char *line, char stop);
+char *fmakeword(FILE *f, char stop, int *len);
+char x2c(char *what);
+void unescape_url(char *url);
+void plustospace(char *str);
+
+main(int argc, char *argv[])
+
+{  entry entries[MAX_ENTRIES];
+    int num_entries, i;
+
+/* Parse parameters from stdin, building a table of entries */
+    for (num_entries = 0; !feof(stdin); num_entries++) {
+       entries[num_entries].val = fmakeword(stdin, '&amp;', &amp;cl);
+       plustospace(entries[num_entries].val);
+       unescape_url(entries[num_entries].val);
+       entries[num_entries].name = 
+          makeword(entries[num_entries].val, '=');
+       }
+
+/* Spit out the HTML boilerplate */
+    printf("Content-type: text/html\n");
+    printf("\n");
+    printf("&lt;html&gt;");
+    printf("&lt;head&gt;");
+    printf("&lt;title&gt;Named Parameter Echo&lt;/title&gt;\n");
+    printf("&lt;/head&gt;");
+    printf("&lt;body&gt;");
+    printf("You entered the following parameters:\n");
+    printf("&lt;ul&gt;\n");
+
+/* Echo the parameters back to the user */
+    for(i = 0; i &lt; num_entries; i++)
+        printf("&lt;li&gt; %s = %s\n", entries[i].name, 
+                  entries[i].val);
+
+/* And close out with more boilerplate */
+    printf("&lt;/ul&gt;\n");
+    printf("&lt;/body&gt;\n");
+    printf("&lt;/html&gt;\n");
+}</pre></blockquote>
+
+<p>Again, we follow the same general form. The program starts by
+declaring the various utility routines needed to parse the
+parameters, along with a data structure to hold the parameter list.
+The actual code begins by reading the parameter list from the
+standard input and building a list of parameter names and values in
+the array named <tt class="literal">entries</tt>. Once this is complete, a
+boilerplate document header is written to the standard output,
+followed by the parameters and some closing boilerplate.
+</p>
+
+<p>Like the other examples, this program is handy for checking the
+parameters being passed to the server application while you are early
+in the forms and application debugging process. You can also use it
+as a skeleton for other applications by inserting appropriate
+processing code after the parameter list is built up and altering the
+output section to send back the appropriate<a name="INDEX-1997" /> <a name="INDEX-1998" /> <a name="INDEX-1999" /> <a name="INDEX-2000" /> <a name="INDEX-2001" /> results.<a name="INDEX-2002" /> <a name="INDEX-2003" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch09_11.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch10_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">9.11. Creating Effective Forms</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">10. Tables</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="0,1,78,93" shape="rect" /><area href="../wdesign/index.htm" coords="80,2,155,96" shape="rect" /><area href="../xhtml/index.htm" coords="158,0,263,97" shape="rect" /><area href="../audio/index.htm" coords="265,1,335,97" shape="rect" /><area href="../css/index.htm" coords="338,1,434,93" shape="rect" /><area href="../action/index.htm" coords="439,0,540,102" shape="rect" /><area href="../infoarch/index.htm" coords="544,0,685,102" shape="rect" /></map>
+
+</body></html>

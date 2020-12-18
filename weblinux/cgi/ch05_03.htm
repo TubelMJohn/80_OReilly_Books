@@ -1,0 +1,776 @@
+<?label 5.3. Generating Output with CGI.pm?><html><head><title>Generating Output with CGI.pm (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch05_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">5.3. Generating Output with CGI.pm</h2>
+
+
+<p>
+<a name="INDEX-1079" /> <a name="INDEX-1,080" /> <a name="INDEX-1,081" />CGI.pm provides a very
+elegant solution for outputting both headers and HTML with Perl. It
+allows you to embed HTML in your code, but it makes this more natural
+by turning the HTML into code. Every
+<a name="INDEX-1082" />HTML element can be
+generated via a corresponding method in <a name="INDEX-1083" /> <a name="INDEX-1,084" />CGI.pm. We have already seen
+some examples of this already, but here's another:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use CGI;
+
+my $q = new CGI;
+my $timestamp = localtime;
+
+print $q-&gt;header( "text/html" ),
+      $q-&gt;start_html( -title =&gt; "The Time", -bgcolor =&gt; "#ffffff" ),
+      $q-&gt;h2( "Current Time" ),
+      $q-&gt;hr,
+      $q-&gt;p( "The current time according to this system is: ",
+             $q-&gt;b( $timestamp ) ),
+      $q-&gt;end_html;</pre></blockquote>
+
+
+<p>The resulting output looks like this (the indentation is added to
+make it easier to read):</p>
+
+
+<blockquote><pre class="code">Content-type: text/html
+
+&lt;!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"&gt;
+&lt;HTML&gt;
+  &lt;HEAD&gt;&lt;TITLE&gt;The Time&lt;/TITLE&gt;&lt;/HEAD&gt;
+  &lt;BODY BGCOLOR="#ffffff"&gt;
+    &lt;H2&gt;Current Time&lt;/H2&gt;
+    &lt;HR&gt;
+    &lt;P&gt;The current time according to this system is:
+      &lt;B&gt;Mon May 29 16:48:14 2000&lt;/B&gt;&lt;/P&gt;
+  &lt;/BODY&gt;
+&lt;/HTML&gt;</pre></blockquote>
+
+
+<p>As you can see, the code looks a lot like Perl and a lot less like
+HTML. It is also shorter than the corresponding HTML because CGI.pm
+manages some common tags for us. Another benefit is that it is
+impossible to forget to <a name="INDEX-1085" />close a tag because the methods
+automatically generate closing tags (except for those elements that
+CGI.pm knows do not need them, like &lt;HR&gt;).</p>
+
+
+<p>We'll look at all of these output methods in this section,
+starting with the first method, <tt class="function">header</tt>.</p>
+
+
+<a name="ch05-14-fm2xml" /><div class="sect2">
+<h3 class="sect2">5.3.1. Controlling HTTP Headers with CGI.pm</h3>
+
+
+<p>CGI.pm has two methods for returning
+<a name="INDEX-1086" />
+<a name="INDEX-1087" />HTTP headers:<tt class="function">
+header</tt> and <tt class="function">redirect</tt>. They correspond
+to the two ways you can return data from CGI scripts: you can return
+a document, or you can redirect to another document.</p>
+
+
+<a name="ch05-15-fm2xml" /><div class="sect3">
+<h3 class="sect3">5.3.1.1. Media type</h3>
+
+
+<p>The <tt class="function">header</tt> method handles
+<a name="INDEX-1088" />multiple HTTP headers for you. If you
+pass it one argument, it returns the
+<em class="emphasis">Content-type</em>
+<a name="INDEX-1089" /> header with that value. If you do not
+supply a media type, it defaults to "text/html". Although
+CGI.pm makes outputting HTML much easier, you can of course print any
+content type with it. Simply use the <tt class="function">header</tt>
+method to specify the <a name="INDEX-1090" />media type and then print your content,
+whether it be text, XML, Adobe PDF, etc.:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;header( "text/plain" );
+print "This is just some boring text.\n";</pre></blockquote>
+
+
+<p>If you want to set other headers, then you need to pass
+<a name="INDEX-1091" />name-value pairs for each header. Use
+the <tt class="literal">-type</tt> argument to specify the media type (see
+the example under <a href="ch05_03.htm#ch05-79140">Section 5.3.1.2, "Status"</a> later in this
+chapter).</p>
+</div>
+
+
+
+<a name="ch05-79140" /><div class="sect3">
+<h3 class="sect3">5.3.1.2. Status</h3>
+
+
+<p>You can specify a <a name="INDEX-1092" />status other than "200 OK" by
+using the <tt class="literal">-status</tt> argument:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;header( -type =&gt; "text/html", -status =&gt; "404 Not Found" );</pre></blockquote>
+</div>
+
+
+
+<a name="ch05-16-fm2xml" /><div class="sect3">
+<h3 class="sect3">5.3.1.3. Caching</h3>
+
+
+<p>Browsers <a name="INDEX-1093" /> <a name="INDEX-1,094" />
+<a name="INDEX-1095" />can't always tell if
+<a name="INDEX-1096" /> <a name="INDEX-1,097" />content is
+being dynamically generated by CGI or if it is coming from a static
+source, and they may try to cache the output of your script. You can
+disable this or <a name="INDEX-1098" />
+<a name="INDEX-1099" />request caching if you want it, by
+using the <tt class="literal">-expires</tt> argument. You can supply either
+a full time stamp with this argument or a
+<a name="INDEX-1100" />
+<a name="INDEX-1101" />relative time. Relative times
+are created by supplying a plus or minus sign for forward or
+backward, an integer number, and a one letter abbreviation for
+second, minute, hour, day, month, or year (each of these
+abbreviations is lowercase except for month, which is an uppercase
+M). You can also use "now" to indicate that a document
+should expire immediately. Specifying a negative value also has this
+effect.</p>
+
+
+<p>This example tells the browser that this document is good for the
+next 30 minutes:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;header( -type =&gt; "text/html", -expires =&gt; "+30m" );</pre></blockquote>
+</div>
+
+
+
+<a name="ch05-17-fm2xml" /><div class="sect3">
+<h3 class="sect3">5.3.1.4. Specifying an alternative target</h3>
+
+
+<p>If you are using frames or have multiple windows, you may want
+<a name="INDEX-1102" /> <a name="INDEX-1,103" /> <a name="INDEX-1,104" />links in one document to
+update another document. You can use the
+<tt class="literal">-target</tt>
+<a name="INDEX-1105" /> <a name="INDEX-1,106" />
+argument along with the name of the other document (as set by a
+<a name="INDEX-1107" />
+<a name="INDEX-1108" />&lt;FRAMESET&gt;
+tag or by JavaScript) to specify that clicking on a link in this
+document should cause the new resource to load in the other frame (or
+window):</p>
+
+
+<blockquote><pre class="code">print $q-&gt;header( -type =&gt; "text/html", -target =&gt; "main_frame" );</pre></blockquote>
+
+
+<p>This argument is only meaningful for HTML documents.</p>
+</div>
+
+
+
+<a name="ch05-18-fm2xml" /><div class="sect3">
+<h3 class="sect3">5.3.1.5. Redirection</h3>
+
+
+<p>If you need to redirect to another URL, you can use the
+<tt class="function">redirect</tt>
+<a name="INDEX-1109" /> <a name="INDEX-1,110" /> method instead of printing the
+<em class="emphasis">Location</em> HTTP header:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;redirect( "http://localhost/survey/thanks.html" );</pre></blockquote>
+
+
+<p>Although the term "redirect" is an action, this method
+does not perform a redirect for you; it simply returns the
+corresponding header. So don't forget you still need to print
+the result!</p>
+</div>
+
+
+
+<a name="ch05-19-fm2xml" /><div class="sect3">
+<h3 class="sect3">5.3.1.6. Other headers</h3>
+
+
+<p>If you need to generate other <a name="INDEX-1111" />HTTP headers, you can simply
+pass the name-value pair to <tt class="function">header</tt> and it will
+return the header with the appropriate formatting. Underscores are
+converted to hyphens for you.</p>
+
+
+<p>Thus, the following statement:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;header( -content_encoding  =&gt; "gzip" );</pre></blockquote>
+
+
+<p>produces the following <a name="INDEX-1112" /> <a name="INDEX-1,113" /> <a name="INDEX-1,114" />output:</p>
+
+
+<blockquote><pre class="code">Content-encoding: gzip</pre></blockquote>
+</div>
+</div>
+
+
+
+
+<a name="ch05-20-fm2xml" /><div class="sect2">
+<h3 class="sect2">5.3.2. Starting and Ending Documents</h3>
+
+
+<p>Now let's look <a name="INDEX-1115" /> <a name="INDEX-1,116" />
+<a name="INDEX-1117" />at the methods that you can use to
+generate HTML. We'll start by looking at the methods for
+starting and ending documents.</p>
+
+
+<a name="ch05-21-fm2xml" /><div class="sect3">
+<h3 class="sect3">5.3.2.1. start_html</h3>
+
+
+<p>The <tt class="function">start_html</tt> method returns the HTML DTD, the
+&lt;HTML&gt; tag, the &lt;HEAD&gt; section including &lt;TITLE&gt;,
+and the &lt;BODY&gt; tag. In the previous example, it generates HTML
+like the following:</p>
+
+
+<blockquote><pre class="code">&lt;!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN"&gt;
+&lt;HTML&gt;&lt;HEAD&gt;&lt;TITLE&gt;The Time&lt;/TITLE&gt;
+&lt;/HEAD&gt;&lt;BODY BGCOLOR="#ffffff"&gt;</pre></blockquote>
+
+
+<p>The most common arguments <tt class="function">start_html</tt> recognizes
+are as follows:</p>
+
+
+<ul><li><p>Setting the <tt class="literal">-base</tt> argument to a true value tells
+CGI.pm to include a <a name="INDEX-1118" />
+<a name="INDEX-1119" />
+<a name="INDEX-1120" />&lt;BASE
+HREF="url"&gt; tag in the head of your document that points to the
+URL of your script.</p></li><li><p>The <tt class="literal">-meta</tt> argument accepts a reference to a hash
+containing the name and content of <a name="INDEX-1121" />
+<a name="INDEX-1122" />
+<a name="INDEX-1123" />meta tags that appear in the head of your
+document.</p></li><li><p>The <tt class="literal">-script</tt>
+<a name="INDEX-1124" />
+<a name="INDEX-1125" /> argument allows you to add
+JavaScript to the head of your document. You can either provide a
+string containing the JavaScript code or a reference to a
+<a name="INDEX-1126" />hash containing
+<tt class="literal">-language</tt>, <tt class="literal">-src</tt>, and
+<tt class="literal">-code</tt> as possible keys. This allows you to specify
+the language and source attributes of the
+<a name="INDEX-1127" />
+<a name="INDEX-1128" />&lt;SCRIPT&gt; tag too. CGI.pm
+automatically provides comment tags around the code to protect it
+from browsers that do not recognize JavaScript.</p></li><li><p>The <tt class="literal">-noscript</tt>
+<a name="INDEX-1129" />
+<a name="INDEX-1130" /> argument allows you to
+specify HTML display if the <a name="INDEX-1131" />browser does not support
+JavaScript. It is inserted into the head of your document.</p></li><li><p>The <tt class="literal">-style</tt> argument allows you to define a
+<a name="INDEX-1132" />style sheet for the document.
+Like <tt class="literal">-script</tt>, you may either specify a string or a
+reference to a hash. The keys that <tt class="literal">-style</tt> accepts
+in the hash are <tt class="literal">-code</tt> and <tt class="literal">-src</tt>.
+The value of <tt class="literal">-code</tt> will be inserted into the
+document as style sheet information. The value of
+<tt class="literal">-src</tt> will be a URL to a <em class="filename">.css</em>
+file. CGI.pm automatically provides
+<a name="INDEX-1133" />comment tags
+around the code to protect cascading style sheets from browsers that
+do not recognize them.</p></li><li><p>The <tt class="literal">-title</tt> argument sets the
+<a name="INDEX-1134" />title of the HTML document.</p></li><li><p>The <tt class="literal">-xbase</tt>
+<a name="INDEX-1135" /> <a name="INDEX-1,136" />
+<a name="INDEX-1137" /> argument lets you
+specify a URL to use in the &lt;BASE HREF="url"&gt; tag. This is
+different from the <tt class="literal">-base</tt> argument that also
+generates this tag but sets it to the URL of the current CGI script.</p></li></ul>
+<p>Any other arguments, like <tt class="literal">-bgcolor</tt>, are passed as
+attributes to the &lt;BODY&gt; tag.</p>
+</div>
+
+
+
+<a name="ch05-22-fm2xml" /><div class="sect3">
+<h3 class="sect3">5.3.2.2. end_html</h3>
+
+
+<p>The <em class="emphasis">end_html</em>
+<a name="INDEX-1138" />
+<a name="INDEX-1139" />
+<a name="INDEX-1140" /> method returns
+the &lt;/BODY&gt; and &lt;/HTML&gt; tags.</p>
+</div>
+</div>
+
+
+
+
+<a name="ch05-23-fm2xml" /><div class="sect2">
+<h3 class="sect2">5.3.3. Standard HTML Elements</h3>
+
+
+<p>
+<a name="INDEX-1141" />HTML elements can be
+generated by <a name="INDEX-1142" /> <a name="INDEX-1,143" />using the lowercase name of the element as
+a method, with the following exceptions: <tt class="function">Accept</tt>,
+<tt class="function">Delete</tt>, <tt class="function">Link</tt>,
+<tt class="function">Param</tt>, <tt class="function">Select</tt>,
+<tt class="function">Sub</tt>, and <tt class="function">Tr</tt>. These methods
+have an initial cap to avoid conflicting with built-in Perl functions
+and other CGI.pm methods.</p>
+
+
+<p>The following rules apply to basic <a name="INDEX-1144" />
+<a name="INDEX-1145" />HTML tags:</p>
+
+
+<ul><li><p>CGI.pm recognizes that some elements, like &lt;HR&gt; and &lt;BR&gt;,
+do not have <a name="INDEX-1146" />closing tags. These
+methods take no arguments and return the single tag:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;hr;</pre></blockquote>
+
+
+
+<p>This outputs:</p>
+
+
+
+<blockquote><pre class="code">&lt;HR&gt;</pre></blockquote></li>
+
+<li><p>If you provide one argument, it creates an opening and closing tag to
+enclose the text of your argument. Tags are capitalized:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;p( "This is a paragraph." );</pre></blockquote>
+
+
+
+
+<p>This prints the text:</p>
+
+
+<blockquote><pre class="code">&lt;P&gt;This is a paragraph.&lt;/P&gt;</pre></blockquote></li>
+
+<li><p>If you provide multiple arguments, these are simply joined with the
+tags at the beginning and the end:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;p( "The server name is:", $q-&gt;server_name );</pre></blockquote>
+
+
+
+
+<p>This prints the text:</p>
+
+
+
+<blockquote><pre class="code"><a name="INDEX-1147" />&lt;P&gt;The server name is: localhost&lt;/P&gt;</pre></blockquote>
+
+
+
+<p>This usage makes it easy to nest elements:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;p( "The server name is:", $q-&gt;em( $q-&gt;server_name ) );</pre></blockquote>
+
+
+
+
+<p>This prints the text:</p>
+
+
+<blockquote><pre class="code">&lt;P&gt;The server name is: &lt;EM&gt;localhost&lt;/EM&gt;&lt;/P&gt;</pre></blockquote>
+
+
+
+<p>Note that a space is automatically added between each
+<a name="INDEX-1148" />
+<a name="INDEX-1149" />list element. It appears after the colon
+in these examples. If you wish to print multiple items in a list
+without intervening
+<a name="INDEX-1150" />spaces, then you
+must set Perl's list separator variable, <tt class="literal">$"</tt>,
+to an empty string:</p>
+
+
+<blockquote><pre class="code">{ 
+  local $" = "";
+  print $q-&gt;p( "Server=", $q-&gt;server_name );
+}</pre></blockquote>
+
+
+
+
+<p>This prints the text:</p>
+
+
+
+<blockquote><pre class="code">&lt;P&gt;Server=Apache/1.3.9&lt;/P&gt;</pre></blockquote>
+
+
+
+<p>Note that whenever you change global variables like
+<tt class="literal">$"</tt>, you should localize them by enclosing them in
+blocks and using <a name="INDEX-1151" /> <a name="INDEX-1,152" />Perl's
+<tt class="function">local</tt> function.</p></li>
+
+<li><p>If the first argument is a reference to a hash, then the
+<a name="INDEX-1153" />hash elements
+are interpreted as
+<a name="INDEX-1154" />attributes for
+the HTML element:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;a( { -href =&gt; "/downloads" }, "Download Area" );</pre></blockquote>
+
+
+
+
+<p>This prints the text:</p>
+
+
+
+<blockquote><pre class="code">&lt;A HREF="/downloads" &gt;Download Area&lt;/A&gt;</pre></blockquote>
+
+
+
+<p>You can specify as many attributes as you want. The leading
+<a name="INDEX-1155" />hyphen as part of the attribute name is
+not required, but it is the standard convention.</p>
+
+
+<p>Some
+attributes do not take arguments and simply appear as a word. For
+these, pass <tt class="literal">undef</tt> as the value of the attribute.
+Prior to version 2.41 of CGI.pm, passing an empty string would
+accomplish the same thing, but that was changed so that people could
+explicitly request an attribute set to an empty string (e.g., &lt;IMG
+HREF="spacer.gif" ALT=""&gt;).</p></li>
+
+<li><p>If
+you provide a reference to an
+<a name="INDEX-1156" />array as an argument, the tag is
+distributed across each item in the array:</p>
+
+
+
+<blockquote><pre class="code">print $q-&gt;ol( $q-&gt;li( [ "First", "Second", "Third" ] ) );</pre></blockquote>
+
+
+
+
+<p>This corresponds to:</p>
+
+
+
+<blockquote><pre class="code">&lt;OL&gt;
+  &lt;LI&gt;First&lt;/LI&gt;
+  &lt;LI&gt;Second&lt;/LI&gt;
+  &lt;LI&gt;Third&lt;/LI&gt;
+&lt;/OL&gt;</pre></blockquote>
+
+
+
+<p>This still works fine when the first argument is a reference to
+a hash arguments. Here is a table:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;table(
+                 { -border =&gt; 1,
+                   -width  =&gt; "100%" },
+                 $q-&gt;Tr( [
+                           $q-&gt;th( { -bgcolor =&gt; "#cccccc" },
+                                   [ "Name", "Age" ] ),
+                           $q-&gt;td( [ "Mary", 29 ] ),
+                           $q-&gt;td( [ "Bill", 27 ] ),
+                           $q-&gt;td( [ "Sue",  26 ] )
+                       ] )
+               );</pre></blockquote>
+
+
+
+
+<p>This corresponds to:</p>
+
+
+
+<blockquote><pre class="code">&lt;TABLE BORDER="1" WIDTH="100%"&gt;
+  &lt;TR&gt;
+    &lt;TH BGCOLOR="#cccccc"&gt;Name&lt;/TH&gt;
+    &lt;TH BGCOLOR="#cccccc"&gt;Age&lt;/TH&gt;
+  &lt;/TR&gt;
+  &lt;TR&gt;
+    &lt;TD&gt;Mary&lt;/TD&gt;
+    &lt;TD&gt;29&lt;/TD&gt;
+  &lt;/TR&gt;
+  &lt;TR&gt;
+    &lt;TD&gt;Bill&lt;/TD&gt;
+    &lt;TD&gt;27&lt;/TD&gt;
+  &lt;/TR&gt;
+  &lt;TR&gt;
+    &lt;TD&gt;Sue&lt;/TD&gt;
+    &lt;TD&gt;26&lt;/TD&gt;
+  &lt;/TR&gt;
+&lt;/TABLE&gt;</pre></blockquote></li>
+
+<li><p>Aside from the <a name="INDEX-1157" />spaces we mentioned above that are
+introduced between array elements, CGI.pm does not insert any
+whitespace between HTML elements. It creates no indentation and
+inserts no new lines. Although this makes it harder for a human to
+read, it also makes the output smaller and downloads faster. If you
+wish to generate neatly formatted HTML code, you can use the
+<a name="INDEX-1158" />
+<a name="INDEX-1159" />CGI::Pretty module distributed with
+CGI.pm. It provides all of the features of CGI.pm (because it is an
+object-oriented module that extends CGI.pm), but the HTML it produces
+is <a name="INDEX-1160" />neatly
+indented.</p></li></ul>
+</div>
+
+
+
+
+<a name="ch05-24-fm2xml" /><div class="sect2">
+<h3 class="sect2">5.3.4. Form Elements</h3>
+
+
+<p>The syntax for generating
+<a name="INDEX-1161" />
+<a name="INDEX-1162" />form elements differs from other
+elements. These methods only take name-value pairs that correspond to
+the attributes. See <a href="ch05_03.htm#ch05-22489">Table 5-2</a>.</p>
+
+
+
+<a name="ch05-22489" /><h4 class="objtitle">Table 5-2. CGI.pm Methods for HTML Form Elements </h4><table border="1">
+
+
+
+<tr>
+<th>
+<p>CGI.pm Method</p></th>
+<th>
+<p>HTML Tag</p></th>
+</tr>
+
+
+
+
+<tr>
+<td>
+<p><em class="emphasis">start_form</em></p></td>
+<td>
+<p>&lt;FORM&gt;</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">end_form</em></p></td>
+<td>
+<p>&lt;/FORM&gt;</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">textfield</em></p></td>
+<td>
+<p>&lt;INPUT TYPE="TEXT" &gt;</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">password_field</em></p></td>
+<td>
+<p>&lt;INPUT TYPE="PASSWORD" &gt;</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">filefield</em></p></td>
+<td>
+<p>&lt;INPUT TYPE="FILE" &gt;</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">button</em></p></td>
+<td>
+<p>&lt;INPUT TYPE="BUTTON" &gt;</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">submit</em></p></td>
+<td>
+<p>&lt;INPUT TYPE="SUBMIT" &gt;</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">reset</em></p></td>
+<td>
+<p>&lt;INPUT TYPE="RESET" &gt;</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">checkbox, checkbox_group</em></p></td>
+<td>
+<p>&lt;INPUT TYPE="CHECKBOX" &gt;</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">radio_group</em></p></td>
+<td>
+<p>&lt;INPUT TYPE="RADIO" &gt;</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">popup_menu</em></p></td>
+<td>
+<p>&lt;SELECT SIZE="1" &gt;</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">scrolling_list</em></p></td>
+<td>
+<p>&lt;SELECT SIZE="n" &gt; where n &gt; 1</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">textarea</em></p></td>
+<td>
+<p>&lt;TEXTAREA&gt;</p></td>
+</tr>
+
+<tr>
+<td>
+<p><em class="emphasis">hidden</em></p></td>
+<td>
+<p>&lt;INPUT TYPE="HIDDEN" &gt;</p></td>
+</tr>
+
+
+</table>
+
+
+<p>The <tt class="function">start_form</tt> and <tt class="function">end_form</tt>
+elements generate the opening and closing form tags.
+<tt class="function">start_form</tt> takes arguments for each of its
+attributes:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;start_form( method =&gt; "get", action =&gt; "/cgi/myscript.cgi" );</pre></blockquote>
+
+
+<p>Note that unlike a typical form tag, CGI.pm sets the request method
+to POST instead of GET by default (the reverse of the default for
+HTML forms). If you want to allow file uploads, use the
+<tt class="function">start_multipart_form</tt> method instead of
+<tt class="function">start_form</tt>, which sets <em class="emphasis">enctype</em> to
+"multipart/form-data".</p>
+
+
+<p>All of the remaining methods create form elements. They all take the
+<tt class="literal">-name</tt> and <tt class="literal">-default</tt> arguments.
+The <tt class="literal">-default</tt> value for an element is replaced by
+the corresponding value from <tt class="function">param</tt> if that value
+exists. You can disable this and force the default to override a
+user's parameters by passing the <tt class="literal">-override</tt>
+argument with a true value.</p>
+
+
+<p>The <tt class="literal">-default</tt> option specifies the default
+<em class="emphasis">value</em> of the element for elements with single
+values:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;textfield(
+        -name    =&gt; "username",
+        -default =&gt; "Anonymous"
+      );</pre></blockquote>
+
+
+<p>This yields:</p>
+
+
+<blockquote><pre class="code">&lt;INPUT TYPE="text" NAME="username" VALUE="Anonymous"&gt;</pre></blockquote>
+
+
+<p>By supplying an array with the <tt class="literal">-values</tt> argument,
+the <tt class="function">checkbox_group</tt> and
+<tt class="function">radio_group</tt> methods generate multiple checkboxes
+that share the same name. Likewise, passing an array reference with
+the <tt class="literal">-values</tt> argument to the
+<tt class="function">scrolling_list</tt> and
+<tt class="function">popup_menu</tt> functions generates both the
+&lt;SELECT&gt; and &lt;OPTION&gt; elements. For these elements,
+<tt class="literal">-default</tt> indicates the values that are checked or
+selected; you can pass <tt class="literal">-default</tt> a reference to an
+array for <tt class="function">checkbox_group</tt> and
+<tt class="function">scrolling_list</tt> for multiple defaults.</p>
+
+
+<p>Each method accepts a <tt class="literal">-labels</tt> argument that takes
+a reference to a hash; this hash associates the value of each element
+to the label the browser displays to the user.</p>
+
+
+<p>Here is how you can generate a group of radio buttons:</p>
+
+
+<blockquote><pre class="code">print $q-&gt;radio_group(
+        -name    =&gt; "curtain",
+        -values  =&gt; [ "A", "B", "C" ],
+        -default =&gt; "B",
+        -labels  =&gt; { A =&gt; "Curtain A", B =&gt; "Curtain B", C =&gt; "Curtain C" }
+      );</pre></blockquote>
+
+
+<p>This yields:</p>
+
+
+<blockquote><pre class="code">&lt;INPUT TYPE="radio" NAME="look_behind" VALUE="A"&gt;Curtain A
+&lt;INPUT TYPE="radio" NAME="look_behind" VALUE="B" CHECKED&gt;Curtain B
+&lt;INPUT TYPE="radio" NAME="look_behind" VALUE="C"&gt;Curtain C</pre></blockquote>
+
+
+<p>For specifying any other attributes for form elements, like SIZE=4,
+pass them as additional <a name="INDEX-1164" /> <a name="INDEX-1,165" />arguments (e.g., <tt class="literal">size =&gt;
+4</tt>).</p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch05_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">5.2. Handling Input with CGI.pm</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">5.4. Alternatives for Generating Output</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

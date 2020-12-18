@@ -1,0 +1,425 @@
+<html><head><title>Stylesheet Compilation (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch06_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">5.4. Stylesheet Compilation</h2>
+
+<p><a name="INDEX-576" />
+<a name="INDEX-577" />XSLT is a programming language,
+expressed using XML syntax. This is not for the benefit of the
+computer, but rather for human interpretation. Before the stylesheet
+can be processed, it must be converted into some internal
+machine-readable format. This process should sound familiar, because
+it is the same process used for every high-level programming
+language. You, the programmer, work in terms of the high-level
+language, and an interpreter or compiler converts this language into
+some machine format that can be executed by the computer.
+</p>
+
+<p><a name="INDEX-578" />Interpreters
+analyze source code and translate it into machine code with each
+execution. In this case of XSLT, this requires that the stylesheet be
+read into memory using an XML parser, translated into machine format,
+and then applied to your XML data. Performance is the obvious
+problem, particularly when you consider that stylesheets rarely
+change. Typically, the stylesheets are defined early on in the
+development process and remain static, while XML data is generated
+dynamically with each client request.
+</p>
+
+<p>A better approach is to parse the XSLT stylesheet into memory once,
+compile it to machine-format, and then preserve that machine
+representation in memory for repeated use. This is called
+<a name="INDEX-579" />stylesheet
+compilation and is no different in concept than the compilation of
+any programming language.
+</p>
+
+<a name="javaxslt-CHP-5-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">5.4.1. Templates API</h3>
+
+<p><a name="INDEX-580" />Different
+XSLT processors implement stylesheet compilation differently, so JAXP
+includes the <tt class="literal">javax.xml.transform.Templates</tt>
+interface to provide consistency. This is a relatively simple
+interface with the following API:
+</p>
+
+<blockquote><pre class="code">public interface Templates {
+    java.util.Properties getOutputProperties( );
+    javax.xml.transform.Transformer newTransformer( )
+            throws TransformerConfigurationException;
+}</pre></blockquote>
+
+<p>The <tt class="literal">getOutputProperties(
+)</tt><a name="INDEX-581" />
+<a name="INDEX-582" /> method returns a clone of the properties
+associated with the <tt class="literal">&lt;xsl:output&gt;</tt> element,
+such as <tt class="literal">method="xml"</tt>,
+<tt class="literal">indent="yes"</tt>, and
+<tt class="literal">encoding="UTF-8"</tt>. You might recall that
+<tt class="literal">java.util.Properties</tt> (a subclass of
+<tt class="literal">java.util.Hashtable</tt>) provides key/value mappings
+from property names to property values. Since a clone, or deep copy,
+is returned, you can safely modify the <tt class="literal">Properties</tt>
+instance and apply it to a future transformation without affecting
+the compiled stylesheet that the instance of
+<tt class="literal">Templates</tt> represents.
+</p>
+
+<p>The <tt class="literal">newTransformer(
+)</tt><a name="INDEX-583" />
+<a name="INDEX-584" /> method is more commonly used and allows you
+to obtain a new instance of a class that implements the
+<tt class="literal">Transformer</tt><a name="INDEX-585" /> interface. It is this
+<tt class="literal">Transformer</tt> object that actually allows you to
+perform XSLT
+<a name="INDEX-586" />transformations. Since the
+implementation of the <tt class="literal">Templates</tt> interface is
+hidden by JAXP, it must be created by the following method on
+<tt class="literal">javax.xml.transform.TransformerFactory</tt>:
+</p>
+
+<blockquote><pre class="code">public Templates newTemplates(Source source)
+        throws TransformerConfigurationException</pre></blockquote>
+
+<p>As in earlier examples, the <tt class="literal">Source</tt> may obtain the
+XSLT stylesheet from one of many locations, including a filename, a
+system identifier, or even a DOM tree. Regardless of the original
+location, the XSLT processor is supposed to compile the stylesheet
+into an optimized internal representation.
+</p>
+
+<p>Whether the stylesheet is actually compiled is up to the
+implementation, but a safe bet is that performance will continually
+improve over the next several years as these tools stabilize and
+vendors have time to apply optimizations.
+</p>
+
+<p><a href="ch05_04.htm#javaxslt-CHP-5-FIG-6">Figure 5-6</a> illustrates the relationship between
+<tt class="literal">Templates</tt> and <tt class="literal">Transformer</tt>
+instances.
+</p>
+
+<a name="javaxslt-CHP-5-FIG-6" /><div class="figure"><img src="figs/jxt_0506.gif" alt="Figure 5-6" width="411" height="355" /></div><h4 class="objtitle">Figure 5-6. Relationship between Templates and Transformer</h4>
+
+<p>Thread safety is an important issue in any Java application,
+particularly in a web context where many users share the same
+stylesheet. As <a href="ch05_04.htm#javaxslt-CHP-5-FIG-6">Figure 5-6</a> illustrates, an instance
+of <tt class="literal">Templates</tt> is thread-safe and represents a
+single stylesheet. During the transformation process, however, the
+XSLT processor must maintain state information and output properties
+specific to the current client. For this reason, a separate
+<tt class="literal">Transformer</tt> instance must be used for each
+concurrent transformation.
+</p>
+
+<p><tt class="literal">Transformer</tt><a name="INDEX-587" /> is an abstract class in JAXP, and
+implementations should be lightweight. This is an important goal
+because you will typically create many copies of
+<tt class="literal">Transformer</tt>, while the number of
+<tt class="literal">Templates</tt> is relatively small.
+<tt class="literal">Transformer</tt> instances are not thread-safe,
+primarily because they hold state information about the current
+transformation. Once the transformation is complete, however, these
+objects can be reused.<a name="INDEX-588" /> 
+</p>
+
+</div>
+<a name="javaxslt-CHP-5-SECT-4.2" /><div class="sect2">
+<h3 class="sect2">5.4.2. A Stylesheet Cache</h3>
+
+<p><a name="INDEX-589" />
+<a name="INDEX-590" /> <a name="INDEX-591" />
+<a name="INDEX-592" />XSLT
+<a name="INDEX-593" />transformations commonly occur on a
+shared web server with a large number of concurrent users, so it
+makes sense to use <tt class="literal">Templates</tt> whenever possible to
+optimize performance. Since each instance of
+<tt class="literal">Templates</tt> is thread-safe, it is desirable to
+maintain a single copy shared by many clients. This reduces the
+number of times your stylesheets have to be parsed into memory and
+compiled, as well as the overall memory footprint of your
+application.
+</p>
+
+<p>The code shown in <a href="ch05_04.htm#javaxslt-CHP-5-EX-10">Example 5-10</a> illustrates a custom
+XSLT stylesheet cache that automates the mundane tasks associated
+with creating <tt class="literal">Templates</tt> instances and storing them
+in memory. This cache has the added benefit of checking the
+<tt class="literal">lastModified</tt> flag on the underlying file, so it
+will reload itself whenever the XSLT stylesheet is modified. This is
+highly useful in a web-application development environment because
+you can make changes to the stylesheet and simply click on Reload on
+your web browser to see the results of the latest edits.
+</p>
+
+<a name="javaxslt-CHP-5-EX-10" /><div class="example">
+<h4 class="objtitle">Example 5-10. StylesheetCache.java </h4>
+<blockquote><pre class="code">package com.oreilly.javaxslt.util;
+
+import java.io.*;
+import java.util.*;
+import javax.xml.transform.*;
+import javax.xml.transform.stream.*;
+
+/**
+ * A utility class that caches XSLT stylesheets in memory.
+ *
+ */
+public class StylesheetCache {
+    // map xslt file names to MapEntry instances
+    // (MapEntry is defined below)
+    private static Map cache = new HashMap( );
+
+    /**
+     * Flush all cached stylesheets from memory, emptying the cache.
+     */
+    public static synchronized void flushAll( ) {
+        cache.clear( );
+    }
+
+    /**
+     * Flush a specific cached stylesheet from memory.
+     *
+     * @param xsltFileName the file name of the stylesheet to remove.
+     */
+    public static synchronized void flush(String xsltFileName) {
+        cache.remove(xsltFileName);
+    }
+
+    /**
+     * Obtain a new Transformer instance for the specified XSLT file name.
+     * A new entry will be added to the cache if this is the first request
+     * for the specified file name.
+     *
+     * @param xsltFileName the file name of an XSLT stylesheet.
+     * @return a transformation context for the given stylesheet.
+     */
+    public static synchronized Transformer newTransformer(String xsltFileName)
+            throws TransformerConfigurationException {
+        File xsltFile = new File(xsltFileName);
+
+        // determine when the file was last modified on disk
+        long xslLastModified = xsltFile.lastModified( );
+        MapEntry entry = (MapEntry) cache.get(xsltFileName);
+
+        if (entry != null) {
+            // if the file has been modified more recently than the
+            // cached stylesheet, remove the entry reference
+            if (xslLastModified &gt; entry.lastModified) {
+                entry = null;
+            }
+        }
+
+        // create a new entry in the cache if necessary
+        if (entry == null) {
+            Source xslSource = new StreamSource(xsltFile);
+
+            TransformerFactory transFact = TransformerFactory.newInstance( );
+            Templates templates = transFact.newTemplates(xslSource);
+
+            entry = new MapEntry(xslLastModified, templates);
+            cache.put(xsltFileName, entry);
+        }
+
+        return entry.templates.newTransformer( );
+    }
+
+    // prevent instantiation of this class
+    private StylesheetCache( ) {
+    }
+
+    /**
+     * This class represents a value in the cache Map.
+     */
+    static class MapEntry {
+        long lastModified;  // when the file was modified
+        Templates templates;
+
+        MapEntry(long lastModified, Templates templates) {
+            this.lastModified = lastModified;
+            this.templates = templates;
+        }
+    }
+}</pre></blockquote>
+</div>
+
+<p>Because this class is a singleton, it has a private constructor and
+uses only static methods. Furthermore, each
+<a name="INDEX-594" />method
+is declared as <tt class="literal">synchronized</tt> in an effort to avoid
+potential threading problems.
+</p>
+
+<p>The heart of this class is the cache itself, which is implemented
+using
+<tt class="literal">java.util.Map</tt><a name="INDEX-595" />:
+</p>
+
+<blockquote><pre class="code">private static Map cache = new HashMap( );</pre></blockquote>
+
+<p>Although <tt class="literal">HashMap</tt> is not thread-safe, the fact that
+all of our methods are <tt class="literal">synchronized</tt> basically
+eliminates any concurrency issues. Each entry in the map contains a
+key/value pair, mapping from an XSLT stylesheet filename to an
+instance of the
+<tt class="literal">MapEntry</tt><a name="INDEX-596" /> class. <tt class="literal">MapEntry</tt> is a
+nested class that keeps track of the compiled stylesheet along with
+when its file was last modified:
+</p>
+
+<blockquote><pre class="code">static class MapEntry {
+    long lastModified;  // when the file was modified
+    Templates templates;
+
+    MapEntry(long lastModified, Templates templates) {
+        this.lastModified = lastModified;
+        this.templates = templates;
+    }
+}</pre></blockquote>
+
+<p>Removing entries from the cache is accomplished by one of two methods:</p>
+
+<blockquote><pre class="code">public static synchronized void flushAll( ) {
+    cache.clear( );
+}
+
+public static synchronized void flush(String xsltFileName) {
+    cache.remove(xsltFileName);
+}</pre></blockquote>
+
+<p><a name="INDEX-597" />The first method merely removes
+everything from the <tt class="literal">Map</tt>, while the second removes
+a single stylesheet. Whether you use these methods is up to you. The
+<tt class="literal">flushAll</tt><a name="INDEX-598" />
+<a name="INDEX-599" /> method, for instance, should probably be
+called from a servlet's <tt class="literal">destroy(
+)</tt><a name="INDEX-600" />
+<a name="INDEX-601" /> method to ensure proper cleanup. If you
+have many servlets in a web application, each servlet may wish to
+flush specific stylesheets it uses via the
+<tt class="literal">flush(...)</tt> method. If the
+<tt class="literal">xsltFileName</tt> parameter is not found, the
+<tt class="literal">Map</tt> implementation silently ignores this request.
+</p>
+
+<p>The majority of interaction with this class occurs via the
+<tt class="literal">newTransformer</tt><a name="INDEX-602" />
+<a name="INDEX-603" /> method, which has the following signature:
+</p>
+
+<blockquote><pre class="code">public static synchronized Transformer newTransformer(String xsltFileName)
+        throws TransformerConfigurationException {</pre></blockquote>
+
+<p>The parameter, an XSLT stylesheet filename, was chosen to facilitate
+the "last accessed" feature. We use the
+<tt class="literal">java.io.File</tt> class to determine when the file was
+last modified, which allows the cache to automatically reload itself
+as edits are made to the stylesheets. Had we used a system identifier
+or <tt class="literal">InputStream</tt> instead of a filename, the
+auto-reload feature could not have been implemented. Next, the
+<tt class="literal">File</tt> object is created and its
+<tt class="literal">lastModified</tt> flag is checked:
+</p>
+
+<blockquote><pre class="code">File xsltFile = new File(xsltFileName);
+
+// determine when the file was last modified on disk
+long xslLastModified = xsltFile.lastModified( );</pre></blockquote>
+
+<p>The compiled stylesheet, represented by an instance of
+<tt class="literal">MapEntry</tt>, is then retrieved from the
+<tt class="literal">Map</tt>. If the entry is found, its timestamp is
+compared against the current file's timestamp, thus allowing
+auto-reload:
+</p>
+
+<blockquote><pre class="code">MapEntry entry = (MapEntry) cache.get(xsltFileName);
+
+if (entry != null) {
+    // if the file has been modified more recently than the
+    // cached stylesheet, remove the entry reference
+    if (xslLastModified &gt; entry.lastModified) {
+        entry = null;
+    }
+}</pre></blockquote>
+
+<p>Next, we create a new entry in the cache if the entry object
+reference is still <tt class="literal">null</tt>. This is accomplished by
+wrapping a <tt class="literal">StreamSource</tt> around the
+<tt class="literal">File</tt> object, instantiating a
+<tt class="literal">TransformerFactory</tt> instance, and using that
+factory to create our <tt class="literal">Templates</tt> object. The
+<tt class="literal">Templates</tt> object is then stored in the cache so it
+can be reused by the next client of the cache:
+</p>
+
+<blockquote><pre class="code">// create a new entry in the cache if necessary
+if (entry == null) {
+    Source xslSource = new StreamSource(xsltFile);
+
+    TransformerFactory transFact = TransformerFactory.newInstance( );
+    Templates templates = transFact.newTemplates(xslSource);
+
+    entry = new MapEntry(xslLastModified, templates);
+    cache.put(xsltFileName, entry);
+}</pre></blockquote>
+
+<p>Finally, a brand new
+<tt class="literal">Transformer</tt><a name="INDEX-604" />
+<a name="INDEX-605" /> is created and returned to the caller:
+</p>
+
+<blockquote><pre class="code">return entry.templates.newTransformer( );</pre></blockquote>
+
+<p>Returning a new <tt class="literal">Transformer</tt> is critical because,
+although the <tt class="literal">Templates</tt> object is thread-safe, the
+<tt class="literal">Transformer</tt> implementation is not. Each caller
+gets its own copy of <tt class="literal">Transformer</tt> so multiple
+clients do not collide with one another.
+</p>
+
+<p>One potential improvement on this design could be to add a
+<tt class="literal">lastAccessed</tt> timestamp to each
+<tt class="literal">MapEntry</tt> object. Another thread could then execute
+every couple of hours to flush map entries from memory if they have
+not been accessed for a period of time. In most web applications,
+this will not be an issue, but if you have a large number of pages
+and some are seldom accessed, this could be a way to reduce the
+memory usage of the cache.
+</p>
+
+<p>Another potential modification is to allow
+<tt class="literal">javax.xml.transform.Source</tt> objects to be passed as
+a parameter to the <tt class="literal">newTransformer</tt> method instead
+<a name="INDEX-606" />
+<a name="INDEX-607" />
+<a name="INDEX-608" />
+<a name="INDEX-609" />of as
+a filename. However, this would make the auto-reload feature
+impossible to implement for <a name="INDEX-610" /> <a name="INDEX-611" />all <tt class="literal">Source</tt>
+types.
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch06_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">5.3. Input and Output</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">6. Servlet Basics and XSLT</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

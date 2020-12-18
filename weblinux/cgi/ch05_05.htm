@@ -1,0 +1,459 @@
+<?label 5.5. Handling Errors?><html><head><title>Handling Errors (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch06_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">5.5. Handling Errors</h2>
+
+
+<p>While we are on the subject of handling <a name="INDEX-1192" />
+<a name="INDEX-1193" />output,
+we should also look at handling errors. One of the things that
+distinguishes an experienced developer from a novice is adequate
+error handling. Novices expect things to always work as planned;
+experienced developers have learned otherwise.</p>
+
+
+<a name="ch05-27-fm2xml" /><div class="sect2">
+<h3 class="sect2">5.5.1. Dying Gracefully</h3>
+
+
+<p>The most common method that Perl developers use for handling errors
+is Perl's built-in
+<tt class="function">die</tt>
+<a name="INDEX-1194" /> function. Here is an example:</p>
+
+
+<blockquote><pre class="code">open FILE, $filename or die "Cannot open $filename: $!";</pre></blockquote>
+
+
+<p>If Perl is unable to open the file specified by
+<tt class="literal">$filename</tt>, <tt class="function">die</tt> will print an
+error message to STDERR and terminate the script. The
+<tt class="function">open</tt> function, like most Perl commands that
+interact with the system, sets <tt class="literal">$!</tt> to the reason
+for the error if it fails.</p>
+
+
+<p>Unfortunately, <tt class="function">die</tt> is not always the best
+solution for handling errors in your CGI scripts. As you will recall
+from <a href="ch03_01.htm">Chapter 3, "The Common Gateway Interface"</a>, output to STDERR is typically sent
+to the web server's error log, triggering the web server to
+return a <em class="emphasis">500 Internal Server
+Error</em>
+<a name="INDEX-1195" /> <a name="INDEX-1,196" />. This is certainly not a very
+user-friendly response.</p>
+
+
+<p>You should determine a policy for handling errors on your site. You
+may decide that <em class="emphasis">500 Internal Server Error</em> pages are acceptable for
+very uncommon system errors like the inability to read or write to
+files. However, you may decide that you wish to display a formatted
+HTML page instead with information for users such as alternative
+actions they can take or who to notify about the problem.</p>
+
+
+<a name="ch05-28-fm2xml" /><div class="sect3">
+<h3 class="sect3">5.5.1.1. Trapping die</h3>
+
+
+<p>It is possible to trap <a name="INDEX-1197" />
+<a name="INDEX-1198" />
+<a name="INDEX-1199" /><tt class="function">die</tt> so that it does not
+generate a <em class="emphasis">500 Internal Server Error</em> automatically. This is
+especially useful because many common third-party modules use
+<tt class="function">die</tt> (and variants such as
+<tt class="function">croak</tt>) as their manner for responding to errors.
+If you know that a particular subroutine may call
+<tt class="function">die</tt>, you can catch this with an
+<tt class="function">eval</tt> block in Perl:</p>
+
+
+<blockquote><pre class="code">eval {
+    dangerous_routine(  );
+    1;
+} or do {
+    error( $q, $@ || "Unknown error" );
+};</pre></blockquote>
+
+
+<p>If <tt class="function">dangerous_routine</tt> does call
+<tt class="function">die</tt>, then <tt class="function">eval</tt> will catch
+it, set the special variable <tt class="literal">$@</tt> to the value of
+the <tt class="function">die</tt> message, pass control to the end of the
+block, and return <tt class="literal">undef</tt>. This allows us to call
+another subroutine to display our error more gracefully. Note that an
+<tt class="function">eval</tt> block will not trap
+<tt class="function">exit</tt>.</p>
+
+
+<p>This works, but it certainly makes your code a lot more complex, and
+if your CGI script interacts with a lot of subroutines that might
+<tt class="function">die</tt>, then you must either place your entire
+script within an <tt class="function">eval</tt> block or include lots of
+these blocks throughout your script.</p>
+
+
+<p>Fortunately, there is a better way. You may already know that it is
+possible to create a global signal handler to trap Perl's
+<tt class="function">die</tt> and <tt class="function">warn</tt> functions.
+This involves some rather advanced Perl; you can find specific
+information in <em class="citetitle">Programming Perl</em>. Fortunately,
+we don't have to worry about the specifics, because there is a
+module that not only does this, but is written specifically for CGI
+scripts: CGI::Carp.</p>
+</div>
+</div>
+
+
+
+
+<a name="ch05-29-fm2xml" /><div class="sect2">
+<h3 class="sect2">5.5.2. CGI::Carp</h3>
+
+
+<p>
+<a name="INDEX-1200" />
+<a name="INDEX-1201" />CGI::Carp is not part
+of the CGI.pm module, but it is also by Lincoln Stein, and it is
+distributed with CGI.pm (and thus included with the most recent
+versions of Perl). It does two things: it creates more informative
+entries in your error log, and it allows you to create a custom error
+page for fatal calls like <tt class="function">die</tt>. Simply by using
+the module, it adds a timestamp and the name of the running CGI
+script to errors written to the error log by
+<tt class="function">die</tt>
+<a name="INDEX-1202" />, <tt class="function">warn</tt>,
+<tt class="function">carp</tt>, <tt class="function">croak</tt>, and
+<tt class="function">confess</tt>. The last three functions are provided
+by the Carp module (included with Perl) and are often used by module
+authors.</p>
+
+
+<p>This still does not stop your web server from displaying
+<a name="INDEX-1203" /><em class="emphasis">500
+Internal Server Error</em> responses for these calls, however. CGI::Carp
+is most useful when you ask it to trap fatal calls. You can have it
+display <a name="INDEX-1204" />fatal error messages in the
+<a name="INDEX-1205" />browser instead. This is
+especially helpful during development and debugging. To do this,
+simply pass the <tt class="literal">fatalsToBrowser</tt> parameter to it
+when you use the module:</p>
+
+
+<blockquote><pre class="code">use CGI::Carp qw( fatalsToBrowser );</pre></blockquote>
+
+
+<p>In a production environment, you may not want
+<a name="INDEX-1206" />users to view your full error
+information if they encounter an error. Fortunately, you can have
+CGI::Carp trap errors and display your own custom error message. To
+do this, you pass
+<em class="emphasis">CGI::Carp::set_message</em>
+<a name="INDEX-1207" /> a
+reference to a subroutine that takes a single argument and displays
+the content of a response.</p>
+
+
+<blockquote><pre class="code">use CGI::Carp qw( fatalsToBrowser );
+BEGIN {
+    sub carp_error {
+        my $error_message = shift;
+        my $q = new CGI;
+          $q-&gt;start_html( "Error" ),
+          $q-&gt;h1( "Error" ),
+          $q-&gt;p( "Sorry, the following error has occurred: " );
+          $q-&gt;p( $q-&gt;i( $error_message ) ),
+          $q-&gt;end_html;
+    }
+    CGI::Carp::set_message( \&amp;carp_error );
+}</pre></blockquote>
+
+
+<p>We will see how to incorporate this into a more general solution
+later in <a href="ch05_05.htm#ch05-67677">Example 5-3</a>.</p>
+</div>
+
+
+
+
+<a name="ch05-30-fm2xml" /><div class="sect2">
+<h3 class="sect2">5.5.3. Error Subroutines</h3>
+
+
+<p>Most of our examples up to now and throughout the book include
+subroutines or blocks of code for displaying
+<a name="INDEX-1208" />
+<a name="INDEX-1209" />
+<a name="INDEX-1210" />errors. Here is an
+example:</p>
+
+
+<blockquote><pre class="code">sub error {
+    my( $q, $error_message ) = shift;
+    
+    print $q-&gt;header( "text/html" ),
+          $q-&gt;start_html( "Error" ),
+          $q-&gt;h1( "Error" ),
+          $q-&gt;p( "Sorry, the following error has occurred: " );
+          $q-&gt;p( $q-&gt;i( $error_message ) ),
+          $q-&gt;end_html;
+    exit;
+}</pre></blockquote>
+
+
+<p>You can call this with a
+<a name="INDEX-1211" />CGI object
+and a reason for the error. It will output an error page and then
+exit in order to stop executing your script. Note that we
+<a name="INDEX-1212" />print the
+<a name="INDEX-1213" />HTTP header here. One of the
+biggest challenges in creating a general solution for catching errors
+is knowing whether or not to print an HTTP header: if one has already
+been printed and you print another, it will appear at the top of your
+error page; if one has not been printed and you do not print one as
+part of the error message, you will trigger a <em class="emphasis">500 Internal
+Server Error</em>
+<a name="INDEX-1214" /> instead.</p>
+
+
+<p>Fortunately, CGI.pm has a feature that will track whether a header
+has been printed for you already. If you enable this feature, it will
+only output an HTTP header once per CGI object. Any future calls to
+<tt class="function">header</tt> will silently do nothing. You can enable
+this feature in one of three ways:</p>
+
+
+<ol><li><p>You can pass the
+
+<a name="INDEX-1215" /><em class="emphasis">-unique_headers</em> flag
+when you load CGI.pm:</p>
+
+
+<blockquote><pre class="code">use CGI qw( -unique_headers );</pre></blockquote></li>
+
+<li><p>You can set the
+<tt class="literal">$CGI::HEADERS_ONCE</tt>
+<a name="INDEX-1216" /> variable to a true value after you use
+CGI.pm, but before you create an object:</p>
+
+
+<blockquote><pre class="code">use CGI;
+$CGI::HEADERS_ONCE = 1;
+
+my $q = new CGI;</pre></blockquote></li>
+
+<li><p>Finally, if you know that you always want this feature, you can
+enable it globally for all of your scripts by setting
+<tt class="literal">$HEADERS_ONCE</tt>
+<a name="INDEX-1217" /> to a true value within your copy of
+CGI.pm. You can do this just like <tt class="literal">$POST_MAX</tt> and
+<tt class="literal">$DISABLE_UPLOADS</tt> variables we discussed at the
+beginning of the chapter. You will find
+<tt class="literal">$HEADERS_ONCE</tt> is in the same configurable section
+of CGI.pm:</p>
+
+
+<blockquote><pre class="code"># Change this to 1 to suppress redundant HTTP headers
+$HEADERS_ONCE = 0;</pre></blockquote></li></ol>
+
+<p>Although adding subroutines to each of your CGI scripts is certainly
+an acceptable way to catch errors, it's still not a very
+general solution. You will probably want to create your own error
+pages that are customized for your site. Once you start including
+complex HTML in your subroutines, it will quickly become too
+difficult to maintain them. If you build error subroutines that
+output error pages according to your site's template, and then
+later someone decides they want to change the site's look, you
+must go back and update all of your subroutines. Clearly, a much
+better option is to create a general error handler that all of your
+CGI scripts can access.</p>
+</div>
+
+
+
+
+<a name="ch05-31-fm2xml" /><div class="sect2">
+<h3 class="sect2">5.5.4. Custom Module</h3>
+
+
+<p>It is a good idea to create your own <a name="INDEX-1218" />
+<a name="INDEX-1219" />Perl module that's specific to
+your site. If you host different sites, or have different
+applications within your site with different looks and feels, you may
+wish to create a module for each. Within this module, you can place
+subroutines that you find yourself using across many CGI scripts.
+These subroutines will vary depending on your site, but one should
+handle errors.</p>
+
+
+<p>If you have not created your own Perl module before, don't
+worry, it's quite simple. <a href="ch05_05.htm#ch05-67677">Example 5-3</a> shows a
+very minimal module.</p>
+
+
+
+<a name="ch05-67677" /><div class="example">
+<h4 class="objtitle">Example 5-3. CGIBook::Error.pm </h4>
+<a name="INDEX-1220" />
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+package CGIBook::Error;
+
+# Export the error subroutine
+use Exporter;
+@ISA = "Exporter";
+@EXPORT = qw( error );
+
+$VERSION = "0.01";
+
+use strict;
+use CGI;
+use CGI::Carp qw( fatalsToBrowser );
+
+BEGIN {
+    sub carp_error {
+        my $error_message = shift;
+        my $q = new CGI;
+        my $discard_this = $q-&gt;header( "text/html" );
+        error( $q, $error_message );
+    }
+    CGI::Carp::set_message( \&amp;carp_error );
+}
+
+sub error {
+    my( $q, $error_message ) = @_;
+    
+    print $q-&gt;header( "text/html" ),
+          $q-&gt;start_html( "Error" ),
+          $q-&gt;h1( "Error" ),
+          $q-&gt;p( "Sorry, the following error has occurred: " ),
+          $q-&gt;p( $q-&gt;i( $error_message ) ),
+          $q-&gt;end_html;
+    exit;
+}
+
+1;</pre></blockquote>
+</div>
+
+
+<p>The only difference between a <a name="INDEX-1221" /> <a name="INDEX-1,222" />Perl module and a standard Perl script is
+that you should save your file with a
+<em class="filename">.pm</em>
+<a name="INDEX-1223" />
+<a name="INDEX-1224" /> extension, declare
+the name of module's package with the
+<tt class="function">package</tt>
+<a name="INDEX-1225" />
+function (this should match the file's name except without the
+<em class="filename">.pm </em>extension and substituting
+<tt class="literal">::</tt> for <tt class="literal">/</tt>),<a href="#FOOTNOTE-7">[7]</a> and make sure
+that it returns a true value when evaluated (the reason for the
+<tt class="literal">1;</tt> at the bottom).</p><blockquote>
+
+<a name="FOOTNOTE-7" /><p>[7]When
+determining the package name, the file's name should be
+relative to a library path in <tt class="literal">@INC</tt>. In our
+example, we store the file at
+<em class="filename">/usr/lib/perl5/site_perl/5.005/CGIBook/Error.pm</em>.
+<em class="filename">/usr/lib/perl5/site_perl/5.005 </em>is a library
+directory. Thus, the path to the module relative to the library
+directory is <em class="filename">CGIBook/Error.pm </em>so the package is
+<em class="emphasis">CGIBook::Error</em>.</p>
+
+</blockquote>
+
+
+<p>It is standard practice to store the
+<a name="INDEX-1226" />version of the module in
+<tt class="literal">$VERSION</tt>. For the sake of convenience, we also use
+the <a name="INDEX-1227" />
+<a name="INDEX-1228" />Exporter module to export
+the <tt class="function">error</tt> subroutine. This allows us to refer to
+it in our scripts<tt class="function"> </tt>as<tt class="function"> error</tt>
+instead of <tt class="function">CGIBook::Exporter::error</tt>. Refer to
+the Exporter manpage or a primary Perl text, such as
+<em class="citetitle">Programming Perl</em>, for details on using
+Exporter.</p>
+
+
+<p>You have a couple options for saving this file. The simplest solution
+is to save it within the
+<em class="filename">site_perl</em>
+<a name="INDEX-1229" />
+<a name="INDEX-1230" /> directory
+of your <a name="INDEX-1231" />Perl libraries, such as
+<em class="filename">/usr/lib/perl5/site_perl/5.005/CGIBook/Error.pm</em>.
+The<em class="emphasis"> site_perl</em> directory includes modules that
+are site-specific (i.e., not included in Perl's standard
+distribution). The paths of your Perl libraries may differ; you can
+locate them on your system with the following command:</p>
+
+
+<blockquote><pre class="code">$ perl -e 'print map "$_\n", @INC'</pre></blockquote>
+
+
+<p>You probably want to create a subdirectory that is unique to your
+organization, as we did with <em class="filename">CGIBook</em>, to hold
+all the Perl modules you create.</p>
+
+
+<p>You can use the module as follows:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use CGI;
+use CGIBook::Error;
+
+my $q = new CGI;
+
+unless ( check_something_important(  ) ) {
+    error( $q, "Something bad happened." );
+}</pre></blockquote>
+
+
+<p>If you do not have the permission to install the module in your Perl
+library directory, and if you cannot get your system administrator to
+do it, then you can place the module in another location, for
+example,
+<em class="filename">/usr/local/apache/perl-lib/CGIBook/Error.pm</em>.
+Then you must remember to include this directory in the list that
+Perl searches for modules. The simplest way to <a name="INDEX-1232" />do this is
+<a name="INDEX-1233" />
+<a name="INDEX-1234" />with the
+<tt class="function">lib</tt> <a name="INDEX-1235" /> <a name="INDEX-1,236" />pragma:</p>
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use lib "/usr/local/apache/perl-lib";
+
+use CGI;
+use CGIBook::Error;
+.
+.
+.</pre></blockquote>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch06_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">5.4. Alternatives for Generating Output</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">6. HTML Templates</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

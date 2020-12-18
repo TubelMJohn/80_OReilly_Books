@@ -1,0 +1,650 @@
+<html><head><title>Advanced DOM (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch06_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+
+<h1 class="chapter">Chapter 6. Advanced DOM</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#javaxml2-CHP-6-SECT-1">Changes</a><br />
+<a href="ch06_02.htm">Namespaces</a><br />
+<a href="ch06_03.htm">DOM Level 2 Modules</a><br />
+<a href="ch06_04.htm">DOM Level 3</a><br />
+<a href="ch06_05.htm">Gotcha!</a><br />
+<a href="ch06_06.htm">What's Next?</a><br /></p></div>
+
+<p><a name="INDEX-526" /></a>Just like in <a href="ch04_01.htm">Chapter 4, "Advanced SAX "</a>, there's nothing mystical about anything
+I'll cover in this chapter. The topics build upon a foundation
+that I set in the DOM basics from the last chapter. However, with the
+exception of the first section on mutation, many of these features
+are rarely used. While almost everything you've seen in SAX
+(except, perhaps, the <tt class="literal">DTDHandler</tt> and
+<tt class="literal">DeclHandler</tt>) will be handy, I've found many
+of the fringe features of DOM useful only in specific applications.
+For example, if you aren't doing any presentation logic,
+you'll probably never touch the DOM HTML bindings. The same
+goes for many of DOM Level 2's features; if you need them, you
+need them <em class="emphasis">badly</em>, and if you don't, you
+<em class="emphasis">really</em> don't.
+</p>
+
+<p>In this chapter, I'll present some specific DOM topics that
+will be useful in your own DOM programming. I've tried to
+organize the chapter more like a reference than the previous
+chapters; if you want to find out more about the DOM Level 2
+Traversal module, for example, you can simply thumb to that section.
+However, the code examples in this chapter do build upon each other,
+so you may still want to work through each section in order to get a
+complete picture of the current DOM model. This results in more
+practical code samples, rather than useless contrived ones that
+won't get you anywhere. So buckle up, and let's dive a
+little deeper into the world of DOM.
+</p>
+
+<div class="sect1"><a name="javaxml2-CHP-6-SECT-1" /></a>
+<h2 class="sect1">6.1. Changes</h2>
+
+<p>First and foremost, I want to talk about the mutability of a
+<a name="INDEX-527" /></a>DOM
+tree. The biggest limitation when using <a name="INDEX-528" /></a>SAX for dealing with XML is that you
+cannot change any of the XML structure you encounter, at least not
+without using filters and writers. Those aren't intended to be
+used for wholesale document changes anyway, so you'll need to
+use another API when you want to modify XML. DOM fits the bill
+nicely, as it provides XML creation and modification facilities.
+</p>
+
+<p>In working with DOM, the process of creating an XML document is quite
+different from changing an existing one, so I'll take them one
+at a time. This section gives you a fairly realistic example to mull
+over. If you've ever been to an online auction site like eBay,
+you know that the most important aspects of the auction are the
+ability to <em class="emphasis">find</em> items, and the ability to find
+<em class="emphasis">out</em> about items. These functions depend on a
+user entering in a description of an item, and the auction using that
+information. The better auction sites allow users to enter in some
+basic information as well as actual HTML descriptions, which means
+the savvy user can bold, italicize, link, and add other formatting to
+their items' descriptions. This provides a good case for using
+DOM.
+</p>
+
+<a name="javaxml2-CHP-6-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">6.1.1. Creating a New DOM Tree</h3>
+
+<p><a name="INDEX-529" /></a>To
+get started, a little bit of groundwork is needed. <a href="ch06_01.htm#javaxml2-CHP-6-EX-1">Example 6-1</a> shows a simple HTML form that takes basic
+information about an item to be listed on an auction site. This would
+obviously be dressed up more for a real site, but you get the idea.
+</p>
+
+<a name="javaxml2-CHP-6-EX-1" /></a><div class="example">
+<h4 class="objtitle">Example 6-1. HTML input form for item listing </h4>
+<blockquote><pre class="code">&lt;html&gt;
+ &lt;head&gt;&lt;title&gt;Input/Update Item Listing&lt;/title&gt;&lt;/head&gt;
+ &lt;body&gt;
+  &lt;h1 align="center"&gt;Input/Update Item Listing&lt;/h1&gt;
+  &lt;p align="center"&gt;
+   &lt;form method="POST" action="/javaxml2/servlet/javaxml2.UpdateItemServlet"&gt;
+    Item ID (Unique Identifier): &lt;br /&gt;
+    &lt;input name="id" type="text" maxLength="10" /&gt;&lt;br /&gt;&lt;br /&gt;
+    Item Name: &lt;br /&gt;
+    &lt;input name="name" type="text" maxLength="50" /&gt;&lt;br /&gt;&lt;br /&gt;
+    Item Description: &lt;br /&gt;
+    &lt;textarea name="description" rows="10" cols="30" wrap="wrap" &gt;&lt;/textarea&gt;
+    &lt;br /&gt;&lt;br /&gt;
+    &lt;input type="reset" value="Reset Form" /&gt;&amp;nbsp;&amp;nbsp;
+    &lt;input type="submit" value="Add/Update Item" /&gt;
+   &lt;/form&gt;
+  &lt;/p&gt;
+ &lt;/body&gt;
+&lt;/html&gt;</pre></blockquote>
+</div>
+
+<p>Notice that the target of this form submission is a servlet. That
+servlet is shown in <a href="ch06_01.htm#javaxml2-CHP-6-EX-2">Example 6-2</a>. The
+<tt class="literal">doPost( )</tt><a name="INDEX-530" /></a> method reads in these input parameters and
+puts their values into temporary variables. At that point, the
+servlet checks the filesystem for a specific file that has this
+information stored within it.
+</p>
+<blockquote><b>WARNING:</b> 
+
+For the sake of clarity, I'm dealing directly with the filesystem in this servlet. However, this is generally not a good idea. Consider using the <tt class="literal">ServletContext</tt> to get access to local resources, allowing your servlet to be distributed and modified easily depending on the server and servlet engine hosting it. That sort of detail tends to muddy examples up, so I'm keeping it simple here.
+<p></p>
+</blockquote>
+<p>If the file doesn't exist (for a new listing, it
+wouldn't), it creates a new DOM tree and builds up the tree
+structure using the values supplied. Once that's complete, the
+servlet uses the <tt class="literal">DOMSerializer</tt> class (from <a href="ch05_01.htm">Chapter 5, "DOM"</a>) to write the DOM tree out to the file, making
+it available the next time this servlet is invoked. Additionally,
+I've coded up a <tt class="literal">doGet( )</tt> method; this method
+just displays the HTML shown in <a href="ch06_01.htm#javaxml2-CHP-6-EX-1">Example 6-1</a>.
+I'll use this later to allow modification of item listings. For
+now, <a name="INDEX-531" /></a> <a name="INDEX-532" /></a>don't
+worry too much about it.
+</p>
+
+<a name="javaxml2-CHP-6-EX-2" /></a><div class="example">
+<h4 class="objtitle">Example 6-2. The UpdateItemServlet class </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+// DOM imports
+import org.w3c.dom.Attr;
+import org.w3c.dom.Document;
+import org.w3c.dom.DOMImplementation;
+import org.w3c.dom.Element;
+import org.w3c.dom.Text;
+
+// Parser import
+import org.apache.xerces.dom.DOMImplementationImpl;
+
+public class UpdateItemServlet extends HttpServlet {
+
+    private static final String ITEMS_DIRECTORY = "/javaxml2/ch06/xml/";
+
+    public void doGet(HttpServletRequest req, HttpServletResponse res)
+        throws ServletException, IOException {
+
+        // Get output
+        PrintWriter out = res.getWriter( );
+        res.setContentType("text/html");
+
+        // Output HTML        
+        out.println("&lt;html&gt;");
+        out.println(" &lt;head&gt;&lt;title&gt;Input/Update Item Listing&lt;/title&gt;&lt;/head&gt;");
+        out.println(" &lt;body&gt;");
+        out.println("  &lt;h1 align='center'&gt;Input/Update Item Listing&lt;/h1&gt;");
+        out.println("  &lt;p align='center'&gt;");
+        out.println("   &lt;form method='POST' " +
+            "action='/javaxml2/servlet/javaxml2.UpdateItemServlet'&gt;");
+        out.println("    Item ID (Unique Identifier): &lt;br /&gt;");
+        out.println("    &lt;input name='id' type='text' maxLength='10' /&gt;" +
+            "&lt;br /&gt;&lt;br /&gt;");
+        out.println("    Item Name: &lt;br /&gt;");
+        out.println("    &lt;input name='name' type='text' maxLength='50' /&gt;" +
+            "&lt;br /&gt;&lt;br /&gt;");
+        out.println("    Item Description: &lt;br /&gt;");
+        out.println("    &lt;textarea name='description' rows='10' cols='30' " +
+            "wrap='wrap' &gt;&lt;/textarea&gt;&lt;br /&gt;&lt;br /&gt;");
+        out.println("    &lt;input type='reset' value='Reset Form' /&gt;&amp;nbsp;&amp;nbsp;");
+        out.println("    &lt;input type='submit' value='Add/Update Item' /&gt;");
+        out.println("   &lt;/form&gt;");
+        out.println("  &lt;/p&gt;");
+        out.println(" &lt;/body&gt;");
+        out.println("&lt;/html&gt;");
+ 
+        out.close( );
+    }
+
+    public void doPost(HttpServletRequest req, HttpServletResponse res)
+        throws ServletException, IOException {
+
+        // Get parameter values
+        String id = req.getParameterValues("id")[0];
+        String name = req.getParameterValues("name")[0];
+        String description = req.getParameterValues("description")[0];
+
+        // Create new DOM tree
+        DOMImplementation domImpl = new DOMImplementationImpl( );
+        Document doc = domImpl.createDocument(null, "item", null);
+        Element root = doc.getDocumentElement( );
+
+        // ID of item (as attribute)
+        root.setAttribute("id", id);
+
+        // Name of item
+        Element nameElement = doc.createElement("name");
+        Text nameText = doc.createTextNode(name);
+        nameElement.appendChild(nameText);
+        root.appendChild(nameElement);
+
+        // Description of item
+        Element descriptionElement = doc.createElement("description");
+        Text descriptionText = doc.createTextNode(description);
+        descriptionElement.appendChild(descriptionText);
+        root.appendChild(descriptionElement);
+
+        // Serialize DOM tree
+        DOMSerializer serializer = new DOMSerializer( );
+        serializer.serialize(doc, new File(ITEMS_DIRECTORY + "item-" + name + 
+            ".xml"));
+
+        // Print confirmation
+        PrintWriter out = res.getWriter( );
+        res.setContentType("text/html");
+        out.println("&lt;HTML&gt;&lt;BODY&gt;Thank you for your submission. " +
+            "Your item has been processed.&lt;/BODY&gt;&lt;/HTML&gt;");
+        out.close( );        
+    }
+
+}</pre></blockquote>
+</div>
+
+<p>Go ahead and compile this class. I'll walk you through it in
+just a moment, but ensure that you have your environment set up to
+include the needed classes.
+</p>
+
+<a name="ch06-4-fm2xml" /></a><blockquote><b>NOTE:</b> 
+
+Make sure the <tt class="literal">DOMSerializer</tt> class from the last chapter is in your classpath when compiling the <tt class="literal">UpdateItemServlet</tt> class. You'll also want to add this to the classes in your servlet engine's context. In my setup, using Tomcat, my context is called <em class="emphasis">javaxml2</em>, in a directory named <em class="emphasis">javaxml2</em> under the <em class="emphasis">webapps</em> directory. In my <em class="emphasis">WEB-INF/classes</em> directory, there is a <em class="emphasis">javaxml2</em> directory (for the package), and then the <em class="emphasis">DOMSerializer.class</em> and <em class="emphasis">UpdateItemServlet.class</em> files are within that directory. You should also ensure that a copy of your parser's <em class="emphasis">jar</em> file (<em class="emphasis">xerces.jar</em> in my case) is in the classpath of your engine. In Tomcat, you can simply drop a copy in Tomcat's <em class="emphasis">lib</em> directory. Finally, you'll need to ensure that Xerces, and the DOM Level 2 implementation within it, is loaded before the DOM Level 1 implementation in Tomcat's <em class="filename">parser.jar</em> archive. Do this by renaming <em class="emphasis">parser.jar</em> to <em class="emphasis">z_parser.jar</em>. I'll explain more about this in <a href="ch10_01.htm">Chapter 10, "Web Publishing Frameworks"</a>, but for now just trust me and make the change. Then restart Tomcat and everything should work.
+<p></p>
+</blockquote>
+<p>Once you've got your servlet in place and the servlet engine
+started, browse to the servlet and let the GET request your browser
+generates load the HTML input form. Fill this form out, as I have in
+<a href="ch06_01.htm#javaxml2-CHP-6-FIG-1">Figure 6-1</a>.
+</p>
+
+<a name="javaxml2-CHP-6-FIG-1" /></a><div class="figure"><img height="375" alt="Figure 6-1" src="figs/javax_0601.gif" width="481" /></div><h4 class="objtitle">Figure 6-1. Filling out the items form</h4>
+
+<p>Since I'll talk in depth about the description field later, I
+want to show you the complete content I typed into that field. I know
+there's lots of markup (I went crazy on the bolding and
+italics!), but this will be important later on:
+</p>
+
+<blockquote><pre class="code">This is a &lt;i&gt;beautiful&lt;/i&gt; &lt;b&gt;Sitka-topped&lt;/b&gt; guitar with &lt;b&gt;Indian Rosewood&lt;/b&gt; 
+back and sides. Made by luthier &lt;a href="http://www.bourgeoisguitars.com"&gt;Dana 
+Bourgeois&lt;/a&gt;, this OM has a &lt;b&gt;huge sound&lt;/b&gt;.
+The guitar has &lt;i&gt;great action&lt;/i&gt;, a 1 3/4" nut, and all 
+&lt;i&gt;fossilized ivory&lt;/i&gt; nut and saddle, with &lt;i&gt;ebony&lt;/i&gt; end pins.
+New condition, this is a &lt;b&gt;great guitar&lt;/b&gt;!</pre></blockquote>
+
+<p>Submitting this form posts its data (via a POST request) to the
+servlet, and the <tt class="literal">doPost( )</tt> method takes effect. As
+for the actual DOM creation, it turns out to be pretty simple. First,
+you'll need to instantiate an instance of the
+<tt class="literal">org.w3c.dom.DOMImplementation</tt> class. This will be
+the base for all your DOM creation work. While you could certainly
+directly instantiate a DOM <tt class="literal">Document</tt>
+implementation, you would not be able to create a
+<tt class="literal">DocType</tt> class from it as you could from a
+<tt class="literal">DOMImplementation</tt>; using
+<tt class="literal">DOMImplementation</tt> is a better practice.
+Additionally, the <tt class="literal">DOMImplementation</tt> class has one
+more useful method, <tt class="literal">hasFeature( )</tt>. I'll
+cover this method in detail later, so don't worry about it for
+now. In the example code, I've used Xerces'
+implementation,
+<tt class="literal">org.apache.xerces.dom.DOMImplementationImpl</tt> (sort
+of a confusing name, isn't it?). There is currently no
+vendor-neutral way to handle this, although DOM Level 3 (covered at
+the end of this chapter) provides some possibilities for the future.
+JAXP, detailed in <a href="ch09_01.htm">Chapter 9, "JAXP"</a>, offers some
+solutions, but I'll get to those later.
+</p>
+
+<p>Once you've got an instance of
+<tt class="literal">DOMImplementation</tt>, though, things are pretty
+simple. Take a look at the relevant code again:
+</p>
+
+<blockquote><pre class="code">        // Create new DOM tree
+        DOMImplementation domImpl = new DOMImplementationImpl( );
+        Document doc = domImpl.createDocument(null, "item", null);
+        Element root = doc.getDocumentElement( );
+
+        // ID of item (as attribute)
+        root.setAttribute("id", id);
+
+        // Name of item
+        Element nameElement = doc.createElement("name");
+        Text nameText = doc.createTextNode(name);
+        nameElement.appendChild(nameText);
+        root.appendChild(nameElement);
+
+        // Description of item
+        Element descriptionElement = doc.createElement("description");
+        Text descriptionText = doc.createTextNode(description);
+        descriptionElement.appendChild(descriptionText);
+        root.appendChild(descriptionElement);
+
+        // Serialize DOM tree
+        DOMSerializer serializer = new DOMSerializer( );
+        serializer.serialize(doc, new File(ITEMS_DIRECTORY + "item-" + id + 
+            ".xml"));</pre></blockquote>
+
+<p>First, the <tt class="literal">createDocument(
+)</tt><a name="INDEX-533" /></a>
+<a name="INDEX-534" /></a> method is used to get a new
+<tt class="literal">Document</tt> instance. The first argument to this
+method is the namespace for the document's root element. I
+haven't gotten to the namespace yet, so I omit one by passing
+in a null value. The second argument is the name of the root element
+itself, which is simply <tt class="literal">"item"</tt>. The last argument
+is an instance of a <tt class="literal">DocType</tt> class, and I again
+pass in a null value since I have none for this document. If I did
+want a <tt class="literal">DocType</tt>, I could create one with the
+<tt class="literal">createDocType( )</tt><a name="INDEX-535" /></a> method on the same class,
+<tt class="literal">DOMImplementation</tt>. If you're interested in
+that method, check out the complete DOM API coverage in <a href="appa_01.htm">Appendix A, "API Reference"</a>. 
+</p>
+
+<p>With a DOM tree to operate upon, I can retrieve the root element to
+work with (using <tt class="literal">getDocumentElement( )</tt>, covered in
+the last chapter). Once I've got that, I add an attribute with
+the ID of the item using <tt class="literal">setAttribute(
+)</tt><a name="INDEX-536" /></a>.
+I pass in the attribute name and value, and the root element is ready
+to go. Things begin to get simple now; each type of DOM construct can
+be created using the <tt class="literal">Document</tt> object as a factory.
+To create the "name" and "description"
+elements, I use the <tt class="literal">createElement(
+)</tt><a name="INDEX-537" /></a>
+method, simply passing in the element name in each case. The same
+approach is used to create textual content for each; since an element
+has no content but instead has children that are
+<tt class="literal">Text</tt> nodes (remember this from the last chapter?),
+the <tt class="literal">createTextNode(
+)</tt><a name="INDEX-538" /></a> method is the right selection. This method
+takes in the text for the node, which works out to be the description
+and item name. You might be tempted to use the
+<tt class="literal">createCDATASection( )</tt> method, and wrap this text
+in <tt class="literal">CDATA</tt> tags. There is HTML within this element.
+However, that would prevent the content from being read in as a set
+of elements, and provide the content as a big blob of text. Later on,
+we'll want to deal with this as elements, so leave this as a
+<tt class="literal">Text</tt> node instead, using <tt class="literal">createTextNode(
+)</tt> again. Once you've gotten all of these nodes
+created, all that's left is to link them together. Your best
+bet is to use <tt class="literal">appendChild(
+)</tt><a name="INDEX-539" /></a>
+on each, appending the elements to the root, and the textual content
+of the elements to the correct parent. This is pretty
+self-explanatory. And finally, the whole document is passed into the
+<tt class="literal">DOMSerializer</tt> class from the last chapter and
+written out to an XML file on disk.
+</p>
+<blockquote><b>WARNING:</b> 
+
+I have assumed that the user is entering well-formed HTML; in other words, XHTML. In a production application you would probably run this input through JTidy (<a href="http://www.sourceforge.net/projects/jtidy">http://www.sourceforge.net/projects/jtidy</a>) to ensure this; for this example, I'll just assume the input is XHTML.
+<p></p>
+</blockquote>
+<p>I've provided a constant in the servlet,
+<tt class="literal">ITEMS_DIRECTORY</tt>, where you can specify what
+directory to use. The example code uses a Windows directory, and
+notice that the backslashes are all escaped. Don't forget this!
+Simply change this to the directory you want to use on your system.
+You can view the XML generated from the servlet by browsing to the
+directory you specified in this constant, and open up the XML file
+that should be located there. Mine looked as shown in <a href="ch06_01.htm#javaxml2-CHP-6-EX-3">Example 6-3</a>. 
+</p>
+
+<a name="javaxml2-CHP-6-EX-3" /></a><div class="example">
+<h4 class="objtitle">Example 6-3. The XML generated from the UpdateItemServlet </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+&lt;item id="bourgOM"&gt;
+&lt;name&gt;Bourgeois OM Guitar&lt;/name&gt;
+&lt;description&gt;This is a &lt;i&gt;beautiful&lt;/i&gt; &lt;b&gt;Sitka-topped&lt;/b&gt; guitar with 
+&lt;b&gt;Indian Rosewood&lt;/b&gt; back and sides. Made by luthier 
+&lt;a href="http://www.bourgeoisguitars.com"&gt;Dana Bourgeois&lt;/a&gt;, this OM has a 
+&lt;b&gt;huge sound&lt;/b&gt;. 
+The guitar has &lt;i&gt;great action&lt;/i&gt;, a 1 3/4" nut, and all 
+&lt;i&gt;fossilized ivory&lt;/i&gt; nut and saddle, with &lt;i&gt;ebony&lt;/i&gt; end pins.
+New condition, this is a &lt;b&gt;great guitar&lt;/b&gt;!&lt;/description&gt;
+&lt;/item&gt;</pre></blockquote>
+</div>
+
+<p>I've moved fairly quickly through this, but you should be
+starting to really catch your stride with DOM. Next, I want to
+discuss actually modifying a DOM tree that is already in
+existence.<a name="INDEX-540" /></a> 
+</p>
+
+</div>
+<a name="javaxml2-CHP-6-SECT-1.2" /></a><div class="sect2">
+<h3 class="sect2">6.1.2. Modifying a DOM Tree</h3>
+
+<p><a name="INDEX-541" /></a>The
+process of changing an existing DOM tree is slightly different from
+the process of creating one; in general, it involves loading the DOM
+from some source, traversing the tree, and then making changes. These
+changes are usually either to <em class="emphasis">structure</em> or
+<em class="emphasis">content</em>. If the change is to structure, it
+becomes a matter of creation again:
+</p>
+
+<blockquote><pre class="code">// Add a copyright element to the root
+Element root = doc.getDocumentElement( );
+Element copyright = doc.createElement("copyright");
+copyright.appendChild(doc.createTextNode("Copyright O'Reilly 2001"));
+root.appendChild(copyright);</pre></blockquote>
+
+<p>This is what I just described. The process of changing existing
+content is a little different, although not overly complex. As an
+example, I will show you a modified version of the
+<tt class="literal">UpdateItemServlet</tt>. This version reads the supplied
+ID and tries to load an existing file if it exists. If so, it
+doesn't create a new DOM tree, but instead modifies the
+existing one. Since there are so many additions, I'll reprint
+the entire class and highlight the changes:
+</p>
+
+<blockquote><pre class="code">package javaxml2;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+<tt class="userinput"><b>import org.xml.sax.SAXException;</b></tt>
+
+// DOM imports
+import org.w3c.dom.Attr;
+import org.w3c.dom.Document;
+import org.w3c.dom.DOMImplementation;
+import org.w3c.dom.Element;
+<tt class="userinput"><b>import org.w3c.dom.NodeList;</b></tt>
+import org.w3c.dom.Text;
+
+// Parser import
+import org.apache.xerces.dom.DOMImplementationImpl;
+<tt class="userinput"><b>import org.apache.xerces.parsers.DOMParser;</b></tt>
+
+public class UpdateItemServlet extends HttpServlet {
+
+    private static final String ITEMS_DIRECTORY = "/javaxml2/ch06/xml/";
+
+    // doGet( ) method is unchanged
+
+    public void doPost(HttpServletRequest req, HttpServletResponse res)
+        throws ServletException, IOException {
+
+        // Get parameter values
+        String id = req.getParameterValues("id")[0];
+        String name = req.getParameterValues("name")[0];
+        String description = req.getParameterValues("description")[0];
+
+        <tt class="userinput"><b>// See if this file exists
+        Document doc = null;
+        File xmlFile = new File(ITEMS_DIRECTORY + "item-" + id + ".xml");
+
+        if (!xmlFile.exists( )) {</b></tt>
+            // Create new DOM tree
+            DOMImplementation domImpl = new DOMImplementationImpl( );
+            doc = domImpl.createDocument(null, "item", null);
+            Element root = doc.getDocumentElement( );
+
+            // ID of item (as attribute)
+            root.setAttribute("id", id);
+
+            // Name of item
+            Element nameElement = doc.createElement("name");
+            Text nameText = doc.createTextNode(name);
+            nameElement.appendChild(nameText);
+            root.appendChild(nameElement);
+
+            // Description of item
+            Element descriptionElement = doc.createElement("description");
+            Text descriptionText = doc.createText(description);
+            descriptionElement.appendChild(descriptionText);
+            root.appendChild(descriptionElement);
+        <tt class="userinput"><b>} else {
+            // Load document
+            try {
+                DOMParser parser = new DOMParser( );
+                parser.parse(xmlFile.toURL().toString( ));
+                doc = parser.getDocument( );
+
+                Element root = doc.getDocumentElement( );
+   
+                // Name of item
+                NodeList nameElements = 
+                    root.getElementsByTagNameNS(docNS, "name");
+                Element nameElement = (Element)nameElements.item(0);
+                Text nameText = (Text)nameElement.getFirstChild( );
+                nameText.setData(name);
+            
+                // Description of item
+                NodeList descriptionElements = 
+                    root.getElementsByTagNameNS(docNS, "description");
+                Element descriptionElement = (Element)descriptionElements.item(0);
+
+                // Remove and recreate description
+                root.removeChild(descriptionElement);
+                descriptionElement = doc.createElement("description");
+                Text descriptionText = doc.createTextNode(description);
+                descriptionElement.appendChild(descriptionText);
+                root.appendChild(descriptionElement);
+            } catch (SAXException e) {
+                // Print error
+                PrintWriter out = res.getWriter( );
+                res.setContentType("text/html");
+                out.println("&lt;HTML&gt;&lt;BODY&gt;Error in reading XML: " +
+                    e.getMessage( ) + ".&lt;/BODY&gt;&lt;/HTML&gt;");
+                out.close( ); 
+                return;
+            }
+        }</b></tt>
+
+        // Serialize DOM tree
+        DOMSerializer serializer = new DOMSerializer( );
+        serializer.serialize(doc, xmlFile);
+
+        // Print confirmation
+        PrintWriter out = res.getWriter( );
+        res.setContentType("text/html");
+        out.println("&lt;HTML&gt;&lt;BODY&gt;Thank you for your submission. " +
+            "Your item has been processed.&lt;/BODY&gt;&lt;/HTML&gt;");
+        out.close( );        
+    }
+}</pre></blockquote>
+
+<p>The changes are fairly simple, nothing to throw you for a loop. I
+create the <tt class="literal">File</tt> instance for the named file (using
+the ID supplied), and check for its existence. This tells the servlet
+whether the XML file representing the submitted item already exists.
+If not, it does everything discussed in the last section, with no
+changes. If the XML already exists (indicating the item has already
+been submitted), it is loaded and read into a DOM tree using
+techniques covered in the last chapter. At that point, some basic
+tree traversal begins.
+</p>
+
+<p>The code grabs the root element, and then uses the
+<tt class="literal">getElementsByTagName( )</tt> method to locate all
+elements named "name" and then all named
+"description." In each case, I know that only one will be
+found within the returned <tt class="literal">NodeList</tt>. I can access
+this using the <tt class="literal">item( )</tt> method on the
+<tt class="literal">NodeList</tt>, and supplying "0" as the
+argument (the indexes are all zero-based). This effectively gives me
+the element desired. I could have simply gotten the children of the
+root through <tt class="literal">getChildren( )</tt>, and peeled off the
+first and second. However, using the element names is easier to
+document and clearer. I get the "name" element's
+textual content by invoking <tt class="literal">getFirstChild( )</tt>.
+Since I know that the "name" element has a single
+<tt class="literal">Text</tt> node, I can directly cast this to the
+appropriate type. Finally, the <tt class="literal">setData( )</tt> method
+allows the code to change the existing value for a new name, which is
+the information the user supplied through the form.
+</p>
+
+<p>You'll notice that I used a slightly different approach for the
+description of the item. Since there could conceivably be a complete
+document fragment within the element (remember the user could enter
+HTML, allowing for nested elements like "b",
+"a", and "img"), it's easier to just
+remove the existing "description" element and replace it
+with a new one. This avoids having to recurse through the tree and
+remove each child node, a time-consuming task. Once I've
+removed the node using the <tt class="literal">removeChild(
+)</tt><a name="INDEX-542" /></a>
+method, it's simple to recreate and reappend it to the
+document's root element.
+</p>
+
+<p>It's no accident that this code is hardwired to the format the
+XML was written out to. In fact, most DOM modification code relies on
+at least some understanding of the content to be dealt with. For
+cases when the structure or format is unknown, the DOM Level 2
+traversal model is a better fit; I'll cover that a little later
+on in this chapter. For now, accept that knowing how the XML is
+structured (since this servlet created it earlier on!) is a
+tremendous advantage. Methods like <tt class="literal">getFirstChild(
+)</tt><a name="INDEX-543" /></a>
+can be used and the result cast to a specific type, rather than
+needing lengthy type checking and switch blocks.
+</p>
+
+<p>Once the creation or modification is complete, the resulting DOM tree
+is serialized back to XML, and the process can repeat itself.
+I've also had to add some error handling for SAX problems
+resulting from the DOM parsing, but this is also nothing new after
+the last chapter. As an exercise, update the <tt class="literal">doGet(
+)</tt><a name="INDEX-544" /></a> method
+to read in a parameter from the URL and load the XML preferences,
+letting the user change them on the form. For example, the URL
+<em class="emphasis">http://localhost:8080/javaxml2/servlet/javaxml2.UpdateItemServlet?id=bourgOM</em>
+would indicate that the item with the ID "bourgOM" should
+be loaded for editing. This is a simple change, and one you should be
+ready to knock out on your own by now.<a name="INDEX-545" /></a> <a name="INDEX-546" /></a> 
+</p>
+
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch05_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch06_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">5.5. What's Next?</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">6.2. Namespaces</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+      </map>
+
+</body></html>

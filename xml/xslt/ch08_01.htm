@@ -1,0 +1,1331 @@
+<html><head><title>Extending XSLT (XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Doug Tidwell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596000537L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch08_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+  <h1 class="chapter">Chapter 8. Extending XSLT</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#INDEX-619">Extension Elements, Extension Functions, and Fallback 
+    Processing</a><br />
+<a href="ch08_02.htm">Extending the Saxon Processor</a><br />
+<a href="ch08_03.htm">More Examples</a><br />
+<a href="ch08_04.htm">Summary</a><br /></p></div>
+  <p>
+<a name="INDEX-610" /></a>
+<a name="INDEX-611" /></a>
+<a name="INDEX-612" /></a>
+
+To this point, we've spent a lot of time learning how to use the built-in features of XSLT and XPath to get things done. We've also talked about the somewhat unusual processing model that makes life challenging for programmers from the world of procedural languages (a.k.a. Earth). But what do you do if you still can't do everything with XSLT and XPath?</p>
+
+  <p>
+<a name="INDEX-613" /></a>
+
+In this section, we'll discuss the XSLT extension mechanism that allows you to add new functions and elements to the language. Unfortunately, Version 1.0 of the XSLT standard doesn't define all of the details about how these things should work, so there are some inconsistencies between processors. The good news is that if you write an extension function or element that works with your favorite processor, another vendor can't do something sinister to prevent your functions or elements from working. On the other hand, if you decide to change XSLT processors, you'll probably have to change your code. </p>
+
+<p>
+<a name="INDEX-614" /></a>
+<a name="INDEX-615" /></a>
+<a name="INDEX-616" /></a>
+<a name="INDEX-617" /></a>
+<a name="INDEX-618" /></a>
+<a name="INDEX-619" /></a>
+
+
+Most examples in this chapter are written for the Xalan processor. We'll discuss how to write stylesheets that can work with multiple processors, and we'll briefly look at the differences between the various APIs supported by those processors. In addition, Xalan comes with extensions written in Java, but you can use other languages, as well. We'll look at extensions written in Jython (formerly JPython), JavaScript, and Jacl.</p>
+
+  <div class="sect1">
+    <h2 class="sect1">8.1. Extension Elements, Extension Functions, and Fallback Processing</h2>
+    <p>
+<a name="INDEX-620" /></a>
+<a name="INDEX-621" /></a>
+<a name="INDEX-622" /></a>
+
+Section 14 of the XSLT standard defines two kinds of extensions: extension elements and extension functions. Section 15 of the specification defines fallback processing, a way for stylesheets to respond gracefully when extension elements and functions aren't available. We'll talk about these items briefly, then we'll move on to some examples that illustrate the full range of extensions.</p>
+
+    <div class="sect2">
+      <h3 class="sect2">8.1.1. Extension Elements</h3>
+      <p>An extension element is an element that should be processed by a piece of code external to the XSLT processor. In the case of the Java version of Xalan, our stylesheet defines the Java class that should be loaded and invoked to process the extension element. Although the implementation details vary from one XSLT processor to the next, we'll discuss how an extension element can access the XPath representation of our source document, how it can generate output, and how it can move through the XPath tree to manipulate the source document.</p>
+      <div class="sect3">
+        <h3 class="sect3">8.1.1.1. Example: Generating multiple output files</h3>
+        <p>
+<a name="INDEX-623" /></a>
+<a name="INDEX-624" /></a>
+<a name="INDEX-625" /></a>
+
+
+The whole point of extensions is to allow you to add new capabilities to the XSLT processor. One of the most common needs is the ability to generate multiple output documents. As we saw earlier, the <tt class="literal">document()</tt> function allows you to have multiple input documents -- but XSLT doesn't give us any way to create multiple output documents. Xalan, Saxon, and XT all ship with extensions that allow you to create such documents. Here's an XML document that we'll use for several of our examples in this chapter:</p>
+        
+        <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;book&gt;
+  &lt;title&gt;XSLT&lt;/title&gt;
+  &lt;chapter&gt;
+    &lt;title&gt;Getting Started&lt;/title&gt;
+    &lt;para&gt;If this chapter had any text, it would appear here.&lt;/para&gt;
+  &lt;/chapter&gt;
+  &lt;chapter&gt;
+    &lt;title&gt;The Hello World Example&lt;/title&gt;
+    &lt;para&gt;If this chapter had any text, it would appear here.&lt;/para&gt;
+  &lt;/chapter&gt;
+  &lt;chapter&gt;
+    &lt;title&gt;XPath&lt;/title&gt;
+    &lt;para&gt;If this chapter had any text, it would appear here.&lt;/para&gt;
+  &lt;/chapter&gt;
+  &lt;chapter&gt;
+    &lt;title&gt;Stylesheet Basics&lt;/title&gt;
+    &lt;para&gt;If this chapter had any text, it would appear here.&lt;/para&gt;
+  &lt;/chapter&gt;
+  &lt;chapter&gt;
+    &lt;title&gt;Branching and Control Elements&lt;/title&gt;
+    &lt;para&gt;If this chapter had any text, it would appear here.&lt;/para&gt;
+  &lt;/chapter&gt;
+  &lt;chapter&gt;
+    &lt;title&gt;Functions&lt;/title&gt;
+    &lt;para&gt;If this chapter had any text, it would appear here.&lt;/para&gt;
+  &lt;/chapter&gt;
+  &lt;chapter&gt;
+    &lt;title&gt;Creating Links and Cross-References&lt;/title&gt;
+    &lt;para&gt;If this chapter had any text, it would appear here.&lt;/para&gt;
+  &lt;/chapter&gt;
+  &lt;chapter&gt;
+    &lt;title&gt;Sorting and Grouping Elements&lt;/title&gt;
+    &lt;para&gt;If this chapter had any text, it would appear here.&lt;/para&gt;
+  &lt;/chapter&gt;
+  &lt;chapter&gt;
+    &lt;title&gt;Combining XML Documents&lt;/title&gt;
+    &lt;para&gt;If this chapter had any text, it would appear here.&lt;/para&gt;
+  &lt;/chapter&gt;
+&lt;/book&gt;</pre></blockquote>
+        <p>For our first example, we want to create a stylesheet that converts the document to HTML, writing the contents of each <tt class="literal">&lt;chapter&gt;</tt> element to a separate HTML file. Here's what that stylesheet looks like:</p>
+        
+        <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:redirect="org.apache.xalan.xslt.extensions.Redirect"
+  extension-element-prefixes="redirect"&gt;
+
+  &lt;xsl:output method="html"/&gt;
+
+  &lt;xsl:template match="/"&gt;
+    &lt;xsl:choose&gt;
+      &lt;xsl:when test="element-available('redirect:write')"&gt;
+        &lt;xsl:for-each select="/book/chapter"&gt;
+          &lt;redirect:write select="concat('chapter', position(), '.html')"&gt;
+            &lt;html&gt;
+              &lt;head&gt;
+                &lt;title&gt;&lt;xsl:value-of select="title"/&gt;&lt;/title&gt;
+              &lt;/head&gt;
+              &lt;body&gt;
+                &lt;h1&gt;&lt;xsl:value-of select="title"/&gt;&lt;/h1&gt;
+                &lt;xsl:apply-templates select="para"/&gt;
+                &lt;xsl:if test="not(position()=1)"&gt;
+                  &lt;p&gt;&lt;a href="chapter{position()-1}.html"&gt;Previous&lt;/a&gt;&lt;/p&gt;
+                &lt;/xsl:if&gt;
+                &lt;xsl:if test="not(position()=last())"&gt;
+                  &lt;p&gt;&lt;a href="chapter{position()+1}.html"&gt;Next&lt;/a&gt;&lt;/p&gt;
+                &lt;/xsl:if&gt;
+              &lt;/body&gt;
+            &lt;/html&gt;
+          &lt;/redirect:write&gt;
+        &lt;/xsl:for-each&gt;
+      &lt;/xsl:when&gt;
+      &lt;xsl:otherwise&gt;
+        &lt;html&gt;
+          &lt;head&gt;
+            &lt;title&gt;&lt;xsl:value-of select="/book/title"/&gt;&lt;/title&gt;
+          &lt;/head&gt;
+          &lt;xsl:for-each select="/book/chapter"&gt;
+            &lt;h1&gt;&lt;xsl:value-of select="title"/&gt;&lt;/h1&gt;
+            &lt;xsl:apply-templates select="para"/&gt;
+          &lt;/xsl:for-each&gt;
+        &lt;/html&gt;
+      &lt;/xsl:otherwise&gt;
+    &lt;/xsl:choose&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="para"&gt;
+    &lt;p&gt;&lt;xsl:apply-templates select="*|text()"/&gt;&lt;/p&gt;
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+        <p>
+<a name="INDEX-626" /></a>
+
+Let's go through the relevant parts of this example. To begin with, our <tt class="literal">&lt;xsl:stylesheet&gt;</tt> element defines the <tt class="literal">redirect</tt> namespace prefix and tells the XSLT engine that the prefix will be used to refer to an extension element. </p>
+        <blockquote><pre class="code">
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:redirect="org.apache.xalan.xslt.extensions.Redirect"
+  extension-element-prefixes="redirect"&gt;</pre></blockquote>
+        <p>The syntax of everything we've done so far is according to the standard, although there's a fair amount of latitude in what the XSLT engines do with the information we've defined. For example, when defining the <tt class="literal">redirect</tt> namespace, Xalan uses the value here as a Java class name. In other words, Xalan attempts to load the class <tt class="literal">org.apache.xalan.xslt.extensions.Redirect</tt> when it encounters an extension element or function defined with this namespace. The way other XSLT processors use the namespace URI can vary.
+<a name="INDEX-627" /></a>
+<a name="INDEX-628" /></a>
+
+</p>
+        <p>To this point, we've simply defined our extension class so Xalan can find our code, load it, and invoke it. Our next step is to actually use it:</p>
+        <blockquote><pre class="code">
+&lt;xsl:when test="element-available('redirect:write')"&gt;
+  &lt;xsl:for-each select="/book/chapter"&gt;
+    &lt;redirect:write select="concat('chapter', position(), '.html')"&gt;
+      &lt;html&gt;
+        &lt;head&gt;
+          &lt;title&gt;&lt;xsl:value-of select="title"/&gt;&lt;/title&gt;
+        &lt;/head&gt;
+        &lt;body&gt;
+          &lt;h1&gt;&lt;xsl:value-of select="title"/&gt;&lt;/h1&gt;
+          &lt;xsl:apply-templates select="para"/&gt;
+          &lt;xsl:if test="not(position()=1)"&gt;
+            &lt;p&gt;&lt;a href="chapter{position()-1}.html"&gt;Previous&lt;/a&gt;&lt;/p&gt;
+          &lt;/xsl:if&gt;
+          &lt;xsl:if test="not(position()=last())"&gt;
+            &lt;p&gt;&lt;a href="chapter{position()+1}.html"&gt;Next&lt;/a&gt;&lt;/p&gt;
+          &lt;/xsl:if&gt;
+        &lt;/body&gt;
+      &lt;/html&gt;
+    &lt;/redirect:write&gt;
+  &lt;/xsl:for-each&gt;
+&lt;/xsl:when&gt;</pre></blockquote>
+        <p>This code does several things:</p>
+        <ul>
+          <li>
+            <p>It checks to see if our extension element is available. If it is, we'll use it; if not, the <tt class="literal">&lt;xsl:otherwise&gt;</tt> element will be evaluated instead. </p>
+          </li>
+          <li>
+            <p>For each <tt class="literal">&lt;chapter&gt;</tt> in our XML document, it calls an extension element from our <tt class="literal">Redirect</tt> class. In the example here, we're calling the <tt class="literal">&lt;redirect:write&gt;</tt> element, which opens a file and directs all the output generated by Xalan into that file. Notice that the filename here is generated automatically; the filename for the first <tt class="literal">&lt;chapter&gt;</tt> is <em class="emphasis">chapter1.html</em>, the filename for the second is <em class="emphasis">chapter2.html</em>, etc. This convenient naming convention creates a unique filename for each chapter and makes it easy to figure out which filename contains the output from each chapter. </p>
+          </li>
+          <li>
+            <p>It creates the HTML tags to define the document and its <tt class="literal">&lt;title&gt;</tt>. After creating the <tt class="literal">&lt;head&gt;</tt> section, it creates an <tt class="literal">&lt;h1&gt;</tt> for the chapter title, followed by a <tt class="literal">&lt;p&gt;</tt> generated from each <tt class="literal">&lt;para&gt;</tt> element in the XML source.</p>
+          </li>
+          <li>
+            <p>
+<a name="INDEX-629" /></a>
+
+It generates hyperlinks between the different documents. If a given document is any chapter other than the first (<tt class="literal">not(position()=1)</tt>), it creates a link to the previous chapter. The filename for the previous chapter is generated with the expression <tt class="literal">chapter{position()-1}.html</tt>. If the document is any chapter other than the last (<tt class="literal">not(position()=last())</tt>), it creates a link to the next chapter. The filename for the next chapter is generated with the function call <tt class="literal">concat('chapter', position()+1, '.html')</tt>. </p>
+            <p>In this example, we used both the curly brace notation and the <tt class="literal">&lt;xsl:attribute&gt;</tt> element. Both work the same way; for the rest of this chapter, we'll use the curly brace notation to save space. (For more information, see the discussion of <a href="ch03_03.htm#xslt-CHP-3-SECT-3">Section 3.3, "Attribute Value Templates"</a> in <a href="ch03_01.htm">Chapter 3, "XPath: A Syntax for Describing Needles and Haystacks"</a>.)</p>
+          </li>
+          <li>
+            <p>After any required hyperlinks have been generated, it writes the closing HTML tags and ends the <tt class="literal">&lt;redirect:write&gt;</tt> element. Ending the <tt class="literal">&lt;redirect:write&gt;</tt> element closes the file.</p>
+          </li>
+        </ul>
+        <p>An individual output file looks like <a href="ch08_01.htm#xslt-CHP-8-FIG-1">Figure 8-1</a>.</p>
+        <a name="xslt-CHP-8-FIG-1" /></a><div class="figure"><img height="180" alt="Figure 8-1" src="figs/xslt.0801.gif" width="384" /></div><h4 class="objtitle">Figure 8-1. An individual output file</h4>
+        <p>
+<a name="INDEX-630" /></a>
+<a name="INDEX-631" /></a>
+
+This particular chapter contains both a <tt class="literal">Previous</tt> and a <tt class="literal">Next</tt> link. The first chapter won't have a <tt class="literal">Previous</tt> link, and the last chapter won't have a <tt class="literal">Next</tt>; other than that, all individual chapters are formatted the same way. </p>
+
+
+        <p>That code covers how we generate multiple output files when the extension element is available. When it isn't available, we simply generate a single HTML file that contains the text of all the chapters:</p>
+        <blockquote><pre class="code">
+&lt;xsl:otherwise&gt;
+  &lt;html&gt;
+    &lt;head&gt;
+      &lt;title&gt;&lt;xsl:value-of select="/book/title"/&gt;&lt;/title&gt;
+    &lt;/head&gt;
+    &lt;xsl:for-each select="/book/chapter"&gt;
+      &lt;h1&gt;&lt;xsl:value-of select="title"/&gt;&lt;/h1&gt;
+      &lt;xsl:apply-templates select="para"/&gt;
+    &lt;/xsl:for-each&gt;
+  &lt;/html&gt;
+&lt;/xsl:otherwise&gt;</pre></blockquote>
+        
+
+<p>In the <tt class="literal">&lt;xsl:otherwise&gt;</tt> element, we create a single HTML element, then process each <tt class="literal">&lt;chapter&gt;</tt> in turn. The output is a single large file; not ideal for a really large document, but an acceptable alternative when our extension element isn't available. </p>
+        <p>In this relatively simple example, we've broken a single XML document into multiple HTML files, we've generated useful filenames for all of them, and we've automatically built hyperlinks between the different HTML files. If we add, delete, or move a chapter, we can simply rerun our stylesheet and all the files and links between them will be updated. For now, we've simply discussed how to use an extension; we'll talk about how to write your own extension later in this chapter.
+<a name="INDEX-632" /></a>
+<a name="INDEX-633" /></a>
+<a name="INDEX-634" /></a>
+
+</p>
+      </div>
+      <div class="sect3">
+        <h3 class="sect3">8.1.1.2. Example: Using extension functions from multiple processors</h3>
+        <p>
+<a name="INDEX-635" /></a>
+<a name="INDEX-636" /></a>
+<a name="INDEX-637" /></a>
+<a name="INDEX-638" /></a>
+<a name="INDEX-639" /></a>
+<a name="INDEX-640" /></a>
+
+
+
+So far, we've used an extension function to convert a single XML document into multiple HTML files. Unfortunately, our stylesheet only works with the Xalan XSLT processor. How can we write a stylesheet that will work with multiple XSLT processors?  The answer is to define more extension elements, one for each processor. Here's a stylesheet that works with Xalan, Saxon, and XT:</p>
+        
+        <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:redirect="org.apache.xalan.xslt.extensions.Redirect"
+  xmlns:saxon="http://icl.com/saxon"
+  xmlns:xt="http://www.jclark.com/xt"
+  extension-element-prefixes="redirect saxon xt"&gt;
+
+  &lt;xsl:output method="html"/&gt;
+
+  &lt;xsl:template match="/"&gt;
+    &lt;xsl:choose&gt;
+      &lt;xsl:when test="contains(system-property('xsl:vendor'), 'James Clark')"&gt;
+        &lt;xsl:for-each select="/book/chapter"&gt;
+          &lt;xt:document method="xml" 
+            href="chapter{position()}.html"&gt;
+            &lt;html&gt;
+              &lt;head&gt;
+                &lt;title&gt;&lt;xsl:value-of select="title"/&gt;&lt;/title&gt;
+              &lt;/head&gt;
+              &lt;body&gt;
+                &lt;h1&gt;&lt;xsl:value-of select="title"/&gt;&lt;/h1&gt;
+                &lt;xsl:apply-templates select="para"/&gt;
+                &lt;xsl:if test="not(position()=1)"&gt;
+                  &lt;p&gt;&lt;a href="chapter{position()-1}.html"&gt;Previous&lt;/a&gt;&lt;/p&gt;
+                &lt;/xsl:if&gt;
+                &lt;xsl:if test="not(position()=last())"&gt;
+                  &lt;p&gt;&lt;a href="chapter{position()+1}.html"&gt;Next&lt;/a&gt;&lt;/p&gt;
+                &lt;/xsl:if&gt;
+              &lt;/body&gt;
+            &lt;/html&gt;
+          &lt;/xt:document&gt;
+        &lt;/xsl:for-each&gt;
+      &lt;/xsl:when&gt;
+      &lt;xsl:when test="contains(system-property('xsl:vendor'), 'Apache')"&gt;
+        &lt;xsl:for-each select="/book/chapter"&gt;
+          &lt;redirect:write select="concat('chapter', position(), '.html')"&gt;
+            &lt;html&gt;
+              &lt;head&gt;
+                &lt;title&gt;&lt;xsl:value-of select="title"/&gt;&lt;/title&gt;
+              &lt;/head&gt;
+              &lt;body&gt;
+                &lt;h1&gt;&lt;xsl:value-of select="title"/&gt;&lt;/h1&gt;
+                &lt;xsl:apply-templates select="para"/&gt;
+                &lt;xsl:if test="not(position()=1)"&gt;
+                  &lt;p&gt;&lt;a href="chapter{position()-1}.html"&gt;Previous&lt;/a&gt;&lt;/p&gt;
+                &lt;/xsl:if&gt;
+                &lt;xsl:if test="not(position()=last())"&gt;
+                  &lt;p&gt;&lt;a href="chapter{position()+1}.html"&gt;Next&lt;/a&gt;&lt;/p&gt;
+                &lt;/xsl:if&gt;
+              &lt;/body&gt;
+            &lt;/html&gt;
+          &lt;/redirect:write&gt;
+        &lt;/xsl:for-each&gt;
+      &lt;/xsl:when&gt;
+      &lt;xsl:when test="contains(system-property('xsl:vendor'), 'SAXON')"&gt;
+        &lt;xsl:for-each select="/book/chapter"&gt;
+          &lt;saxon:output href="chapter{position()}.html"&gt;
+            &lt;html&gt;
+              &lt;head&gt;
+                &lt;title&gt;&lt;xsl:value-of select="title"/&gt;&lt;/title&gt;
+              &lt;/head&gt;
+              &lt;body&gt;
+                &lt;h1&gt;&lt;xsl:value-of select="title"/&gt;&lt;/h1&gt;
+                &lt;xsl:apply-templates select="para"/&gt;
+                &lt;xsl:if test="not(position()=1)"&gt;
+                  &lt;p&gt;&lt;a href="chapter{position()-1}.html"&gt;Previous&lt;/a&gt;&lt;/p&gt;
+                &lt;/xsl:if&gt;
+                &lt;xsl:if test="not(position()=last())"&gt;
+                  &lt;p&gt;&lt;a href="chapter{position()+1}.html"&gt;Next&lt;/a&gt;&lt;/p&gt;
+                &lt;/xsl:if&gt;
+              &lt;/body&gt;
+            &lt;/html&gt;
+          &lt;/saxon:output&gt;
+        &lt;/xsl:for-each&gt;
+      &lt;/xsl:when&gt;
+      &lt;xsl:otherwise&gt;
+        &lt;html&gt;
+          &lt;head&gt;
+            &lt;title&gt;&lt;xsl:value-of select="/book/title"/&gt;&lt;/title&gt;
+          &lt;/head&gt;
+          &lt;xsl:for-each select="/book/chapter"&gt;
+            &lt;h1&gt;&lt;xsl:value-of select="title"/&gt;&lt;/h1&gt;
+            &lt;xsl:apply-templates select="para"/&gt;
+          &lt;/xsl:for-each&gt;
+        &lt;/html&gt;
+      &lt;/xsl:otherwise&gt;
+    &lt;/xsl:choose&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="para"&gt;
+    &lt;p&gt;&lt;xsl:apply-templates select="*|text()"/&gt;&lt;/p&gt;
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+        <p>
+<a name="INDEX-641" /></a>
+<a name="INDEX-642" /></a>
+<a name="INDEX-643" /></a>
+
+All we've done here is add more <tt class="literal">&lt;xsl:when&gt;</tt> elements, each of which tries to figure out which XSLT processor we're using. The difference here is that the XT processor doesn't implement the <tt class="literal">element-available()</tt> function, so we can't use it in any stylesheet that will be processed by XT. To get around this problem, we use the <tt class="literal">system-property()</tt> function to get the <tt class="literal">vendor</tt> property. If the vendor contains the string "James Clark," we know that we're using XT. We test the other processors similarly. If we find that we're using an XSLT processor we recognize, we use its extension functions to split the output into multiple HTML files; otherwise, we write all the output to a single file. Obviously, maintenance of this stylesheet is more involved, but it does give us the freedom to switch XSLT processors. (The other downside is that we depend on the value of the <tt class="literal">vendor</tt> system property; if the next release of Saxon identifies the vendor as <tt class="literal">Saxon</tt> instead of <tt class="literal">SAXON</tt>, our stylesheet won't work properly.)
+<a name="INDEX-644" /></a>
+<a name="INDEX-645" /></a>
+<a name="INDEX-646" /></a>
+<a name="INDEX-647" /></a>
+<a name="INDEX-648" /></a>
+<a name="INDEX-649" /></a>
+<a name="INDEX-650" /></a>
+
+
+</p>
+      </div>
+    </div>
+    <div class="sect2">
+      <h3 class="sect2">8.1.2. Extension Functions</h3>
+      <p>
+<a name="INDEX-651" /></a>
+<a name="INDEX-652" /></a>
+
+As you might guess, an extension function is defined in a piece of code external to the XSLT processor. You can pass values to the function, and the function can return a result. That result can be any of the datatypes supported by XPath. In addition, various XSLT processors are free to allow extension functions to return other datatypes, although those other datatypes must be handled by some other function that does return one of XPath's datatypes.</p>
+      <div class="sect3">
+        <h3 class="sect3">8.1.2.1. Example: A library of trigonometric functions</h3>
+        <p>
+<a name="INDEX-653" /></a>
+<a name="INDEX-654" /></a>
+<a name="INDEX-655" /></a>
+<a name="INDEX-656" /></a>
+
+
+As we outlined the functions and operators available in XPath and XSLT, you probably noticed that the mathematical functions at your disposal are rather limited. In this example, we'll write an extension that provides a variety of trignometric functions.</p>
+        <p>
+<a name="INDEX-657" /></a>
+
+Our scenario here is that we want to generate a Scalable Vector Graphics (SVG) pie chart from an XML document. Our XML document contains the sales figures for various regions of a company; we need to calculate the dimensions of the various slices of the pie graph for our SVG document. Here's the XML source we'll be working with:</p>
+        <blockquote><pre class="code">
+&lt;?xml version="1.0" ?&gt;
+&lt;sales&gt;
+  &lt;caption&gt;
+    &lt;heading&gt;3Q 2001 Sales Figures&lt;/heading&gt;
+    &lt;subheading&gt;($ millions)&lt;/subheading&gt;
+  &lt;/caption&gt;
+  &lt;region&gt;
+    &lt;name&gt;Southeast&lt;/name&gt;
+    &lt;product name="Heron"&gt;38.3&lt;/product&gt;
+    &lt;product name="Kingfisher"&gt;12.7&lt;/product&gt;
+    &lt;product name="Pelican"&gt;6.1&lt;/product&gt;
+    &lt;product name="Sandpiper"&gt;29.9&lt;/product&gt;
+    &lt;product name="Crane"&gt;57.2&lt;/product&gt;
+  &lt;/region&gt;
+  &lt;region&gt;
+    &lt;name&gt;Northeast&lt;/name&gt;
+    &lt;product name="Heron"&gt;49.7&lt;/product&gt;
+    &lt;product name="Kingfisher"&gt;2.8&lt;/product&gt;
+    &lt;product name="Pelican"&gt;4.8&lt;/product&gt;
+    &lt;product name="Sandpiper"&gt;31.5&lt;/product&gt;
+    &lt;product name="Crane"&gt;60.0&lt;/product&gt;
+  &lt;/region&gt;
+  &lt;region&gt;
+    &lt;name&gt;Southwest&lt;/name&gt;
+    &lt;product name="Heron"&gt;31.1&lt;/product&gt;
+    &lt;product name="Kingfisher"&gt;9.8&lt;/product&gt;
+    &lt;product name="Pelican"&gt;8.7&lt;/product&gt;
+    &lt;product name="Sandpiper"&gt;34.3&lt;/product&gt;
+    &lt;product name="Crane"&gt;50.4&lt;/product&gt;
+  &lt;/region&gt;
+  &lt;region&gt;
+    &lt;name&gt;Midwest&lt;/name&gt;
+    &lt;product name="Heron"&gt;44.5&lt;/product&gt;
+    &lt;product name="Kingfisher"&gt;9.3&lt;/product&gt;
+    &lt;product name="Pelican"&gt;5.7&lt;/product&gt;
+    &lt;product name="Sandpiper"&gt;28.8&lt;/product&gt;
+    &lt;product name="Crane"&gt;54.6&lt;/product&gt;
+  &lt;/region&gt;
+  &lt;region&gt;
+    &lt;name&gt;Northwest&lt;/name&gt;
+    &lt;product name="Heron"&gt;36.6&lt;/product&gt;
+    &lt;product name="Kingfisher"&gt;5.4&lt;/product&gt;
+    &lt;product name="Pelican"&gt;9.1&lt;/product&gt;
+    &lt;product name="Sandpiper"&gt;39.1&lt;/product&gt;
+    &lt;product name="Crane"&gt;58.2&lt;/product&gt;
+  &lt;/region&gt;
+&lt;/sales&gt;</pre></blockquote>
+        <p>Our goal is to create an SVG file that looks like that in <a href="ch08_01.htm#xslt-CHP-8-FIG-2">Figure 8-2</a>.</p>
+        <a name="xslt-CHP-8-FIG-2" /></a><div class="figure"><img height="178" alt="Figure 8-2" src="figs/xslt.0802.gif" width="259" /></div><h4 class="objtitle">Figure 8-2. Target SVG file format</h4>
+        <p>To make things really interesting, we'll generate an HTML page that embeds the SVG file. We'll use the <tt class="literal">Redirect</tt> extension we used earlier to generate an HTML file and an SVG file in a single transformation. If we view the HTML page in a web browser, we can use Adobe's SVG plug-in to make the graphic interactive. If we move the mouse over a given slice of the pie, the legend will change to show the sales details for that region of the company. Thus, we'll also have to create all the different legends and generate the JavaScript code to make the various SVG elements visible or hidden in response to mouse events. <a href="ch08_01.htm#xslt-CHP-8-FIG-3">Figure 8-3</a> shows how the graphic looks if we move the mouse over the pie slice for the Southwest region.</p>
+        <a name="xslt-CHP-8-FIG-3" /></a><div class="figure"><img height="196" alt="Figure 8-3" src="figs/xslt.0803.gif" width="271" /></div><h4 class="objtitle">Figure 8-3. SVG chart changes in response to mouse events</h4>
+        <p>XPath's limited math functions won't allow us to calculate the dimensions of the various arcs that make up the pie chart, so we'll use extension functions to solve this problem. Fortunately for us, Java provides all the basic trigonometric functions we need in the <tt class="literal">java.lang.Math</tt> class. Even better, Xalan makes it easy for us to load this class and execute its methods (such as <tt class="literal">sin()</tt>, <tt class="literal">cos()</tt>, and <tt class="literal">toRadians()</tt>). </p>
+
+        <p>We'll go over the relevant details as they appear in the stylesheet. First, we have to declare our namespace prefixes, just as we did when we used an extension element:</p>
+        <blockquote><pre class="code">
+&lt;xsl:stylesheet version="1.0" 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:redirect="org.apache.xalan.xslt.extensions.Redirect"
+  extension-element-prefixes="java redirect"
+  xmlns:java="http://xml.apache.org/xslt/java"&gt;</pre></blockquote>
+        <p>We associated the <tt class="literal">java</tt> namespace prefix with the string "http://xml.apache.org/xslt/java"; Xalan uses this string to support extension functions and elements written in Java. Before we use the extension functions to generate the SVG file, we'll take care of the HTML. First, we generate the <tt class="literal">&lt;head&gt;</tt> section of the HTML document, including the JavaScript code we need to make the pie chart interactive:</p>
+        <blockquote><pre class="code">
+&lt;xsl:template match="sales"&gt;
+  &lt;html&gt;
+    &lt;head&gt;
+      &lt;title&gt;
+        &lt;xsl:value-of select="caption/heading"/&gt;
+      &lt;/title&gt;
+      &lt;script language="JavaScript1.2"&gt;
+        &lt;xsl:comment&gt;
+          &lt;xsl:call-template name="js"/&gt;
+          &lt;xsl:text&gt;// &lt;/xsl:text&gt;&lt;/xsl:comment&gt;
+      &lt;/script&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+      &lt;center&gt;
+        &lt;embed name="pie" width="650" height="500" src="saleschart.svg"/&gt;
+      &lt;/center&gt;
+    &lt;/body&gt;
+  &lt;/html&gt;</pre></blockquote>
+        <p>The HTML file we create generates an HTML <tt class="literal">&lt;title&gt;</tt> element from the XML document, calls the named template that generates the JavaScript code, then embeds the SVG file that we'll generate in a minute. The template we use to generate the JavaScript code is worth a closer look. Here's the code:</p>
+        <blockquote><pre class="code">
+&lt;xsl:template name="js"&gt;
+  &lt;xsl:text&gt;
+      function suppress_errors ()
+      {
+        return true;
+      }
+
+      function does_element_exist (svg_name, element_name)
+      {
+        // First, redirect the error handler so that if the SVG plug-in has 
+        // not yet loaded or is not present, it doesn't cause the browser to
+        // issue a JavaScript error.
+        var old_error = window.onerror;
+        window.onerror = suppress_errors;
+
+        // Now attempt to get the SVG object.
+        var svgobj = document.embeds[svg_name].
+            getSVGDocument().getElementById(element_name);
+            
+        // Reset the error handler to the browser's default handler.
+        window.onerror = old_error;
+
+        // Return appropriate value.
+        if (svgobj == null)
+          return false;
+        else
+          return true;
+      }
+
+      function mouse_over (target_id)
+      {
+        var svgdoc = document.pie.getSVGDocument();
+        var svgobj;
+        var svgstyle;
+
+        var detail_name = 'details' + target_id;
+        svgobj = svgdoc.getElementById(detail_name);
+        if (svgobj != null)
+        {
+          svgstyle = svgobj.getStyle();
+          svgstyle.setProperty ('visibility', 'visible');
+        }
+  &lt;/xsl:text&gt;
+  &lt;xsl:for-each select="/sales/region"&gt;
+    &lt;xsl:text&gt;svgobj = svgdoc.getElementById('legend&lt;/xsl:text&gt;
+    &lt;xsl:value-of select="position()"/&gt;&lt;xsl:text&gt;');&lt;/xsl:text&gt;
+    &lt;xsl:text&gt;
+        if (svgobj != null)
+        {
+          svgstyle = svgobj.getStyle();
+          svgstyle.setProperty ('visibility', 'hidden');
+        }
+    &lt;/xsl:text&gt;
+  &lt;/xsl:for-each&gt;
+  &lt;xsl:text&gt;
+        // Propagate the event to other handlers.
+        return true;
+      }
+
+      function mouse_out ()
+      {
+        var svgdoc = document.pie.getSVGDocument();
+        var svgobj;
+        var svgstyle;
+
+  &lt;/xsl:text&gt;
+  &lt;xsl:for-each select="/sales/region"&gt;
+    &lt;xsl:text&gt;svgobj = svgdoc.getElementById('legend&lt;/xsl:text&gt;
+    &lt;xsl:value-of select="position()"/&gt;&lt;xsl:text&gt;');&lt;/xsl:text&gt;
+    &lt;xsl:text&gt;
+        if (svgobj != null)
+        {
+          svgstyle = svgobj.getStyle();
+          svgstyle.setProperty ('visibility', 'visible');
+        }
+    &lt;/xsl:text&gt;
+    &lt;xsl:text&gt;svgobj = svgdoc.getElementById('details&lt;/xsl:text&gt;
+    &lt;xsl:value-of select="position()"/&gt;&lt;xsl:text&gt;');&lt;/xsl:text&gt;
+    &lt;xsl:text&gt;
+        if (svgobj != null)
+        {
+          svgstyle = svgobj.getStyle();
+          svgstyle.setProperty ('visibility', 'hidden');
+        }
+    &lt;/xsl:text&gt;
+  &lt;/xsl:for-each&gt;
+  &lt;xsl:text&gt;
+
+        // Propagate the event to other handlers.
+          return true;
+      }
+  &lt;/xsl:text&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+        <p>
+<a name="INDEX-658" /></a>
+<a name="INDEX-659" /></a>
+<a name="INDEX-660" /></a>
+<a name="INDEX-661" /></a>
+
+
+We begin with the functions (<tt class="literal">suppress_errors()</tt> and <tt class="literal">does_element_exist()</tt>) that we'll need for error checking and handling. The <tt class="literal">mouse_over()</tt> function is more complicated. When the user moves the mouse over a particular section of the pie, we need to make some SVG elements visible and others invisible. We'll use a naming convention here; for each <tt class="literal">&lt;region&gt;</tt> in our original document, we'll generate a legend entry and a set of details. Originally, the legend is visible and all details are hidden. When our <tt class="literal">mouse_over()</tt> function is called, it makes all the legend elements hidden and makes the appropriate details element visible. Here's how the generated code looks:</p>
+        <blockquote><pre class="code">
+function mouse_over (target_id)
+{
+  var svgdoc = document.pie.getSVGDocument();
+  var svgobj;
+  var svgstyle;
+
+  var detail_name = 'details' + target_id;
+  svgobj = svgdoc.getElementById(detail_name);
+  if (svgobj != null)
+  {
+  svgstyle = svgobj.getStyle();
+  svgstyle.setProperty ('visibility', 'visible');
+  }
+  svgobj = svgdoc.getElementById('legend1');
+  if (svgobj != null)
+  {
+    svgstyle = svgobj.getStyle();
+    svgstyle.setProperty ('visibility', 'hidden');
+  }
+
+  ...
+      
+  // Propagate the event to other handlers.
+  return true;
+}</pre></blockquote>
+        <p>The section that begins <tt class="literal">svgdoc.getElementById('legend1')</tt> repeats for each <tt class="literal">&lt;region&gt;</tt> in the XML source document. The repeated code ensures that all legend elements are hidden. This code handles the mouse over event; our final task is to handle the mouse out event. The generated <tt class="literal">mouse_out()</tt> function looks like:</p>
+        <blockquote><pre class="code">
+function mouse_out ()
+{
+  var svgdoc = document.pie.getSVGDocument();
+  var svgobj;
+  var svgstyle;
+
+  svgobj = svgdoc.getElementById('legend1');
+  if (svgobj != null)
+  {
+    svgstyle = svgobj.getStyle();
+    svgstyle.setProperty ('visibility', 'visible');
+  }
+  svgobj = svgdoc.getElementById('details1');
+  if (svgobj != null)
+  {
+    svgstyle = svgobj.getStyle();
+    svgstyle.setProperty ('visibility', 'hidden');
+  }
+
+  ...
+
+  // Propagate the event to other handlers.
+    return true;
+}</pre></blockquote>
+<a name="INDEX-662" /></a>
+        <p>The <tt class="literal">mouse_out()</tt> function makes sure that all legend elements are visible and that all details elements are hidden. Although these two functions are relatively simple, they work together to make our pie chart interactive and dynamic.</p>
+        <blockquote><b>TIP:</b> One final note about our generated JavaScript code; notice how we invoked the named template inside an <tt class="literal">&lt;xsl:comment&gt;</tt> element:<p></p>
+          <blockquote><pre class="code">
+&lt;script language="JavaScript1.2"&gt;
+  &lt;xsl:comment&gt;
+    &lt;xsl:call-template name="js"/&gt;
+    &lt;xsl:text&gt;// &lt;/xsl:text&gt;&lt;/xsl:comment&gt;
+&lt;/script&gt;</pre></blockquote>
+          <p>Scripting code is typically written inside a comment in an HTML file, allowing browsers that don't support scripting to safely ignore the code. The end of the generated JavaScript code looks like this:</p>
+          <blockquote><pre class="code">
+  // Propagate the event to other handlers.
+    return true;
+}
+    // --&gt;&lt;/script&gt;</pre></blockquote>
+          <p>We used an <tt class="literal">&lt;xsl:text&gt;</tt> element to draw the double slash at the end of the script. The double slash is a JavaScript comment, which tells the JavaScript processor to ignore the <tt class="literal">--&gt;</tt> at the end of the script. Without this slash, some JavaScript processors attempt to process the end of the comment and issue an error message. Keep this in mind when you're generating JavaScript code with your stylesheets; if you don't, you'll have trouble tracking down the occasional errors that occur in some browsers. </p>
+        </blockquote>
+        <p>Now that we've built the HTML file, here's how we draw each wedge of the pie:</p>
+        <ol>
+          <li>
+            <p>Calculate the total sales for the entire company and store it in a variable. Calculating total sales is relatively expensive because the XSLT processor has to navigate the entire tree. We'll need to use this value many times, so we calculate it once and store it away. Here's the calculation for total sales:</p>
+            <blockquote><pre class="code">
+&lt;xsl:variable name="totalSales" select="sum(//product)"/&gt;</pre></blockquote>
+          </li>
+          <li>
+            <p>For each slice of the pie, we calculate certain values and pass them as parameters to the <tt class="literal">region</tt> template. First, we determine the color of the slice and the total sales for this particular region of the company. We use the <tt class="literal">position()</tt> function and the <tt class="literal">mod</tt> operator to calculate the color, and we use the <tt class="literal">sum()</tt> function to calculate the sales for this region of the company.</p>
+          </li>
+
+          <li>
+            <p>If this is the first slice of the pie, we'll explode it. That means that the first slice will be offset from the rest of the pie. We will set the variable <tt class="literal">$explode</tt> as follows:</p>
+            <blockquote><pre class="code">
+&lt;xsl:variable name="explode" select="position()=1"/&gt;</pre></blockquote>
+          </li>
+          <li>
+            <p>The last value we calculate is the total sales of all previous regions. When we draw each slice of the pie, we rotate the coordinate axis a certain number of degrees. The amount of the rotation depends on how much of the total sales have been drawn so far. In other words, if we've drawn exactly 50 percent of the total sales so far, we'll rotate the axis 180 degrees (50 percent of 360). Rotating the axis simplifies the trigonometry we have to do. To calculate the total sales we've drawn so far, we use the <tt class="literal">preceding-sibling</tt> axis:</p>
+            <blockquote><pre class="code">
+&lt;xsl:with-param name="runningTotal" 
+  select="sum(preceding-sibling::region/product)"/&gt;</pre></blockquote>
+          </li>
+          <li>
+            <p>Inside the template itself, our first step is to calculate the angle in radians of the current slice of the pie. This is the first time we use one of our extension functions:</p>
+            <blockquote><pre class="code">
+&lt;xsl:variable name="currentAngle" 
+  select="java:java.lang.Math.toRadians(($regionSales div 
+                                         $totalSales) * 360.0)"/&gt;</pre></blockquote>
+            <p>We store this value in the variable <tt class="literal">currentAngle</tt>; we'll use this value later with the <tt class="literal">sin()</tt> and <tt class="literal">cos()</tt> functions.</p>
+          </li>
+          <li>
+            <p>
+<a name="INDEX-663" /></a>
+
+Now we're finally ready to draw the pie slice. We'll do this with an SVG <tt class="literal">&lt;path&gt;</tt> element. Here's what one looks like; we'll discuss what the attributes mean in a minute:</p>
+            <blockquote><pre class="code">
+&lt;path onclick="return false;" onmouseout="mouse_out();" style="fill:orange; 
+stroke:black; stroke-width:2; fillrule:evenodd; stroke-linejoin:bevel;" 
+transform="translate(100,160)  rotate(-72.24046757584189)" 
+onmouseover="return mouse_over(2);" 
+d="M 80 0 A 80 80 0 0 0 21.318586104178774 -77.10718440274366 L 0 0 Z "&gt;
+&lt;/path&gt;</pre></blockquote>
+            <p>The following stylesheet fragment generated this intimidating element:</p>
+            <blockquote><pre class="code">
+&lt;path style="fill:{$color}; stroke:black; stroke-width:2; 
+  fillrule:evenodd; stroke-linejoin:bevel;"
+  onmouseout="mouse_out();" onclick="return false;"&gt;
+  &lt;xsl:attribute name="transform"&gt;
+    &lt;xsl:choose&gt;
+      &lt;xsl:when test="$explode"&gt;
+        &lt;xsl:text&gt;translate(&lt;/xsl:text&gt;
+        &lt;xsl:value-of 
+          select="(java:java.lang.Math.cos($currentAngle div 2) * 20) +
+                  100"/&gt;
+        &lt;xsl:text&gt;,&lt;/xsl:text&gt;
+        &lt;xsl:value-of 
+          select="(java:java.lang.Math.sin($currentAngle div 2) * -20) + 
+                  160"/&gt;
+          &lt;xsl:text&gt;) &lt;/xsl:text&gt;
+      &lt;/xsl:when&gt;
+      &lt;xsl:otherwise&gt;
+        &lt;xsl:text&gt;translate(100,160) &lt;/xsl:text&gt;
+      &lt;/xsl:otherwise&gt;
+    &lt;/xsl:choose&gt;
+    &lt;xsl:text&gt; rotate(&lt;/xsl:text&gt;
+    &lt;xsl:value-of 
+      select="-1 * (($runningTotal div $totalSales) * 360.0)"/&gt;
+    &lt;xsl:text&gt;)&lt;/xsl:text&gt;
+  &lt;/xsl:attribute&gt;
+  &lt;xsl:attribute name="onmouseover"&gt;
+    &lt;xsl:text&gt;return mouse_over(&lt;/xsl:text&gt;
+    &lt;xsl:value-of select="$position"/&gt;&lt;xsl:text&gt;);&lt;/xsl:text&gt;
+  &lt;/xsl:attribute&gt;
+  &lt;xsl:attribute name="d"&gt;
+    &lt;xsl:text&gt;M 80 0 A 80 80 0 &lt;/xsl:text&gt;
+    &lt;xsl:choose&gt;
+      &lt;xsl:when test="$currentAngle &gt; 3.14"&gt;
+        &lt;xsl:text&gt;1 &lt;/xsl:text&gt;
+      &lt;/xsl:when&gt;
+      &lt;xsl:otherwise&gt;
+        &lt;xsl:text&gt;0 &lt;/xsl:text&gt;
+      &lt;/xsl:otherwise&gt;
+    &lt;/xsl:choose&gt;
+    &lt;xsl:text&gt;0 &lt;/xsl:text&gt;
+    &lt;xsl:value-of 
+      select="java:java.lang.Math.cos($currentAngle) * 80"/&gt;
+    &lt;xsl:text&gt; &lt;/xsl:text&gt;
+    &lt;xsl:value-of 
+      select="java:java.lang.Math.sin($currentAngle) * -80"/&gt;
+    &lt;xsl:text&gt; L 0 0 Z &lt;/xsl:text&gt;
+  &lt;/xsl:attribute&gt;
+&lt;/path&gt;</pre></blockquote>
+            <p>
+<a name="INDEX-664" /></a>
+<a name="INDEX-665" /></a>
+
+The <tt class="literal">style</tt> attribute defines various properties of the path, including the color in which the path should be drawn, with which the path should be filled, etc. With the exception of the color, everything in the <tt class="literal">style</tt> attribute is the same for all slices of the pie. The <tt class="literal">transform</tt> attribute does two things: it moves the center of the coordinate space to a particular point, then it rotates the axes some number of degrees. The center of the coordinate space is moved to a slightly different location if the <tt class="literal">$explode</tt> variable is true. The extent to which the axes are rotated depends on the percentage of total sales represented by the previous regions of the company. Moving the center of the coordinate space and rotating the axes simplifies the math we have to do later. </p>
+            <p>
+<a name="INDEX-666" /></a>
+
+That brings us to the gloriously cryptic <tt class="literal">d</tt> attribute. This attribute contains a number of drawing commands; in our previous example, we move the current point to <tt class="literal">(80,0)</tt> (<tt class="literal">M</tt> stands for move), then we draw an elliptical arc (<tt class="literal">A</tt> stands for arc) with various properties. Finally, we draw a line (<tt class="literal">L</tt> stands for line) from the current point (the end of our arc) to the origin, then we use the <tt class="literal">Z</tt> command, which closes the path by drawing a line from wherever we are to wherever we started. </p>
+            <p>If you really must know what the properties of the <tt class="literal">A</tt> command are, they are the two radii of the ellipse, the degrees by which the x-axis should be rotated, two parameters called the large-arc-flag and the sweep-flag that determine how the arc is drawn, and the x- and y-coordinates of the end of the arc. In our example here, the two radii of the ellipse are the same (we want the pie to be round, not elliptical). Next is the x-axis rotation, which is <tt class="literal">0</tt>. After that is the large-arc-flag, which is <tt class="literal">1</tt> if this particular slice of the pie is greater than 180 degrees, <tt class="literal">0</tt> otherwise. The sweep-flag is <tt class="literal">0</tt>, and the last two parameters, the x- and y-coordinates of the end point, are calculated. See the SVG specification for more details on the <tt class="literal">path</tt> and <tt class="literal">shape</tt> elements.</p>
+          </li>
+          <li>
+            <p>
+<a name="INDEX-667" /></a>
+<a name="INDEX-668" /></a>
+
+Our next task is to draw all of the legends. We'll draw one legend to identify each slice of the pie; after that, we'll create a separate legend for each slice of the pie. Initially, all of the separate legends will be invisible (<tt class="literal">&lt;g style="visibility:hidden"&gt;</tt>, in SVG parlance), and the basic legend for the pie will be visible. As we mouse over the various slices of the pie, different legends will become visible or invisible. First, we'll draw the basic legend, using the <tt class="literal">mode</tt> attribute of the <tt class="literal">&lt;apply-templates&gt;</tt> element:</p>
+            <blockquote><pre class="code">
+&lt;xsl:apply-templates select="." mode="legend"&gt;
+  &lt;xsl:with-param name="color" select="$color"/&gt;
+  &lt;xsl:with-param name="regionSales" select="$regionSales"/&gt;
+  &lt;xsl:with-param name="y-legend-offset" 
+    select="90 + (position() * 20)"/&gt;
+  &lt;xsl:with-param name="position" select="position()"/&gt;
+&lt;/xsl:apply-templates&gt;</pre></blockquote>
+            <p>When we apply our template, we pass in several parameters, including the color of the box in the legend entry and the y-coordinate offset where the legend entry should be drawn. We call this template once for each <tt class="literal">&lt;region&gt;</tt> element, ensuring that our legend identifies each slice of the pie, regardless of how many slices there are. For each slice, we draw a box filled with the appropriate color, with the name of the region next to it. </p>
+          </li>
+          <li>
+            <p>Our final task is to draw the details for this region of the company. We'll draw the name of the region in the same color we used for the pie slice, then list all sales figures for the region. Here's what the template looks like:</p>
+            <blockquote><pre class="code">
+&lt;xsl:template match="region" mode="details"&gt;
+  &lt;xsl:param name="color" select="black"/&gt;
+  &lt;xsl:param name="position" select="'0'"/&gt;
+  &lt;xsl:param name="y-legend-offset"/&gt;
+
+  &lt;g style="visibility:hidden"&gt;
+    &lt;xsl:attribute name="id"&gt;
+      &lt;xsl:text&gt;details&lt;/xsl:text&gt;&lt;xsl:value-of select="$position"/&gt;
+    &lt;/xsl:attribute&gt;
+    &lt;text style="font-size:14; font-weight:bold; 
+      text-anchor:start; fill: {$color}" x="220"&gt;
+      &lt;xsl:attribute name="y"&gt;
+        &lt;xsl:value-of select="$y-legend-offset"/&gt;
+      &lt;/xsl:attribute&gt;
+      &lt;xsl:value-of select="name"/&gt;&lt;xsl:text&gt; Sales:&lt;/xsl:text&gt;
+    &lt;/text&gt;
+    &lt;xsl:for-each select="product"&gt;
+      &lt;text style="font-size:12; text-anchor:start" x="220"&gt;
+        &lt;xsl:attribute name="y"&gt;
+          &lt;xsl:value-of select="$y-legend-offset + (position() * 20)"/&gt;
+        &lt;/xsl:attribute&gt;
+        &lt;xsl:value-of select="@name"/&gt;
+        &lt;xsl:text&gt;: &lt;/xsl:text&gt;&lt;xsl:value-of select="."/&gt;
+      &lt;/text&gt;
+    &lt;/xsl:for-each&gt; 
+  &lt;/g&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+            <p>Notice that we draw this item to be invisible (<tt class="literal">style="visibility:hidden"</tt>); we'll use our JavaScript effects to make the various legends and details visible or hidden. In our stylesheet, we draw the title of the current region using the same color we used for the slice of the pie, followed by the sales figures for each product sold in this region. </p>
+          </li>
+        </ol>
+        <p>Here's the complete stylesheet:</p>
+        
+        <blockquote><pre class="code">
+&lt;?xml version="1.0" encoding="ISO-8859-1"?&gt;
+&lt;xsl:stylesheet version="1.0" 
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:redirect="org.apache.xalan.xslt.extensions.Redirect"
+  extension-element-prefixes="java redirect"
+  xmlns:java="http://xml.apache.org/xslt/java"&gt;
+
+  &lt;xsl:output method="html"/&gt;
+
+  &lt;xsl:strip-space elements="*"/&gt;
+
+  &lt;xsl:template name="js"&gt;
+    &lt;xsl:text&gt;
+        function suppress_errors ()
+        {
+          return true;
+        }
+
+        function does_element_exist (svg_name, element_name)
+        {
+          // First, redirect the error handler so that if the SVG plug-in has 
+          // not yet loaded or is not present, it doesn't cause the browser to
+          // issue a JavaScript error.
+          var old_error = window.onerror;
+          window.onerror = suppress_errors;
+
+          // Now attempt to get the SVG object.
+          var svgobj = document.embeds[svg_name].
+              getSVGDocument().getElementById(element_name);
+            
+          // Reset the error handler to the browser's default handler.
+          window.onerror = old_error;
+
+          // Return appropriate value.
+          if (svgobj == null)
+            return false;
+          else
+            return true;
+        }
+
+        function mouse_over (target_id)
+        {
+          var svgdoc = document.pie.getSVGDocument();
+          var svgobj;
+          var svgstyle;
+
+          var detail_name = 'details' + target_id;
+          svgobj = svgdoc.getElementById(detail_name);
+          if (svgobj != null)
+          {
+            svgstyle = svgobj.getStyle();
+            svgstyle.setProperty ('visibility', 'visible');
+          }
+    &lt;/xsl:text&gt;
+    &lt;xsl:for-each select="/sales/region"&gt;
+      &lt;xsl:text&gt;svgobj = svgdoc.getElementById('legend&lt;/xsl:text&gt;
+      &lt;xsl:value-of select="position()"/&gt;&lt;xsl:text&gt;');&lt;/xsl:text&gt;
+      &lt;xsl:text&gt;
+          if (svgobj != null)
+          {
+            svgstyle = svgobj.getStyle();
+            svgstyle.setProperty ('visibility', 'hidden');
+          }
+      &lt;/xsl:text&gt;
+    &lt;/xsl:for-each&gt;
+    &lt;xsl:text&gt;
+          // Propagate the event to other handlers.
+          return true;
+        }
+
+        function mouse_out ()
+        {
+          var svgdoc = document.pie.getSVGDocument();
+          var svgobj;
+          var svgstyle;
+
+    &lt;/xsl:text&gt;
+    &lt;xsl:for-each select="/sales/region"&gt;
+      &lt;xsl:text&gt;svgobj = svgdoc.getElementById('legend&lt;/xsl:text&gt;
+      &lt;xsl:value-of select="position()"/&gt;&lt;xsl:text&gt;');&lt;/xsl:text&gt;
+      &lt;xsl:text&gt;
+          if (svgobj != null)
+          {
+            svgstyle = svgobj.getStyle();
+            svgstyle.setProperty ('visibility', 'visible');
+          }
+      &lt;/xsl:text&gt;
+      &lt;xsl:text&gt;svgobj = svgdoc.getElementById('details&lt;/xsl:text&gt;
+      &lt;xsl:value-of select="position()"/&gt;&lt;xsl:text&gt;');&lt;/xsl:text&gt;
+      &lt;xsl:text&gt;
+          if (svgobj != null)
+          {
+            svgstyle = svgobj.getStyle();
+            svgstyle.setProperty ('visibility', 'hidden');
+          }
+      &lt;/xsl:text&gt;
+    &lt;/xsl:for-each&gt;
+    &lt;xsl:text&gt;
+          // Propagate the event to other handlers.
+            return true;
+        }
+    &lt;/xsl:text&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="/"&gt;
+    &lt;xsl:apply-templates select="sales"/&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="sales"&gt;
+    &lt;html&gt;
+      &lt;head&gt;
+        &lt;title&gt;
+          &lt;xsl:value-of select="caption/heading"/&gt;
+        &lt;/title&gt;
+        &lt;script language="JavaScript1.2"&gt;
+          &lt;xsl:comment&gt;
+            &lt;xsl:call-template name="js"/&gt;
+            &lt;xsl:text&gt;// &lt;/xsl:text&gt;&lt;/xsl:comment&gt;
+        &lt;/script&gt;
+      &lt;/head&gt;
+      &lt;body&gt;
+        &lt;center&gt;
+          &lt;embed name="pie" width="650" height="500" src="saleschart.svg"/&gt;
+        &lt;/center&gt;
+      &lt;/body&gt;
+    &lt;/html&gt;
+    &lt;redirect:write select="concat('sales', 'chart', '.svg')"&gt;
+      &lt;svg width="450" height="300"&gt;
+        &lt;text style="font-size:24; text-anchor:middle; 
+          font-weight:bold" x="130" y="20"&gt;
+          &lt;xsl:value-of select="caption/heading"/&gt;
+        &lt;/text&gt;
+        &lt;text style="font-size:14; text-anchor:middle" y="40" x="130"&gt;
+          &lt;xsl:value-of select="caption/subheading"/&gt;
+        &lt;/text&gt;
+        
+        &lt;xsl:variable name="totalSales" select="sum(//product)"/&gt;
+        
+        &lt;xsl:for-each select="region"&gt;
+          &lt;xsl:variable name="regionSales" select="sum(product)"/&gt;
+          &lt;xsl:variable name="color"&gt;
+            &lt;xsl:choose&gt;
+              &lt;xsl:when test="(position() mod 6) = 1"&gt;
+                &lt;xsl:text&gt;red&lt;/xsl:text&gt;
+              &lt;/xsl:when&gt;
+              &lt;xsl:when test="(position() mod 6) = 2"&gt;
+                &lt;xsl:text&gt;orange&lt;/xsl:text&gt;
+              &lt;/xsl:when&gt;
+              &lt;xsl:when test="(position() mod 6) = 3"&gt;
+                &lt;xsl:text&gt;purple&lt;/xsl:text&gt;
+              &lt;/xsl:when&gt;
+              &lt;xsl:when test="(position() mod 6) = 4"&gt;
+                &lt;xsl:text&gt;blue&lt;/xsl:text&gt;
+              &lt;/xsl:when&gt;
+              &lt;xsl:when test="(position() mod 6) = 5"&gt;
+                &lt;xsl:text&gt;green&lt;/xsl:text&gt;
+              &lt;/xsl:when&gt;
+              &lt;xsl:otherwise&gt;
+                &lt;xsl:text&gt;orange&lt;/xsl:text&gt;
+              &lt;/xsl:otherwise&gt;
+            &lt;/xsl:choose&gt;
+          &lt;/xsl:variable&gt;
+          &lt;xsl:variable name="explode" select="position()=1"/&gt;
+          
+          &lt;xsl:apply-templates select="."&gt;
+            &lt;xsl:with-param name="color" select="$color"/&gt;
+            &lt;xsl:with-param name="regionSales" select="$regionSales"/&gt;
+            &lt;xsl:with-param name="totalSales" select="$totalSales"/&gt;
+            &lt;xsl:with-param name="runningTotal" 
+              select="sum(preceding-sibling::region/product)"/&gt;
+            &lt;xsl:with-param name="explode" select="$explode"/&gt;
+            &lt;xsl:with-param name="position" select="position()"/&gt;
+          &lt;/xsl:apply-templates&gt;          
+          
+          &lt;xsl:apply-templates select="." mode="legend"&gt;
+            &lt;xsl:with-param name="color" select="$color"/&gt;
+            &lt;xsl:with-param name="regionSales" select="$regionSales"/&gt;
+            &lt;xsl:with-param name="y-legend-offset" 
+              select="90 + (position() * 20)"/&gt;
+            &lt;xsl:with-param name="position" select="position()"/&gt;
+          &lt;/xsl:apply-templates&gt;
+          
+          &lt;xsl:apply-templates select="." mode="details"&gt;
+            &lt;xsl:with-param name="color" select="$color"/&gt;
+            &lt;xsl:with-param name="position" select="position()"/&gt;
+            &lt;xsl:with-param name="y-legend-offset" select="110"/&gt;
+          &lt;/xsl:apply-templates&gt;
+          
+        &lt;/xsl:for-each&gt;
+      &lt;/svg&gt;
+    &lt;/redirect:write&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="region"&gt;
+    &lt;xsl:param name="color" select="'red'"/&gt;
+    &lt;xsl:param name="runningTotal" select="'0'"/&gt;
+    &lt;xsl:param name="totalSales" select="'0'"/&gt;
+    &lt;xsl:param name="regionSales" select="'0'"/&gt;
+    &lt;xsl:param name="explode"/&gt;
+    &lt;xsl:param name="position" select="'1'"/&gt;
+
+    &lt;xsl:variable name="currentAngle" 
+      select="java:java.lang.Math.toRadians(($regionSales div 
+                                             $totalSales) * 360.0)"/&gt;
+
+    &lt;path style="fill:{$color}; stroke:black; stroke-width:2; 
+      fillrule:evenodd; stroke-linejoin:bevel;"
+      onmouseout="mouse_out();" onclick="return false;"&gt;
+      &lt;xsl:attribute name="transform"&gt;
+        &lt;xsl:choose&gt;
+          &lt;xsl:when test="$explode"&gt;
+            &lt;xsl:text&gt;translate(&lt;/xsl:text&gt;
+            &lt;xsl:value-of 
+              select="(java:java.lang.Math.cos($currentAngle div 2) * 20) +
+                      100"/&gt;
+            &lt;xsl:text&gt;,&lt;/xsl:text&gt;
+            &lt;xsl:value-of 
+              select="(java:java.lang.Math.sin($currentAngle div 2) * -20) + 
+                      160"/&gt;
+              &lt;xsl:text&gt;) &lt;/xsl:text&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:otherwise&gt;
+            &lt;xsl:text&gt;translate(100,160) &lt;/xsl:text&gt;
+          &lt;/xsl:otherwise&gt;
+        &lt;/xsl:choose&gt;
+        &lt;xsl:text&gt; rotate(&lt;/xsl:text&gt;
+        &lt;xsl:value-of select="-1 * (($runningTotal div $totalSales) * 360.0)"/&gt;
+        &lt;xsl:text&gt;)&lt;/xsl:text&gt;
+      &lt;/xsl:attribute&gt;
+      &lt;xsl:attribute name="onmouseover"&gt;
+        &lt;xsl:text&gt;return mouse_over(&lt;/xsl:text&gt;
+        &lt;xsl:value-of select="$position"/&gt;&lt;xsl:text&gt;);&lt;/xsl:text&gt;
+      &lt;/xsl:attribute&gt;
+      &lt;xsl:attribute name="d"&gt;
+        &lt;xsl:text&gt;M 80 0 A 80 80 0 &lt;/xsl:text&gt;
+        &lt;xsl:choose&gt;
+          &lt;xsl:when test="$currentAngle &gt; 3.14"&gt;
+            &lt;xsl:text&gt;1 &lt;/xsl:text&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:otherwise&gt;
+            &lt;xsl:text&gt;0 &lt;/xsl:text&gt;
+          &lt;/xsl:otherwise&gt;
+        &lt;/xsl:choose&gt;
+        &lt;xsl:text&gt;0 &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="java:java.lang.Math.cos($currentAngle) * 80"/&gt;
+        &lt;xsl:text&gt; &lt;/xsl:text&gt;
+        &lt;xsl:value-of select="java:java.lang.Math.sin($currentAngle) * -80"/&gt;
+        &lt;xsl:text&gt; L 0 0 Z &lt;/xsl:text&gt;
+      &lt;/xsl:attribute&gt;
+    &lt;/path&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="region" mode="legend"&gt;
+    &lt;xsl:param name="color" select="'red'"/&gt;
+    &lt;xsl:param name="regionSales" select="'0'"/&gt;
+    &lt;xsl:param name="y-legend-offset" select="'0'"/&gt;
+    &lt;xsl:param name="position" select="'1'"/&gt;
+
+    &lt;g&gt;
+      &lt;xsl:attribute name="id"&gt;
+        &lt;xsl:text&gt;legend&lt;/xsl:text&gt;&lt;xsl:value-of select="$position"/&gt;
+      &lt;/xsl:attribute&gt;
+
+      &lt;text&gt;
+        &lt;xsl:attribute name="style"&gt;
+          &lt;xsl:text&gt;font-size:12; text-anchor:start&lt;/xsl:text&gt; 
+        &lt;/xsl:attribute&gt; 
+        &lt;xsl:attribute name="x"&gt;
+          &lt;xsl:text&gt;240&lt;/xsl:text&gt; 
+        &lt;/xsl:attribute&gt;
+        &lt;xsl:attribute name="y"&gt;
+          &lt;xsl:value-of select="$y-legend-offset"/&gt;
+        &lt;/xsl:attribute&gt;
+        &lt;xsl:value-of select="name"/&gt;
+        &lt;xsl:text&gt; (&lt;/xsl:text&gt;
+        &lt;xsl:value-of select="$regionSales"/&gt;
+        &lt;xsl:text&gt;) &lt;/xsl:text&gt;
+      &lt;/text&gt;
+      
+      &lt;path&gt;
+        &lt;xsl:attribute name="style"&gt;
+          &lt;xsl:text&gt;stroke:black; stroke-width:2; fill:&lt;/xsl:text&gt; 
+          &lt;xsl:value-of select="$color"/&gt;
+        &lt;/xsl:attribute&gt;
+        &lt;xsl:attribute name="d"&gt;
+          &lt;xsl:text&gt;M 220 &lt;/xsl:text&gt; 
+          &lt;xsl:value-of select="$y-legend-offset - 10"/&gt;
+          &lt;xsl:text&gt; L 220 &lt;/xsl:text&gt; 
+          &lt;xsl:value-of select="$y-legend-offset"/&gt;
+          &lt;xsl:text&gt; L 230 &lt;/xsl:text&gt; 
+          &lt;xsl:value-of select="$y-legend-offset"/&gt;
+          &lt;xsl:text&gt; L 230 &lt;/xsl:text&gt; 
+          &lt;xsl:value-of select="$y-legend-offset - 10"/&gt;
+          &lt;xsl:text&gt; Z&lt;/xsl:text&gt; 
+        &lt;/xsl:attribute&gt;
+      &lt;/path&gt;
+    &lt;/g&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="region" mode="details"&gt;
+    &lt;xsl:param name="color" select="black"/&gt;
+    &lt;xsl:param name="position" select="'0'"/&gt;
+    &lt;xsl:param name="y-legend-offset"/&gt;
+
+    &lt;g style="visibility:hidden"&gt;
+      &lt;xsl:attribute name="id"&gt;
+        &lt;xsl:text&gt;details&lt;/xsl:text&gt;&lt;xsl:value-of select="$position"/&gt;
+      &lt;/xsl:attribute&gt;
+      &lt;text style="font-size:14; font-weight:bold; 
+        text-anchor:start; fill: {$color}" x="220"&gt;
+        &lt;xsl:attribute name="y"&gt;
+          &lt;xsl:value-of select="$y-legend-offset"/&gt;
+        &lt;/xsl:attribute&gt;
+        &lt;xsl:value-of select="name"/&gt;&lt;xsl:text&gt; Sales:&lt;/xsl:text&gt;
+      &lt;/text&gt;
+      &lt;xsl:for-each select="product"&gt;
+        &lt;text style="font-size:12; text-anchor:start" x="220"&gt;
+          &lt;xsl:attribute name="y"&gt;
+            &lt;xsl:value-of select="$y-legend-offset + (position() * 20)"/&gt;
+          &lt;/xsl:attribute&gt;
+          &lt;xsl:value-of select="@name"/&gt;
+          &lt;xsl:text&gt;: &lt;/xsl:text&gt;&lt;xsl:value-of select="."/&gt;
+        &lt;/text&gt;
+      &lt;/xsl:for-each&gt;
+    &lt;/g&gt;
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+        <p>In this example, we've used XSLT extension functions to add new capabilities to the XSLT processor. We needed a couple of simple trigonometric functions, and Xalan's ability to use existing Java classes made adding new capabilities simple. You can use this technique to invoke methods of Java classes anywhere you need them. Best of all, we didn't have to write any Java code to make this happen.
+<a name="INDEX-669" /></a>
+<a name="INDEX-670" /></a>
+<a name="INDEX-671" /></a>
+<a name="INDEX-672" /></a>
+
+
+</p>
+      </div>
+      <div class="sect3">
+        <h3 class="sect3">8.1.2.2. Example: Writing extensions in other languages</h3>
+        <p>
+<a name="INDEX-673" /></a>
+<a name="INDEX-674" /></a>
+<a name="INDEX-675" /></a>
+<a name="INDEX-676" /></a>
+<a name="INDEX-677" /></a>
+<a name="INDEX-678" /></a>
+<a name="INDEX-679" /></a>
+
+
+One of the nice features of Xalan's extension mechanism is that it uses the Bean Scripting Framework (BSF), an open source library from IBM that allows you to execute code written in a variety of scripting languages. We'll take the HTML/SVG stylesheet we just discussed and implement it again, writing the extension functions in Jython. </p>
+        <blockquote><b>NOTE:</b> 
+          Other languages supported by the Bean Scripting Framework include NetRexx, PerlScript, Jacl, Tcl, VBScript, and pnuts. If you're using a Microsoft platform, BSF also supports Windows Script Technologies, so you may have even more choices if you're running some flavor of Windows.<p></p>
+        </blockquote>
+        <p>As you would expect, we must do several things to identify our extension code to Xalan. We'll cover them, and then look at the source of the various extension functions. First we need to define the namespace prefixes we'll use:</p>
+        <blockquote><pre class="code">
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:jython-extension="http://www.jython.org/"
+  xmlns:redirect="org.apache.xalan.xslt.extensions.Redirect"
+  extension-element-prefixes="redirect"
+  xmlns:lxslt="http://xml.apache.org/xslt"
+  exclude-result-prefixes="lxslt"&gt;</pre></blockquote>
+        <p>
+<a name="INDEX-680" /></a>
+
+We still need the <tt class="literal">Redirect</tt> class, so that prefix is still with us. The other two prefixes are <tt class="literal">jython-extension</tt>, associated with the URL of the Jython home page (though the value could be anything), and <tt class="literal">lxslt</tt>. Xalan uses this prefix to implement scripting languages. Our next step is to actually write the Jython code. With Xalan, this code goes inside an <tt class="literal">&lt;lxslt:component&gt;</tt> element:</p>
+        <blockquote><pre class="code">
+  &lt;lxslt:component prefix="jython-extension" functions="cos sin toRadians"&gt;
+    &lt;lxslt:script lang="jpython"&gt;
+import math
+
+def cos(d):
+  return math.cos(d)
+
+def sin(d):
+  return math.sin(d)
+
+def toRadians(d):
+  return d / 180 * math.pi
+    &lt;/lxslt:script&gt;
+  &lt;/lxslt:component&gt;</pre></blockquote>
+        <p>
+<a name="INDEX-681" /></a>
+<a name="INDEX-682" /></a>
+
+The <tt class="literal">prefix</tt> attribute associates this <tt class="literal">&lt;lxslt:component&gt;</tt> with the <tt class="literal">jython-extension</tt> prefix, and the <tt class="literal">functions</tt> attribute lists all of the functions supported by this script. The <tt class="literal">&lt;lxslt:script lang="jpython"&gt;</tt> tells Xalan to use the Jython interpreter (the current version of BSF requires us to use <tt class="literal">lang="jpython"</tt>, the language's former name) whenever these functions are invoked. Now that we've set everything up, all we have to do is invoke the extension functions:</p>
+        <blockquote><pre class="code">
+&lt;xsl:variable name="currentAngle" 
+  select="jython-extension:toRadians(($regionSales div 
+                                      $totalSales) * 360.0)"/&gt;</pre></blockquote>
+        <p>Other than the <tt class="literal">jython-extension</tt> extension before the function call, the rest of our stylesheet is exactly the same. Notice that the Python <tt class="literal">math</tt> library does not define a <tt class="literal">toRadians</tt> function, so we had to define that function ourselves. The other two functions are part of the library, so all we had to do was invoke them.
+<a name="INDEX-683" /></a>
+<a name="INDEX-684" /></a>
+<a name="INDEX-685" /></a>
+<a name="INDEX-686" /></a>
+
+
+</p>
+        <p>
+<a name="INDEX-687" /></a>
+
+One final point: when we invoke these extension functions written in other languages, the Java <tt class="literal">CLASSPATH</tt> must be set up correctly. If the class libraries for Jython or Javascript or whatever scripting language you're using can't be found, the extension functions will fail. Our example here uses <em class="filename">jython.jar</em>, available at <a href="http://www.jython.org">http://www.jython.org</a>.</p>
+        <p>We promised we'd look at extensions in JavaScript, as well. Here's how the <tt class="literal">&lt;lxslt:component&gt;</tt> element looks when we write the extension functions in JavaScript:</p>
+        <blockquote><pre class="code">
+&lt;lxslt:component prefix="javascript-extension" functions="cos sin toRadians"&gt;
+  &lt;lxslt:script lang="javascript"&gt;
+    function cos(d)
+    { 
+      return Math.cos(d); 
+    }
+
+    function sin(d)
+    { 
+      return Math.sin(d); 
+    }
+
+    function toRadians(d)
+    { 
+      return d * Math.PI / 180; 
+    } 
+  &lt;/lxslt:script&gt;
+&lt;/lxslt:component&gt;</pre></blockquote>
+
+<p>Here is the <tt class="literal">&lt;lxslt:component&gt;</tt> element with the extension functions written in Jacl:</p>
+
+<blockquote><pre class="code">
+&lt;lxslt:component prefix="jacl-extension"
+ functions="cosine sine toRadians"&gt;
+ &lt;lxslt:script lang="jacl"&gt;
+  proc cosine {d} {expr cos($d)}
+  proc sine {d} {expr sin($d)}
+  proc toRadians {d} {expr $d * 3.1415926535897932384626433832795 / 180.0}
+ &lt;/lxslt:script&gt;
+&lt;/lxslt:component&gt;</pre></blockquote>
+
+        <p>Again, most of our task is to use existing features of the language. In the JavaScript and Jacl code, the <tt class="literal">cos()</tt> and <tt class="literal">sin()</tt> functions are part of the language, and we wrote our own versions of the <tt class="literal">toRadians()</tt> function. Jacl doesn't define a constant for <tt class="literal">pi</tt>, so we hardcoded the first 32 digits into the Jacl version of <tt class="literal">toRadians()</tt>.
+<a name="INDEX-688" /></a>
+
+</p>
+      </div>
+    </div>
+    <div class="sect2">
+      <h3 class="sect2">8.1.3. Fallback Processing</h3>
+      <p>
+<a name="INDEX-689" /></a>
+
+If the code that implements a given extension element can't be found, we need some relatively graceful way for the stylesheet to handle the situation. XSLT defines the <tt class="literal">&lt;xsl:fallback&gt;</tt> element to handle this case. In an earlier stylesheet, we used the <tt class="literal">element-available()</tt> function to determine whether a given function is available. In this case, we'll use the <tt class="literal">&lt;xsl:fallback&gt;</tt> to transform our document if the <tt class="literal">Redirect</tt> extension can't be found:</p>
+      
+      <blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+&lt;xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:redirect="org.apache.xalan.xslt.extensions.Redirect"
+  extension-element-prefixes="redirect"&gt;
+
+  &lt;xsl:output method="html"/&gt;
+
+  &lt;xsl:template match="/"&gt;
+    &lt;xsl:for-each select="/book/chapter"&gt;
+      &lt;redirect:write 
+        select="concat('chapter', position(), '.html')"&gt;
+        &lt;html&gt;
+          &lt;head&gt;
+            &lt;title&gt;&lt;xsl:value-of select="title"/&gt;&lt;/title&gt;
+          &lt;/head&gt;
+          &lt;body&gt;
+            &lt;h1&gt;&lt;xsl:value-of select="title"/&gt;&lt;/h1&gt;
+            &lt;xsl:apply-templates select="para"/&gt;
+            &lt;xsl:if test="not(position()=1)"&gt;
+              &lt;p&gt;&lt;a href="chapter{position()-1}.html"&gt;Previous&lt;/a&gt;&lt;/p&gt;
+            &lt;/xsl:if&gt;
+            &lt;xsl:if test="not(position()=last())"&gt;
+              &lt;p&gt;
+                &lt;a&gt;
+                  &lt;xsl:attribute name="href"&gt;
+
+                    &lt;xsl:value-of 
+                      select="concat('chapter', position()+1, '.html')"/&gt;
+                  &lt;/xsl:attribute&gt;
+                  Next
+                &lt;/a&gt;
+              &lt;/p&gt;
+            &lt;/xsl:if&gt;
+          &lt;/body&gt;
+        &lt;/html&gt;
+        &lt;xsl:fallback&gt;
+          &lt;xsl:if test="position()=1"&gt;
+            &lt;html&gt;
+              &lt;head&gt;
+                &lt;title&gt;&lt;xsl:value-of select="/book/title"/&gt;&lt;/title&gt;
+              &lt;/head&gt;
+              &lt;body&gt;
+                &lt;xsl:for-each select="/book/chapter"&gt;
+                  &lt;h1&gt;&lt;xsl:value-of select="title"/&gt;&lt;/h1&gt;
+                  &lt;xsl:apply-templates select="para"/&gt;
+                &lt;/xsl:for-each&gt;
+              &lt;/body&gt;
+            &lt;/html&gt;
+          &lt;/xsl:if&gt;
+        &lt;/xsl:fallback&gt;
+      &lt;/redirect:write&gt;
+    &lt;/xsl:for-each&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="para"&gt;
+    &lt;p&gt;&lt;xsl:apply-templates select="*|text()"/&gt;&lt;/p&gt;
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+      <p>In our example, we only invoke the fallback processing once. This approach assumes that if something's wrong with the extension, it will fail the first time and be completely inaccessible. Using <tt class="literal">&lt;xsl:fallback&gt;</tt>, we know that the contents of the <tt class="literal">&lt;xsl:fallback&gt;</tt> element will be invoked if anything goes wrong when the stylesheet processor attempts to use an extension element. If you'd like more complete control over fallback processing, you can use the <tt class="literal">element-available()</tt> and <tt class="literal">function-available()</tt> functions as we did in our earlier example. </p>
+    </div>
+  </div>
+  
+  
+
+  
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch07_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch08_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">7.5. Summary</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">8.2. Extending the Saxon Processor</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+      </map>
+
+</body></html>

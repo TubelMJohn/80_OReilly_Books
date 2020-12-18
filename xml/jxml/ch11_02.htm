@@ -1,0 +1,918 @@
+<html><head><title>Saying Hello (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch11_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">11.2. Saying Hello</h2>
+
+<p>You are probably interested in seeing if
+<a name="INDEX-1089" />XML-RPC
+might be the right solution for some of your development problems. To
+elaborate on XML-RPC, we'll now look at building some actual
+working Java code using XML-RPC. In the great tradition of
+programming, I'll start with a simple "Hello World"
+type program. I'll show you how to define an XML-RPC server,
+and have that server register a handler. This handler takes in a Java
+<tt class="literal">String</tt> parameter and the user's name, and
+returns "Hello" and the user's name; for example,
+the method might return "Hello Shirley" when invoked.
+Then you'll need to make this handler available for XML-RPC
+clients. Finally, I'll demonstrate building a simple client to
+connect to the server and request the method invocation.
+</p>
+
+<p>In a practical case, the XML-RPC server and handler would be on one
+machine, probably a heavy-duty server, and the client on another
+machine, invoking the procedure calls remotely. However, if you
+don't have multiple machines available, you can still use the
+examples locally. Although this will be much faster than an actual
+client and server, you can still see how the pieces fit together and
+get a taste of XML-RPC.
+</p>
+
+<a name="javaxml2-CHP-11-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">11.2.1. XML-RPC Libraries</h3>
+
+<p><a name="INDEX-1090" />A
+lot of work has already gone into RPC, and more recently XML-RPC.
+Like using SAX, DOM, and JDOM for XML handling, there is no reason to
+reinvent the wheel when there are good, even exceptional, Java
+packages in existence for your desired purpose. The center for
+information about XML-RPC and links to libraries for Java as well as
+many other languages can be found at <a href="http://www.xmlrpc.com">http://www.xmlrpc.com</a>. Sponsored by Userland
+(<a href="http://www.userland.com">http://www.userland.com</a>), this
+site has a public specification on XML-RPC, information on what
+datatypes are supported, and some tutorials on XML-RPC use. Most
+importantly, it directs you to the XML-RPC package for Java.
+Following the link on the main page, you are directed to Hannes
+Wallnofer's site at <a href="http://classic.helma.at/hannes/xmlrpc/">http://classic.helma.at/hannes/xmlrpc/</a>.
+</p>
+
+<p>On Hannes's site is a description of the classes in his XML-RPC
+package and instructions. Download the archive file and expand the
+files into your development area or IDE. You should then be able to
+compile these classes; there is one Java servlet example that
+requires the servlet classes (<em class="emphasis">servlet.jar</em> for Servlet API 2.2). You can
+obtain these classes with the Tomcat servlet engine by pointing your
+web browser to <a href="http://jakarta.apache.org">http://jakarta.apache.org</a>. If you do not wish
+to play with the servlet example, the servlet classes are not
+required for the programs in this chapter.
+</p>
+
+<p>The core distribution (which does not include the applet or regular
+expression examples in the downloaded archive) is made up of thirteen
+classes, all in the <tt class="literal">helma.xmlrpc</tt>
+<a name="INDEX-1091" />package.
+These are in a ready-to-use format in the
+<em class="filename">lib/xmlrpc.jar</em> file of the distribution. The
+classes within that distribution are detailed briefly in <a href="ch11_02.htm#javaxml2-CHP-11-TABLE-1">Table 11-1</a>. 
+</p>
+
+<a name="javaxml2-CHP-11-TABLE-1" /><h4 class="objtitle">Table 11-1. The XML-RPC classes </h4><table border="1">
+
+
+
+<tr>
+<th>
+<p>Class</p>
+</th>
+<th>
+<p>Purpose</p>
+</th>
+</tr>
+
+
+<tr>
+<td>
+<p><tt class="literal">XmlRpc</tt></p>
+</td>
+<td>
+<p>Core class allowing method calls on handlers by an XML-RPC server.</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">XmlRpcClient</tt></p>
+</td>
+<td>
+<p>Class for client to use for RPC communication over HTTP, including
+proxy and cookie support.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">XmlRpcClientLite</tt></p>
+</td>
+<td>
+<p>Class for client to use when a less-featured HTTP client is needed
+(no cookies, proxy support).
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">XmlRpcServer</tt></p>
+</td>
+<td>
+<p>Class for servers to use to receive RPC calls.</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">XmlRpcServlet</tt></p>
+</td>
+<td>
+<p>Provides the functionality of <tt class="literal">XmlRpcServer</tt> in a
+servlet format.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">XmlRpcProxyServlet</tt></p>
+</td>
+<td>
+<p>Acts as an XML-RPC servlet proxy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">XmlRpcHandler</tt></p>
+</td>
+<td>
+<p>Base interface for controlling XML-RPC interactions by handlers.</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">AuthenticatedXmlRpcHandler</tt></p>
+</td>
+<td>
+<p>Same as <tt class="literal">XmlRpcHandler</tt>, but allows for
+authentication.
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">Base64</tt></p>
+</td>
+<td>
+<p>Encodes and decodes between bytes and base 64 encoding characters.</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">Benchmark</tt></p>
+</td>
+<td>
+<p>Times roundtrip XML-RPC interactions for a specific SAX driver.</p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">WebServer</tt></p>
+</td>
+<td>
+<p>A lightweight HTTP server for use by XML-RPC servers.</p>
+</td>
+</tr>
+
+</table><p>
+
+<p>The SAX classes (from earlier examples) and a SAX driver are not
+included in the distribution, but they are required for operation. In
+other words, you need a complete XML parser implementation that
+supports SAX. I continue to use Apache Xerces in these examples,
+although the libraries support any SAX 1.0-compatible driver.
+</p>
+
+<p>Once you have all the source files compiled, ensure that the XML-RPC
+classes, SAX classes, and your XML parser classes are all in your
+environment's classpath. This should have you ready to write
+your own custom code and start the process of "saying
+hello." Keep the XML-RPC source files handy, as looking at what
+is going on under the hood can aid in your understanding of the
+examples.
+</p>
+
+</div>
+<a name="javaxml2-CHP-11-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">11.2.2. Writing the Handler</h3>
+
+<p>The first thing you need to do is write the class and method you want
+invoked remotely. This is usually called a
+<em class="filename">handler</em>. Beware, though, as the XML-RPC server
+mechanism that dispatches requests is also often called a handler;
+again, naming ambiguity rears its ugly head. A clearer distinction
+can be drawn as follows: an <em class="filename">XML-RPC handler</em> is a
+method or set of methods that takes an XML-RPC request, decodes its
+contents, and dispatches the request to a class and method. A
+<em class="filename">response handler</em>, or simply
+<em class="emphasis">handler</em>, is any method that can be invoked by an
+XML-RPC handler. With the XML-RPC libraries for Java, you do not need
+to write an XML-RPC handler because one is included as part of the
+<tt class="literal">helma.xmlrpc.XmlRpcServer</tt><a name="INDEX-1092" />
+<a name="INDEX-1093" />
+class. You only need to write a class with one or more methods to
+register with the server.
+</p>
+
+<p>It might surprise you to learn that creating a response handler
+requires no subclassing or other special treatment in your code. Any
+<a name="INDEX-1094" />method can be invoked via XML-RPC as long
+as its parameter and return types are supported (able to be encoded)
+by XML-RPC. <a href="ch11_02.htm#javaxml2-CHP-11-TABLE-2">Table 11-2</a> lists all currently
+supported Java types that can
+<a name="INDEX-1095" />
+<a name="INDEX-1096" />be used in XML-RPC method
+signatures.
+</p>
+
+<a name="javaxml2-CHP-11-TABLE-2" /><h4 class="objtitle">Table 11-2. Supported Java types in XML-RPC </h4><table border="1">
+
+
+
+<tr>
+<th>
+<p>XML-RPC datatype</p>
+</th>
+<th>
+<p>Java type</p>
+</th>
+</tr>
+
+
+<tr>
+<td>
+<p><tt class="literal">int</tt></p>
+</td>
+<td>
+<p><tt class="literal">int</tt></p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">boolean</tt></p>
+</td>
+<td>
+<p><tt class="literal">boolean</tt></p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">string</tt></p>
+</td>
+<td>
+<p><tt class="literal">String</tt></p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">double</tt></p>
+</td>
+<td>
+<p><tt class="literal">double</tt></p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">dateTime.iso8601</tt></p>
+</td>
+<td>
+<p><tt class="literal">Date</tt></p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">struct</tt></p>
+</td>
+<td>
+<p><tt class="literal">Hashtable</tt></p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">array</tt></p>
+</td>
+<td>
+<p><tt class="literal">Vector</tt></p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">base64</tt></p>
+</td>
+<td>
+<p><tt class="literal">byte[]</tt></p>
+</td>
+</tr>
+<tr>
+<td>
+<p><tt class="literal">nil</tt></p>
+</td>
+<td>
+<p><tt class="literal">null</tt></p>
+</td>
+</tr>
+
+</table><p>
+
+<p>Although this list includes only a small number of types, they handle
+most of the XML-RPC requests made over a network. The method in this
+example only needs to take in a <tt class="literal">String</tt> (the name
+to say "hello" to), and return a
+<tt class="literal">String</tt>, and so fits these requirements. This is
+enough information to write a simple handler class, shown
+<a name="INDEX-1097" />
+<a name="INDEX-1098" />
+<a name="INDEX-1099" />in <a href="ch11_02.htm#javaxml2-CHP-11-EX-1">Example 11-1</a>.
+</p>
+
+<a name="javaxml2-CHP-11-EX-1" /><div class="example">
+<h4 class="objtitle">Example 11-1. Handler class with remote method </h4>
+<blockquote><pre class="code">package javaxml2;
+
+public class HelloHandler {
+
+	public String sayHello(String name) {
+		return "Hello " + name;
+	}
+}</pre></blockquote>
+</div>
+
+<p>This is as simple as it seems. The method signature takes in and
+returns legal XML-RPC parameters, so you can safely register it with
+your (soon to be created) XML-RPC server and know it will be callable
+via XML-RPC.
+</p>
+
+</div>
+<a name="javaxml2-CHP-11-SECT-2.3" /><div class="sect2">
+<h3 class="sect2">11.2.3. Writing the Server</h3>
+
+<p><a name="INDEX-1100" />With your handler ready, you need to
+write a program to start up an XML-RPC server, listen for requests,
+and dispatch these requests to the handler. For this example, I use
+the <tt class="literal">helma.xmlrpc.WebServer</tt> class as the request
+handler. Although you could use a Java servlet, using this
+lightweight web server implementation allows you to avoid running a
+servlet engine on the XML-RPC server. I'll spend more time at
+the end of this chapter discussing servlets in the context of an
+XML-RPC server. For the server, the example allows the specification
+of a port to start the server on, and then has the server listen for
+XML-RPC requests until shut down. Finally, you need to register the
+class you just created with the server, and specify any other
+application-specific parameters to the server.
+</p>
+
+<p>Create the skeleton for this class (shown in <a href="ch11_02.htm#javaxml2-CHP-11-EX-2">Example 11-2</a>) now; you'll need to import the
+<tt class="literal">WebServer</tt> class and also ensure that a port number
+is given to the program on the command line when the server is
+started.
+</p>
+
+<a name="javaxml2-CHP-11-EX-2" /><div class="example">
+<h4 class="objtitle">Example 11-2. Skeleton for XML-RPC server </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import helma.xmlrpc.WebServer;
+
+public class HelloServer {
+
+    public static void main(String[] args) {
+        if (args.length &lt; 1) {
+            System.out.println(
+                "Usage: java javaxml2.HelloServer [port]");
+            System.exit(-1);
+        }
+    
+        // Start the server on specified port
+    }
+}</pre></blockquote>
+</div>
+
+<p>Before starting the server, specify the <a name="INDEX-1101" />SAX driver for use in parsing and encoding
+XML. The default SAX driver for these libraries is
+<a name="INDEX-1102" />James Clark's XP parser,
+available online at <a href="http://www.jclark.com">http://www.jclark.com</a>. In this code, I
+instead request the Apache Xerces parser by specifying the SAX
+<tt class="literal">Parser</tt> implementation class<a href="#FOOTNOTE-18">[18]</a> to the XML-RPC engine. This is
+done through the <tt class="literal">setDriver(
+)</tt><a name="INDEX-1104" />
+<a name="INDEX-1105" /> method, a static method belonging to the
+<tt class="literal">XmlRpc</tt><a name="INDEX-1106" />
+<a name="INDEX-1107" />
+class. This class underpins the <tt class="literal">WebServer</tt> class,
+but must be imported and used directly to make this change in SAX
+drivers. A
+<tt class="literal">ClassNotFoundException</tt><a name="INDEX-1108" /> <a name="INDEX-1109" />
+can be thrown by this method, so must be caught in case the driver
+class cannot be located in your classpath at runtime. Add the
+necessary import statement and methods to your
+<tt class="literal">HelloServer</tt><a name="INDEX-1110" />
+<a name="INDEX-1111" />
+class now:
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-18" /><p>[18]Currently this
+<a name="INDEX-1103" />XML-RPC library does
+not support SAX 2.0 or implement the <tt class="literal">XMLReader</tt>
+interface. As the Apache Xerces <tt class="literal">SAXParser</tt> class
+implements both the SAX 1.0 <tt class="literal">Parser</tt> interface and
+SAX 2.0 <tt class="literal">XMLReader</tt> interface, no code needs to be
+changed in the examples if SAX 2.0 updates are made to the libraries.
+However, if you are using a different vendor's parser, you may
+need to specify a SAX 2.0 class if the XML-RPC libraries are modified
+to use SAX 2.0.</p> </blockquote>
+
+<blockquote><pre class="code">package javaxml2;
+
+import helma.xmlrpc.WebServer;<tt class="userinput"><b>
+import helma.xmlrpc.XmlRpc;</b></tt>
+
+public class HelloServer {
+
+    public static void main(String[] args) {
+        if (args.length &lt; 1) {
+            System.out.println(
+                "Usage: java javaxml2.HelloServer [port]");
+            System.exit(-1);
+        }
+    <tt class="userinput"><b>
+        try {
+            // Use the Apache Xerces SAX Driver
+            XmlRpc.setDriver("org.apache.xerces.parsers.SAXParser");
+
+            // Start the server
+            
+        } catch (ClassNotFoundException e) {
+            System.out.println("Could not locate SAX Driver");
+        }                    </b></tt>
+    }
+}</pre></blockquote>
+
+<p>At this point, you are ready to add the main portion of the code,
+which creates the
+<a name="INDEX-1112" /> <a name="INDEX-1113" />HTTP listener that services XML-RPC
+requests, and then registers some handler classes that are available
+for remote procedure calls. Creating the listener is very simple; the
+<tt class="literal">WebServer</tt> helper class I have been discussing can
+be instantiated by supplying it the port to listen to, and just that
+easily, the server is servicing XML-RPC requests. Although no classes
+are available to be called yet, you do have a working XML-RPC server.
+Let's add in the line to create and start the server, as well
+as a status line for display purposes. You'll also need to add
+another import statement and exception handler, this one for
+<tt class="literal">java.io.IOException</tt>. Because the server must start
+up on a port, it can throw an <tt class="literal">IOException</tt> if the
+port is inaccessible or if other problems occur in server startup.
+The modified code fragment looks like this:
+</p>
+
+<blockquote><pre class="code">package javaxml2;
+<tt class="userinput"><b>
+import java.io.IOException;</b></tt>
+
+import helma.xmlrpc.WebServer;
+import helma.xmlrpc.XmlRpc;
+
+public class HelloServer {
+
+    public static void main(String[] args) {
+        if (args.length &lt; 1) {
+            System.out.println(
+                "Usage: java javaxml2.HelloServer [port]");
+            System.exit(-1);
+        }
+    
+        try {
+            // Use the Apache Xerces SAX Driver
+            XmlRpc.setDriver("org.apache.xerces.parsers.SAXParser");
+<tt class="userinput"><b>
+            // Start the server
+            System.out.println("Starting XML-RPC Server...");
+            WebServer server = new WebServer(Integer.parseInt(args[0]));            </b></tt>
+            
+        } catch (ClassNotFoundException e) {
+            System.out.println("Could not locate SAX Driver");<tt class="userinput"><b>
+        } catch (IOException e) {
+            System.out.println("Could not start server: " + 
+                e.getMessage( ));
+        }                                </b></tt>
+    }
+}</pre></blockquote>
+
+<p>Compile this class and give it a try; it is completely functional,
+and should print out the status line and then pause, waiting for
+requests. You now need to add the handler class to the server so that
+it can receive requests.
+</p>
+
+<p><a name="INDEX-1114" />One of the most significant differences
+between RMI and RPC is the way methods are made available. In
+<a name="INDEX-1115" />RMI, a remote interface has the method
+signature for each remote method. If a method is implemented on the
+server class, but no matching signature is added to the remote
+interface, the new method cannot be invoked by an RMI client. This
+makes for a large amount of code modification and recompilation in
+the development of RMI classes. This process is quite a bit
+different, and is generally considered easier and more flexible, in
+<a name="INDEX-1116" />RPC.
+When a request comes in to an RPC server, the request contains a set
+of parameters and a textual value, usually in the form
+"classname.methodname." This signifies to the RPC server
+that the requested method is in the class "classname" and
+is named "methodname." The RPC server tries to find a
+matching class and method that take parameter types that match the
+types within the RPC request as input. Once a match is made, the
+method is called, and the result is encoded and sent back to the
+client.
+</p>
+
+<p>Thus, the method requested is never explicitly defined in the XML-RPC
+server, but rather in the request from the client. Only a class
+instance is registered with the XML-RPC server. You can add methods
+to that class, restart the XML-RPC server with no code changes
+(allowing it to register an updated class instance), and then
+immediately request the new methods within your client code. As long
+as you can determine and send the correct parameters to the server,
+the new methods are instantly accessible. This is one of the
+advantages of XML-RPC over RMI, in that it can more closely represent
+an API; there are no client stubs, skeletons, or interfaces that must
+be updated. If a method is added, the method signature can be
+published to the client community and used immediately.
+</p>
+
+<p><a name="INDEX-1117" />Now that you've read about
+how easily an RPC handler can be used, I demonstrate how to register
+one in the <tt class="literal">HelloHandler</tt> example. The
+<tt class="literal">WebServer</tt> class allows the addition of a handler
+through the <tt class="literal">addHandler(
+)</tt><a name="INDEX-1118" />
+<a name="INDEX-1119" /> method. This method takes a name as input
+to register the handler class to, and an instance of the handler
+class itself. This is typically accessed by instantiating a new class
+with its constructor (using the <tt class="literal">new</tt> keyword),
+although in the next section I'll look at using other methods,
+in the event that an instance should be shared instead of created by
+each client. In the current example, instantiating a new class is an
+acceptable solution. Register the
+<tt class="literal">HelloHandler</tt><a name="INDEX-1120" /> class to the name
+"hello". You can include status lines to show what is
+occurring in the server as it adds the handler:
+</p>
+
+<blockquote><pre class="code">        try {
+            // Use the Apache Xerces SAX Driver
+            XmlRpc.setDriver("org.apache.xerces.parsers.SAXParser");
+
+            // Start the server
+            System.out.println("Starting XML-RPC Server...");
+            WebServer server = new WebServer(Integer.parseInt(args[0]));            
+            <tt class="userinput"><b>
+            // Register the handler class
+            server.addHandler("hello", new HelloHandler( ));
+            System.out.println(
+                "Registered HelloHandler class to \"hello\"");     
+
+            System.out.println("Now accepting requests...");</b></tt>
+            
+        } catch (ClassNotFoundException e) {
+            System.out.println("Could not locate SAX Driver");
+        } catch (IOException e) {
+            System.out.println("Could not start server: " + 
+                e.getMessage( ));
+        }      </pre></blockquote>
+
+<p>Now recompile this source file and start up the server. Your output
+should look similar to <a href="ch11_02.htm#javaxml2-CHP-11-EX-3">Example 11-3</a>.<a href="#FOOTNOTE-19">[19]</a>
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-19" /><p>[19]If you are on a Unix machine, you must be logged in as the root
+user to start a service up on a port lower than 1024. To avoid these
+problems, consider using a higher numbered port, as shown in <a href="ch11_02.htm#javaxml2-CHP-11-EX-3">Example 11-3</a>.</p> </blockquote>
+
+<a name="javaxml2-CHP-11-EX-3" /><div class="example">
+<h4 class="objtitle">Example 11-3. Starting the server </h4>
+<blockquote><pre class="code">$ java javaxml2.HelloServer 8585
+Starting XML-RPC Server...
+Registered HelloHandler class to "hello"
+Now accepting requests...</pre></blockquote>
+</div>
+
+<p>It's that simple! You can now write a client for the server,
+and test communications across a network using XML-RPC. This is
+another advantage of XML-RPC; the barrier for entry into coding
+servers and clients is low, compared to the complexity of using RMI.
+Read on, and see creating a client is just as straightforward.
+</p>
+
+</div>
+<a name="javaxml2-CHP-11-SECT-2.4" /><div class="sect2">
+<h3 class="sect2">11.2.4. Writing the Client</h3>
+
+<p><a name="INDEX-1121" />With the <a name="INDEX-1122" />server running and
+accepting requests, you done the hardest part of coding the XML-RPC
+application (believe it or not, that was the hard part!). Now you
+need to construct a simple client to call the <tt class="literal">sayHello(
+)</tt> method remotely. This is made simple by using the
+<tt class="literal">helma.xmlrpc.XmlRpcClient</tt><a name="INDEX-1123" />
+<a name="INDEX-1124" />.
+This class takes care of many of the details on the client side that
+its analogs, <tt class="literal">XmlRpcServer</tt> and
+<tt class="literal">WebServer</tt>, do on the server. To write your client,
+you need this class as well as the <tt class="literal">XmlRpc</tt> class;
+this client must handle encoding of the request, so again set the SAX
+driver class to use with the <tt class="literal">setDriver(
+)</tt><a name="INDEX-1125" />
+<a name="INDEX-1126" /> method. Begin your client code with these
+required import statements, checking for an argument to pass as the
+parameter to the <tt class="literal">sayHello( )</tt> method on the server,
+and some exception handling. Create the Java source file shown in
+<a href="ch11_02.htm#javaxml2-CHP-11-EX-4">Example 11-4</a> and save it as
+<em class="filename">HelloClient.java</em><a name="INDEX-1127" />.
+</p>
+
+<a name="javaxml2-CHP-11-EX-4" /><div class="example">
+<h4 class="objtitle">Example 11-4. A client for the XML-RPC server </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import helma.xmlrpc.XmlRpc;
+import helma.xmlrpc.XmlRpcClient;
+
+public class HelloClient {
+ 
+    public static void main(String args[]) {
+        if (args.length &lt; 1) {
+            System.out.println(
+                "Usage: java HelloClient [your name]");
+            System.exit(-1);
+        }
+        
+        try {
+            // Use the Apache Xerces SAX Driver
+            XmlRpc.setDriver("org.apache.xerces.parsers.SAXParser");
+
+            // Specify the Server
+
+            // Create request
+
+            // Make a request and print the result
+          
+        } catch (ClassNotFoundException e) {
+            System.out.println("Could not locate SAX Driver");
+        }        
+    } 
+}</pre></blockquote>
+</div>
+
+<p>As with the rest of the code in this chapter, this is simple and
+straightforward. To create an XML-RPC client, you need to instantiate
+the <tt class="literal">XmlRpcClient</tt><a name="INDEX-1128" />
+<a name="INDEX-1129" />
+class, which requires the hostname of the XML-RPC server to connect
+to. This should be a complete URL, including the <em class="emphasis">http://</em> protocol prefix. In creating the
+client, a
+<tt class="literal">java.net.MalformedURLException</tt><a name="INDEX-1130" />
+<a name="INDEX-1131" />
+can be thrown when this URL is in an unacceptable format. You can add
+this class to the list of imported classes, instantiate the client,
+and add the required exception handler:
+</p>
+
+<blockquote><pre class="code">package javaxml2;<tt class="userinput"><b>
+
+import java.net.MalformedURLException;</b></tt>
+
+import helma.xmlrpc.XmlRpc;
+import helma.xmlrpc.XmlRpcClient;
+
+public class HelloClient {
+ 
+    public static void main(String args[]) {
+        if (args.length &lt; 1) {
+            System.out.println(
+                "Usage: java HelloClient [your name]");
+            System.exit(-1);
+        }
+        
+        try {
+            // Use the Apache Xerces SAX Driver
+            XmlRpc.setDriver("org.apache.xerces.parsers.SAXParser");
+            <tt class="userinput"><b>
+            // Specify the server
+            XmlRpcClient client = 
+                new XmlRpcClient("http://localhost:8585/");  </b></tt>
+
+            // Create request
+
+            // Make a request and print the result          
+          
+        } catch (ClassNotFoundException e) {
+            System.out.println("Could not locate SAX Driver");<tt class="userinput"><b>
+        } catch (MalformedURLException e) {
+            System.out.println(
+                "Incorrect URL for XML-RPC server format: " + 
+                e.getMessage( ));
+        }        </b></tt>
+    } 
+}</pre></blockquote>
+
+<p>Although no actual RPC calls are being made, you now have a fully
+functional client application. You can compile and run this
+application, although you won't see any activity, as no
+connection is made until a request is initiated.
+</p>
+<blockquote><b>WARNING:</b> 
+
+Make sure you use the port number in your source code that you plan to specify to the server when you start it up. Obviously, this is a poor way to implement connectivity between the client and server; changing the port the server listens to requires changing the source code of our client! In your own applications, make this a user-defined variable; I've kept it simple for example purposes.
+</p>
+</blockquote>
+<p>The ease with which this client and our server come together is
+impressive. Still, this program is not of much use until it actually
+makes a request and receives a response. To encode the request,
+invoke the <tt class="literal">execute( )</tt> method on your
+<tt class="literal">XmlRpcClient</tt> instance. This method takes in two
+parameters: the name of the class identifier and method to invoke,
+which is a single <tt class="literal">String</tt> parameter, and a
+<tt class="literal">Vector</tt> containing the method parameters to pass in
+to the specified method. The class identifier is the name you
+registered to the <tt class="literal">HelloHandler</tt> class on the
+XML-RPC server; this identifier can be the actual name of the class,
+but it is often something more readable and meaningful to the client,
+and in this case it was "hello". The name of the method
+to invoke is appended to this, separated from the class identifier
+with a period, in the form <em class="replaceable">[class</em>
+<em class="replaceable">identifier].[method</em>
+<em class="replaceable">name]</em>. The parameters must be in the form
+of a Java <tt class="literal">Vector</tt>, and should include any parameter
+objects that are needed by the specified method. In the simple
+<tt class="literal">sayHello( )</tt> method, this is a
+<tt class="literal">String</tt> with the name of the user, which should
+have been specified on the command line.
+</p>
+
+<p>Once the XML-RPC client encodes this request, it sends the request to
+the XML-RPC server. The server locates the class that matches the
+request's class identifier, and looks for a matching method
+name. If a matching method name is found, the parameter types for the
+method are compared with the parameters in the request. If a match
+occurs, the method is executed. If multiple methods are found with
+the same name, the parameters determine which method is invoked; this
+process allows normal Java overloading to occur in the handler
+classes. The result of the method invocation is encoded by the
+XML-RPC server, and sent back to the client as a Java
+<tt class="literal">Object</tt> (which in turn could be a
+<tt class="literal">Vector</tt> of <tt class="literal">Object</tt>s!). This
+result can be cast to the appropriate Java type, and used in the
+client normally. If a matching class identifier/method/parameter
+signature is not found, an <tt class="literal">XmlRpcException</tt> is
+thrown back to the client. This ensures the client is not trying to
+invoke a method or handler that does not exist, or sending incorrect
+parameters.
+</p>
+
+<p>All this happens with a few additional lines of Java code. You must
+import the <tt class="literal">XmlRpcException</tt> class, as well as
+<tt class="literal">java.io.IOException</tt>; the latter is thrown when
+communication between the client and server causes error conditions.
+You can then add the <tt class="literal">Vector</tt> class and instantiate
+it, adding to it a single <tt class="literal">String</tt> parameter. This
+allows your code to invoke the <tt class="literal">execute( )</tt> method
+with the name of the handler, the method to call, and its parameters;
+the result of this call is cast to a <tt class="literal">String</tt>, which
+is printed out to the screen. In this example, the local machine is
+running the XML-RPC server on port 8585:
+</p>
+
+<blockquote><pre class="code">package javaxml2;
+<tt class="userinput"><b>
+import java.io.IOException;</b></tt>
+import java.net.MalformedURLException;<tt class="userinput"><b>
+import java.util.Vector;</b></tt>
+
+import helma.xmlrpc.XmlRpc;
+import helma.xmlrpc.XmlRpcClient;<tt class="userinput"><b>
+import helma.xmlrpc.XmlRpcException;</b></tt>
+
+public class HelloClient {
+ 
+    public static void main(String args[]) {
+        if (args.length &lt; 1) {
+            System.out.println(
+                "Usage: java HelloClient [your name]");
+            System.exit(-1);
+        }
+        
+        try {
+            // Use the Apache Xerces SAX Driver
+            XmlRpc.setDriver("org.apache.xerces.parsers.SAXParser");
+            
+            // Specify the server
+            XmlRpcClient client = 
+                new XmlRpcClient("http://localhost:8585/");  
+                <tt class="userinput"><b>
+            // Create request  
+            Vector params = new Vector( );            
+            params.addElement(args[0]);
+            
+            // Make a request and print the result          
+            String result = 
+               (String)client.execute("hello.sayHello", params);
+        
+            System.out.println("Response from server: " + result);</b></tt>
+          
+        } catch (ClassNotFoundException e) {
+            System.out.println("Could not locate SAX Driver");
+        } catch (MalformedURLException e) {
+            System.out.println(
+                "Incorrect URL for XML-RPC server format: " + 
+                e.getMessage( ));<tt class="userinput"><b>
+        } catch (XmlRpcException e) {
+            System.out.println("XML-RPC Exception: " + e.getMessage( ));
+        } catch (IOException e) {
+            System.out.println("IO Exception: " + e.getMessage( ));
+        }        </b></tt>
+    } 
+}</pre></blockquote>
+
+<p>That's all that is required to make this work. Now compile your
+source code and open a command shell for running the example.
+</p>
+
+</div>
+<a name="javaxml2-CHP-11-SECT-2.5" /><div class="sect2">
+<h3 class="sect2">11.2.5. Talk to Me</h3>
+
+<p>Make sure that you have the XML-RPC classes and your example classes
+in your environment's classpath. Also, confirm that Apache
+Xerces or your chosen SAX driver is in your classpath and accessible,
+as the examples must load these classes for parsing. Once that is set
+up, start the <tt class="literal">HelloServer</tt> class by giving it a
+port number. On Windows, use the <em class="emphasis">start</em> command
+to start the server in a separate process:
+</p>
+
+<blockquote><pre class="code">c:\javaxml2\build&gt;start java javaxml2.HelloServer 8585
+Starting XML-RPC Server...
+Registered HelloHandler class to "hello"
+Now accepting requests...</pre></blockquote>
+
+<p>On Unix, use the background processing command
+(<tt class="literal">&amp;</tt>) to make sure you can run your client as
+well (or open another terminal window and duplicate your environment
+settings):
+</p>
+
+<blockquote><pre class="code">$ java javaxml2.HelloServer &amp;
+Starting XML-RPC Server...
+Registered HelloHandler class to "hello"
+Now accepting requests...</pre></blockquote>
+
+<p>You can then run your client by specifying your name to the program
+as a command-line argument. You should quickly see a response
+(similar to that shown in <a href="ch11_02.htm#javaxml2-CHP-11-EX-5">Example 11-5</a>) as the
+<tt class="literal">HelloServer</tt> receives your client's request,
+handles it, and returns the result of the <tt class="literal">sayHello(
+)</tt> method, which is then printed by the client.
+</p>
+
+<a name="javaxml2-CHP-11-EX-5" /><div class="example">
+<h4 class="objtitle">Example 11-5. Running the HelloClient class </h4>
+<blockquote><pre class="code">$ java javaxml2.HelloClient Leigh
+Response from server: Hello Leigh</pre></blockquote>
+</div>
+
+<p>You have just seen XML-RPC in action. Certainly this is not a
+particularly useful example, but it should have given you an idea of
+the basics and shown you the simplicity of coding an XML-RPC server
+and client in Java. With these fundamentals, I want to move on to a
+more realistic example. In the next section, I'll show you how
+to build a more useful server, and take a look at what XML-RPC
+handlers often look like. I'll then demonstrate creating a
+client (similar to our <tt class="literal">HelloClient</tt>) to test the
+new code.<a name="INDEX-1132" /><a name="INDEX-1133" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch11_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch11_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">11. XML-RPC</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">11.3. Putting the Load on the Server</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

@@ -1,0 +1,418 @@
+<?label 5.6. Atomic and Batch Fetching ?><html><head><title>Atomic and Batch Fetching  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch06_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">5.6. Atomic and Batch Fetching </h2>
+
+
+
+<p><em class="emphasis">Atomic</em> and <em class="emphasis">batch</em> fetching
+are two slightly more interesting ways of getting data out of your
+database. The two procedures are somewhat related to each other, in
+that they potentially make life a lot easier for you, but they do it
+in radically different ways.</p>
+
+
+
+<a name="ch05-ch05.new_atomic_1" /><div class="sect2">
+<h3 class="sect2">5.6.1. Atomic Fetching </h3>
+
+
+
+<p>When you want to fetch only one row,
+<em></em>
+<a name="INDEX-650" />atomic fetching allows you to compress
+the four-stage data fetching cycle (as described earlier) into a
+single method. The two methods you can use for atomic fetching are
+<tt class="literal">selectrow_array(
+)</tt>
+<a name="INDEX-651" />
+<a name="INDEX-652" />
+<a name="INDEX-653" />
+and <tt class="literal">selectrow_arrayref(
+)</tt>
+<a name="INDEX-654" />
+<a name="INDEX-655" />
+<a name="INDEX-656" />.
+They behave in a similar fashion to their row-oriented cousins,
+<tt class="literal">fetchrow_array( )</tt> and <tt class="literal">fetchrow_arrayref(
+)</tt>, the major differences being that the two atomic methods
+do not require a prepared and executed statement handle to work, and,
+more importantly, that they will return only one row of data.</p>
+
+
+
+<p>Because neither method requires a statement handle to be used, they
+are actually invoked via a <a name="INDEX-657" />database handle. For example, to select
+the <tt class="literal">name</tt> and <tt class="literal">type</tt> fields from
+any arbitrary row in our <tt class="literal">megaliths</tt> database, we
+can write the following code:</p>
+
+
+
+<blockquote><pre class="code">### Assuming a valid $dbh exists...
+( $name, $mapref ) = 
+    $dbh-&gt;selectrow_array( "SELECT name, mapref
+                            FROM megaliths" );
+print "Megalith $name is located at $mapref\n";</pre></blockquote>
+
+
+
+<p>This is far more convenient than using the
+<tt class="literal">prepare()</tt> and <tt class="literal">execute()</tt> then
+the <tt class="literal">fetchrow_array( )</tt> or
+<tt class="literal">fetchrow_arrayref( )</tt> methods for single rows.</p>
+
+
+
+<p>Finally, bind values can be supplied, which again helps with the
+reuse of database resources.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch05-ch05.new_batch_0" /><div class="sect2">
+<h3 class="sect2">5.6.2. Batch Fetching </h3>
+
+
+
+<p>
+<a name="INDEX-658" />Batch fetching is the ability to fetch
+the entire result set from an SQL query in one call, as opposed to
+iterating through the result set using row-oriented methods such as
+<tt class="literal">fetchrow_array( )</tt>, etc.</p>
+
+
+
+<p>The DBI defines several methods for this purpose, including
+<tt class="literal">fetchall_arrayref( )</tt>
+<a name="INDEX-659" />
+<a name="INDEX-660" />
+and <tt class="literal">selectall_arrayref(
+)</tt>
+<a name="INDEX-661" />
+<a name="INDEX-662" />
+<a name="INDEX-663" />,
+which basically retrieve the entire result set into a Perl data
+structure for you to manipulate. They are invoked against a prepared
+and executed <a name="INDEX-664" />statement handle.</p>
+
+
+
+<p><tt class="literal">fetchall_arrayref( )</tt> operates in three different
+modes depending on what arguments have been passed to it. It can be
+called with no arguments, with a reference to an array slice as an
+argument, and with a reference to a hash slice as an argument.
+We'll discuss these modes in the following sections.</p>
+
+
+
+<a name="ch05-ch05.new_head_no_0" /><div class="sect3">
+<h3 class="sect3">5.6.2.1. No arguments </h3>
+
+
+
+<p>When <tt class="literal">fetchall_arrayref(
+)</tt>
+<a name="INDEX-665" /> is invoked with no arguments, it
+returns a reference to an <a name="INDEX-666" />array containing references to each
+row in the result set. Each of those references refers to an array
+containing the field values for that row. <a href="ch05_06.htm#ch05-41676">Figure 5-1</a> illustrates the data structure returned.</p>
+
+
+
+<a name="ch05-41676" /><div class="figure"><img width="502" src="figs/dbi.0504.gif" height="142" alt="Figure 5-1" /></div><h4 class="objtitle">Figure 5-1. fetchall_arrayref(  ) data structure </h4>
+
+<p>This looks pretty convoluted, but it is, in fact, extremely simple to
+access the data stored within the data structure. For example, the
+following code shows how to dereference the data structure returned
+by <tt class="literal">fetchall_arrayref( )</tt> when run with no
+arguments:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch05/fetchall_arrayref/ex1: Complete example that connects to a database,
+#                             executes a SQL statement, then fetches all the
+#                             data rows out into a data structure. This
+#                             structure is then traversed and printed.
+
+use DBI;
+
+### The database handle
+my $dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" , {
+    RaiseError =&gt; 1
+});
+
+### The statement handle
+my $sth = $dbh-&gt;prepare( " SELECT name, location, mapref FROM megaliths " );
+
+### Execute the statement
+$sth-&gt;execute(  );
+
+### Fetch all the data into a Perl data structure
+my $array_ref = $sth-&gt;fetchall_arrayref(  );
+
+### Traverse the data structure and dump each piece of data out
+###
+### For each row in the returned array reference ...
+foreach my $row (@$array_ref) {
+    ### Split the row up and print each field ...
+    my ( $name, $type, $location ) = @$row;
+    print "\tMegalithic site $name, found in $location, is a $type\n";
+}
+
+exit;</pre></blockquote>
+
+
+
+<p>Therefore, if you want to fetch all of the result set from your
+database, <tt class="literal">fetchall_arrayref( )</tt> is an efficient and
+easy way of doing it. This is doubly true if you were planning on
+building an in-memory data structure containing the returned rows for
+post-processing. Instead of doing it yourself, you can simply use
+what <tt class="literal">fetchall_arrayref( )</tt> returned instead.</p>
+</div>
+
+
+
+
+
+<a name="ch05-ch05.new_head_slice_0" /><div class="sect3">
+<h3 class="sect3">5.6.2.2. Slice array reference argument </h3>
+
+
+
+<p>It
+
+<a name="INDEX-667" />is also possible to
+use <tt class="literal">fetchall_arrayref( )</tt> to return a data
+structure containing only certain columns from each row returned in
+the result set. For example, we might issue an SQL statement
+selecting the <tt class="literal">name</tt>, <tt class="literal">site_type</tt>,
+<tt class="literal">location</tt>, and <tt class="literal">mapref</tt> fields,
+but only wish to build an in-memory data structure for the rows
+<tt class="literal">name</tt> and <tt class="literal">location</tt>.</p>
+
+
+
+<p>This cannot be done by the standard no-argument version of
+<tt class="literal">fetchall_arrayref( )</tt>, but is easily achieved by
+specifying an array slice as an argument to
+<tt class="literal">fetchall_arrayref( )</tt>.</p>
+
+
+
+<p>Therefore, if our original SQL statement was:</p>
+
+
+
+<blockquote><pre class="code">SELECT meg.name, st.site_type, meg.location, meg.mapref
+FROM megaliths meg, site_types st
+WHERE meg.site_type_id = st.id</pre></blockquote>
+
+
+
+<p>then the <a name="INDEX-668" />array
+indices for each returned row would map as follows:</p>
+
+
+
+<blockquote><pre class="code">name       -&gt; 0
+site_type  -&gt; 1
+location   -&gt; 2
+mapref     -&gt; 3</pre></blockquote>
+
+
+
+<p>By knowing these array indices for the columns, we can simply write:</p>
+
+
+
+<blockquote><pre class="code">### Retrieve the name and location fields...
+$array_ref = $sth-&gt;fetchall_arrayref( [ 0, 2 ] );</pre></blockquote>
+
+
+
+<p>The array indices are specified in the form standard to Perl itself,
+so you can quite easily use ranges and negative indices for special
+cases. For example:</p>
+
+
+
+<blockquote><pre class="code">### Retrieve the second last and last columns
+$array_ref = $sth-&gt;fetchall_arrayref( [ -2, -1 ] );
+
+### Fetch the first to third columns
+$array_ref = $sth-&gt;fetchall_arrayref( [ 0 .. 2 ] );</pre></blockquote>
+
+
+
+<p>The actual data structure created when <tt class="literal">fetchall_arrayref(
+)</tt> is used like this is identical in form to the structure
+created by <tt class="literal">fetchall_arrayref( )</tt> when invoked with
+no arguments.</p>
+</div>
+
+
+
+
+
+<a name="ch05-ch05.new_head_slice_1" /><div class="sect3">
+<h3 class="sect3">5.6.2.3. Slice hash reference argument </h3>
+
+
+
+<p>The
+
+<a name="INDEX-669" />final way that
+<tt class="literal">fetchall_arrayref( )</tt> can be used is to selectively
+store columns into an array reference by passing a
+<a name="INDEX-670" />hash reference argument containing the
+columns to store. This is similar to the <tt class="literal">fetchrow_hashref(
+)</tt> method but returns a reference to an array containing
+hash references for all rows in the result set.</p>
+
+
+
+<p>If we wished to selectively store the <tt class="literal">name</tt> and
+<tt class="literal">location</tt> columns from an SQL statement declared
+as:</p>
+
+
+
+<blockquote><pre class="code">SELECT name, location, mapref
+FROM megaliths</pre></blockquote>
+
+
+
+<p>we can instruct <tt class="literal">fetchall_arrayref( )</tt> to store the
+appropriate fields by passing an anonymous hash as an argument. This
+hash should be initialized to contain the names of the columns to
+store.</p>
+
+
+
+<p>For example, storing the <tt class="literal">name</tt> and
+<tt class="literal">location</tt> columns can be written easily as:</p>
+
+
+
+<blockquote><pre class="code">### Store the name and location columns
+$array_ref = $sth-&gt;fetchall_arrayref( { name =&gt; 1, location =&gt; 1 } );</pre></blockquote>
+
+
+
+<p>The data structure created by <tt class="literal">fetchall_arrayref( )</tt>
+running in this mode is a reference to an array of hash references,
+with each hash reference keyed by the column names and populated with
+the column values for the row in question. Traversing this data
+structure is quite straightforward. The following code illustrates a
+technique to do it:</p>
+
+
+
+<blockquote><pre class="code">#!/usr/bin/perl -w
+#
+# ch05/fetchall_arrayref/ex3: Complete example that connects to a database,
+#                             executes a SQL statement, then fetches all the
+#                             data rows out into a data structure. This
+#                             structure is then traversed and printed.
+
+use DBI;
+
+### The database handle
+my $dbh = DBI-&gt;connect( "dbi:Oracle:archaeo", "username", "password" , {
+    RaiseError =&gt; 1,
+} );
+
+### The statement handle
+my $sth = $dbh-&gt;prepare( " SELECT name, location, mapref FROM megaliths " );
+
+### Execute the statement
+$sth-&gt;execute(  );
+
+### Fetch all the data into an array reference of hash references!
+my $array_ref = $sth-&gt;fetchall_arrayref( { name =&gt; 1, location =&gt; 1 } );
+
+### Traverse the data structure and dump each piece of data out
+###
+### For each row in the returned array reference.....
+foreach my $row (@$array_ref) {
+    ### Get the appropriate fields out the hashref and print...
+    print "\tMegalithic site $row-&gt;{name}, found in $row-&gt;{location}\n";
+}
+
+exit;</pre></blockquote>
+
+
+
+<p>There are a couple of important points to be noted with this form of
+result set fetching:</p>
+
+
+
+<ul><li><p>If you have issued a SQL statement with multiple columns with the
+same name, the returned hash references will have only a single entry
+for all the columns. That is, earlier entries will be overwritten and
+lost. The same condition applies to <tt class="literal">fetchrow_hashref(
+)</tt>, since this method is what <tt class="literal">fetchall_arrayref(
+)</tt> calls internally when given a hash slice.</p>
+
+
+
+<p>An example piece of SQL that would cause problems is:</p>
+<blockquote><pre class="code">SELECT m.name, c.name
+FROM megaliths m, countries c
+WHERE m.country_id = c.id</pre></blockquote>
+
+
+
+<p>In this case, the returned hash reference for the rows would contain
+either the country column values, or the <tt class="literal">megalith</tt>
+column values, but not both.</p></li>
+
+<li>
+<p>The second point regarding this use of <tt class="literal">fetchall_arrayref(
+)</tt> is that the column names stored in the returned hash are
+always lowercase. The case that the database uses and the case used
+in the parameter to <tt class="literal">fetchall_arrayref( )</tt> are
+ignored.
+<a name="INDEX-671" /> <a name="INDEX-672" /></p></li>
+</ul>
+
+
+<p>To sum up, batch value fetching is a convenient way to retrieve all
+the data in the result set into Perl data structures for future
+processing. Do keep in mind, though, that large results sets will eat
+large amounts of memory. If you try to fetch too large a data set,
+you will run out of memory before the method returns to you. Your
+system administrator may not be <a name="INDEX-673" />amused.</p>
+</div>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch06_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">5.5. do(  ) Versus prepare(   ) </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">6. Advanced DBI </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

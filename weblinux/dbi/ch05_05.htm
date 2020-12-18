@@ -1,0 +1,99 @@
+<?label 5.5. do(  ) Versus prepare(   ) ?><html><head><title>do(  ) Versus prepare(   )  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch05_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">5.5. do(  ) Versus prepare(   ) </h2>
+
+
+
+<p>As <a name="INDEX-646" />we mentioned in a previous section,
+the <tt class="literal">do(
+)</tt>
+<a name="INDEX-647" />
+<a name="INDEX-648" />
+method supplied by the DBI makes executing
+non-<tt class="literal">SELECT</tt> statements much simpler than repeatedly
+preparing and executing statements. This is achieved by simply
+wrapping the prepare and execute stages into one composite method.</p>
+
+
+
+<p>There is a drawback to doing this, however: performance. If you
+invoked <tt class="literal">do( )</tt> repeatedly to insert a huge number
+of rows into a table, you could be preparing a statement handle many
+times more than is required, especially if the statement contained
+placeholder variables. For example, the following script inserts some
+rows into the <tt class="literal">megaliths</tt> table:</p>
+
+
+
+<blockquote><pre class="code">### Iterate through the various bits of data...
+foreach $name ( qw( Stonehenge Avebury Castlerigg Sunhoney ) ) {
+    ### ... and insert them into the table
+    $dbh-&gt;do( "INSERT INTO megaliths ( name ) VALUES ( ? )", 
+              undef, $name );
+}</pre></blockquote>
+
+
+
+<p>Internally, what happens is that for each row being inserted, a new
+statement handle is created, and the statement is prepared, executed,
+and finally destroyed. Therefore, this loop has four prepare calls,
+four executes, and four destroys. However, since we're using a
+bind value for each loop, the database will likely need to parse the
+statement only once and use that statement again from the Shared SQL
+Cache. Therefore, in essence, our program is "wasting"
+three prepares of that statement.</p>
+
+
+
+<p>This is a rather inefficient process. In this case, it would be
+better to hand-<a name="INDEX-649" />prepare and re-execute the statement
+handle for each iteration of the loop. For example:</p>
+
+
+
+<blockquote><pre class="code">### Setup the statement for repeated execution
+$sth = $dbh-&gt;prepare( "INSERT INTO megaliths ( name ) VALUES ( ? )" );
+
+### Iterate through the various bits of data...
+foreach $name ( qw( Stonehenge Avebury Castlerigg Sunhoney ) ) {
+    ### ... and insert them into the table
+    $sth-&gt;execute( $name );
+}</pre></blockquote>
+
+
+
+<p>This code prepares the statement only once and executes it four
+times, once per row to be inserted. This is slightly less convenient
+to write, but typically significantly faster to execute.</p>
+
+
+
+<p>While we're on the subject of insertion speed, it's
+important to point out that there may be a faster way. Using a Perl
+script with the DBI is unlikely ever to be as fast for bulk loading
+of records as the database vendors' own specially optimized
+tools such as Oracle's SQL*Loader or Sybase's BCP. But
+don't lose heart; Perl is the ideal tool to create and
+manipulate the data files that these loaders use.</p>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch05_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">5.4. Binding Output Columns </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">5.6. Atomic and Batch Fetching </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

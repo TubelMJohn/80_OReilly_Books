@@ -1,0 +1,714 @@
+<html><head><title>Producing  SAX2 Events (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch03_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+    <h1 class="chapter">Chapter 3. Producing  SAX2 Events</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#sax2-CHP-3-SECT-1">Pull Mode Event Production with XMLReader</a><br />
+<a href="ch03_02.htm">Bootstrapping an XMLReader</a><br />
+<a href="ch03_03.htm">Configuring XMLReader Behavior</a><br />
+<a href="ch03_04.htm">The EntityResolver Interface</a><br />
+<a href="ch03_05.htm">Other Kinds of SAX2 Event Producers</a><br /></p></div>
+
+    
+	<p>
+<a name="INDEX-334" /></a>
+        The preceding chapter provided an overview of the most
+	widely used SAX classes and showed how they relate to each other.
+	This chapter drills more deeply into how to produce XML
+	events with SAX, including further customization of SAX parsers.
+	</p>
+
+    
+
+    <div class="sect1"><a name="sax2-CHP-3-SECT-1" /></a>
+	<h2 class="sect1">3.1. Pull Mode Event Production with XMLReader</h2>
+
+	<p>
+<a name="INDEX-335" /></a>
+<a name="INDEX-336" /></a>
+<a name="INDEX-337" /></a>
+<a name="INDEX-338" /></a>
+<a name="INDEX-339" /></a>
+<a name="INDEX-340" /></a>
+        Most of the time you work with SAX2, you'll be using
+	some kind of <em class="emphasis">org.xml.sax.XMLReader</em>
+	implementation that turns XML text into a SAX event stream.
+	Such a class is loosely called a "SAX parser."
+	Don't confuse this with the older SAX1
+	<em class="emphasis">org.xml.sax.Parser</em> class. New code
+	should not be using that class!
+	</p>
+
+	<p>
+<a name="INDEX-341" /></a>
+<a name="INDEX-342" /></a>
+<a name="INDEX-343" /></a>
+        This interface works in a kind of "pull" mode:
+	when a thread makes an <tt class="literal">XMLReader.parse()</tt> request,
+	it blocks until the XML document has been fully read and processed.
+	Inside the parser there's a lot of work going on, including a "pull-to-push" adapter: the parser pulls
+	data out of the input source provided to <tt class="literal">parse()</tt> and converts it to events that it pushes to event consumers.
+<a name="INDEX-344" /></a>
+
+	This model is different from the model of a
+	<em class="emphasis">java.io.Reader</em>, from which applications
+	can only get individual buffers of character data,
+	but it's also similar because in both cases the calling thread
+	is pulling data from a stream.
+	</p>
+
+	<p>
+<a name="INDEX-345" /></a>
+        You can also have pure "push" mode event producers.
+	The most common kind writes events directly to event handlers and
+	doesn't use any kind of input abstraction to indicate the data's source; it's not parsing XML text.
+	We discuss several types of such producers later in this chapter.
+	Using threads, you could also create a producer that lets
+	you write raw XML text, a buffer at a time,
+	to an <em class="emphasis">XMLReader</em> that parses the text;
+	that's another kind of "push" mode producer.
+	</p>
+
+	<a name="sax2-CHP-3-SECT-1.1" /></a><div class="sect2">
+	    <h3 class="sect2">3.1.1. The XMLReader Interface</h3>
+
+	    <p>
+<a name="INDEX-346" /></a>
+The SAX overview presented the most important parts of
+	    the <em class="emphasis">XMLReader</em> interface.
+	    Here we discuss the whole thing, in functional groups.
+	    Most of the handlers are presented in more detail
+	    in the next chapter, which focuses on the consumption
+	    side of the SAX event streaming process. Each handler has get and set accessor methods, and has a default value of null.
+	    </p>
+
+<p><em class="emphasis">XMLReader</em> has the following functional groups:</p>
+
+	    <dl>
+
+		
+<dt><b><tt class="literal">void parse(String uri)</tt></b></dt>
+<dt><b><tt class="literal">void parse(InputSource in)</tt></b></dt>
+
+		<dd><p>
+<a name="INDEX-347" /></a>
+                There are two methods to parse documents.
+		In most cases, the Java environment is able to resolve
+		the document's URI; the form with the absolute
+		URI should be used when possible.
+		(You may need to convert
+		filenames to URIs before passing them to SAX.
+		SAX specifically disallows passing relative URIs.)
+		The second form is discussed in more detail
+		along with the <em class="emphasis">InputSource</em> class.
+		Both of these methods can throw a
+		<em class="emphasis">SAXException</em> or
+		<em class="emphasis">java.io.IOException</em>,
+		as presented earlier.
+		A <em class="emphasis">SAXException</em> is normally thrown only when an event
+		handler throws it to terminate parsing.
+		That policy is best encapsulated in an
+		<em class="emphasis">ErrorHandler</em>,
+		but handler methods can make such decisions themselves.
+<a name="INDEX-348" /></a>
+		
+</p>
+
+		<p>Only one thread may call a given parser's
+		<tt class="literal">parse()</tt> method at a time; applications
+		are responsible for ensuring that threads don't share parsers that are in active use. (SAX parsers aren't necessarily going to report applications that break that rule, though!) The thread doing the parsing will normally block only while it's waiting for data to be delivered to it, or if a handler's processing causes it to block.</p></dd>
+	    
+		
+<dt><b><tt class="literal">void setContentHandler(ContentHandler handler)</tt></b></dt>
+<dt><b><tt class="literal">ContentHandler getContentHandler()</tt></b></dt>
+
+		<dd><p>
+Key parts of the <em class="emphasis">ContentHandler</em> interface
+		were presented as part of the SAX overview;
+		<em class="emphasis">ContentHandler</em> packages the fundamental parsing
+		callbacks used by SAX event consumers.
+		This interface is presented in more detail in <a href="ch04_01.htm">Chapter 4, "Consuming SAX2 Events"</a>, in <a href="ch04_01.htm#sax2-CHP-4-SECT-1.1">Section 4.1.1, "Other ContentHandler Methods "</a>.
+		</p></dd>
+	    
+		
+<dt><b><tt class="literal">void setDTDHandler(DTDHandler handler)</tt></b></dt>
+<dt><b><tt class="literal">DTDHandler getDTDHandler()</tt></b></dt>
+
+		<dd><p>
+<a name="INDEX-349" /></a>
+<a name="INDEX-350" /></a>
+                The <em class="emphasis">DTDHandler</em> is presented in detail
+		later, in <a href="ch04_01.htm">Chapter 4, "Consuming SAX2 Events"</a> in <a href="ch04_03.htm#sax2-CHP-4-SECT-3.2">Section 4.3.2, "The DTDHandler Interface "</a>.
+		</p></dd>
+	    
+		
+<dt><b><tt class="literal">void setEntityResolver(EntityResolver handler)</tt></b></dt>
+<dt><b><tt class="literal">EntityResolver getEntityResolver()</tt></b></dt>
+
+		<dd><p>
+<a name="INDEX-351" /></a>
+<a name="INDEX-352" /></a>
+                The <em class="emphasis">EntityResolver</em> is presented later in
+		this chapter, in <a href="ch03_04.htm#sax2-CHP-3-SECT-4">Section 3.4, "The EntityResolver Interface"</a>.
+		It is used by the parser to help locate the content for
+		external entities (general or parameter) to be parsed.
+		</p></dd>
+	    
+		
+<dt><b><tt class="literal">void setErrorHandler(ErrorHandler handler)</tt></b></dt>
+<dt><b><tt class="literal">ErrorHandler getErrorHandler()</tt></b></dt>
+
+		<dd><p>
+<a name="INDEX-353" /></a>
+<a name="INDEX-354" /></a>
+                The <em class="emphasis">ErrorHandler</em> was presented in
+		<a href="ch02_05.htm#sax2-CHP-2-SECT-5.2">Section 2.5.2, "ErrorHandler Interface"</a> in <a href="ch02_01.htm">Chapter 2, "Introducing SAX2"</a>.
+		It is often used by consumer code that interprets events
+		reported through other handlers, since they may need to
+		report errors detected at higher levels than XML syntax.</p></dd>
+	    
+		
+<dt><b><tt class="literal">void setFeature(String uri, boolean value)</tt></b></dt>
+<dt><b><tt class="literal">boolean getFeature(String uri)</tt></b></dt>
+
+		<dd><p>
+<a name="INDEX-355" /></a>
+<a name="INDEX-356" /></a>
+                Parser feature flags were discussed in <a href="ch02_01.htm">Chapter 2, "Introducing SAX2"</a>,
+		and are presented in more detail later in this chapter
+		in <a href="ch03_03.htm#sax2-CHP-3-SECT-3.2">Section 3.3.2, "XMLReader Feature Flags"</a>.
+		</p></dd>
+	    
+		
+<dt><b><tt class="literal">void setProperty(String uri, Object value)</tt></b></dt>
+<dt><b><tt class="literal">Object getProperty(String uri)</tt></b></dt>
+
+		<dd><p>
+<a name="INDEX-357" /></a>
+<a name="INDEX-358" /></a>
+                Parser properties are used for data such
+		as additional event handlers,
+		and are presented in more detail later in this chapter
+		in <a href="ch03_03.htm#sax2-CHP-3-SECT-3.1">Section 3.3.1, "XMLReader Properties"</a>.
+		</p></dd>
+	    
+	    </dl>
+
+	    <p>
+<a name="INDEX-359" /></a>
+<a name="INDEX-360" /></a>
+
+            All the event handlers and the entity resolver
+	    may be reassigned inside event callbacks.
+	    At this level, SAX guarantees "late binding"
+	    of handlers. Layers built on top of SAX might use
+	    earlier binding, which can optimize event processing.
+	    </p>
+
+	    <p>
+<a name="INDEX-361" /></a>
+<a name="INDEX-362" /></a>
+            Many SAX parsers let you set handlers to null as a
+	    way to ignore the events reported by that type of handler.
+	    Strictly speaking, they don't need to do that; they're allowed to
+	    throw a <em class="emphasis">NullPointerException</em> when you use null.
+	    So if you need to restore the default behavior of a parser,
+	    you should use a <em class="emphasis">DefaultHandler</em> (or
+	    something implementing the appropriate extension interface)
+	    just in case, rather than use the more natural idiom of
+	    setting the handler to its default value, null.
+	    </p>
+
+	    <p>If for any reason you need a push mode XML
+	    parser, which takes blocks of character or byte data
+	    (encapsulating XML text) that you write to a parser,
+	    you can easily create one from a standard
+	    pull mode parser.
+	    The cost is one helper thread and some API glue.
+	    The helper thread will call <tt class="literal">parse()</tt> on an
+	    <em class="emphasis">InputSource</em> that uses
+	    a <em class="emphasis">java.io.PipedInputStream</em> to read text.
+	    The push thread will write such data blocks to an
+	    associated <em class="emphasis">java.io.PipedOutputStream</em>
+	    when it becomes available.
+	    Most SAX parsers will in turn push the event data out
+	    incrementally, but there's no guarantee (at least from SAX)
+	    that they won't buffer megabytes of data before they start
+	    to parse.
+<a name="INDEX-363" /></a>
+	    
+
+</p>
+
+	</div>
+
+	<a name="sax2-CHP-3-SECT-1.2" /></a><div class="sect2">
+	    <h3 class="sect2">3.1.2. The InputSource Class</h3>
+
+	    <p>
+<a name="INDEX-364" /></a>
+<a name="INDEX-365" /></a>
+
+            The <em class="emphasis">InputSource</em> class shows up in
+	    both places where SAX needs to parse data: for the document
+	    itself, through <tt class="literal">parse()</tt>,
+	    and for the external parsed entities it might reference
+	    through the <em class="emphasis">EntityResolver</em> interface.
+	    </p>
+
+	    <p>
+<a name="INDEX-366" /></a>
+<a name="INDEX-367" /></a>
+            In almost all cases you should simply pass an absolute URI
+	    to the <tt class="literal">XMLReader.parse()</tt> method.
+	    (If you have a relative URI or a filename, turn it into
+	    an absolute URI first.)
+	    However, there are cases when you may need to parse
+	    data that has no URI.
+	    It might be in unnamed storage like a <em class="emphasis">String</em>;
+	    or it might need to be read using a specialized access scheme
+	    (maybe a <em class="emphasis">java.io.PipedInputStream</em>,
+	    or POST input to a servlet,
+	    or something named by a URN).
+	    The web server for the URI might misidentify the document's
+	    character encoding, so you'd need to work around that
+	    server bug.
+	    In such cases, you must use the alternative 
+	    <tt class="literal">XMLReader.parse()</tt> method and pass
+	    an <em class="emphasis">InputSource</em> object to the parser.
+	    </p>
+
+	    <p><em class="emphasis">InputSource</em> objects are
+	    fundamentally holders for one or two things:
+	    an entity's URI and the entity text.
+	    (There can be a "public ID" too,
+	    but it's rarely useful.)
+	    When only one of those is needed, an application's work for
+	    setting up the <em class="emphasis">InputSource</em> might end with choosing the right
+	    constructor. Whenever you provide the entity text,
+	    you need to pay attention to some character encoding issues.
+	    Because character encoding is easy to get wrong, avoid directly
+	    providing entity text when you can.
+	    </p>
+
+	    <a name="sax2-CHP-3-SECT-1.2.1" /></a><div class="sect3">
+		<h3 class="sect3">3.1.2.1. Always provide absolute URIs</h3>
+
+	    <p>
+<a name="INDEX-368" /></a>
+<a name="INDEX-369" /></a>
+            You should try to <em class="emphasis">always</em> provide
+	    the fully qualified (absolute) URI of the entity as its
+	    <em class="replaceable">systemId</em>, even if you also provide
+	    the entity text.
+	    That URI will often be the only data you need to provide.
+	    You must convert filenames to URIs (as described later in this chapter in
+	    <a href="ch03_01.htm#sax2-CHP-3-SECT-1.3">Section 3.1.3, "Filenames Versus URIs"</a>), and turn relative URIs
+	    into absolute ones. Some parsers have bugs and will attempt to turn relative URIs into absolute ones, guessing at an appropriate base URI. Do not rely on such behavior.
+	    </p>
+
+	    <p>If you don't provide that absolute URI,
+	    then diagnostics may be useless.
+	    More significantly, relative URIs within the document can't
+	    be correctly resolved by the parser if the base URI is forgotten.
+	    XML parsers need to handle relative URIs within DTDs.
+	    To do that they need the absolute document (or entity)
+	    base URIs to be provided in <em class="emphasis">InputSource</em>
+	    (or <tt class="literal">parse()</tt> methods) by the application.
+	    Parsers use those base URIs to absolutize relative URIs, and then
+	    use <em class="emphasis">EntityResolver</em> to map the URIs
+	    (or their public identifiers) to entity text.
+	    Applications sometimes need to do similar things to relative URIs
+	    in document content. The <tt class="literal">xml:base</tt> attribute
+	    may provide an alternative solution for applications to
+	    determine the base URI,
+	    but it is normally needed only when relative URIs are
+	    broken.
+	    This can happen when someone moves the base document
+	    without moving its associated resources, or when you
+	    send the document through DOM (which doesn't record base URIs).
+	    Moreover, relative URIs in an <tt class="literal">xml:base</tt>
+	    attribute still need to be resolved with respect to the
+	    real base URI of the document.
+	    </p>
+
+<p><a name="INDEX-370" /></a><a name="INDEX-371" /></a>
+
+
+The following methods are used to provide absolute URIs:</p>	    
+
+<dl>
+
+		<dt><b>
+		    <tt class="literal">InputSource(String uri)</tt>
+		    </b></dt>
+
+		<dd><p>Use this constructor when you are
+		creating an <em class="emphasis">InputSource</em> consisting only of a fully
+		qualified URI in a scheme understood by the JVM you
+		are using. Such schemes commonly include
+		<em class="emphasis">http://</em>, <em class="emphasis">file://</em>, <em class="emphasis">ftp://</em>, and increasingly <em class="emphasis">https://</em>.
+		</p></dd>
+	    
+		<dt><b>
+		    <tt class="literal">InputSource.setSystemId(String uri)</tt>
+		    </b></dt>
+
+		<dd><p>Use this method to record the URI
+		associated with text you are providing directly.
+		</p></dd>
+	    
+	    </dl>
+
+	    <p>For example, these three ways to parse a document
+	    are precisely equivalent: </p>
+
+<blockquote><pre class="code">String    uri = ...;
+XMLReader parser = ...;
+
+parser.parse (uri);
+// or
+parser.parse (new InputSource (uri);
+</pre></blockquote>
+	    
+	    </div>
+
+	    <a name="sax2-CHP-3-SECT-1.2.2" /></a><div class="sect3">
+		<h3 class="sect3">3.1.2.2. Providing entity text</h3>
+
+	    <p>
+<a name="INDEX-372" /></a>
+<a name="INDEX-373" /></a>
+            For data without a URI, or that uses a
+	    URI scheme not supported by your JVM, applications must
+	    provide entity text themselves.
+	    There are two ways to provide the text through an
+	    <em class="emphasis">InputSource</em>:
+	    as character data or as binary data, which needs to be
+	    decoded into character data before it can be parsed.
+	    In both cases your application will create an open data stream
+	    and give it to the parser.
+	    It will no longer <?troff .ne 10?>be owned by your application; the parser
+	    should later close it as part of its end-of-input processing.
+	    If you provide binary data, you might know the character
+	    encoding used with it and can give that information to the
+	    parser rather than turning it to character data yourself
+	    using something like an <em class="emphasis">InputStreamReader</em>.
+<a name="INDEX-374" /></a>
+	    
+</p>
+
+	    <dl>
+
+		<dt><b>
+		<tt class="literal">InputSource(java.io.Reader in)</tt>
+		    </b></dt>
+
+		<dd><p>
+<a name="INDEX-375" /></a>
+<a name="INDEX-376" /></a>
+<a name="INDEX-377" /></a>
+                Use this constructor when you are
+		providing predecoded data to the parser, which will
+		then ignore what any XML or text declaration says
+		about the character encoding.
+		(Also, call <tt class="literal">setSystemId(uri)</tt> 
+		when possible.)
+		This constructor is useful for parsing
+		data from a <em class="emphasis">java.io.Reader</em> such as
+		<em class="emphasis">java.io.CharArrayReader</em>
+		and for working around configuration bugs in HTTP servers.
+		</p>
+
+		<p>Some HTTP servers will misidentify the text
+		encoding used for XML documents, using the content type
+		<em class="emphasis">text/xml</em> for non-ASCII data, instead of
+		<em class="emphasis">text/xml;charset=...</em> or
+		<em class="emphasis">application/xml</em>.<a href="#FOOTNOTE-12">[12]</a>
+		If you know a particular server does this, and that
+		the encoding won't be autodetected, create an <em class="emphasis">InputSource</em> by using an <em class="emphasis">InputStreamReader</em> that uses the correct encoding.
+		If the correct encoding will be autodetectable, you
+		can use the <em class="emphasis">InputStream</em> constructor.
+		</p><blockquote class="footnote"><a name="FOOTNOTE-12" /></a><p>[12]<em class="emphasis">application/xml</em> is the safest MIME
+		type to use for *.xml, *.dtd, and other XML files.
+		See RFC 3023 for information about XML MIME types and
+		character encodings.</p></blockquote></dd>
+	    
+		<dt><b>
+		<tt class="literal">InputSource(java.io.InputStream in)</tt>
+		    </b></dt>
+
+		<dd><p>
+<a name="INDEX-378" /></a>
+                Use this constructor when you are
+		providing binary data to a parser and expect the parser
+		to be able to detect the encoding from the binary data.
+		(Also, call <tt class="literal">setSystemId(uri)</tt> 
+		when possible.)
+		</p>
+		
+		<p>For example, UTF-16 text always includes a Byte Order
+		Mark, a document beginning
+		<tt class="literal">&lt;?xml ... encoding="Big5"?&gt;</tt>
+		is understood by most parsers as a Big5 (traditional Chinese)
+		document, and UTF-8 is the default for XML documents without
+		a declaration identifying the actual encoding in use.
+		</p></dd>
+	    
+		<dt><b>
+		    <tt class="literal">InputSource.setEncoding(String id)</tt>
+		    </b></dt>
+
+		<dd><p>
+<a name="INDEX-379" /></a>
+
+                Use this method if you know the character
+		encoding used with data you are providing as a
+		<em class="emphasis">java.io.InputStream</em>.
+		(Or provide a <em class="emphasis">java.io.Reader</em> if
+		you can, though some parsers know more about encodings <?troff .ne 10?>than the
+		underlying JVM does.)<a href="#FOOTNOTE-13">[13]</a> If you don't know the encoding,  <em class="emphasis">don't guess</em>. XML parsers know how to use XML and text declarations to correctly determine the encoding in use. However, some parsers don't autodetect EBCDIC encodings, which are mostly used with IBM mainframes. You can use this method to help parsers handle documents using such encodings, if you can't provide the document in a fully interoperable encoding such as UTF-8.
+		</p><blockquote class="footnote"><a name="FOOTNOTE-13" /></a><p>[13]JDK 1.4 includes public APIs through which applications can support new character encodings. Some applications may need to use those APIs to support encodings beyond those the JVM handles natively.</p></blockquote>
+		
+		<p>
+<a name="INDEX-380" /></a>
+<a name="INDEX-381" /></a>
+<a name="INDEX-382" /></a>
+<a name="INDEX-383" /></a>
+                All XML parsers support "UTF-8" and "UTF-16" values here,
+		and most support other values, such as US-ASCII and ISO-8859-1. Consult your parser documentation for information about other encodings it supports. Typically, all encodings supported by the underlying JVM will be available, but they might be inconsistently named. (As one example, Sun's JDK supports many EBCDIC encodings, but gives them unusual names that don't suggest they're actually EBCDIC.) You should use standard Internet (IANA) encoding names, rather than Java names, where possible. In particular, don't use the name "UTF8"; use "UTF-8".</p></dd>
+	    
+	    </dl>
+
+	    <p>So if you want to parse some XML text you have lying around
+	    in a character array or String, the natural thing to do is
+	    package it as a <em class="emphasis">java.io.Reader</em> and wrap
+	    it up in something like this:
+	    </p>
+
+<blockquote><pre class="code">String    text = "&lt;lichen color='red'/&gt;";
+Reader    reader = new StringReader (text);
+XMLReader parser = ... ;
+
+parser.setContentHandler (...);
+parser.parse (new InputSource (reader));
+</pre></blockquote>
+
+	    <p>In the same way, if you're implementing a servlet's
+	    POST handler and the servlet accepts XML text as its input,
+	    you'll create an <em class="emphasis">InputSource</em>.
+	    The <em class="emphasis">InputSource</em> will never have a URI, though you could support URIs for
+	    <em class="emphasis">multipart/related</em> content (sending a
+	    bundle of related components, such as external entities).
+	    <a href="ch03_01.htm#sax2-CHP-3-EX-1">Example 3-1</a>
+	    handles the MIME content type correctly, though
+	    it does so by waving a magic wand: it calls a routine
+	    that implements the rules in RFC 3023. That is, 
+	    <em class="emphasis">text/*</em> content is US-ASCII (seven-bit
+	    code) by default, and any <tt class="literal">charset=...</tt>
+	    attribute is authoritative.
+	    When parsing XML requests inside a servlet, you'd typically apply
+	    a number of configuration <?troff .ne 10?>techniques to speed up per-request
+	    processing and maintain security.<a href="#FOOTNOTE-14">[14]</a>
+	    </p><blockquote class="footnote">
+		<a name="FOOTNOTE-14" /></a><p>[14]You might have a pool of parsers, to reduce bootstrap
+		costs. You'd use an entity resolver to turn most entity
+		accesses from remote ones into local ones. Depending on your application, you might even prevent
+		all access to nonlocal entities  so the servlet
+		won't hang when remote network accesses get delayed.
+		</p>
+
+		<a name="FOOTNOTE-14" /></a><p>Some security policies would also involve the entity
+		resolver. Basically, every entity access "requested" by the
+		client (through a reference in the document)
+		is a potential attack. If it's not known to be safe
+		(for example, access to standard DTD components), it may be
+		important to prevent or nullify the access. (This does not always happen in the entity resolver; sometimes system
+		security policies will be more centralized.) In a small trade-off against performance,
+		security might require
+		that the request data always be validated, and that validity
+		errors be treated as fatal, because malformed input
+		data is likely to affect system integrity.
+		</p>
+		</blockquote>
+
+	    <a name="sax2-CHP-3-EX-1" /></a><div class="example">
+		<h4 class="objtitle">Example 3-1. Parsing POST input to an HTTP Servlet</h4>
+
+		<blockquote><pre class="code">import gnu.xml.util.Resolver;
+
+public void doPost (HttpServletRequest request, HttpServletResponse response)
+throws IOException, ServletException
+{
+    String       type = req.getContentType ();
+    InputSource  in;
+    XMLReader    parser;
+
+    if (!(type.startsWith ("text/xml")
+            || type.startsWith ("application/xml")) {
+        response.sendError (response.SC_UNSUPPORTED_MEDIA_TYPE,
+            "non-XML content type: " + type);
+        return;
+    }
+
+    // there's no URI for this input data!
+    in = new InputSource (req.getInputStream ());
+
+    // use any encoding associated with the MIME type
+    in.setEncoding (Resolver.getEncoding (req.getContentType ()));
+
+    try {
+        parser = XMLReaderFactory.createXMLReader();
+        ...
+        parser.setContentHandler (...);
+        parser.parse (in);
+        // content handler expected to handle response generation
+
+    } catch (SAXException e) {
+        response.sendError (response.SC_BAD_REQUEST,
+            "bad input: " + e.getMessage ());
+        return;
+
+    } catch (IOException e) {
+	// maybe a relative URI in the input couldn't be resolved
+        response.sendError (response.SC_INTERNAL_SERVER_ERROR
+            "i/o problem: " + e.getMessage ());
+        return;
+    }
+}</pre></blockquote>
+
+		</div>
+
+	    <p>
+<a name="INDEX-384" /></a>
+            You might have some XML text in a database, stored as
+	    a binary large object (BLOB, accessed using java.sql.Blob) and potentially referring to other
+	    BLOBs in the database. Constructing input sources for such data
+	    should be slightly different because of those references.
+	    You'd want to be sure to provide a URI, so the references
+	    can be resolved:
+	    </p>
+
+<blockquote><pre class="code">String        key = "42";
+byte          data [] = Storage.keyToBlob (key);
+InputStream   stream = new ByteArrayInputStream (data);
+InputSource   source = new InputSource (stream);
+XMLReader     parser = ... ;
+
+source.setSystemId ("blob:" + key);
+parser.parse (source);
+</pre></blockquote>
+
+	    <p>
+<a name="INDEX-385" /></a>
+<a name="INDEX-386" /></a>
+            In such cases, where you are using a URI scheme that
+	    your JVM doesn't support directly,
+	    consider using an
+	    <em class="emphasis">EntityResolver</em> to create the
+	    <em class="emphasis">InputSource</em> objects you hand to
+	    <tt class="literal">parse()</tt>.
+	    Such schemes might be standard (such as
+	    members of a MIME <em class="emphasis">multipart/related</em> bundle), or they might be
+	    private to your application (like this
+	    <em class="emphasis">blob:</em> scheme).
+	    (<a href="ch03_04.htm#sax2-CHP-3-EX-3">Example 3-3</a> shows how to package
+	    handling for such nonstandard URI schemes so that you can
+	    use them in your application, even when your JVM does
+	    not understand them. You may need to pass such URIs using public IDs rather than system IDs, so that parsers won't report errors when they try to resolve them.)
+<a name="INDEX-387" /></a>
+<a name="INDEX-388" /></a>
+<a name="INDEX-389" /></a>	    
+</p>
+
+	    </div>
+
+	</div>
+
+	<a name="sax2-CHP-3-SECT-1.3" /></a><div class="sect2">
+	    <h3 class="sect2">3.1.3. Filenames Versus URIs</h3>
+
+	    <p>
+<a name="INDEX-390" /></a>
+<a name="INDEX-391" /></a>
+<a name="INDEX-392" /></a>
+<a name="INDEX-393" /></a>
+            Filenames are not URIs, so you may not provide them
+	    as system identifiers where SAX expects a system identifier:
+	    in <tt class="literal">parse()</tt> or in an
+	    <em class="emphasis">InputSource</em> object.
+	    If you are depending on JDK 1.2 or later, you can rely on
+	    <tt class="literal">new File(name).toURL().toString()</tt> to
+	    turn a filename into a URI.
+	    To be most portable, you may prefer to use a routine as shown
+	    in <a href="ch03_01.htm#sax2-CHP-3-EX-2">Example 3-2</a>,
+	    which handles key issues like mapping DOS or Mac OS
+	    filenames into legal URIs.
+	    </p>
+
+	    <a name="sax2-CHP-3-EX-2" /></a><div class="example">
+		<h4 class="objtitle">Example 3-2. File.toURL() analogue for JDK 1.1</h4>
+
+		<blockquote><pre class="code">public static String fileToURL (File f)
+throws IOException
+{
+    String      temp;
+
+    if (!f.exists ())
+        throw new IOException ("no such file: " + f.getName ());
+
+    temp = f.getAbsolutePath ();
+
+    if (File.separatorChar != '/')
+        temp = temp.replace (File.separatorChar, '/');
+    if (!temp.startsWith ("/"))
+        temp = "/" + temp;
+    if (!temp.endsWith ("/") &amp;&amp; f.isDirectory ())
+        temp = temp + "/";
+    return "file:" + temp;
+}
+</pre></blockquote>
+	    
+		</div>
+
+	    <p>If you're using the GNU software distribution that is described earlier, <tt class="literal">gnu.xml.util.Resolver.fileToURL()</tt> is available so you won't need to enter that code yourself.
+<a name="INDEX-394" /></a>
+<a name="INDEX-395" /></a>
+<a name="INDEX-396" /></a>
+</p>
+
+	</div>
+
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_06.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch03_02.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">2.6. Namespaces and SAX2</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">3.2. Bootstrapping an XMLReader</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+      </map>
+
+</body></html>

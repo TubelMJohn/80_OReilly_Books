@@ -1,0 +1,284 @@
+<html><head><title>tkhanoi.ppl (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appc_11.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">C.12. tkhanoi.ppl</h2>
+
+<p>This next PPL program is a classic Tower of Hanoi game.</p>
+
+<blockquote><pre class="code">#!/usr/local/bin/perl -w
+#
+# Towers of Hanoi, Perl/Tk style.  2000/06/14, sol0@Lehigh.EDU
+
+# Global package, subroutine and data declarations.
+
+use Tk;
+use Tk::Dialog;
+use subs qw/do_hanoi fini hanoi init move_ring/;
+use strict;
+
+my $canvas;			# the Hanoi playing field
+my @colors;			# 24 graduated ring colors
+my $fly_y;			# canvas Y-coord along which rings fly
+my $max_rings;			# be nice and keep @colors count-consistent
+my $num_moves;			# total ring moves
+my %pole;			# tracks pole X-coord and ring count
+my %ring;			# tracks ring canvas ID, width and pole
+my $ring_base;			# canvas Y-coord of base of ring pile
+my $ring_spacing;		# pixels between adjacent rings
+my $stopped;			# 1 IFF simulation is stopped
+my $velocity;			# pixel delta the rings move while flying
+my $version = '1.0, 2000/06/14';
+
+# Main.
+
+my $mw = MainWindow-&gt;new(-use =&gt; $Plugin::brinfo{xwindow_id});
+init;
+MainLoop;
+
+sub do_hanoi {
+
+    # Initialize for a new simulation.
+
+    my($n) = @_;		# number of rings
+    
+    return unless $stopped;
+
+    $stopped = 0;		# start ...
+    $num_moves = 0;		# ... new simulation
+
+    my $ring_height = 26;
+    $ring_spacing = 0.67 * $ring_height;
+
+    my $ring_width = 96 + $n * 12;
+
+    my $canvas_width = 3 * $ring_width + 4 * 12;
+    my $canvas_height = $ring_spacing * $n + $fly_y + 2 * $ring_height;
+
+    $ring_base = $canvas_height - 32;
+
+    # Remove all rings from the previous run and resize the canvas.
+
+    for (my $i = 0; $i &lt; $max_rings; $i++) {
+        $canvas-&gt;delete($ring{$i, 'id'}) if defined $ring{$i, 'id'};
+    }
+    $canvas-&gt;configure(-width =&gt; $canvas_width, -height =&gt; $canvas_height);
+
+    # Initialize the poles: no rings, updated X coordinate.
+
+    for (my $i = 0; $i &lt; 3; $i++) {
+        $pole{$i, 'x'} = ($i * $canvas_width / 3) + ($ring_width / 2) + 8;
+        $pole{$i, 'ring_count'} = 0;
+    }
+
+    # Initialize the rings: canvas ID, pole number, and width.
+
+    for (my $i = 0; $i &lt; $n; $i++) {
+        my $color = '#' . $colors[$i % 24];
+        my $w = $ring_width - ($i * 12);
+        my $y = $ring_base - $i * $ring_spacing;
+        my $x = $pole{0, 'x'} - $w / 2;
+        my $r = $n - $i;
+        $ring{$r, 'id'} = $canvas-&gt;createOval(
+                $x, $y, $x + $w, $y + $ring_height,
+                -fill =&gt; $color, -outline =&gt; 'black', -width =&gt; 1,
+            );
+        $ring{$r, 'width'} = $w;
+        $ring{$r, 'pole'} = 0;
+        $pole{0, 'ring_count'}++;
+    }
+
+    # Start the simulation.
+
+    $mw-&gt;update;
+    hanoi $n, 0, 2, 1;
+    $stopped = 1;
+
+} # end do_hanoi
+
+sub hanoi {
+
+    # Recursively move rings until complete or stopped by the user.
+
+    my($n, $from, $to, $work) = @_;
+
+    return if $n &lt;=0 or $stopped;
+
+    hanoi $n - 1, $from, $work, $to;
+    move_ring $n, $to unless $stopped;
+    hanoi $n - 1, $work, $to, $from;
+}
+
+sub init {
+
+    $fly_y = 32;		# Y-coord rings use to fly between poles
+    $stopped = 1;
+    my $stop = sub {$stopped = 1};
+    my $about = $mw-&gt;Dialog(
+        -title          =&gt; 'About tkhanoi',
+        -bitmap         =&gt; 'info',
+        -default_button =&gt; 'OK',
+        -buttons        =&gt; ['OK'],
+        -text           =&gt; "tkhanoi version $version\n\n" .
+                           "r - run  simulation\n"        .
+                           "s - stop simulation\n"        .
+                           "q - quit program\n",
+        -wraplength     =&gt; '6i',
+    );
+    
+    # Menubar and menubuttons.
+
+    $mw-&gt;title("Towers of Hanoi");
+    $mw-&gt;configure(-menu =&gt; my $menubar = $mw-&gt;Menu);
+
+    my $file = $menubar-&gt;cascade(-label =&gt; 'File');
+    $file-&gt;command(-label =&gt; '~Quit', -command =&gt; \&amp;fini,-accelerator =&gt; 'q');
+
+    my $game = $menubar-&gt;cascade(-label =&gt; 'Game');
+    $game-&gt;command(-label =&gt; '~Run',  -command =&gt; sub {}, -accelerator =&gt; 'r');
+    $game-&gt;command(-label =&gt; '~Stop', -command =&gt; $stop,  -accelerator =&gt; 's');
+
+    my $help = $menubar-&gt;cascade(-label =&gt; 'Help');
+    $help-&gt;command(-label =&gt; 'About', -command =&gt; sub {$about-&gt;Show});
+
+    my $info = $mw-&gt;Frame-&gt;pack;
+
+    # Number of rings scale.
+
+    my $rframe = $info-&gt;Frame(qw/-borderwidth 2 -relief raised/);
+    my $rlabel = $rframe-&gt;Label(-text =&gt; 'Number of Rings');
+    my $rscale = $rframe-&gt;Scale(
+        qw/-orient horizontal -from 1 -to 24 -length 200/,
+    );
+    $rscale-&gt;set(4);
+    $game-&gt;cget(-menu)-&gt;entryconfigure('Run',
+        -command =&gt; sub {do_hanoi $rscale-&gt;get},
+    );
+
+    $rframe-&gt;pack(qw/-side left/);
+    $rscale-&gt;pack(qw/-side right -expand 1 -fill x/);
+    $rlabel-&gt;pack(qw/-side left/);
+
+    # Ring velocity scale.
+
+    my $vframe = $info-&gt;Frame(qw/-borderwidth 2 -relief raised/);
+    my $vlabel = $vframe-&gt;Label(-text =&gt; 'Ring Velocity %');
+    my $vscale = $vframe-&gt;Scale(
+        qw/-orient horizontal -from 0 -to 100 -length 200/,
+        -command =&gt; sub {$velocity = shift},
+    );
+    $vscale-&gt;set(2);
+
+    $vframe-&gt;pack(qw/-side left/);
+    $vscale-&gt;pack(qw/-side right -expand 1 -fill x/);
+    $vlabel-&gt;pack(qw/-side left/);
+
+    # The simulation is played out on a canvas.
+
+    $canvas = $mw-&gt;Canvas(qw/-relief sunken/);
+    $canvas-&gt;pack(qw/-expand 1 -fill both/);
+    $canvas-&gt;createWindow(40, 10, -window =&gt;
+        $canvas-&gt;Label(-textvariable =&gt; \$num_moves, -foreground =&gt; 'blue'),
+    );
+
+    # Each ring has a unique color, hopefully.
+
+    @colors = (qw/
+        ffff0000b000 ffff00006000 ffff40000000 ffff60000000 
+        ffff80000000 ffffa0000000 ffffc0000000 ffffe0000000
+        ffffffff0000 d000ffff0000 b000ffff0000 9000ffff0000
+        6000ffff3000 0000ffff6000 0000ffff9000 0000ffffc000
+        0000ffffffff 0000e000ffff 0000c000ffff 0000a000ffff
+        00008000ffff 00006000ffff 00004000ffff 00000000ffff
+    /); 
+
+    $max_rings = 24;
+    warn "Too few colors for $max_rings rings!" if $max_rings &gt; $#colors + 1;
+
+    # Global key bindings that emulate menu commands.
+
+    $mw-&gt;bind('&lt;KeyPress-r&gt;' =&gt; sub {do_hanoi $rscale-&gt;get});
+    $mw-&gt;bind('&lt;KeyPress-q&gt;' =&gt; \&amp;fini);
+    $mw-&gt;bind('&lt;KeyPress-s&gt;' =&gt; $stop);
+
+} # end init
+
+sub fini {
+    $mw-&gt;destroy;
+}
+
+sub move_ring {
+
+    # Move ring $n - its bounding box coordinates - to pole $to.
+
+    my($n, $to) = @_;
+
+    $num_moves++;
+    my $r = $ring{$n, 'id'};
+    my($x0, $y0, $x1, $y1) = map {int($_ + 0.5)} $canvas-&gt;coords($r); 
+
+    # Float the ring upwards to the flying Y-coordinate, and decrement
+    # this pole's count.
+
+    my $delta;
+    while ($y0 &gt; $fly_y) {
+        $delta = $y0 - $fly_y &gt; $velocity ? $velocity : $y0 - $fly_y;
+        $canvas-&gt;coords($r, $x0, $y0 -= $delta, $x1, $y1 -= $delta);
+        $mw-&gt;update;
+    }
+    $pole{$ring{$n, 'pole'}, 'ring_count'}--;
+
+    # Determine the target X coordinate based on destination pole, and
+    # fly the ring over to the new pole. The first while moves rings
+    # left-to-right, the second while moves rings right-to-left.
+
+    my $x = $pole{$to, 'x'} - $ring{$n, 'width'} / 2;
+
+    while ($x0 &lt; $x) {
+        $delta = $x - $x0 &gt; $velocity ? $velocity : $x - $x0;
+        $canvas-&gt;coords($r, $x0 += $delta, $y0, $x1 += $delta, $y1);
+        $mw-&gt;update;
+    }
+
+    while ($x0 &gt; $x) {
+        $delta = $x0 - $x &gt; $velocity ? $velocity : $x0 - $x;
+        $canvas-&gt;coords($r, $x0 -= $delta, $y0, $x1 -= $delta, $y1);
+        $mw-&gt;update;
+    }
+
+    # Determine ring's target Y coordinate, based on the destination
+    # pole's ring count, and float the ring down.
+
+    my $y = $ring_base - $pole{$to, 'ring_count'} * $ring_spacing;
+
+    while ($y0 &lt; $y) {
+        $delta = $y - $y0 &gt; $velocity ? $velocity : $y - $y0;
+        $canvas-&gt;coords($r, $x0, $y0 += $delta, $x1, $y1 += $delta);
+        $mw-&gt;update;
+    }
+    
+    $pole{$to, 'ring_count'}++;
+    $ring{$n, 'pole'} = $to;
+
+} # end move_ring</pre></blockquote>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appc_11.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">C.11. clock-bezier.ppl</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">Index</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

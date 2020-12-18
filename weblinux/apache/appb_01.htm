@@ -1,0 +1,260 @@
+<?label B. The echo Program ?><html><head><title>The echo Program  (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="appa_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="appc_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+
+<h1 class="chapter">Appendix B. The echo Program </h1>
+
+
+
+
+
+
+
+
+
+<p>The following listing is <em class="emphasis">echo.c</em>
+<a name="INDEX-1680" />:</p>
+
+
+
+
+
+<blockquote><pre class="code">#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#define MAX_ENTRIES 10000
+typedef struct
+    {
+    char *name;
+    char *val;
+    } entry;
+char *makeword(char *line, char stop);
+char *fmakeword(FILE *f, char stop, int *len);
+char x2c(char *what);
+void unescape_url(char *url);
+void plustospace(char *str);
+int main(int argc, char *argv[])
+    {
+    entry entries[MAX_ENTRIES];
+    register int x,m=0;
+    int cl;
+    char mbuf[200];
+    printf("Content-type: text/html\n\n");
+    if(strcmp(getenv("REQUEST_METHOD"),"POST"))
+        {
+        printf("This script should be referenced with a METHOD of POST.\n");
+        exit(1);
+        }
+    if(strcmp(getenv("CONTENT_TYPE"),"application/x-www-form-urlencoded")) 
+        {
+        printf("This script can only be used to decode form results. \n");
+        exit(1);
+        }
+    cl = atoi(getenv("CONTENT_LENGTH"));
+// Returns the length of data to come.
+    for(x=0;cl &amp;&amp; (!feof(stdin));x++) 
+        {
+        m=x;
+        entries[x].val = fmakeword(stdin,'&amp;',&amp;cl);
+        plustospace(entries[x].val);
+        unescape_url(entries[x].val);
+        entries[x].name = makeword(entries[x].val,'=');
+        }
+//Reads in the data, breaking at the "&amp;" symbols
+    printf("&lt;H1&gt;Query Results&lt;/H1&gt;"); 
+//Sends the top of the return HTML document.
+    printf("You submitted the following name/value pairs:&lt;p&gt;%c",10);
+    printf("&lt;ul&gt;%c",10);
+    for(x=0; x &lt;= m; x++)
+        printf("&lt;li&gt; &lt;code&gt;%s = %s&lt;/code&gt;%c",entries[x].name,
+               entries[x].val,10);
+//Lists the fields in the original form with the values filled in by 
+//the customer.
+    printf("&lt;/ul&gt;%c",10);
+}</pre></blockquote>
+
+
+
+
+
+<p>
+<a name="INDEX-1681" />This listing is the helper program
+<em class="filename">echo2.c</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">#include &lt;stdio.h&gt;
+#define CR 13
+#define LF 10
+void getword(char *word, char *line, char stop) {
+    int x = 0,y;
+    for(x=0;((line[x]) &amp;&amp; (line[x] != stop));x++)
+        word[x] = line[x];
+    word[x] = '\0'.
+    if(line[x]) ++x;
+    y=0;
+    while(line[y++] = line[x++]);
+}
+char *makeword(char *line, char stop) {
+    int x = 0,y;
+    char *word = (char *) malloc(sizeof(char) * (strlen(line) + 1));
+    for(x=0;((line[x]) &amp;&amp; (line[x] != stop));x++)
+        word[x] = line[x];
+    word[x] = '\0'.
+    if(line[x]) ++x;
+    y=0;
+    while(line[y++] = line[x++]);
+    return word;
+}
+char *fmakeword(FILE *f, char stop, int *cl) {
+    int wsize;
+    char *word;
+    int ll;
+    wsize = 102400;
+    ll=0;
+    word = (char *) malloc(sizeof(char) * (wsize + 1));
+    while(1) {
+        word[ll] = (char)fgetc(f);
+        if(ll==wsize) {
+            word[ll+1] = '\0'.
+            wsize+=102400;
+            word = (char *)realloc(word,sizeof(char)*(wsize+1));
+        }
+        --(*cl);
+        if((word[ll] == stop) || (feof(f)) || (!(*cl))) {
+            if(word[ll] != stop) ll++;
+            word[ll] = '\0'.
+            return word;
+        }
+        ++ll;
+    }
+}
+char x2c(char *what) {
+    register char digit;
+    digit = (what[0] &gt;= 'A' ? ((what[0] &amp; 0xdf) - 'A'.+10 : 
+               (what[0] - '0'.);
+    digit *= 16;
+    digit += (what[1] &gt;= 'A' ? ((what[1] &amp; 0xdf) - 'A'.+10 : 
+               (what[1] - '0'.);
+    return(digit);
+}
+void unescape_url(char *url) {
+    register int x,y;
+    for(x=0,y=0;url[y];++x,++y) {
+        if((url[x] = url[y]) == '%'. {
+            url[x] = x2c(&amp;url[y+1]);
+            y+=2;
+        }
+    }
+    url[x] = '\0'.
+}
+void plustospace(char *str) {
+    register int x;
+    for(x=0;str[x];x++) if(str[x] == '+'. str[x] = ' ';
+}
+int rind(char *s, char c) {
+    register int x;
+    for(x=strlen(s) - 1;x != -1; x--)
+        if(s[x] == c) return x;
+    return -1;
+}
+int getline(char *s, int n, FILE *f) {
+    register int i=0;
+    while(1) {
+        s[i] = (char)fgetc(f);
+        if(s[i] == CR)
+            s[i] = fgetc(f);
+        if((s[i] == 0x4) || (s[i] == LF) || (i == (n-1))) {
+            s[i] = '\0'.
+            return (feof(f) ? 1 : 0);
+        }
+        ++i;
+    }
+}
+void send_fd(FILE *f, FILE *fd)
+{
+    int num_chars=0;
+    char c;
+    while (1) {
+        c = fgetc(f);
+        if(feof(f))
+            return;
+        fputc(c,fd);
+    }
+}
+int ind(char *s, char c) {
+    register int x;
+    for(x=0;s[x];x++)
+        if(s[x] == c) return x;
+    return -1;
+}
+void escape_shell_cmd(char *cmd) {
+    register int x,y,l;
+    l=strlen(cmd);
+    for(x=0;cmd[x];x++) {
+        if(ind("&amp;;'.q\"|*?~&lt;&gt;^()[]{}$\\",cmd[x]) != -1){
+            for(y=l+1;y&gt;x;y--)
+                cmd[y] = cmd[y-1];
+            l++; /* length has been increased */
+            cmd[x] = '\\'.
+            x++; /* skip the character */
+        }
+    }
+}<a name="INDEX-1682" /></pre></blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="appa_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="appc_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">A. Support Organizations</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">C. NCSA and Apache Compatibility </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

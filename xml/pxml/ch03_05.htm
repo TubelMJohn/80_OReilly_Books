@@ -1,0 +1,178 @@
+<html><head><title>XML::LibXML (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch03_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">3.5. XML::LibXML</h2>
+
+<p><tt class="literal">XML::LibXML</tt><a name="INDEX-249" />, like <tt class="literal">XML::Parser</tt>, is
+an interface to a library written in <a name="INDEX-250" />C. Called
+<tt class="literal">libxml2</tt><a name="INDEX-251" />,
+it's part of the <a name="INDEX-252" />GNOME project.<a href="#FOOTNOTE-17">[17]</a>
+Unlike <tt class="literal">XML::Parser</tt>, this new parser supports a
+major standard for XML tree processing known as the Document Object
+Model (<a name="INDEX-253" /> <a name="INDEX-254" />DOM).
+</p><blockquote class="footnote"> <a name="FOOTNOTE-17" /><p>[17]For
+downloads and documentation, see <a href="http://www.libxml.org/">http://www.libxml.org/</a>.</p> </blockquote>
+
+<p>DOM is another much-ballyhooed XML standard. It does for
+<a name="INDEX-255" />tree processing what SAX does for event
+streams. If you have your heart set on climbing trees in your program
+and you think there's a likelihood that it might be
+reused or applied to different data sources, you're
+better off using something standard and interchangeable. Again,
+we're happy to delve into DOM in a future chapter
+and get you thinking in standards-complaint ways. That topic is
+coming up in <a href="ch07_01.htm">Chapter 7, "DOM"</a>.
+</p>
+
+<p>Now we want to show you an example of another parser in action.
+We'd be remiss if we focused on just one kind of
+parser when so many are out there. Again, we'll show
+you a basic example, nothing fancy, just to show you how to invoke
+the parser and tame its power. Let's write another
+document analysis tool like we did in <a href="ch03_04.htm#perlxml-CHP-3-EX-5">Example 3-5</a>,
+this time printing a frequency distribution of elements in a
+document.
+</p>
+
+<p><a href="ch03_05.htm#perlxml-CHP-3-EX-6">Example 3-6</a> shows the program. It's
+a vanilla parser run because we haven't set any
+options yet. Essentially, the parser parses the filehandle and
+returns a DOM object, which is nothing more than a tree structure of
+well-designed objects. Our program finds the document element, and
+then traverses the entire tree one element at a time, all the while
+updating the hash of frequency counters.
+</p>
+
+<a name="perlxml-CHP-3-EX-6" /><div class="example">
+<h4 class="objtitle">Example 3-6. A frequency distribution program </h4>
+<blockquote><pre class="code">use XML::LibXML;
+use IO::Handle;
+
+# initialize the parser
+my $parser = new XML::LibXML;
+
+# open a filehandle and parse
+my $fh = new IO::Handle;
+if( $fh-&gt;fdopen( fileno( STDIN ), "r" )) {
+    my $doc = $parser-&gt;parse_fh( $fh );
+    my %dist;
+    &amp;proc_node( $doc-&gt;getDocumentElement, \%dist );
+    foreach my $item ( sort keys %dist ) {
+        print "$item: ", $dist{ $item }, "\n";
+    }
+    $fh-&gt;close;
+}
+
+# process an XML tree node: if it's an element, update the
+# distribution list and process all its children
+#
+sub proc_node {
+    my( $node, $dist ) = @_;
+    return unless( $node-&gt;nodeType eq &amp;XML_ELEMENT_NODE );
+    $dist-&gt;{ $node-&gt;nodeName } ++;
+    foreach my $child ( $node-&gt;getChildnodes ) {
+        &amp;proc_node( $child, $dist );
+    }
+}</pre></blockquote>
+</div>
+
+<p>Note that instead of using a simple path to a file, we use a
+filehandle object of the <tt class="literal">IO::Handle</tt> class. Perl
+filehandles, as you probably know, are magic and subtle beasties,
+capable of passing into your code characters from a wide variety of
+sources, including files on disk, open network sockets, keyboard
+input, databases, and just about everything else capable of
+outputting data. Once you define a filehandle's
+source, it gives you the same interface for reading from it as does
+every other filehandle. This dovetails nicely with our XML-based
+ideology, where we want code to be as flexible and reusable as
+possible. After all, XML doesn't care where it comes
+from, so why should we pigeonhole it with one source type?
+</p>
+
+<p>The parser object returns a document object after parsing. This
+object has a method that returns a reference to the document
+element -- the element at the very root of the whole tree. We take
+this reference and feed it to a recursive subroutine,
+<tt class="literal">proc_node( )</tt>, which happily munches on elements
+and scribbles into a hash variable every time it sees an element.
+<a name="INDEX-256" />Recursion is an efficient way to write
+programs that process XML because the structure of documents is
+somewhat fractal: the same rules for elements apply at any depth or
+position in the document, including the root element that represents
+the entire document (modulo its prologue). Note the
+"node type" check, which
+distinguishes between elements and other parts of a document (such as
+pieces of text or processing instructions).
+</p>
+
+<p>For every element the routine looks at, it has to call the
+object's <tt class="literal">getChildnodes(
+)</tt><a name="INDEX-257" /> method to continue processing on its
+children. This call is an essential difference between stream-based
+and tree-based methodologies. Instead of having an event stream take
+the steering wheel of our program and push data at it, thus calling
+subroutines and codeblocks in a (somewhat) unpredictable order, our
+program now has the responsibility of navigating through the document
+under its own power. Traditionally, we start at the root element and
+go downward, processing children in order from first to last.
+However, because we, not the parser, are in control now, we can scan
+through the document in any way we want. We could go backwards, we
+could scan just a part of the document, we could jump around, making
+multiple passes though the tree -- the sky's the
+limit. Here's the result from processing a small
+chapter coded in DocBook XML:
+</p>
+
+<blockquote><pre class="code">$ xfreq &lt; ch03.xml
+chapter: 1
+citetitle: 2
+firstterm: 16
+footnote: 6
+foreignphrase: 2
+function: 10
+itemizedlist: 2
+listitem: 21
+literal: 29
+note: 1
+orderedlist: 1
+para: 77
+programlisting: 9
+replaceable: 1
+screen: 1
+section: 6
+sgmltag: 8
+simplesect: 1
+systemitem: 2
+term: 6
+title: 7
+variablelist: 1
+varlistentry: 6
+xref: 2</pre></blockquote>
+
+<p>The result shows only a few lines of code, but it sure does a lot of
+work. Again, thanks to the C library underneath<a name="INDEX-258" />,
+it's quite speedy.
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch03_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">3.4. Putting Parsers to Work</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">3.6. XML::XPath</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

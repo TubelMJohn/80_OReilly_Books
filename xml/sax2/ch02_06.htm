@@ -1,0 +1,815 @@
+<html><head><title>Namespaces and SAX2 (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch03_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+	<h2 class="sect1">2.6. Namespaces and SAX2</h2>
+<a name="INDEX-283" />
+
+	<p>
+<a name="INDEX-284" />
+        However you use XML namespaces with SAX, you need to
+	understand the core concepts discussed in this section.
+	Namespaces can be confusing; they're more complex than perhaps
+	they ought to be. In part this is because of how they interact
+	(or don't interact) with other parts of Greater XML; in part
+	it's because everyone has different ways to a determine what
+	words mean, and XML names are kinds of words.
+	We'll look at some of those complexities first, and then at the
+	mechanisms SAX2 has to help you deal with them.
+	</p>
+
+	<p>But first, just what are namespaces supposed to do?
+	Usually, they identify some particular technical vocabulary.
+	People often reuse words rather than create new ones,
+	and they acquire context-specific meanings and nuances that
+	can be extremely important.
+	A namespace can distinguish whether a word like "bill" refers to
+	part of a bird, a now-archaic weapon, part of a hat,
+	legislative acts, or a number of other things.
+	So a <tt class="literal">&lt;bill length='45cm'/&gt;</tt> element might
+	be associated with a namespace, which provides context that should help
+	applications interpret the element.
+	A processor for "Birder's Markup Language" could know to reject
+	(or ignore) markup intended for legislative or financial uses,
+	even if they all use "bill" elements.
+	</p>
+
+	<p>XML defines a way to declare namespaces as needed, using
+	attributes. Namespaces are usually indicated by a prefix,
+	which can serve as a qualifying adjective: "the bird's bill" might be <tt class="literal">bird:bill</tt> while "the consultant's bill"  might be
+	<tt class="literal">consultant:bill</tt>.
+	You can also set up a default element namespace so that an unadorned
+	<tt class="literal">bill</tt> element might indicate, for example, a weapon.
+	</p>
+
+	<a name="sax2-CHP-2-SECT-6.1" /><div class="sect2">
+	    <h3 class="sect2">2.6.1. What Namespaces Do to XML</h3>
+
+	    <p>
+<a name="INDEX-285" />
+XML namespaces are a convention for using attributes
+	    to associate URIs with some element and attribute names. 
+	    Since not all legal XML documents follow this convention,
+	    the XML Namespaces specification effectively specifies a dialect of XML. SAX2 supports both dialects: strict XML and XML plus namespaces. By default, SAX2 parsers expect the namespaces dialect. In most cases you'll be able to ignore the difference between those two XML dialects, since documents that use XML in namespace-incompatible ways aren't common.
+	    </p>
+
+	    <p>
+            <a name="INDEX-286" />
+            Even apart from the two-dialects issue, the use
+	    of namespaces with XML complicates XML programming.
+	    There are two models for using element and attribute
+	    names in XML: </p>
+	    
+	    <ul>
+		<li><p><a name="INDEX-287" />
+<a name="INDEX-288" />
+<a name="INDEX-289" />
+
+
+                In one model, names have
+		a single role (or "type," or "meaning")
+		throughout the document. This is the model most XML
+		DTDs use, except they allow different attributes to use
+		the same name with different meanings if the attributes are
+		attached to different element types.
+		(But even for attributes, well-designed DTDs
+		share attribute definitions between elements.)
+		The <tt class="literal">startElement()</tt> callback parameters
+		give you all the information you need, even when those names
+		are "globalized" using namespace URIs.
+		</p></li>
+
+		<li><p>In the other model, a name's role
+		is dependent on context. For example, the same
+		name used in two different enclosing elements might mean two
+		different things.
+		It gets confusing, just like names in the real world.
+		This model is used with elements in some schema systems,
+		such as local elements in W3C-style XML schemas.
+		</p></li>
+
+	    </ul>
+
+	    <p>If you're working with or designing XML structures
+	    with context-dependent names, then namespaces add
+	    new kinds of context and hence new ways to cause confusion.
+	    SAX2 gives you the tools to track all the context, but you'll
+	    have to record it yourself (probably with some kind of stack)
+	    since <tt class="literal">startElement()</tt> parameters
+	    will no longer give all the context you need.
+	    </p>
+
+	    <p>There are also some conflicts between the element-naming
+	    approach of the XML Namespaces specifications
+	    and DTD validity as defined in the XML specification.
+	    They may not affect your SAX2 programs, but can affect the
+	    systems you're implementing with XML and SAX2.
+	    The issue is basically that DTDs expect everything to be
+	    declared <?troff .ne 10?>once up front (like <tt class="literal">import</tt>
+	    statements in Java), while the namespace mechanism provides
+	    a lexical scoping mechanism (like declaring variables
+	    that live on the execution stack)
+	    that's flexible about what a given prefix indicates.
+	    You can make namespace-correct documents that are DTD-valid,
+	    but then you can't change the prefixes bound to namespaces.<a href="#FOOTNOTE-11">[11]</a>
+	    Namespace-aware DTDs will often define default element
+	    namespaces for element names.
+	    </p><blockquote class="footnote"><a name="FOOTNOTE-11" /><p>[11]If you want any flexibility in those prefixes, and have a deep understanding of how to use parameter entities, look at the approach to DTD modularization found in the XHTML 1.1 specification.</p></blockquote>
+
+	    <p>If you are designing a namespace and want to use
+	    the URI to publish information describing the namespace,
+	    rather than just use it as a unique identifier, then
+	    RDDL (<a href="http://www.rddl.org">http://www.rddl.org</a>)
+	    is probably a good resource. RDDL defines an XHTML-based
+	    document syntax that can be viewed or mechanically processed.
+	    It lets you find some of the resources that might be
+	    important when working with the namespaces -- for example, different stylesheets and schemas and
+	    documentation in various languages.
+	    The RDDL web site includes SAX support for accessing this data.
+	    </p>
+
+	    </div>
+
+	<a name="sax2-CHP-2-SECT-6.2" /><div class="sect2">
+	    <h3 class="sect2">2.6.2. Element and Attribute Naming with Namespaces</h3>
+
+	    <p>
+<a name="INDEX-290" />
+<a name="INDEX-291" />
+<a name="INDEX-292" />
+<a name="INDEX-293" />
+
+            The direct impact of XML namespaces on your SAX2
+	    application code is to give you a second way to identify
+	    elements and attributes.
+	    Documents will normally use only one identification style
+	    for a given element or attribute. These identification styles 
+	    are distinct from
+	    the two models for using such names, described earlier:
+	    </p>
+
+	    <dl>
+
+		<dt><i>Qualified names</i></dt>
+		<dd><p>
+<a name="INDEX-294" />
+                These are
+		exactly as found in the XML text. Examples include
+		<tt class="literal">para</tt> and, with a prefix,
+		<tt class="literal">xhtml:p</tt>.
+		(XML documents that don't use namespaces,
+		and some namespace-style documents won't use colons.)
+		</p></dd>
+		
+		
+		
+		<dt><i>Universal names</i></dt>
+		<dd><p><a name="INDEX-295" />
+These consist
+		of two separate strings: a "local name" from the XML text
+		(removing any namespace prefix)
+		and a "namespace name" (always a URI)
+		from namespace declarations.
+		For the qualified name <tt class="literal">xhtml:p</tt>,
+		the local name is <tt class="literal">p</tt>, and the namespace
+		name is the 
+		URI associated with the prefix <tt class="literal">xhtml</tt>, which is a function in the namespace declaration.
+		Such names are in a sense "universalized" by addition
+		of a suitable URI.
+		</p></dd></dl> 
+
+	    <p>Note that the XML Namespaces specification only
+	    standardizes the "qualified name" (<em class="replaceable">qName</em>)
+	    terminology; it doesn't standardize terminology for universal  
+	    names.
+	    Because of this, you will also see other terms,
+	    such as "expanded names" (the term used by XPath)
+	    or "namespace-style names" (used to talk about that style of naming).</p>
+
+	    <p>Since <tt class="literal">ContentHandler.startElement()</tt> 
+	    callbacks now have to deal with three different kinds of 
+	    name strings, the code can get rather complicated.
+	    Plus, even if you're expecting only universal names,
+	    you'll need to notice when elements or attributes don't
+	    have universal names and use qualified names to work
+	    with them.
+	    Element names are identified in method parameters (the same
+	    as in <tt class="literal">ContentHandler.endElement()</tt>),
+	    while attribute names show up in accessor methods for
+	    <em class="emphasis">Attributes</em> objects.
+	    We'll use the following XML text to illustrate 
+	    these different types of names:
+	    </p>
+
+	    <blockquote><pre class="code">
+&lt;big:animals  xmlns="http://www.example.com/dog"&gt;
+	      xmlns:big="http://www.example.com/big"&gt;
+    &lt;wolfhound cat='no' big:dog='yes' /&gt;
+    &lt;greyhound big:dog='yes' xmlns=""/&gt;
+&lt;/big:animals&gt;</pre></blockquote>
+	
+	    <p>SAX2 calls names in XML text "Qualified Names."
+	    These are the same thing as "XML 1.0 names" except that
+	    XML 1.0 names have no restrictions on the use of colons.
+	    When you disable namespace processing in a SAX2 parser, it
+	    will deliver "qualified names" that are really XML 1.0 names,
+	    without those restrictions.
+	    With namespace processing enabled, many qualified names
+	    (including every name with a prefix) will correspond to
+	    a namespace-style name.
+	    </p>
+
+	    <p>Element names without a prefix might not have a
+	    corresponding universal name. Unprefixed attribute
+	    names will never have a universal name.
+	    In those cases, applications must use the qualified name
+	    along with non-namespace context, such as the enclosing
+	    element, to figure out what the name is supposed to mean.
+	    There are no universally accepted policies for such cases. Yes, all that confuses other people as well.
+	    </p>
+
+	    <div class="sect3">
+		<h3 class="sect3">2.6.2.1. Element naming</h3>
+
+		<p>The identifiers for the element names are the first
+		three parameters of 
+<tt class="literal">void startElement(String namespaceURI, String localName, String qName, Attributes atts)</tt>. <a href="ch02_06.htm#sax2-CHP-2-TABLE-1">Table 2-1</a> shows the values of the element names for the previous example, as reported by a SAX2 parser in its default mode. Notice particularly that the namespace URI is empty except when a namespace declaration applies to that element name, and that if there's a nonempty namespace URI, there might not be a value for <em class="replaceable">qName</em>. That's not just for element names using namespace prefixes; for element names, a default element namespace declaration will apply if it's within scope. (Remember that empty strings aren't the same as nulls.)
+<a name="INDEX-296" />
+		
+</p>
+
+		<a name="sax2-CHP-2-TABLE-1" /><h4 class="objtitle">Table 2-1. ContentHandler.startElement() parameters for element names</h4><table border="1">
+                
+                
+                
+                
+		    <tr>
+			<th><p><em class="replaceable">namespaceURI</em></p></th>
+			<th><p><em class="replaceable">localName</em></p></th>
+			<th><p><em class="replaceable">qName</em></p></th>
+		    </tr>
+		
+		    <tr>
+			<td><p><em class="emphasis">http://www.example.com/big</em></p></td>
+			<td><p><em class="emphasis">animals</em></p></td>
+			<td><p>empty or <tt class="literal">big:animals</tt></p></td></tr>
+		
+		    <tr>
+			<td><p><em class="emphasis">http://www.example.com/dog</em></p></td>
+			<td><p><em class="emphasis">wolfhound</em></p></td>
+			<td><p>empty or
+			    <tt class="literal">wolfhound</tt></p></td>
+		    </tr>
+		
+		    <tr>
+			<td><p>empty</p></td>
+			<td><p>empty</p></td>
+			<td><p> <tt class="literal">greyhound</tt> </p></td>
+		    </tr>
+
+		</table><p>
+
+		<p>You could end up with lots of code like this in your
+		SAX event handlers. Or, you may prefer to factor it as a
+		table lookup (maybe using application-specific types of
+		handler objects) rather than as a tree of comparisons.
+		Notice that for elements without a namespace URI, the
+		<em class="replaceable">qName</em> is checked, but if there's a
+		namespace URI, then <em class="replaceable">localName</em> is used.
+		Also all unrecognized elements are reported as a kind
+		of validity error.
+		You may well need to have more context-dependent logic too,
+		if elements may only show up in appropriate contexts.
+		Such contexts often need different decision trees. See <a href="ch02_06.htm#sax2-CHP-2-EX-8">Example 2-8</a> for a decision tree for <tt class="literal">startElement()</tt>.
+		</p>
+
+		<a name="sax2-CHP-2-EX-8" /><div class="example">
+		    <h4 class="objtitle">Example 2-8. Decision tree in startElement( )</h4>
+
+		    <blockquote><pre class="code">
+public void
+startElement (String uri, String localName, String qName, Attributes atts)
+throws SAXException
+{
+    // elements outside of any namespace?
+    if ("".equals (uri)) {
+	if ("greyhound".equals (qName)) {
+	    ... handle
+	    return;
+	}
+	... else handle N other elements; return on success
+
+	// no recognized element: a validity error
+	errorHandler.error (new SAXParseException (
+		"Unrecognized element: " + qName,
+		locator
+		));
+	// if that doesn't abort the parse:
+	return;
+
+    // in the "big" namespace?
+    } else if ("http://www.example.com/big".equals (uri)) {
+	if ("animals".equals (localName)) {
+	    ... handle
+	    return;
+	}
+	... handle "islands" and N other big things; return on success
+	// FALLTHROUGH for unrecognized elements
+
+    // in the "dog" namespace?
+    } else if ("http://www.example.com/dog".equals (uri)) {
+	if ("wolfhound".equals (localName)) {
+	    ... handle
+	    return;
+	}
+	... handle "terrier", "collie" and so on; return on success
+	// FALLTHROUGH for unrecognized elements
+    }
+
+    ... and so on for other namespaces
+
+    // element not in a namespace we recognize: a validity error
+    errorHandler.error (new SAXParseException (
+	    "Unrecognized element: " + uri + " (" + localName + ")",
+	    locator
+	    ));
+    // returns if that doesn't abort the parse
+}</pre></blockquote>
+
+		</div>
+
+		<p>Most SAX2 parsers provide qualified names
+		in all cases, but you shouldn't rely on their
+		availablity unless the parser is configured to provide
+		namespace prefix information (which also causes namespace-declaration attributes to be "un-hidden"). You should
+		probably avoid using the <em class="replaceable">qName</em>,
+		even for diagnostics, when there's a nonempty
+		<em class="replaceable">namespaceURI</em>.
+<a name="INDEX-297" />
+<a name="INDEX-298" />
+		
+</p>
+
+	    </div>
+	    
+	    <div class="sect3">
+		<h3 class="sect3">2.6.2.2. Attribute naming</h3>
+
+		<p>
+<a name="INDEX-299" />
+<a name="INDEX-300" />
+<a name="INDEX-301" />
+<a name="INDEX-302" />
+<a name="INDEX-303" />
+
+                The identifiers for the attribute names are accessed
+		using <em class="emphasis">Attributes</em> methods such as
+		<tt class="literal">getQName()</tt>,
+		<tt class="literal">getLocalName()</tt>,
+		and <tt class="literal">getURI()</tt> when you
+		iterate over an element's attributes with a "for" loop.
+		You can access attribute values directly if you use
+		either XML 1.0-style names (<em class="replaceable">qName</em>)
+		or XML Namespace-style names
+		(<em class="replaceable">namespaceURI</em>
+		and <em class="replaceable">localName</em>).
+		</p>
+
+		<p>SAX2 parsers handle attribute names from the example
+		text as shown in <a href="ch02_06.htm#sax2-CHP-2-TABLE-2">Table 2-2</a>.
+		This table shows the "mixed mode" behavior,
+		described later; in the default SAX2 parser mode,
+		the <tt class="literal">xmlns</tt> and
+		<tt class="literal">xmlns:big</tt> attributes won't appear.
+		You'd have to set the <em class="emphasis">namespace-prefixes</em>
+		feature flag (as described later in this chapter, in <a href="ch02_06.htm#sax2-CHP-2-SECT-6.3">Section 2.6.3, "Namespace Feature Flags"</a>) to see these attributes.
+		Note that according to the namespaces specification there is no such thing as a default namespace
+		for attribute names, so that namespace declaration
+		attributes don't go into any namespace.
+<a name="INDEX-304" />
+		
+</p>
+		
+		<a name="sax2-CHP-2-TABLE-2" /><h4 class="objtitle">Table 2-2. Attributes methods to access attribute names</h4><table border="1">
+                
+                
+                
+
+                
+		    <tr>
+			<th><p><tt class="literal">getURI()</tt></p></th>
+			<th><p><tt class="literal">getLocalName()</tt></p></th>
+			<th><p><tt class="literal">getQName()</tt></p></th>
+		    </tr>
+		
+		    <tr>
+			<td><p> empty </p></td>
+			<td><p> empty </p></td>
+			<td><p><tt class="literal">xmlns</tt></p></td>
+		    </tr>
+		
+		    <tr>
+			<td><p> empty </p></td>
+			<td><p> empty </p></td>
+			<td><p><tt class="literal">xmlns:big</tt></p></td>
+		    </tr>
+		
+		    <tr>
+			<td><p> empty </p></td>
+			<td><p> empty </p></td>
+			<td><p><tt class="literal">cat</tt></p></td>
+		    </tr>
+		
+		    <tr>
+			<td><p><em class="emphasis">http://www.example.com/big</em></p></td>
+			<td><p>dog </p></td>
+			<td><p>empty or
+			    <tt class="literal">big:dog</tt></p></td>
+		    </tr>
+
+		</table><p>
+
+		<p>So if you wanted to write some code that ignored
+		elements without a <tt class="literal">big:dog</tt> attribute
+		(that is, the URI is 
+		<em class="emphasis">http://www.example.com/big/</em>
+		and the local name is <tt class="literal">dog</tt>) with value "yes",
+		it might look like this:
+		</p>
+
+		<blockquote><pre class="code">
+public void startElement (String uri, String local, String qName, 
+	Attributes atts)
+throws SAXException
+{
+    String    value;
+
+    value = atts.getValue ("http://www.example.com/big", "dog");
+    if (!"yes".equals (value)) {
+	// arrange to ignore text and elements until this finishes
+	return;
+    }
+    
+    ... process the element
+}</pre></blockquote>
+
+	    </div>
+
+	    <div class="sect3">
+		<h3 class="sect3">2.6.2.3. Things to keep in mind</h3>
+
+		<p>To avoid confusing things, the previous code didn't illustrate
+		two somewhat perverse cases.
+		First, if the <tt class="literal">big</tt> prefix were 
+		redefined for some element,
+		the same qualified name could correspond to a
+		different universal name,
+		with the same local name but different namespace URIs.
+		That's one reason the previous code doesn't check for a
+		<em class="replaceable">qName</em> of <tt class="literal">big:dog</tt>.
+		Using a <em class="replaceable">qName</em> of 
+		<tt class="literal">big:dog</tt> might make sense if you 
+		were working with XML 1.0
+		without using XML namespaces.
+		Second, if the URI used with the <tt class="literal">big</tt> prefix were associated
+		with a second prefix, different qualified
+		names could correspond to the same universal names.
+		That's another reason the previous code doesn't check for a
+		<em class="replaceable">qName</em> of <tt class="literal">big:dog</tt>.
+		If you are writing namespace-aware code,
+		use only namespace-style name testing
+		in your code to avoid such problems.
+		That makes your code work correctly even when it deals
+		with documents that use namespace declarations in ways
+		you didn't expect.
+		</p>
+		
+		<p>By default, SAX2 XML parsers provide universal 
+		names for elements and attributes that have namespaces
+		(they'll have nonempty <em class="replaceable">localName</em> and
+		<em class="replaceable">namespaceURI</em> strings) or
+		qualified names for elements and attributes that don't,
+		and will remove
+		the namespace declaration attributes from the
+		<em class="emphasis">Attributes</em> object provided in the
+		<tt class="literal">ContentHandler.startElement()</tt> event. Unless a default element namespace declaration is in scope,
+		an element whose XML 1.0-style name has no prefix won't have
+		a namespace-style identifier.
+		Attributes with unprefixed names work differently, since
+		default element namespace declarations never
+		apply to attribute names.
+		</p>
+
+		<p>If you work with both SAX2 and DOM Level 2, you
+		need to be aware of the differences in how these APIs
+		expose namespaces.
+		The terminology is similar but not identical; SAX2 talks
+		about "URI" while DOM Level 2 talks about "NamespaceURI,"
+		and SAX2 uses "QName" not "Name";
+		but both APIs talk about the "LocalName."
+		When using element or attribute construction methods in the
+		<em class="emphasis">org.w3c.dom.Document</em> class, you will
+		notice that DOM uses two different APIs in places in which SAX2
+		provides just one callback (in three different modes, as
+		discussed in the next section).
+		You are most likely to trip over different ways to tell
+		whether an element or attribute has no namespace URI:
+		SAX2 uses an empty string (length zero), while DOM
+		Level 2 uses a null string. You may also notice that while SAX2 follows the XML Namespaces specification with regards to the attributes that define namespaces, DOM does not. In SAX2, those attributes have no URIs, but DOM assigns <a href="http://www.w3.org/2000/xmlns/">http://www.w3.org/2000/xmlns/</a> as their namespace URI.
+
+		
+<a name="INDEX-305" />
+<a name="INDEX-306" />
+<a name="INDEX-307" />
+<a name="INDEX-308" />
+
+</p>
+
+	    </div>
+
+	</div>
+
+	<?troff .sp -.3?><a name="sax2-CHP-2-SECT-6.3" /><div class="sect2">
+	    <h3 class="sect2">2.6.3. Namespace Feature Flags</h3>
+<a name="INDEX-309" />
+<a name="INDEX-310" />
+<a name="INDEX-311" />
+<a name="INDEX-312" />
+<a name="INDEX-313" />
+	    <p>SAX2 controls its namespace-processing support
+	    through two feature flags, which can be tested and
+	    changed using the <tt class="literal">setFeature()</tt> and
+	    <tt class="literal">getFeature()</tt> methods described earlier in this chapter
+	    in <a href="ch02_04.htm#sax2-CHP-2-SECT-4.1">Section 2.4.1, "SAX2 Feature Flags"</a>.
+	    The two flags are <a href="http://xml.org/sax/features/namespaces">http://xml.org/sax/features/namespaces</a>
+	    (<em class="emphasis">namespaces</em>), which
+	    controls whether parsers handle namespace declarations,
+	    and <a href="http://xml.org/sax/features/namespace-prefixes">http://xml.org/sax/features/namespace-prefixes</a> (<em class="emphasis">namespace-prefixes</em>), which controls whether
+	    applications can see the underlying XML syntax.
+	    All SAX2 parsers support both flags,
+	    although their values might be read-only.
+	    </p>
+
+	    <p>Given two flags, there are four possible combinations.
+	    Only three are legal. It's easiest to
+	    understand what the flags do by considering them as each
+	    controlling a small processing task layered over a core
+	    that just parses XML text. The SAX2 defaults are set
+	    so both tasks are performed.
+	    </p>
+	    <dl>
+		<dt><i>XML 1.0 mode</i></dt>
+		    <dd><p>
+<a name="INDEX-314" />
+<a name="INDEX-315" />
+                        Only XML 1.0-style names are reported
+			for elements and attributes, using
+			the <em class="replaceable">qName</em>.
+			The <em class="emphasis">namespaces</em>
+			flag is false, and the
+			<em class="emphasis">namespace-prefixes</em>
+			flag is true; those values are
+			exactly the opposite of the SAX2 defaults.
+			</p>
+			
+			<p>This mode passes <tt class="literal">xmlns</tt>
+			and <tt class="literal">xmlns:*</tt> attributes
+			without looking at them.
+			Namespace-style names (with URIs)
+			<em class="emphasis">might</em> be
+			provided with element or attribute names,
+			but you must not rely on this; few parsers
+			will do the extra work of processing the
+			namespace declarations.
+			If you enable this mode, your SAX2 parser will
+			be doing what a SAX1 parser did, but
+			the information will flow through APIs with
+			slots for holding namespace-style names.
+			</p></dd>
+			
+
+		<dt><i>Mixed mode</i></dt>
+		    <dd><p><a name="INDEX-316" />
+                        Both XML 1.0- and XML plus Namespaces-style names are reported for elements and attributes.
+			The <em class="emphasis">namespaces</em> flag is true
+			(like the default SAX2 mode), and the
+			<em class="emphasis">namespace-prefixes</em>
+			flag is true (like XML 1.0 mode).
+			</p>
+			
+			<p><a name="INDEX-317" />
+<a name="INDEX-318" />
+                        This mode is much like XML 1.0 mode, but setting
+			the <em class="emphasis">namespaces</em> flag causes
+			<tt class="literal">startPrefixMapping()</tt> and
+			<tt class="literal">endPrefixMapping()</tt> events (discussed in the next section) to match <tt class="literal">xmlns</tt> and <tt class="literal">xmlns:*</tt> attributes, and processes those declarations so the parser always provides namespace URIs for element and attribute names when they're defined. The <em class="replaceable">qName</em> is always provided, even when a namespace URI is defined.
+			</p>
+			
+			<p><a name="INDEX-319" />
+                        Parsers running in this mode should generate
+			some kind of error report for legal XML 1.0
+			documents that don't meet all the rules of
+			the "XML plus namespaces" dialect. (Most parsers
+			use <tt class="literal">ErrorHandler.error()</tt>
+			although the namespace specification doesn't say what class
+			of error to report.) One example is to use
+			colons in names for things that aren't
+			elements or attributes, and not declare
+			namespace prefixes.
+			Similarly, you might get warnings about using
+			relative URIs in namespace declarations.
+			There is a performance impact to this additional
+			processing, often five percent of the usually
+			negligible overhead for XML parsing.
+
+			</p></dd>
+			
+
+		<dt><b>XML plus namespaces mode
+			(SAX2 default)</b></dt>
+		    <dd><p><a name="INDEX-320" />
+                        The difference between this and mixed mode is that some information is discarded. The <em class="emphasis">namespaces</em> flag is true, and the <em class="emphasis">namespace-prefixes</em> flag is false.</p>
+			
+			<p>Clearing the <em class="emphasis">namespace-prefixes</em>
+			flag tells parsers they
+			must filter out <tt class="literal">xmlns</tt>
+			and <tt class="literal">xmlns:*</tt> attributes, and they
+			<em class="emphasis">may</em> report empty strings
+			instead of providing the <em class="replaceable">qName</em>
+			(as found in the document) whenever a namespace
+			URI is reported.
+			In practice, most current SAX2 parsers always
+			report qualified names, since there's little
+			benefit to filtering them out.
+			</p></dd>
+			
+	    </dl>
+
+	    <p>The fourth combination of flags, disabling both
+	    namespace support and namespace prefix reporting, would
+	    be meaningless, and so it is an illegal parser state.
+	    Don't set this mode; parsers might not detect that you've
+	    put them into an illegal mode and may
+	    react unintelligently (such as by entering "XML 1.0 mode").
+	    Unfortunately it's easy to set this mode if you just set the
+	    <em class="emphasis">namespaces</em> flag to false without
+	    first setting the <em class="emphasis">namespaces-prefix</em>
+	    flag to true (entering mixed mode).
+	    </p>
+
+	    <p>I tend to prefer the mixed mode over the SAX2
+	    default mode. Enabling it is simple: just
+	    set the <em class="emphasis">namespaces-prefix</em> flag to true,
+	    after setting up a parser for the SAX2 defaults.
+	    This mode provides better support
+	    for the XML Infoset, since it doesn't discard information
+	    about the prefixes.
+	    You won't see implementation-dependent behaviors in
+	    exposing either type of name.
+	    Certain kinds of XML processing will work better.
+	    In particular, algorithms working near the XML
+	    syntax level -- such as writing out XML text or performing consumer-side
+	    DTD validation -- will then work without needing
+	    to guard against discarded prefixes and without re-creating
+	    namespace declaration attributes.
+	    Discarding or changing prefixes, in particular, can cause
+	    confusion when people need to look at the XML output.
+	    The only real impact on applications is having to ignore 
+	    <tt class="literal">xmlns</tt> and
+	    <tt class="literal">xmlns:*</tt> attributes, which isn't hard.
+	    </p>
+	    <p>Few, if any, applications really need to work with documents
+	    that use colons in ways other than the XML namespaces
+	    specification, leaving a small performance impact as
+	    the primary reason to care about the pure XML 1.0 mode.
+	    Even applications that don't use namespaces usually won't
+	    see colons used in interesting ways
+	    (like <tt class="literal">nested:contexts:for:names</tt>).
+	    While most SAX2 XML parsers support all three of these modes,
+	    they are only required to support the SAX2 default mode.
+<a name="INDEX-321" />
+<a name="INDEX-322" />
+<a name="INDEX-323" />
+    
+</p>
+
+	</div>
+
+	<a name="sax2-CHP-2-SECT-6.4" /><div class="sect2">
+	    <h3 class="sect2">2.6.4. ContentHandler and Prefix Mappings</h3>
+
+	    <p>
+<a name="INDEX-324" />
+<a name="INDEX-325" />
+<a name="INDEX-326" />
+<a name="INDEX-327" />
+            Sometimes XML needs to handle "meta-level"
+	    processing, in which XML talks about XML.
+	    In such processing, namespace URIs are sometimes
+	    implicitly called by prefixes found in places no
+	    XML parser will look: CDATA attributes
+	    (which can contain anything) and character content
+	    found within elements.
+	    For example, XPath expressions include prefixes, and
+	    they are found in XSLT template attributes.
+	    The W3C XML Schema Datatypes (XSD) defines a QName datatype
+	    that formalizes such usage.
+	    </p>
+
+	    <p>When you need to work with those types of XML text,
+	    you'll find two particular <em class="emphasis">ContentHandler</em>
+	    event callbacks helpful.
+	    They provide the same information found in
+	    <tt class="literal">xmlns</tt> and <tt class="literal">xmlns:*</tt>
+	    attributes, relieving your application code of the responsibility
+	    of correctly applying the XML Namespaces specification.
+	    For example, your code won't need to know how a default
+	    element namespace declaration can be explicitly undone
+	    by <tt class="literal">xmlns=""</tt> attributes or by
+	    ending the lexical scope of that attribute.
+	    </p>
+
+	    <dl>
+
+		<dt><b>
+<tt class="literal">void startPrefixMapping(String prefix, String uri)</tt>
+		    </b></dt>
+
+		<dd><p><a name="INDEX-328" />
+<a name="INDEX-329" />
+                Each namespace declaration causes
+		one of these calls.
+		Each call corresponds to an attribute in the next
+		<tt class="literal">startElement()</tt> callback to be made;
+		you probably won't see other callbacks intervening.
+		(This method has to appear before the element; the mapping will be
+		used to interpret names of the element or its attributes.)
+		If the prefix is the empty string,
+		then the <?troff .ne 10?>declaration is for the default element namespace.
+		This is the only time the URI may be specified as the empty
+		string (indicating that there is no longer a default
+		element namespace in effect).
+		</p></dd>
+	    
+		<dt><b>
+<tt class="literal">void endPrefixMapping(String prefix)</tt>
+		    </b></dt>
+
+		<dd><p><a name="INDEX-330" />
+<a name="INDEX-331" />
+<a name="INDEX-332" />
+                Each call to
+		<tt class="literal">startPrefixMapping()</tt> is paired with a
+		matching event to declare that the mapping has gone out
+		of scope. These calls correspond to the most recent
+		<tt class="literal">endElement()</tt> callback. However, the
+		mapping "start" calls and the mapping "end" calls won't
+		necessarily be perfectly nested.
+		For example, two prefix mappings found in one element
+		might be started in the order <tt class="literal">xlink</tt>
+		then <tt class="literal">MyApp</tt>, but either mapping could end first.
+		</p></dd>
+	    
+	    </dl>
+
+	    <p>You'd normally ignore these two calls,
+	    unless you use them to maintain some
+	    data structure that tracks active namespace prefixes.
+	    It would have to be a stacklike data structure, since one mapping for
+	    a prefix only temporarily hides a previous mapping for the same
+	    prefix. This is the notion of lexical scope, which you
+	    are familiar with from most programming languages.
+	    SAX2 includes a helper class to handle this for you:
+	    <em class="emphasis">NamespaceSupport</em>,
+	    discussed in <a href="ch05_01.htm#sax2-CHP-5-SECT-1.3">Section 5.1.3, "The NamespaceSupport Class "</a> in <a href="ch05_01.htm">Chapter 5, "Other SAX Classes"</a>.
+	    Then when you parse the meta-level content, you can
+	    use those data structures to interpret prefix references
+	    and handle other namespace-related work.
+<a name="INDEX-333" />
+
+	    </p>
+
+	</div>
+
+    
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch03_01.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">2.5. Exception Handling</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">3. Producing  SAX2 Events</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

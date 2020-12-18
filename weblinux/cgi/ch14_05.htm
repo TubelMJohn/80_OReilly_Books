@@ -1,0 +1,496 @@
+<?label 14.5. CGI Gateway to XML Middleware?><html><head><title>CGI Gateway to XML Middleware (CGI Programming with Perl)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Scott Guelich, Gunther Birznieks and Shishir Gundavaram" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924193L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="CGI Programming with Perl" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="CGI Programming with Perl" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch14_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">CGI Programming with Perl</a></td><td width="172" valign="top" align="right"><a href="ch15_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">14.5. CGI Gateway to XML Middleware</h2>
+
+
+<p>The following <a name="INDEX-2840" /> <a name="INDEX-2,841" /> <a name="INDEX-2,842" />CGI script will act as a gateway parsing
+the XML from the Netscape What's Related server. Given a URL,
+it will print out all the related URLs. In addition, it will also
+query the Netscape What's Related server for all the URLs
+related to this list of URLs and display them. From this point
+onward, we will refer to URLs that are related to the first set of
+related URLs as second-level related URLs. <a href="ch14_05.htm#ch14-37712">Figure 14-2</a> shows the initial query screen while <a href="ch14_05.htm#ch14-41053">Figure 14-3</a> illustrates the results from a sample query.
+<a href="ch14_05.htm#ch14-34273">Example 14-4</a> shows the HTML for the initial form.</p>
+
+
+<a name="ch14-37712" /><div class="figure"><img width="457" src="figs/cgi2.1402.gif" height="188" alt="Figure 14-2" /></div><h4 class="objtitle">Figure 14-2. Search form for the "What's Related" CGI script</h4>
+
+<a name="ch14-41053" /><div class="figure"><img width="457" src="figs/cgi2.1403.gif" height="580" alt="Figure 14-3" /></div><h4 class="objtitle">Figure 14-3. "What's Related to What's Related" results from querying http://www.eff.org/</h4>
+
+
+<a name="ch14-34273" /><div class="example">
+<h4 class="objtitle">Example 14-4. whats_related.html </h4>
+<a name="INDEX-2844" />
+
+<blockquote><pre class="code">&lt;HTML&gt;
+&lt;HEAD&gt;
+    &lt;TITLE&gt;What's Related To What's Related Query&lt;/TITLE&gt;
+&lt;/HEAD&gt;
+&lt;BODY BGCOLOR="#ffffff"&gt;
+    &lt;H1&gt;Enter URL To Search:&lt;/H1&gt;
+    &lt;HR&gt;
+    &lt;FORM METHOD="POST"&gt;
+        &lt;INPUT TYPE="text" NAME="url" SIZE=30&gt;&lt;P&gt;
+        &lt;INPUT TYPE="submit" NAME="submit_query" VALUE="Submit Query"&gt;
+    &lt;/FORM&gt;
+&lt;/BODY&gt;
+&lt;/HTML&gt;</pre></blockquote>
+</div>
+
+
+<p>Two Perl modules will be used to provide the core data connection and
+translation services to the search engine. First, the library for web
+programming (<a name="INDEX-2845" />
+<a name="INDEX-2846" />LWP) module will be used to
+grab data from the search engine. Since the What's Related
+server can respond to GET requests, we use the
+<a name="INDEX-2847" />LWP::Simple subset of LWP rather than the
+full-blown API. Then, <a name="INDEX-2848" />
+<a name="INDEX-2849" />XML::Parser
+will take the retrieved data and process it so that we can manipulate
+the XML using Perl data structures. The code is shown in <a href="ch14_05.htm#ch14-20388">Example 14-5</a>.</p>
+
+
+
+<a name="ch14-20388" /><div class="example">
+<h4 class="objtitle">Example 14-5. whats_related.cgi </h4>
+<a name="INDEX-2850" />
+
+<blockquote><pre class="code">#!/usr/bin/perl -wT
+
+use strict;
+use constant WHATS_RELATED_URL =&gt; "http://www-rl.netscape.com/wtgn?";
+use vars qw( @RECORDS $RELATED_RECORDS );
+
+use CGI;
+use CGI::Carp qw( fatalsToBrowser );
+use XML::Parser;
+use LWP::Simple;
+
+my $q = new CGI(  );
+
+if ( $q-&gt;param( "url" ) ) {
+    display_whats_related_to_whats_related( $q );
+} else {
+    print $q-&gt;redirect( "/quiz.html" );
+}
+
+
+sub display_whats_related_to_whats_related {
+    my $q = shift;
+    my $url = $q-&gt;param( "url" );
+    my $scriptname = $q-&gt;script_name;
+    
+    print $q-&gt;header( "text/html" ),
+          $q-&gt;start_html( "What's Related To What's Related Query" ),
+          $q-&gt;h1( "What's Related To What's Related Query" ),
+          $q-&gt;hr,
+          $q-&gt;start_ul;
+    
+    my @related = get_whats_related_to_whats_related( $url );
+    
+    foreach ( @related ) {
+        print $q-&gt;a( { -href =&gt; "$scriptname?url=$_-&gt;[0]" }, "[*]" ),
+              $q-&gt;a( { -href =&gt; "$_-&gt;[0]" }, $_-&gt;[1] );
+        
+        my @subrelated = @{$_-&gt;[2]};
+        
+        if ( @subrelated ) {
+            print $q-&gt;start_ul;
+            foreach ( @subrelated ) {
+                print $q-&gt;a( { -href =&gt; "$scriptname?url=$_-&gt;[0]" }, "[*]" ),
+                      $q-&gt;a( { -href =&gt; "$_-&gt;[0]" }, $_-&gt;[1] );
+            }
+            print $q-&gt;end_ul;
+        } else {
+            print $q-&gt;p( "No Related Items Were Found" );
+        }
+    }
+    
+    if ( ! @related ) {
+        print $q-&gt;p( "No Related Items Were Found. Sorry." );
+    } 
+    
+    print $q-&gt;end_ul,
+          $q-&gt;p( "[*] = Go to What's Related To That URL." ),
+          $q-&gt;hr,
+          $q-&gt;start_form( -method =&gt; "GET" ),
+            $q-&gt;p( "Enter Another URL To Search:",
+              $q-&gt;text_field( -name =&gt; "url", -size =&gt; 30 ),
+              $q-&gt;submit( -name =&gt; "submit_query", -value =&gt; "Submit Query" )
+            ),
+          $q-&gt;end_form,
+          $q-&gt;end_html;
+}
+
+
+sub get_whats_related_to_whats_related {
+    my $url = shift;
+
+    my @related = get_whats_related( $url ); 
+    my $record;
+    foreach $record ( @related ) {
+        $record-&gt;[2] = [ get_whats_related( $record-&gt;[0] ) ];
+    }
+    return @related;
+}
+
+
+sub get_whats_related {
+    my $url = shift;
+    my $parser = new XML::Parser( Handlers =&gt; { Start =&gt; \&amp;handle_start } );
+    my $data = get( WHATS_RELATED_URL . $url );
+    
+    $data =~ s/&amp;/&amp;amp;/g;
+    while ( $data =~ s|(=\"[^"]*)\"([^/ ])|$1'$2|g ) { };
+    while ( $data =~ s|(=\"[^"]*)&lt;[^"]*&gt;|$1|g ) { };
+    while ( $data =~ s|(=\"[^"]*)&lt;|$1|g ) { };
+    while ( $data =~ s|(=\"[^"]*)&gt;|$1|g ) { };
+    $data =~ s/[\x80-\xFF]//g;
+    
+    local @RECORDS = (  );
+    local $RELATED_RECORDS = 1;
+    
+    $parser-&gt;parse( $data );
+    
+    sub handle_start {
+        my $expat = shift;
+        my $element = shift;
+        my %attributes = @_;
+
+        if ( $element eq "child" ) {
+            my $href = $attributes{"href"};
+            $href =~ s/http.*http(.*)/http$1/;
+
+            if ( $attributes{"name"} &amp;&amp;
+                 $attributes{"name"} !~ /smart browsing/i &amp;&amp;
+                 $RELATED_RECORDS ) {
+                if ( $attributes{"name"} =~ /no related/i ) {
+                    $RELATED_RECORDS = 0;
+                } else {
+                    my $fields = [ $href, $attributes{"name"} ];
+                    push @RECORDS, $fields;
+                }
+            }
+        }
+    }
+    return @RECORDS;
+}</pre></blockquote>
+</div>
+
+
+<p>This script starts like most of our others, except we declare the
+<tt class="literal">@RECORDS</tt>
+<a name="INDEX-2851" /> and
+<tt class="literal">@RELATED_RECORDS</tt> as global variables that will be
+used to temporarily store information about parsing the XML document.
+In particular, <tt class="literal">@RECORDS</tt> will contain the URLs and
+titles of the related URLs, and <tt class="literal">$RELATED_RECORDS</tt>
+will be a flag that is set if related documents are discovered by
+Netscape's What's Related server.
+<tt class="literal">WHATS_RELATED_URL</tt> is a constant that contains the
+URL of Netscape's What's Related server.</p>
+
+
+<p>In addition to the <a name="INDEX-2852" /> <a name="INDEX-2,853" /> <a name="INDEX-2,854" />
+<a name="INDEX-2855" />
+<a name="INDEX-2856" />CGI.pm module, we use CGI::Carp with
+the <tt class="literal">fatalsToBrowser</tt> option in order to make any
+errors echo to the browser for easier
+<a name="INDEX-2857" />debugging. This is important
+because <a name="INDEX-2858" />
+<a name="INDEX-2859" />XML::Parser dies when it encounters a
+parsing error. XML::Parser is the heart of the program. It will
+perform the data extraction of the related items. LWP::Simple is a
+simplified subset of LWP, a library of functions for grabbing data
+from a <a name="INDEX-2860" />URL.</p>
+
+
+<p>We create a CGI object and then check whether we received a
+<em class="emphasis">url</em> parameter. If so, then we process the query;
+otherwise, we simply forward the user to the HTML form. To process
+our query, a
+<a name="INDEX-2861" />subroutine
+is called to display "What's Related to What's
+Related" to the URL
+(<tt class="function">display_whats_related_to_whats_related </tt>).</p>
+
+
+<p>The <tt class="function">display_whats_related_to_whats_related</tt>
+subroutine contains the code that displays the HTML of a list of URLs
+that are related to the submitted URL including the second-level
+related URLs.</p>
+
+
+<p>We declare a lexical variable called <tt class="literal">@related</tt>.
+This data structure contains all the related URL information after
+the data gets returned from the
+<tt class="function">get_whats_related_to_whats_related</tt>
+<a name="INDEX-2862" />
+subroutine.</p>
+
+
+<p>More specifically,
+<tt class="literal">@related</tt>
+<a name="INDEX-2863" />
+<a name="INDEX-2864" /> contains references to
+the related URLs, which in turn contain references to second-level
+related URLs. <tt class="literal">@related</tt> contains references to
+<a name="INDEX-2865" />arrays whose
+elements are the URL itself, the title of the URL, plus another array
+pointing to second-level related URLs. The subarray of second-level
+related URLs contains only two elements: the URL and the title. <a href="ch14_05.htm#ch14-15165">Figure 14-4</a> illustrates this data structure.</p>
+
+
+<a name="ch14-15165" /><div class="figure"><img width="427" src="figs/cgi2.1404.gif" height="206" alt="Figure 14-4" /></div><h4 class="objtitle">Figure 14-4. Perl data structure that contains the related URLs and subsequent related URLs</h4>
+
+<p>If there are no related items found at the top level submitted URL, a
+message is printed to notify the user.</p>
+
+
+<p>Later, we want to print out <a name="INDEX-2867" />
+<a name="INDEX-2868" /> <a name="INDEX-2,869" />self-referencing hypertext links back
+to this script. In preparation for this action, we create a variable
+called <tt class="literal">$scriptname</tt> that will hold the current
+scriptname for referencing in &lt;A HREF&gt; tags. CGI.pm's
+<tt class="function">script_name</tt> method provides a convenient way of
+getting this data.</p>
+
+
+<p>Of course, we could have simply chosen a static name for this script.
+However, it is generally considered good practice to code for
+flexibility where possible. In this case, we can name the script
+anything we want and the code here will not have to change.</p>
+
+
+<p>
+<a name="INDEX-2870" /> <a name="INDEX-2,871" />
+<a name="INDEX-2872" />For each related URL, we print out
+"[*]" embedded in an &lt;A&gt; tag that will contain a
+reference to the script itself plus the current URL being passed to
+it as a search parameter. If one element of
+<tt class="literal">@related</tt> contains
+<tt class="literal">["http://www.eff.org/",</tt> <tt class="literal">"The</tt>
+<tt class="literal">Electronic</tt> <tt class="literal">Frontier</tt>
+<tt class="literal">Foundation"]</tt> the resulting HTML would look like
+this:</p>
+
+
+<blockquote><pre class="code">
+&lt;A HREF="whatsrelated.cgi?url=http://www.eff.org/" &gt;[*]&lt;/A&gt;
+&lt;A HREF="http://www.eff.org/"&gt;The Electronic Frontier Foundation&lt;/A&gt;</pre></blockquote>
+
+
+<p>This will let the user pursue the "What's Related"
+trail another step by running this script on the chosen URL.
+Immediately afterwards, the title (<tt class="literal">$_-&gt;[1]</tt>) is
+printed with a hypertext reference to the URL that the title
+represents (<tt class="literal">$_-&gt;[0]</tt>).</p>
+
+
+<p><tt class="literal">@subrelated</tt>
+<a name="INDEX-2873" /> contains the URLs
+that are related to the URL we just printed for the user
+(<tt class="literal">$_-&gt;[2]</tt>). If there are second-level related
+URLs, we can proceed to print them. The second-level related URL
+array follows the same format as the related URL array except that
+there is no third element containing further references to more
+related URLs. <tt class="literal">$_-&gt;[0]</tt> is the URL and
+<tt class="literal">$_-&gt;[1]</tt> is the title of the URL itself. If
+<tt class="literal">@subrelated</tt> is empty, the user is told that there
+are no related items to the URL that is currently being displayed.</p>
+
+
+<p>Finally, we output the footer for the What's Related query
+results page. In addition, the user is presented with another text
+field in which they can enter in a new URL to search on.</p>
+
+
+<p>The
+<tt class="function">get_whats_related_to_whats_related</tt>
+<a name="INDEX-2874" />
+subroutine contains logic to take a URL and construct a data
+structure that contains not only URLs that are related to the passed
+URL, but also the second-level related URLs.
+<tt class="literal">@related</tt> contains the list of what's related
+to the first URL.</p>
+
+
+<p>Then, each record is examined in <tt class="literal">@related</tt> to see
+if there is anything related to that URL. If there is, the third
+element (<tt class="literal">$record-&gt;[2]</tt>) of the record is set to
+a reference to the second-level related URLs we are currently
+examining. Finally, the entire <tt class="literal">@related</tt> data
+structure is returned.</p>
+
+
+<p>The <tt class="function">get_whats_related</tt> subroutine returns an
+array of references to an array with two elements: a related URL and
+the title of that URL. The key to getting this information is to
+parse it from an XML document. <tt class="literal">$parser</tt> is the
+XML::Parser object that will be used to perform this task.</p>
+
+
+<p>
+<a name="INDEX-2875" />
+<a name="INDEX-2876" />XML parsers do not simply parse
+data in a linear fashion. After all, XML itself is hierarchical in
+nature. There are two different ways that XML parsers can look at XML
+data.</p>
+
+
+<p>One way is to have the XML parser take the entire document and simply
+return a tree of objects that represents the XML document hierarchy.
+Perl supports this concept via the <a name="INDEX-2877" />
+<a name="INDEX-2878" />XML::Grove
+module by Ken MacLeod. The second way to parse XML documents is using
+a <a name="INDEX-2879" />SAX (Simple API for XML) style of parser.
+This type of parser is <a name="INDEX-2880" /> <a name="INDEX-2,881" />event-based and is the one that XML::Parser
+is based on.</p>
+
+
+<p>The event based parser is popular because it starts returning data to
+the calling program as it parses the document. There is no need to
+wait until the whole document is parsed before getting a picture of
+how the XML elements are placed in the document. XML::Parser accepts
+a file handle or the text of an XML document and then goes through
+its structure looking for certain events. When a particular event is
+encountered, the parser calls the appropriate Perl subroutine to
+handle it on the fly.</p>
+
+
+<p>For this program, we define a handler that looks for the
+<a name="INDEX-2882" />
+<a name="INDEX-2883" />start of any XML
+tag. This handler is declared as a reference to a
+<a name="INDEX-2884" />subroutine
+called <tt class="function">handle_start</tt>. The
+<tt class="function">handle_start</tt> subroutine is declared further
+below within the local context of the subroutine we are discussing.</p>
+
+
+<p>
+<a name="INDEX-2885" />XML::Parser can handle more than
+just start tags. XML::Parser also supports the capability of writing
+handlers for other types of parsing events such as end tags, or even
+for specific tag names. However, in this program, we only need to
+declare a handler that will be triggered any time an XML start tag is
+encountered.</p>
+
+
+<p><tt class="literal">$data</tt> contains the raw XML code to be parsed. The
+<tt class="function">get</tt>
+<a name="INDEX-2886" />
+<a name="INDEX-2887" /> <a name="INDEX-2,888" />
+subroutine was previously imported by pulling the LWP::Simple module
+into the Perl script. When we pass
+<tt class="literal">WHATS_RELATED_URL</tt> along with the URL we are
+looking for to the <tt class="function">get</tt> subroutine,
+<tt class="function">get</tt> will go out on the Internet and retrieve the
+output from the "What's Related" web server.</p>
+
+
+<p>You will notice that as soon as <tt class="literal">$data</tt> is
+collected, there is some additional manipulation done to it.
+<a name="INDEX-2889" />
+<a name="INDEX-2890" />XML::Parser will
+parse only well-formed XML documents. Unfortunately, the Netscape XML
+server sometimes returns data that is not entirely well-formed, so a
+generic XML parser has a little difficulty with it.</p>
+
+
+<p>To get around this problem, we filter out potentially bad data inside
+of the tags. The <a name="INDEX-2891" />
+<a name="INDEX-2892" />regular
+expressions in the above code respectively transform ampersands,
+double-quotes, HTML tags, and stray &lt; and &gt; characters into
+well-formed counterparts. The last regular expression deals with
+filtering out non-ASCII characters.</p>
+
+
+<p>Before parsing the data, we set the baseline global variables
+<tt class="literal">@RECORDS</tt> to the empty set and
+<tt class="literal">$RELATED_RECORDS</tt> to true (1).</p>
+
+
+<p>Simply calling the <em class="filename">parse</em> method on the
+<tt class="literal">$parser</tt> object starts the parsing process. The
+<tt class="literal">$data</tt> variable that is passed to
+<tt class="function">parse</tt> is the XML subject to be read. The
+<tt class="function">parse</tt> method also accepts other types of data
+including file handles to XML files.</p>
+
+
+<p>Recall that the <tt class="function">handle_start</tt> subroutine was
+passed to the <tt class="literal">$parser</tt> object upon its creation.
+The <tt class="function">handle_start</tt> subroutine that is declared
+within the <tt class="function">get_whats_related</tt> subroutine is
+called by XML::Parser every time a start tag is encountered.</p>
+
+
+<p><tt class="literal">$expat</tt>
+<a name="INDEX-2893" /> is a reference to the
+XML::Parser object itself.
+<tt class="literal">$element</tt>
+<a name="INDEX-2894" />
+<a name="INDEX-2895" /> <a name="INDEX-2,896" />
+is the start element name and <tt class="literal">%attributes</tt> is a
+hash table of attributes that were declared inside the XML element.</p>
+
+
+<p>For this example, we are concerned only with tags that begin with the
+name "child" and contain the
+<tt class="literal">href</tt> attribute. In addition, the
+<tt class="literal">$href</tt> tag is filtered so any non-URL information
+is stripped out of the URL.</p>
+
+
+<p>If there is no name attribute, or if the name attribute contains the
+phrase "Smart Browsing", or if there were no related
+records found previously for this URL, we do not want to add anything
+to the <tt class="literal">@RECORDS</tt> array. In addition, if the name
+attribute contains the phrase "no related", the
+<tt class="literal">$RELATED_RECORDS</tt> flag is set to false (0).</p>
+
+
+<p>Otherwise, if these conditions are not met, we will add the URL to
+the <tt class="literal">@RECORDS</tt> array. This is done by making a
+reference to an array with two elements: the URL and the title of the
+URL. At the end of the subroutine, the compiled
+<tt class="literal">@RECORDS</tt> array is returned.</p>
+
+
+<p>This program was a simple example of using a CGI program to pull data
+automatically from an XML-based server. While the What's
+Related server is just one XML server, it is conceivable that as XML
+grows, there will be more database engines on the Internet that
+deliver even more types of data. Since XML is the standard language
+for delivering data markup on the Web, extensions to this CGI script
+can be used to access those new <a name="INDEX-2897" />data repositories.</p>
+
+
+<p>More information about <a name="INDEX-2898" /> <a name="INDEX-2,899" /> <a name="INDEX-2,900" /> <a name="INDEX-2,901" />XML, DTD, RDF, and even the Perl
+XML::Parser library can be found at <a href="http://www.xml.com/">http://www.xml.com/</a>. Of course, XML::Parser
+can also be found on <a name="INDEX-2902" /> <a name="INDEX-2,903" /> <a name="INDEX-2,904" />CPAN.</p>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch14_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch15_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">14.4. Writing an XML Parser</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">15. Debugging CGI Applications</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

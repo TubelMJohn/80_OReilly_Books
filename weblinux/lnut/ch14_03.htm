@@ -1,0 +1,2016 @@
+<?label 14.3. CVS Administrator Reference?><html><head><title>CVS Administrator Reference (Linux in a Nutshell, 3rd Edition)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ellen Siever, Stephen Spainhour, Stephen Figgins and Jessica P. Hekman" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="0596000251L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Linux in a Nutshell, 3rd Edition" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Linux in a Nutshell" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch14_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Linux in a Nutshell, 3rd Edition</a></td><td width="172" valign="top" align="right"><a href="ch14_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">14.3. CVS Administrator Reference</h2>
+
+
+<p><a name="INDEX-1981" />This section provides details on creating and configuring repositories
+and performing other CVS administrative tasks. A single computer can
+run multiple copies of the CVS server, and each server can serve
+multiple repositories.</p>
+
+
+
+
+
+
+
+<a name="cvspr-admin-createrep" /><div class="sect2">
+<h3 class="sect2">14.3.1. Creating a Repository</h3>
+
+
+<p><a name="INDEX-1982" />Select a directory that will contain the repository files
+(<em class="filename">/usr/local/cvsrep</em> is used in the following
+examples). Use the <b class="emphasis-bold">init</b> command to initialize the
+repository. Either set the <tt class="envar">$CVSROOT</tt> environment
+variable first:</p>
+
+
+<blockquote><pre class="code">user@localhost$ <tt class="userinput"><b>export CVSROOT=/usr/local/cvsrep</b></tt>
+user@localhost$ <tt class="userinput"><b>cvs init</b></tt></pre></blockquote>
+
+
+<p>or use the <b class="emphasis-bold">-d</b> option to specify the repository
+location:</p>
+
+
+<blockquote><pre class="code">user@localhost$ <tt class="userinput"><b>cvs -d /usr/local/cvsrep init</b></tt></pre></blockquote>
+
+
+<p>For information on importing code, see <a href="ch14_04.htm#cvspr-user">Section 14.4, "CVS User Reference"</a>,
+especially <a href="ch14_04.htm#cvspr-user-cmds-import">Section 14.4.7.11, "import"</a> and <a href="ch14_04.htm#cvspr-user-cmds-add">Section 14.4.7.1, "add"</a> sections.</p>
+
+
+
+<a name="cvspr-admin-createrep-pserver" /><div class="sect3">
+<h3 class="sect3">14.3.1.1. Setting up the password server</h3>
+
+
+<p><a name="INDEX-1983" /><a name="INDEX-1984" />If you want users to access the repository from other computers, then
+configure the <tt class="literal">pserver</tt> by doing the following as root:</p>
+
+
+<ul><li><p>Make sure there is an entry in <em class="filename">/etc/services</em>
+similar to the following:</p>
+
+
+<blockquote><pre class="code">cvspserver 2401/tcp</pre></blockquote></li><li><p>If you are not using <tt class="literal">tcpwrappers</tt>, then place a line like
+this in <em class="filename">/etc/inetd.conf</em>:</p>
+
+
+<blockquote><pre class="code">cvspserver stream tcp nowait root /usr/bin/cvs cvs 
+--allow-root=/usr/local/cvsroot pserver</pre></blockquote></li><li><p>Or, if you <em class="emphasis">are</em> using <tt class="literal">tcpwrappers</tt>, then
+use a line like this:</p>
+
+
+<blockquote><pre class="code">cvspserver stream tcp nowait root /usr/sbin/tcpd /usr/bin/cvs 
+--allow-root=/usr/local/cvsroot pserver</pre></blockquote></li><li><p>Once these changes are in place, restart <b class="emphasis-bold">inetd</b> (or send
+it the appropriate signal to cause it to re-read
+<em class="filename">inetd.conf</em>).</p></li></ul>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-security" /><div class="sect2">
+<h3 class="sect2">14.3.2. Security Issues</h3>
+
+
+<p><a name="INDEX-1985" /><a name="INDEX-1986" />The following are security issues that need to be considered when working
+with CVS:</p>
+
+
+<ul><li><p>    The contents of files will be transmitted in the open over the network
+    with <tt class="literal">pserver</tt> and <b class="emphasis-bold">rsh</b>. With
+    <tt class="literal">pserver</tt>, passwords are transmitted in the open as
+    well.</p></li><li><p>    When using a local repository (i.e., when CVS is not being used in
+    client/server mode), developers need write access to the repository, which
+    means they can hack it.</p></li><li><p>    The CVS server runs as root briefly before changing its user ID.</p></li><li><p>    The <em class="filename">~/.cvspass</em> file must be kept unreadable by all users
+    except the owner to prevent passwords from being accessible.</p></li><li><p>    A user who has authority to make changes to the files in the
+    <em class="filename">CVSROOT</em> module can run arbitrary programs.</p></li><li><p>    Some of the options to the <b class="emphasis-bold">admin</b> command are very
+    dangerous, so it is advisable to restrict its use. This can be
+    accomplished by creating a user group named <tt class="literal">cvsadmin</tt>.
+    If this user group exists, then only users in that group can run the
+    <b class="emphasis-bold">admin</b> command (except
+    <b class="emphasis-bold">admin -k</b><em class="emphasis">kflag</em>, which is
+    available to everyone).</p></li></ul>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-repstruct" /><div class="sect2">
+<h3 class="sect2">14.3.3. Repository Structure</h3>
+
+
+<p><a name="INDEX-1987" /><a name="INDEX-1988" />The CVS repository is implemented as a normal directory with special
+contents. This section describes the contents of the repository directory.</p>
+
+
+
+
+
+
+
+<a name="cvspr-admin-repstruct-cvsroot" /><div class="sect3">
+<h3 class="sect3">14.3.3.1. The CVSROOT directory</h3>
+
+
+<p><a name="INDEX-1989" />The <em class="filename">CVSROOT</em> directory contains the administrative files 
+for the repository; other directories in the repository contain the 
+modules. The administrative files permit (and ignore) blank lines and comment
+lines in addition to the lines with real configuration information on them.
+Comment lines start with a hash mark (`<tt class="literal">#</tt>').</p>
+
+
+<p><a name="INDEX-1990" /><a name="INDEX-1991" />Some of the administrative files contain filename patterns to match file and
+directory names. These patterns are regular expressions like those used in
+GNU Emacs. <a href="ch14_03.htm#cvspr-table-regex">Table 14-2</a> contains the special
+constructions used most often.</p>
+
+
+<a name="cvspr-table-regex" /><h4 class="objtitle">Table 14-2. Filename Pattern Special Constructions</h4><table cellpadding="4" border="1">
+
+<tr>
+<th><p>      Construction</p></th>
+<th><p>      Description</p></th>
+</tr>
+
+
+
+
+
+
+<tr>
+<td><p>      <tt class="literal">^</tt></p></td>
+<td><p>      Match the beginning of the string.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <tt class="literal">$</tt></p></td>
+<td><p>      Match the end of the string.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <tt class="literal">.</tt></p></td>
+<td><p>      Match any single character.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <tt class="literal">*</tt></p></td>
+<td><p>      Modify the preceding construct to match zero or more repetitions.</p></td>
+</tr>
+
+
+
+</table>
+
+
+<p>CVS will perform a few important expansions in the contents of the
+administrative files before interpreting the results. First, the
+typical shell syntax for referring to a home directory is
+<tt class="literal">~/</tt>, which expands to the home directory of the user
+running CVS; and <tt class="literal">~</tt><em class="replaceable">user</em>
+expands to the home directory of the specified user.</p>
+
+
+<p><a name="INDEX-1992" />In addition, CVS provides a mechanism similar to the shell's
+environment variable expansion capability. Constructs such as
+<tt class="literal">${</tt><em class="replaceable">variable</em><tt class="literal">}</tt>
+will be replaced by the value of the named variable. Variable names
+start with letters and consist entirely of letters, numbers, and
+underscores. Curly brackets may be omitted if the character
+immediately following the variable reference is not a valid variable
+name character. While this construct looks like a shell environment
+variable reference, the full environment is not available.  <a href="ch14_03.htm#cvspr-table-vars">Table 14-3</a> contains the built-in variables.</p>
+
+
+<a name="cvspr-table-vars" /><h4 class="objtitle">Table 14-3. Administrative File Variables</h4><table cellpadding="4" border="1">
+
+<tr>
+<th><p>      Variable</p></th>
+<th><p>      Description</p></th>
+</tr>
+
+
+
+
+
+
+<tr>
+<td><p>      CVSEDITOR</p>
+
+
+<p>      EDITOR</p>
+
+
+<p>      VISUAL</p></td>
+<td><p>      The editor CVS uses for log file editing.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      CVSROOT</p></td>
+<td><p>      The repository locator in use.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      USER</p></td>
+<td><p>      The name of the user (on the server, if using a remote repository) running CVS.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      =<em class="replaceable">var</em></p></td>
+<td><p>      The value of a user-defined variable named <em class="replaceable">var</em>.
+      Values for these variables are provided by the global <b class="emphasis-bold">-s</b>
+      option.</p></td>
+</tr>
+
+
+
+</table>
+
+
+<p>In order to edit these files, check out the <em class="filename">CVSROOT</em> module
+from the repository, edit the files, and commit them back to the repository.
+You must commit the changes for them to affect CVS's behavior.</p>
+
+
+<p><a name="INDEX-1993" /><a href="ch14_03.htm#cvspr-table-rootfiles">Table 14-4</a> describes the administrative
+files and their functions.</p>
+
+
+<a name="cvspr-table-rootfiles" /><h4 class="objtitle">Table 14-4. CVSROOT Files</h4><table cellpadding="4" border="1">
+
+<tr>
+<th><p>      File</p></th>
+<th><p>      Description</p></th>
+</tr>
+
+
+
+
+
+
+<tr>
+<td><p>      <em class="filename">checkoutlist</em></p></td>
+<td><p>      Extra files to be maintained in <em class="filename">CVSROOT</em></p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">commitinfo</em></p></td>
+<td><p>      Specifications for commit governors</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">config</em></p></td>
+<td><p>      Settings to affect the behavior of CVS</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">cvsignore</em></p></td>
+<td><p>      Filename patterns of files to ignore</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">cvswrappers</em></p></td>
+<td><p>      Specifications for <b class="emphasis-bold">checkout</b> and
+      <b class="emphasis-bold">commit</b> filters</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">editinfo</em></p></td>
+<td><p>      Specifications for log editors (obsolete)</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">history</em></p></td>
+<td><p>      Log information for the <b class="emphasis-bold">history</b> command</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">loginfo</em></p></td>
+<td><p>      Specify <b class="emphasis-bold">commit</b> notifier program(s)</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">modules</em></p></td>
+<td><p>      Module definitions</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">notify</em></p></td>
+<td><p>      Notification processing specifications</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">passwd</em></p></td>
+<td><p>      A list of users and their CVS-specific passwords</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">rcsinfo</em></p></td>
+<td><p>      Template form for log messages</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">readers</em></p></td>
+<td><p>      A list of users having read-only access</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">taginfo</em></p></td>
+<td><p>      Tag processing specifications</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">users</em></p></td>
+<td><p>      Alternate user email addresses for use with <em class="filename">notify</em></p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">verifymsg</em></p></td>
+<td><p>      Specify log message evaluator program</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <em class="filename">writers</em></p></td>
+<td><p>      A list of users having read/write access</p></td>
+</tr>
+
+
+
+</table>
+
+
+<p>Since the <em class="filename">editinfo</em> file is obsolete, use the
+<tt class="envar">$EDITOR</tt> environment variable (or the
+<b class="emphasis-bold">-e</b> option) to specify the editor and the
+<em class="filename">verifymsg</em> file to specify an evaluator.</p>
+
+
+<p>Each line of the <em class="filename">taginfo</em> file contains a filename
+pattern and a command line to execute when files with matching names
+are tagged.</p>
+
+
+<a name="INDEX-1994" />
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-checkoutlist" /><div class="sect3">
+<h3 class="sect3">14.3.3.2. The checkoutlist file</h3>
+
+
+<p><a name="INDEX-1995" />Whenever changes to files in the <em class="filename">CVSROOT</em> module are
+committed, CVS prints the message:</p>
+
+
+<blockquote><pre class="code">cvs commit: Rebuilding administrative file database</pre></blockquote>
+
+
+<p>to inform you that the checked-out copy in the repository has been
+updated to reflect any changes just committed. As with any other
+module directory in the repository, the <em class="filename">CVSROOT</em>
+directory contains RCS (<em class="filename">*,v</em>) files that retain
+the history of the files. But to use the files, CVS needs a copy of
+the latest revision. So, when CVS prints this message, it is checking
+out the latest revisions of the administrative files.</p>
+
+
+<p>If you have added files to the <em class="filename">CVSROOT</em> module (such as
+scripts to be called via entries in the <em class="filename">loginfo</em> file),
+you will need to list them in the <em class="filename">checkoutlist</em>
+file. This makes CVS treat them the same way as it treats the standard set of
+<em class="filename">CVSROOT</em> files.</p>
+
+
+<p>Each line in this file consists of a filename and an optional error message
+that is displayed in case there is trouble checking out the file.</p>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-commitinfo" /><div class="sect3">
+<h3 class="sect3">14.3.3.3. The commitinfo file</h3>
+
+
+<p><a name="INDEX-1996" /><a name="INDEX-1997" />Whenever a <b class="emphasis-bold">commit</b> is being processed, CVS consults
+this file to determine whether or not any precommit checking of the
+file is required.  Each line of the file contains a directory name
+pattern, followed by the path of a program to invoke when files are
+commited in directories with matching names.</p>
+
+
+<p><a name="INDEX-1998" />Aside from the usual filename-pattern syntax, there are two special patterns:</p>
+
+
+<dl>
+<dt><b>    <tt class="literal">ALL</tt>
+  </b></dt><dd><p>      If this pattern is present in the file, then all files are passed
+      to the specified checking program. CVS then looks for a pattern
+      that matches the name of each particular file and runs the additional
+      checks found, if any.</p></dd>
+
+
+
+<dt><b>    <tt class="literal">DEFAULT</tt>
+  </b></dt><dd><p>      If this pattern is present in the file, all files for which there
+      was no pattern match are sent to the specified checking program.
+      The automatic match of every file to the <tt class="literal">ALL</tt> entry,
+      if any, does not count as a match when determining whether or not to
+      send the file to the <tt class="literal">DEFAULT</tt> checking program.</p></dd>
+
+</dl>
+
+
+<p>CVS constructs the command line for the checking program by appending the full
+path to the directory within the repository and the list of files being
+committed (this means you can specify the first few command-line
+arguments to the program, if necessary). If the checking program exits with a
+nonzero status, the <b class="emphasis-bold">commit</b> is aborted.</p>
+
+
+<p>The programs that run via this mechanism run on the server computer when
+a remote repository is used. Here is an example of a
+<em class="filename">commitinfo</em> file:</p>
+
+
+<blockquote><pre class="code">ALL $CVSROOT/CVSROOT/commit-ALL.pl
+DEFAULT $CVSROOT/CVSROOT/commit-DEFAULT.pl
+CVSROOT$ $CVSROOT/CVSROOT/commit-CVSROOT.pl</pre></blockquote>
+
+
+<p>This example assumes you will create the script files in the
+<em class="filename">CVSROOT</em> module and add them to the <em class="filename">checkoutlist</em>
+file.</p>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-config" /><div class="sect3">
+<h3 class="sect3">14.3.3.4. The config file</h3>
+
+
+<p><a name="INDEX-1999" /><a name="INDEX-2000" />Repository configuration is specified in the <em class="filename">config</em>
+administrative file.</p>
+
+
+<dl>
+<dt><b><tt class="literal">LockDir=</tt><em class="replaceable">dir</em></b></dt><dd><p> Directs CVS to put its lock files in the alternate
+  directory given instead of in the repository itself, allowing users
+  without write access to the repository (but with write access to
+  <em class="replaceable">dir</em>) to read from the repository.</p>
+
+
+<p>  Version 1.10 doesn't support alternate directories for lock files
+  and reports an error if this option is set. Older versions of CVS
+  (1.9 and older) don't support this option either and will not
+  report an error. Do not mix versions that support alternate
+  directories for lock files with versions that don't, since lock
+  files in both places defeat the purpose of having them.</p></dd>
+
+
+
+
+<dt><b><tt class="literal">RCSBIN=</tt><em class="replaceable">dir</em></b></dt><dd><p>      Obsolete (used in versions 1.9.12 to 1.9.18). This option used to
+      tell CVS where to find RCS programs. Since all RCS-related functions
+      are now handled internally, this option does nothing.</p></dd>
+
+
+
+<dt><b><tt class="literal">SystemAuth=</tt><em class="replaceable">value</em></b></dt><dd><p>      CVS tries to authenticate users via the <em class="filename">CVSROOT/passwd</em>
+      file first, and if that fails and this option is set to
+      <tt class="literal">yes</tt>, CVS tries to authenticate via the system's user
+      database. This option is used with the password server. The default is
+      <tt class="literal">yes</tt>.</p></dd>
+
+
+
+<dt><b><tt class="literal">TopLevelAdmin=</tt><em class="replaceable">value</em></b></dt><dd><p> If this option is set to <tt class="literal">yes</tt>, an
+  additional <em class="filename">CVS</em> directory is created at the
+  top-level directory when <b class="emphasis-bold">checkout</b> is run. This
+  allows the client software to detect the repository locator in that
+  directory (see <a href="ch14_04.htm#cvspr-user-reploc">Section 14.4.1, "Repository Locators"</a>).  The default is
+  <tt class="literal">no</tt>.</p>
+
+
+<p> This option is useful if you check out multiple modules to the
+  same sandbox directory. If it is enabled, you won't have to provide
+  a repository locator after the first checkout; CVS infers it
+  from the information in the top-level <em class="filename">CVS</em>
+  directory created during the first checkout.</p></dd>
+
+</dl>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-cvsignore" /><div class="sect3">
+<h3 class="sect3">14.3.3.5. The cvsignore file</h3>
+
+
+<p><a name="INDEX-2001" /><a name="INDEX-2002" />The <em class="filename">cvsignore</em> administrative file contains a list of
+filename patterns to ignore, just like the <em class="filename">.cvsignore</em>
+files that can appear in sandboxes and user home directories. Unlike the
+filename patterns in other administrative files, these patterns are in
+<b class="emphasis-bold">sh</b> syntax; they are not GNU Emacs-style regular
+expressions. There can be multiple patterns on a line, separated by
+whitespace (consequently, the patterns themselves cannot contain whitespace).</p>
+
+
+<p><a href="ch14_03.htm#cvspr-table-shpat">Table 14-5</a> shows the most commonly used
+<b class="emphasis-bold">sh</b>-style pattern constructs.</p>
+
+
+<a name="cvspr-table-shpat" /><h4 class="objtitle">Table 14-5. Filename Patterns for cvsignore</h4><table cellpadding="4" border="1">
+
+<tr>
+<th><p>      Construct</p></th>
+<th><p>      Description</p></th>
+</tr>
+
+
+
+
+
+
+<tr>
+<td><p>      <tt class="literal">?</tt></p></td>
+<td><p>      Any one character.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <tt class="literal">*</tt></p></td>
+<td><p>      Any sequence of zero or more characters.</p></td>
+</tr>
+
+
+
+</table>
+
+
+<p>Again, diverging from the standards used by the rest of the
+administrative files, the <em class="filename">cvsignore</em> file does not
+support comments.</p>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-cvswrappers" /><div class="sect3">
+<h3 class="sect3">14.3.3.6. The cvswrappers file</h3>
+
+
+<p><a name="INDEX-2003" />While the <em class="filename">cvsignore</em> file allows CVS to ignore
+certain files, the <em class="filename">cvswrappers</em> file allows you to give CVS
+default options for commands that work with files. Lines in this file consist
+of a <b class="emphasis-bold">sh</b>-style filename pattern followed by a
+<b class="emphasis-bold">-k</b> (keyword substitution mode) option and/or an
+<b class="emphasis-bold">-m</b> (update method) option. The legal values for
+<b class="emphasis-bold">-k</b> are described in
+<a href="ch14_04.htm#cvspr-table-keywordsubst">Table 14-19</a>. The legal values for
+<b class="emphasis-bold">-m</b> are <tt class="literal">COPY</tt> and <tt class="literal">MERGE</tt>.</p>
+
+
+<p>If <b class="emphasis-bold">-m COPY</b> is specified, CVS will not attempt
+to merge the files. Instead, it presents the user with conflicting
+versions of the file, and he can choose one or the other or resolve
+the conflict manually.</p>
+
+
+<p>For example, to treat all files ending in <em class="filename">.exe</em> as binary,
+add this line to the file:</p>
+
+
+<blockquote><pre class="code">*.exe -k b</pre></blockquote>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-history" /><div class="sect3">
+<h3 class="sect3">14.3.3.7. The history file</h3>
+
+
+<p><a name="INDEX-2004" />If this file exists, CVS inserts records of activity against the
+repository.  This information produces displays of the <b class="emphasis-bold">cvs
+history</b> command. The history file is not intended for direct
+reading or writing by programs other than CVS.</p>
+
+
+<p>A repository set up with <b class="emphasis-bold">cvs init</b> automatically has a
+<em class="filename">history</em> file.</p>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-loginfo" /><div class="sect3">
+<h3 class="sect3">14.3.3.8. The loginfo file</h3>
+
+
+<p><a name="INDEX-2005" /><a name="INDEX-2006" />The <em class="filename">loginfo</em> administrative file works much like
+the <em class="filename">commitinfo</em> file and can use the special
+patterns <tt class="literal">ALL</tt> and <tt class="literal">DEFAULT</tt>. This
+file allows you to do something with <b class="emphasis-bold">commit</b> log
+messages and related information.</p>
+
+
+<p>The programs called during <em class="filename">loginfo</em> processing receive
+the log message on standard input. <a href="ch14_03.htm#cvspr-table-loginfovars">Table 14-6</a>
+shows the three codes that can pass additional information to the
+called programs via command-line arguments.</p>
+
+
+<a name="cvspr-table-loginfovars" /><h4 class="objtitle">Table 14-6. Special loginfo Variables</h4><table cellpadding="4" border="1">
+
+<tr>
+<th><p>      Variable</p></th>
+<th><p>      Description</p></th>
+</tr>
+
+
+
+
+
+
+<tr>
+<td><p>      <tt class="literal">s</tt></p></td>
+<td><p>      Filename</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <tt class="literal">V</tt></p></td>
+<td><p>      Pre-commit revision number</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <tt class="literal">v</tt></p></td>
+<td><p>      Post-commit revision number</p></td>
+</tr>
+
+
+
+</table>
+
+
+<p>If a percent sign (<tt class="literal">%</tt>) followed by the desired
+variable is placed after the command path, CVS inserts the
+corresponding information as a whitespace-separated list with one
+entry for each file, preceded by the repository path (as with
+<em class="filename">commitinfo</em>). There can be only one percent sign
+on the command line, so if you want information from more than one
+variable, place the variable names inside curly brackets:
+<tt class="literal">%{...}</tt>. In this case, each file-specific
+entry has one field for each variable, separated by
+commas. For example, the code <tt class="literal">%{sVv}</tt> expands
+into a list like this:</p>
+
+
+<blockquote><pre class="code">/usr/local/cvsrep/hello Makefile,1.1,1.2 hello.c,1.8,1.9</pre></blockquote>
+
+
+<p><a name="INDEX-2007" />It can be helpful to send email notifications each time someone
+commits a file to the repository. Developers can monitor this stream
+of notices to determine when they should pull the latest development
+code into their private sandboxes. For example, consider a developer
+doing some preparatory work in his sandbox while he awaits
+stabilization and addition of another developer's new library. As soon
+as the new library is added and committed, email notification goes
+out, and the waiting developer sees the code is ready to use. So,
+he runs <b class="emphasis-bold">cvs upd -d</b> in the appropriate directory to
+pull in the new library code and then sets about integrating it with
+his work.</p>
+
+
+<p>It is simple to set up this kind of notification. Just add a line like
+this to the
+<?troff \p?><em class="filename">CVSROOT/loginfo</em> file:</p>
+
+
+<blockquote><pre class="code">DEFAULT mail -s %s developers@company.com</pre></blockquote>
+
+
+<p>Often, the email address is a mailing list, which has all the
+interested parties (developers or otherwise) on the distribution list.
+If you want to send messages to multiple email addresses, you can
+write a script to do that and have that script called via this
+file. Alternatively, you can use the <em class="filename">log.pl</em>
+program that comes as part of the CVS source distribution (located at
+<em class="filename">/usr/local/src/cvs-1.10.8/contrib/log.pl</em>,
+assuming CVS was unpacked into
+<em class="filename">/usr/local/src</em>). Instructions for its use are
+provided as comments in the file.</p>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-modules" /><div class="sect3">
+<h3 class="sect3">14.3.3.9. The modules file</h3>
+
+
+<p><a name="INDEX-2008" /><a name="INDEX-2009" /><a name="INDEX-2010" />The top-level directories in a repository are called
+<em class="firstterm">modules</em>.  In addition to these physical
+modules, CVS provides a mechanism to create logical modules through
+the <em class="filename">modules</em> administrative file. Here are the
+three kinds of logical modules:</p>
+
+
+<dl>
+<dt><b>Alias</b></dt><dd><p><a name="INDEX-2011" />      Alias modules are defined by lines of the form:
+      
+
+
+<blockquote><pre class="code"><em class="replaceable">module_name</em> -a <em class="replaceable">alias_module </em>...</pre></blockquote></p>
+
+
+<p> 
+You can use the alias module name in CVS commands in
+the same way you use the modules named after the <b class="emphasis-bold">-a</b>
+option.</p></dd>
+
+
+
+<dt><b>Regular</b></dt><dd><p><a name="INDEX-2012" />      Regular modules are defined by lines of the form:
+      
+
+
+<blockquote><pre class="code"><em class="replaceable">module_name</em> [<em class="replaceable">options</em>] <em class="replaceable">directory</em> <em class="replaceable">file</em> ...</pre></blockquote></p>
+
+
+<p>      Checking out <em class="replaceable">module_name</em> results in the
+      specified files from <em class="replaceable">directory</em> being checked out
+      into a directory named <em class="filename">module_name</em>. The intervening
+      directories (if any) are not reflected in the sandbox.</p></dd>
+
+
+
+<dt><b>Ampersand</b></dt><dd><p><a name="INDEX-2013" />      Ampersand modules are defined by lines of the form:
+      
+
+
+<blockquote><pre class="code"><em class="replaceable">module_name</em> [<em class="replaceable">options</em>] &amp;<em class="replaceable">other_module</em> ...</pre></blockquote></p>
+
+
+<p>      Checking out such a module results in a directory
+      named <em class="replaceable">module_name</em>, which in turn contains copies of
+      the <em class="replaceable">other_module</em> modules.</p></dd>
+
+</dl>
+
+
+<p><a href="ch14_03.htm#cvspr-table-module-opts">Table 14-7</a> shows the options that can define modules.</p>
+
+
+<a name="cvspr-table-module-opts" /><h4 class="objtitle">Table 14-7. Module Options</h4><table cellpadding="4" border="1">
+
+<tr>
+<th><p>      Option</p></th>
+<th><p>      Description</p></th>
+</tr>
+
+
+
+
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-d</b> <em class="replaceable">name</em></p></td>
+<td><p>      Overrides the default working directory name for the module</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-e</b> <em class="replaceable">prog</em></p></td>
+<td><p>      Runs the program <em class="replaceable">prog</em> when files are exported from
+      the module; the module name is passed to <em class="replaceable">prog</em>
+      as the sole argument</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-i</b> <em class="replaceable">prog</em></p></td>
+<td><p>      Runs the program <em class="replaceable">prog</em> when files are committed to
+      the module; the repository directory of the committed files is passed in to
+      <em class="replaceable">prog</em> as the sole argument</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-i</b> <em class="replaceable">prog</em></p></td>
+<td><p>      Runs the program <em class="replaceable">prog</em> when files are checked out
+      from the module; the module name is passed in to <em class="replaceable">prog</em>
+      as the sole argument</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-s</b> <em class="replaceable">status</em></p></td>
+<td><p>      Assigns a status descriptor to the module</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-t</b> <em class="replaceable">prog</em></p></td>
+<td><p>      Runs the program <em class="replaceable">prog</em> when files are tagged in the
+      module using <b class="emphasis-bold">rtag</b>; the module name and the symbolic tag are
+      passed to <em class="replaceable">prog</em></p></td>
+</tr>
+
+
+<?troff .ND 10?><tr>
+<td><p>      <b class="emphasis-bold">-u</b> <em class="replaceable">prog</em></p></td>
+<td><p>      Runs the program <em class="replaceable">prog</em> when files are updated in the
+      module's top-level directory; the full path to the module within the repository
+      is passed to <em class="replaceable">prog</em> as the sole argument</p></td>
+</tr>
+
+
+
+</table>
+
+
+<p>Alias modules provide alternative names for other modules or shortcuts
+for referring to collections or subdirectories of other modules. Alias
+module definitions function like macro definitions in that they cause
+commands to run as if the expanded list of modules and directories was
+on the command line. Alias modules do not cause the modules of their
+definition to be grouped together under the alias name (use ampersand
+modules for that).  For example, the definition:</p>
+
+
+<blockquote><pre class="code">h -a hello</pre></blockquote>
+
+
+<p>makes the name <em class="filename">h</em> a synonym for the
+<em class="filename">hello</em> module. This definition:</p>
+
+
+<blockquote><pre class="code">project -a library client server</pre></blockquote>
+
+
+<p>allows you to check out all three modules of the project as a unit. If
+an entry in the definition of an alias module is preceded by an
+exclamation point (<tt class="literal">!</tt>), then the named directory is
+excluded from the module.</p>
+
+
+<p>Regular modules allow you to create modules that are
+subsets of other modules. For example, the definition:</p>
+
+
+<blockquote><pre class="code">header library library.h</pre></blockquote>
+
+
+<p>creates a module that just contains the header file from the
+<em class="filename">library</em> module.</p>
+
+
+<p>Ampersand modules are true logical modules. There are no top-level
+directories for them in the repository, but you can check them out to
+sandboxes, and directories with their names will then appear. The
+modules listed in the definition are below that directory. For
+example:</p>
+
+
+<blockquote><pre class="code">project &amp;library &amp;client &amp;server</pre></blockquote>
+
+
+<p>is almost the same as the alias module example given earlier, except
+that the submodules are checked out inside a subdirectory named
+<em class="filename">project</em>.</p>
+
+
+<p>In this file, long definitions may be split across multiple lines by terminating
+all but the last line with backslashes (<tt class="literal">\</tt>).</p>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-notify" /><div class="sect3">
+<h3 class="sect3">14.3.3.10. The notify file</h3>
+
+
+<p><a name="INDEX-2014" /><a name="INDEX-2015" />This file is used in conjunction with the <b class="emphasis-bold">watch</b> command.
+When notifications are appropriate, this file is consulted to determine how
+to do the notification.</p>
+
+
+<p>Each line of the <em class="filename">notify</em> file contains a filename
+pattern and a command line. CVS's notification mechanism uses
+the command line specified to perform notifications for files having
+names that match the corresponding pattern.</p>
+
+
+<p>There is a single special-purpose variable, <tt class="literal">%s</tt>,
+that can appear in the command specification. When the command is
+executed, the name of the user to notify replaces the variable
+name. If the <em class="filename">users</em> administrative file exists,
+the user names are looked up there, and the resulting values are used
+for <tt class="literal">%s</tt> instead. This allows emails to be sent to
+accounts other than those on the local machine. Details are sent
+to the notification program via standard input.</p>
+
+
+<p>Typical usage of this feature is the single entry:</p>
+
+
+<blockquote><pre class="code">ALL mail %s -s "CVS notification"</pre></blockquote>
+
+
+<p>In fact, this entry is present in the default <em class="filename">notify</em> file
+created when you run <b class="emphasis-bold">cvs init</b> to create a repository (although
+it is initially commented out).</p>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-passwd" /><div class="sect3">
+<h3 class="sect3">14.3.3.11. The passwd file</h3>
+
+
+<p><a name="INDEX-2016" /><a name="INDEX-2017" /><a name="INDEX-2018" /><a name="INDEX-2019" />If you access the repository via a <em class="filename">pserver</em>
+repository locator (see <a href="ch14_04.htm#cvspr-user-reploc">Section 14.4.1, "Repository Locators"</a>), then CVS can
+have its own private authentication
+information, separate from the system's user database. This information
+is stored in the <em class="filename">CVSROOT/passwd</em> administrative file.</p>
+
+
+<p>This feature provides anonymous CVS access over the Internet. By
+creating an entry for a public user (usually
+<em class="filename">anoncvs</em> or <em class="filename">anonymous</em>), the
+<em class="filename">pserver</em> can be used by many people sharing the
+public account. If you don't want to create a system user with the
+same name as the public user, or if you have such a user but it has a
+different purpose, you can employ a user alias to map it to something
+else:</p>
+
+
+<blockquote><pre class="code">anonymous:TY7QWpLw8bvus:cvsnoname</pre></blockquote>
+
+
+<p>Then, make sure you create the <tt class="literal">cvsnoname</tt> user on
+the system. You can use <em class="filename">/bin/false</em> as the login shell
+and the repository's root directory as the home directory for the user.</p>
+
+
+<p>To restrict the public user to read-only access, list it in the
+<em class="filename">CVSROOT/readers</em> administrative file.</p>
+
+
+<p>Additionally, CVS's private user database is useful even if you don't
+want to set up anonymous CVS access. You can restrict access to a
+subset of the system's users, provide remote access to users who don't
+have general system access, or prevent a user's normal system password
+from being transmitted in the clear over the network (see <a href="ch14_03.htm#cvspr-admin-security">Section 14.3.2, "Security Issues"</a>).</p>
+
+
+<p>There is no <b class="emphasis-bold">cvs passwd</b> command for setting
+CVS-specific passwords (located in the repository file
+<em class="filename">CVSROOT/passwd</em>). CVS-specific user and password
+management are manual tasks.</p>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-rcsinfo" /><div class="sect3">
+<h3 class="sect3">14.3.3.12. The rcsinfo file</h3>
+
+
+<p><a name="INDEX-2020" /><a name="INDEX-2021" />CVS consults this file when doing a <b class="emphasis-bold">commit</b> or
+<b class="emphasis-bold">import</b> to determine the log message editor template.
+Each entry in the file consists of a filename pattern and the name of the
+file to use as the template for module directories with matching names.</p>
+
+
+<p>The <tt class="literal">ALL</tt> and <tt class="literal">DEFAULT</tt> special patterns
+apply to this file.</p>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-readers" /><div class="sect3">
+<h3 class="sect3">14.3.3.13. The readers file</h3>
+
+
+<p><a name="INDEX-2022" />If this file exists, users listed in it have read-only access.</p>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-taginfo" /><div class="sect3">
+<h3 class="sect3">14.3.3.14. The taginfo file</h3>
+
+
+<p><a name="INDEX-2023" /><a name="INDEX-2024" />CVS consults this file whenever the <b class="emphasis-bold">tag</b> or
+<b class="emphasis-bold">rtag</b> commands are used. Entries in this file are
+filename patterns and program specifications. The
+<tt class="literal">ALL</tt> special pattern applies to this file.</p>
+
+
+<p>The <em class="filename">taginfo</em> file is called with the tag, the
+operation being performed, the module directory name (relative to the
+repository root), and the filename and revision number for each
+affected file. The valid operations are: <tt class="literal">add</tt> (for
+<b class="emphasis-bold">tag</b>), <tt class="literal">del</tt> (for <b class="emphasis-bold">tag
+-d</b>), and <tt class="literal">mov</tt> (for <b class="emphasis-bold">tag
+-F</b>).</p>
+
+
+<p>If the <em class="filename">taginfo</em> program returns a nonzero status,
+the <b class="emphasis-bold">tag</b> or <b class="emphasis-bold">rtag</b> command that
+caused its execution is aborted.</p>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-users" /><div class="sect3">
+<h3 class="sect3">14.3.3.15. The users file</h3>
+
+
+<p><a name="INDEX-2025" />If this file exists, it is consulted during processing of the
+<em class="filename">notify</em> administrative file's contents. Entries in this
+file consist of two colon-separated fields on a single line. The first field
+is the name of a user, and the second field is a value (normally the user's
+email address on another machine). For example:</p>
+
+
+<blockquote><pre class="code">john:john@somecompany.com
+jane:jane@anothercompany.com</pre></blockquote>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-verifymsg" /><div class="sect3">
+<h3 class="sect3">14.3.3.16. The verifymsg file</h3>
+
+
+<p><a name="INDEX-2026" />CVS consults this file to determine if log messages should be validated.
+If the program returns a nonzero status, the commit is aborted. The
+<em class="filename">verifymsg</em> file is called with the full path to a file
+containing the log message to be verified.</p>
+
+
+<p>The <tt class="literal">ALL</tt> special pattern is not supported for this
+file, although <tt class="literal">DEFAULT</tt> is. If more than one pattern
+matches, the first match is used.</p>
+</div>
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-writers" /><div class="sect3">
+<h3 class="sect3">14.3.3.17. The writers file</h3>
+
+
+<p><a name="INDEX-2027" />If this file exists, users listed in it have read/write access (unless
+they are also listed in the <em class="filename">readers</em> file, in which case they have read-only access).</p>
+</div>
+
+
+
+
+<a name="INDEX-2028" /><a name="INDEX-2029" /><a name="INDEX-2030" />
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-rephack" /><div class="sect2">
+<h3 class="sect2">14.3.4. Hacking the Repository</h3>
+
+
+<p><a name="INDEX-2031" />Since the repository is a normal directory, albeit one with special contents,
+it is possible to <b class="emphasis-bold">cd</b> into the directory and examine its
+contents and/or make changes to the files and directories there. For each
+file that has been added there will be a file with the same name followed by
+<em class="emphasis">,v</em> in a corresponding directory in the repository. These
+are RCS (the format, not the program) files that contain multiple versions of
+the file.</p>
+
+
+<blockquote><h4 class="objtitle">NOTE</h4>
+<p>Since the activities discussed in this section involve making
+changes directly to the repository instead of working through CVS commands,
+you should exercise extreme caution and have current backups when following
+these instructions.</p>
+</blockquote>
+
+
+
+<a name="cvspr-admin-rephack-restruct" /><div class="sect3">
+<h3 class="sect3">14.3.4.1. Restructuring a project</h3>
+
+
+<p>Restructuring the project by moving files and directories around (and possibly
+renaming them) in the repository will allow the files to retain their
+history. The standard way to rename a file when using CVS is to rename the
+file in the sandbox and do a <b class="emphasis-bold">cvs remove</b> on the old name
+and a <b class="emphasis-bold">cvs add</b> on the new name. This results in the file
+being disconnected from its history under the new name, so sometimes it is
+better to do the renaming directly in the repository, although doing this
+while people have active sandboxes is dangerous, since the sandboxes will
+contain information about a file that is no longer in the repository.</p>
+</div>
+
+
+
+
+
+<a name="cvspr-admin-rephack-bulkimport" /><div class="sect3">
+<h3 class="sect3">14.3.4.2. Bulk importing</h3>
+
+
+<p><a name="INDEX-2032" />When importing an entire project, all of the project's files
+will be added to the repository. But, if some of these files shouldn't have
+been added, you'll want to remove them. Doing a <b class="emphasis-bold">cvs remove</b>
+will accomplish this, but copies of those files will remain in the repository's
+<em class="filename">.Attic</em> directory forever. To avoid this, you can delete
+the files from the repository directly before checking out sandboxes from it.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-import" /><div class="sect2">
+<h3 class="sect2">14.3.5. Importing</h3>
+
+
+<p>If you have an existing code base, you'll want to import it into CVS in a
+way that preserves the most historical information. This section provides
+instructions for importing projects into CVS from code snapshots or other
+version control systems. All of these, except the code snapshot import
+procedure, are based upon conversion to RCS files, followed by placing the
+RCS files in the proper location in the CVS repository.</p>
+
+
+
+
+
+
+
+<a name="cvspr-admin-import-code" /><div class="sect3">
+<h3 class="sect3">14.3.5.1. Importing code snapshots</h3>
+
+
+<p><a name="INDEX-2033" /><a name="INDEX-2034" />If you have maintained project history archives manually by taking periodic
+snapshots of the code, you can import the first snapshot, tag it with the
+date or version number, and then successively overlay the updated files
+from later archives. Each set can then be committed and tagged in order to
+bootstrap a repository that maintains the prior history.</p>
+
+
+<p>For example, first unpack the distributions (this assumes they unpack to
+directories containing the version numbers):</p>
+
+
+<blockquote><pre class="code">user@localhost$ <tt class="userinput"><b>tar xvzf foo-1.0.tar.gz</b></tt>
+user@localhost$ <tt class="userinput"><b>tar xvzf foo-1.1.tar.gz</b></tt>
+user@localhost$ <tt class="userinput"><b>tar xvzf foo-2.0.tar.gz</b></tt></pre></blockquote>
+
+
+<p>Next, make a copy of the first version, import it into the CVS repository,
+check it out to make a sandbox (since importing doesn't convert the source
+directory into a sandbox), and use <b class="emphasis-bold">cvs tag</b> to give it a
+symbolic name reflecting the project version:</p>
+
+
+<blockquote><pre class="code">user@localhost$ <tt class="userinput"><b>mkdir foo</b></tt>
+user@localhost$ <tt class="userinput"><b>cp -R -p foo-1.0/* foo</b></tt>
+user@localhost$ <tt class="userinput"><b>cd foo</b></tt>
+user@localhost$ <tt class="userinput"><b>cvs import -m 'Imported version 1.0' foo vendor start</b></tt>
+user@localhost$ <tt class="userinput"><b>cd ..</b></tt>
+user@localhost$ <tt class="userinput"><b>mv foo foo.bak</b></tt>
+user@localhost$ <tt class="userinput"><b>cvs checkout foo</b></tt>
+user@localhost$ <tt class="userinput"><b>cd foo</b></tt>
+user@localhost$ <tt class="userinput"><b>cvs tag foo-1_0</b></tt>
+user@localhost$ <tt class="userinput"><b>cd ..</b></tt></pre></blockquote>
+
+
+<p>Now, apply the differences between version 1.0 and 1.1 to the sandbox,
+commit the changes, and create a tag:</p>
+
+
+<blockquote><pre class="code">user@localhost$ <tt class="userinput"><b>diff -Naur foo-1.0 foo-1.1 | (cd foo; patch -Np1)</b></tt>
+user@localhost$ <tt class="userinput"><b>cd foo</b></tt>
+user@localhost$ <tt class="userinput"><b>cvs commit -m 'Imported version 1.1'</b></tt>
+user@localhost$ <tt class="userinput"><b>cvs tag foo-1_1</b></tt>
+user@localhost$ <tt class="userinput"><b>cd ..</b></tt></pre></blockquote>
+
+
+<p>Now, apply the differences between version 1.1 and 2.0 to the sandbox,
+commit the changes, and create a tag:</p>
+
+
+<blockquote><pre class="code">user@localhost$ <tt class="userinput"><b>diff -Naur foo-1.1 foo-2.0 | (cd foo; patch -Np1)</b></tt>
+user@localhost$ <tt class="userinput"><b>cd foo</b></tt>
+user@localhost$ <tt class="userinput"><b>cvs commit -m 'Imported version 2.0'</b></tt>
+user@localhost$ <tt class="userinput"><b>cvs tag foo-2_0</b></tt></pre></blockquote>
+
+
+<p>Now, you can use the <b class="emphasis-bold">log</b> command to view the history of the files,
+browse past versions of the files, and continue development under version
+control.</p>
+</div>
+
+
+
+
+
+<a name="cvspr-admin-import-rcs" /><div class="sect3">
+<h3 class="sect3">14.3.5.2. Importing from RCS</h3>
+
+
+<p><a name="INDEX-2035" /><a name="INDEX-2036" />If you are migrating from RCS to CVS, following these instructions will
+result in a usable CVS repository. This procedure involves direct modification
+of the CVS repository, so it should be undertaken with caution.</p>
+
+
+<p>Before beginning, make sure none of the files to be imported into CVS are
+locked by RCS. Then, create a new CVS repository and module (or a new module
+within an existing repository). Next, create directories in the CVS repository
+to mirror the project's directory structure. Finally, copy all the version
+files (<em class="emphasis">,v</em>) from the project (which may be in
+<em class="filename">RCS</em> subdirectories) into the appropriate directories in
+the repository (without <em class="filename">RCS</em> subdirectories).</p>
+
+
+<p>For example, first move aside the directory under RCS control, create an
+empty directory to build the new CVS structure, import the directory,
+and then check it out to make a sandbox:</p>
+
+
+<blockquote><pre class="code">user@localhost$ <tt class="userinput"><b>mv foo foo-rcs</b></tt>
+user@localhost$ <tt class="userinput"><b>mkdir foo</b></tt>
+user@localhost$ <tt class="userinput"><b>cd foo</b></tt>
+user@localhost$ <tt class="userinput"><b>cvs import -m 'New empty project' foo vendor start</b></tt>
+user@localhost$ <tt class="userinput"><b>cd ..</b></tt>
+user@localhost$ <tt class="userinput"><b>mv foo foo.bak</b></tt>
+user@localhost$ <tt class="userinput"><b>cvs checkout foo</b></tt></pre></blockquote>
+
+
+<p>Next, make directories and add them to the repository to match the structure
+in the RCS project:</p>
+
+
+<blockquote><pre class="code">user@localhost$ <tt class="userinput"><b>cd foo</b></tt>
+user@localhost$ <tt class="userinput"><b>mkdir dir</b></tt>
+user@localhost$ <tt class="userinput"><b>cvs add dir</b></tt>
+user@localhost$ <tt class="userinput"><b>cd ..</b></tt></pre></blockquote>
+
+
+<p>Now, copy the <em class="filename">,v</em> files from the RCS project into the
+<em class="emphasis">repository</em> for the CVS
+<?troff \p?>project:</p>
+
+
+<blockquote><pre class="code">user@localhost$ <tt class="userinput"><b>cp -p foo-rcs/*,v $CVSROOT/foo</b></tt>
+user@localhost$ <tt class="userinput"><b>cp -p foo-rcs/dir/*,v $CVSROOT/foo/dir</b></tt></pre></blockquote>
+
+
+<p>Finally, issue the <b class="emphasis-bold">cvs update</b> command in the sandbox
+directory to bring in the latest versions of all the files:</p>
+
+
+<blockquote><pre class="code">user@localhost$ <tt class="userinput"><b>cd foo</b></tt>
+user@localhost$ <tt class="userinput"><b>cvs upd</b></tt></pre></blockquote>
+</div>
+
+
+
+
+
+<a name="cvspr-admin-import-sccs" /><div class="sect3">
+<h3 class="sect3">14.3.5.3. Importing from SCCS</h3>
+
+
+<p><a name="INDEX-2037" /><a name="INDEX-2038" />To import from SCCS, use the <em class="filename">sccs2rcs</em> script
+located in the <em class="filename">contrib</em> directory of the CVS
+distribution to convert the files to RCS format, and then follow the
+preceding RCS procedure. You must have both CVS and SCCS installed for
+this to work. The script's comments contain additional instructions.</p>
+</div>
+
+
+
+
+
+<a name="cvspr-admin-import-pvcs" /><div class="sect3">
+<h3 class="sect3">14.3.5.4. Importing from PVCS</h3>
+
+
+<p><a name="INDEX-2039" /><a name="INDEX-2040" />To import from PVCS, use the <em class="filename">pvcs_to_rcs</em> script
+located in the <em class="filename">contrib</em> directory of the CVS
+distribution to convert the files to RCS format, and then follow the
+previous RCS procedure. You must have both CVS and PVCS installed for
+this to work. The script's comments contain additional instructions.</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-sbshare" /><div class="sect2">
+<h3 class="sect2">14.3.6. Using an Interim Shared Sandbox</h3>
+
+
+<p><a name="INDEX-2041" />Sometimes projects will develop unintended environmental dependencies over
+time, especially when there is no pressure for the code to be relocatable.
+A project developed outside version control may even be initially developed
+in place (at its intended installation location). While these practices are
+not recommended, they do occur in real-world situations; CVS can be helpful 
+in improving the situation, by encouraging relocatability from the beginning
+of a project.</p>
+
+
+<p>The default mode of operation for CVS is multiple independent sandboxes,
+all coordinated with a central shared repository. Code that runs in this
+environment is necessarily (at least partially) relocatable. So, using CVS from
+the beginning of a project helps ensure flexibility.</p>
+
+
+<p>However, if a project is already well underway, an interim approach can be 
+used. For example, you could convert the development area to a single shared 
+sandbox by importing the code into CVS and checking it back out again:</p>
+
+
+<blockquote><pre class="code">user@localhost$ <tt class="userinput"><b>cd /usr/local/bar</b></tt>
+user@localhost$ <tt class="userinput"><b>cvs import bar vendor start</b></tt>
+user@localhost$ <tt class="userinput"><b>cd ..</b></tt>
+user@localhost$ <tt class="userinput"><b>mv bar bar.bak</b></tt>
+user@localhost$ <tt class="userinput"><b>cvs checkout bar</b></tt></pre></blockquote>
+
+
+<p>Chances are good that this approach is too aggressive and will check in
+more files than absolutely necessary. You can either go back and hack the
+repository to remove the files that shouldn't be there or
+just issue the <b class="emphasis-bold">cvs remove</b> command to delete them as you
+discover them.</p>
+
+
+<p>In addition, there will probably be some binary files in the sandbox that
+were imported as text files. Wherever you see a binary file that needs
+to remain in the repository, you should issue the command
+<b class="emphasis-bold">cvs admin -kb</b> <em class="emphasis">file</em>, then make
+a fresh copy from the project backup. Finally, issue the command
+<b class="emphasis-bold">cvs commit</b> <em class="emphasis">file</em> to commit the
+fixed file back to the repository.</p>
+
+
+<p>Having version control in place before making flexibility enhancements is
+a good idea, since it makes it easier to find (and possibly reverse)
+changes that cause trouble.</p>
+
+
+<p><a name="INDEX-2042" /><a name="INDEX-2043" /><a name="INDEX-2044" />The repository locator (see <a href="ch14_04.htm#cvspr-user-reploc">Section 14.4.1, "Repository Locators"</a>) is specified via the <b class="emphasis-bold">-d</b>
+option or the <tt class="envar">$CVSROOT</tt> environment variable. It
+is stored in the various sandbox <em class="filename">CVS/root</em>
+files. If you are using the password server
+(<b class="emphasis-bold">pserver</b>), the user ID of the person checking out
+the sandbox will be remembered. If more than one person is working
+with a particular sandbox, they will have to share an account for CVS
+access.</p>
+
+
+<p>One way to do this is to have a neutral user account, with a password known
+by everyone with CVS access. Everyone can then issue the
+<b class="emphasis-bold">cvs login</b> command with the same user ID and password and
+have access to the repository. Once you are no longer using a shared sandbox,
+this workaround won't be necessary. However, during the time you are using
+a shared sandbox, it is important that the developers type their real user
+IDs into their log messages, since all the changes will appear to be made
+by the common user.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-servopt" /><div class="sect2">
+<h3 class="sect2">14.3.7. Global Server Option</h3>
+
+
+<p><a name="INDEX-2045" />The server has one global option:
+<b class="emphasis-bold">--allow-root=<em class="replaceable">rootdir</em></b>.
+This option is used to tell the CVS server to accept and process
+requests for the specified repository.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="cvspr-admin-cmds" /><div class="sect2">
+<h3 class="sect2">14.3.8. Administrator Commands</h3>
+
+
+<p><a name="INDEX-2046" /><a name="INDEX-2047" /><a href="ch14_03.htm#cvspr-table-admin-cmds">Table 14-8</a> lists the commands that CVS
+administrators can use to manage their repositories.</p>
+
+
+<a name="cvspr-table-admin-cmds" /><h4 class="objtitle">Table 14-8. Administrator Commands</h4><table cellpadding="4" border="1">
+
+<tr>
+<th><p>      Command</p></th>
+<th><p>      Description</p></th>
+</tr>
+
+
+
+
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">admin</b></p>
+
+
+<p>      <b class="emphasis-bold">adm</b></p>
+
+
+<p>      <b class="emphasis-bold">rcs</b></p></td>
+<td><p>      Perform administrative functions</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">init</b></p></td>
+<td><p>      Create a new repository</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">server</b></p></td>
+<td><p>      Run in server mode</p></td>
+</tr>
+
+
+
+</table>
+
+
+
+<a name="cvspr-admin-cmds-admin" /><div class="sect3">
+<h3 class="sect3">14.3.8.1. admin</h3>
+
+
+
+<blockquote><pre class="code">admin
+  [ -b[<em class="replaceable">rev</em>] ]
+  [ -c<em class="replaceable">string</em> ]
+  [ -k<em class="replaceable">kflag</em> ]
+  [ -l[<em class="replaceable">rev</em>] ]
+  [ -L ]
+  [ -m<em class="replaceable">rev</em>:<em class="replaceable">msg</em> ]
+  [ -n<em class="replaceable">name</em>[:[<em class="replaceable">rev</em>]] ]
+  [ -N<em class="replaceable">name</em>[:[<em class="replaceable">rev</em>]] ]
+  [ -o<em class="replaceable">range</em> ]
+  [ -q ]
+  [ -s<em class="replaceable">state</em>[:<em class="replaceable">rev</em>]
+  [ -t[<em class="replaceable">file</em>] ]
+  [ -t-<em class="replaceable">string</em> ]
+  [ -u[<em class="replaceable">rev</em>] ]
+  [ -U ]
+  [ <em class="replaceable">files </em>... ]</pre></blockquote>
+
+
+<p><a name="INDEX-2048" /><a name="INDEX-2049" />The <b class="emphasis-bold">admin</b> is used to perform administrative
+functions.  If a <em class="emphasis">cvsadmin</em> user group exists, then
+only those users in that group will be able to run
+<b class="emphasis-bold">admin</b> with options other than
+<b class="emphasis-bold">-k</b>.  Additional options that may be used with
+the <b class="emphasis-bold">admin</b> command are listed in <a href="ch14_03.htm#cvspr-admin-admin-opts">Table 14-9</a>.</p>
+
+
+<a name="cvspr-admin-admin-opts" /><h4 class="objtitle">Table 14-9. admin Options</h4><table cellpadding="4" border="1">
+
+<tr>
+<th><p>      Option</p></th>
+<th><p>      Description</p></th>
+</tr>
+
+
+
+
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-b[</b><em class="replaceable">rev</em><b class="emphasis-bold">]</b></p></td>
+<td><p>      Set the default branch.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-c</b><em class="replaceable">string</em></p></td>
+<td><p>      Obsolete. Set the comment leader.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-k</b><em class="replaceable">kflag</em></p></td>
+<td><p>      Set the default keyword substitution mode.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-l[</b><em class="replaceable">rev</em><b class="emphasis-bold">]</b></p></td>
+<td><p>      Lock the specified revision.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-L</b></p></td>
+<td><p>      Enable strict locking.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-m</b><em class="replaceable">rev</em>:<em class="replaceable">msg</em></p></td>
+<td><p>      Change the revision's log message.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-n</b><em class="replaceable">name</em>[:[<em class="replaceable">rev</em><b class="emphasis-bold">]]</b></p></td>
+<td><p>      Give the branch or revision specified the symbolic name
+      <em class="emphasis">name</em>.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-N</b><em class="replaceable">name</em>[:[<em class="replaceable">rev</em><b class="emphasis-bold">]]</b></p></td>
+<td><p>      The same as <b class="emphasis-bold">-n</b>, except that if
+      <em class="emphasis">name</em> is already in use, it is moved.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-o</b><em class="replaceable">range</em></p></td>
+<td><p>      Delete revisions permanently.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-q</b></p></td>
+<td><p>      Don't print diagnostics.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-s</b><em class="replaceable">state</em>[:<em class="replaceable">rev</em><b class="emphasis-bold">]</b></p></td>
+<td><p>      Change the state of a revision.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-t[</b><em class="replaceable">file</em><b class="emphasis-bold">]</b></p></td>
+<td><p>      Set the descriptive text in the RCS file.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-t</b>-<em class="replaceable">string</em></p></td>
+<td><p>      Set the descriptive text in the RCS file to <em class="emphasis">string</em>.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-u[</b><em class="replaceable">rev</em><b class="emphasis-bold">]</b></p></td>
+<td><p>      Unlock the specified revision.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-U</b></p></td>
+<td><p>      Disable strict locking.</p></td>
+</tr>
+
+
+
+</table>
+
+
+<p><a name="INDEX-2050" />If the revision specified for <b class="emphasis-bold">-l</b> is a branch,
+the latest revision on that branch will be used. If no revision is given,
+the latest revision on the default branch is used.</p>
+
+
+<p><a name="INDEX-2051" />If the name given for <b class="emphasis-bold">-n</b> is already in use, an error
+is generated. You can use <b class="emphasis-bold">-N</b> to move a tag (change the
+revision associated with the tag); however, you
+should usually use <b class="emphasis-bold">cvs tag</b> or <b class="emphasis-bold">cvs rtag</b>
+instead.</p>
+
+
+<p><a name="INDEX-2052" />The <b class="emphasis-bold">-o</b> option is very dangerous and results in
+a permanent loss of information from the repository. Use it with
+extreme caution and only after careful consideration. See <a href="ch14_03.htm#cvspr-admin-rangefmt">Table 14-10</a> for the various ways to specify
+ranges. There must not be any branches or locks on the revisions to be
+removed. Beware of interactions between this command and symbolic
+names.</p>
+
+
+<p>If no <em class="replaceable">file</em> is specified to the
+<b class="emphasis-bold">-t</b> option, CVS reads from standard input until
+it reaches the end of the file or a period on a line by itself.<a name="INDEX-2053" /><a name="INDEX-2054" /></p>
+
+
+<p>The determination of the target revision for the <b class="emphasis-bold">-u</b>
+option is the same as for <b class="emphasis-bold">-l</b>.</p>
+
+
+<a name="cvspr-admin-rangefmt" /><h4 class="objtitle">Table 14-10. Range Formats</h4><table cellpadding="4" border="1">
+
+<tr>
+<th><p>    Format</p></th>
+<th><p>    Description</p></th>
+</tr>
+
+
+
+
+
+
+<tr>
+<td><p>    <em class="replaceable">rev1</em><tt class="literal">::</tt><em class="replaceable">rev2</em></p></td>
+<td><p>    Eliminate versions between <em class="emphasis">rev1</em> and
+    <em class="emphasis">rev2</em>, retaining only enough information to go
+    directly from <em class="emphasis">rev1</em> to <em class="emphasis">rev2</em>.
+    The two specified versions are retained.</p></td>
+</tr>
+
+
+<tr>
+<td><p>    <tt class="literal">::</tt><em class="replaceable">rev</em></p></td>
+<td><p>    The same as
+    <em class="emphasis">rev1::rev2</em>,
+    except the first revision is the branchpoint revision.</p></td>
+</tr>
+
+
+<tr>
+<td><p>    <em class="replaceable">rev</em><tt class="literal">::</tt></p></td>
+<td><p>    The same as
+    <em class="emphasis">rev1</em><em class="emphasis">::rev2</em>,
+    except the second revision is the end of the branch, and it is
+    deleted instead of retained.</p></td>
+</tr>
+
+
+<tr>
+<td><p>    <em class="replaceable">rev</em></p></td>
+<td><p>    Delete the specified revision.</p></td>
+</tr>
+
+
+<tr>
+<td><p>    <em class="replaceable">rev1</em><tt class="literal">:</tt>
+    <em class="replaceable">rev2</em></p></td>
+<td><p>    The same as
+    <em class="emphasis">rev1</em><em class="emphasis">::</em><em class="emphasis">rev2</em>,
+    except the two named revisions are deleted as well.</p></td>
+</tr>
+
+
+<tr>
+<td><p>    <tt class="literal">:</tt><em class="replaceable">rev</em></p></td>
+<td><p>    The same as <em class="emphasis">::</em><em class="emphasis">rev2</em>,
+    except the named revision is deleted as well.</p></td>
+</tr>
+
+
+<tr>
+<td><p>    <em class="replaceable">rev</em><tt class="literal">:</tt></p></td>
+<td><p>    The same as <em class="emphasis">rev1</em><em class="emphasis">::</em>,
+    except the named revision is deleted as well.</p></td>
+</tr>
+
+
+
+</table>
+
+
+<p>The options in <a href="ch14_03.htm#cvspr-admin-admin-obsopts">Table 14-11</a> are present in CVS
+for historical reasons and should not be used (using these options may
+corrupt the repository).</p>
+
+
+<a name="cvspr-admin-admin-obsopts" /><h4 class="objtitle">Table 14-11. Obsolete admin Options</h4><table cellpadding="4" border="1">
+
+<tr>
+<th><p>      Option</p></th>
+<th><p>      Description</p></th>
+</tr>
+
+
+
+
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-a</b><em class="replaceable">logins</em></p></td>
+<td><p>      Append the logins to the RCS file's access list.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-A</b><em class="replaceable">oldfile</em></p></td>
+<td><p>      Append the access list of <em class="filename">oldfile</em> to the access list of the RCS file.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-e[</b><em class="replaceable">logins</em><b class="emphasis-bold">]</b></p></td>
+<td><p>      Erases logins from the RCS file's access list, or erases all if a list is
+      not provided.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-i</b></p></td>
+<td><p>      Create and initialize a new RCS file. Don't use this option. Instead, use
+      <b class="emphasis-bold">add</b> to add files to a CVS repository.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-I</b></p></td>
+<td><p>      Run interactively.  This option doesn't work with client/server CVS and
+      is likely to be removed in a future version.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-V</b><em class="replaceable">n</em></p></td>
+<td><p>      Obsolete. This option was used to specify that the RCS files used
+      by CVS should be made compatible with a specific version of RCS.</p></td>
+</tr>
+
+
+<tr>
+<td><p>      <b class="emphasis-bold">-x</b><em class="replaceable">suffixes</em></p></td>
+<td><p>      This option used to be described as determining the filename
+      suffix for RCS files, but CVS has always only used <em class="emphasis">,v</em>
+      as the RCS file suffix.</p></td>
+</tr>
+
+
+
+</table>
+
+
+<a name="INDEX-2055" />
+</div>
+
+
+
+
+
+<a name="cvspr-admin-cmds-init" /><div class="sect3">
+<h3 class="sect3">14.3.8.2. init</h3>
+
+
+<blockquote><pre class="code">init</pre></blockquote>
+
+
+<p><a name="INDEX-2056" /><a name="INDEX-2057" />Initializes the repository. Use the global <b class="emphasis-bold">-d</b>
+option to specify the repository's directory if
+<tt class="envar">$CVSROOT</tt> isn't set appropriately.</p>
+
+
+<p>The newly initialized repository will contain a
+<em class="emphasis">CVSROOT</em> module, but nothing else. Once the
+repository is initialized, use other CVS commands to add files to it
+or to check out the <em class="emphasis">CVSROOT</em> module to make
+changes to the administrative files.</p>
+</div>
+
+
+
+
+
+<a name="cvspr-admin-cmds-server" /><div class="sect3">
+<h3 class="sect3">14.3.8.3. pserver</h3>
+
+
+
+<blockquote><pre class="code">pserver</pre></blockquote>
+
+
+<p><a name="INDEX-2058" /><a name="INDEX-2059" />Operate as a server, providing access to the repositories specified before
+the command with the <b class="emphasis-bold">--allow-root</b> option.
+This command is used in the <em class="filename">inetd.conf</em> file, not on
+the command line. Another global option frequently used with this
+command is <b class="emphasis-bold">-T</b> (see <a href="ch14_02.htm#cvspr-table-globopts">Table 14-1</a>).</p>
+</div>
+</div>
+
+
+
+
+
+
+
+
+<a name="INDEX-2060" /><a name="INDEX-2061" /><a name="INDEX-2062" />
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch14_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch14_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">14.2. The CVS Utility</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">14.4. CVS User Reference</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

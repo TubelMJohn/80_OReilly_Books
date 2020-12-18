@@ -1,0 +1,217 @@
+<html><head><title>Using Recursion to Do Most Anything (XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Doug Tidwell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596000537L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="XSL" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch04_07.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+    <h2 class="sect1">4.6. Using Recursion to Do Most Anything</h2>
+    <p>
+<a name="INDEX-380" />
+<a name="INDEX-381" />
+
+Writing an XSLT stylesheet is different from programming in other languages. If you didn't believe that before, you probably do now. We'll finish this chapter with a couple of examples that demonstrate how to use recursion to solve the kinds of problems that you're probably used to solving with procedural programming languages.</p>
+    <div class="sect2">
+      <h3 class="sect2">4.6.1. Implementing a String Replace Function</h3>
+      <p>
+<a name="INDEX-382" />
+<a name="INDEX-383" />
+<a name="INDEX-384" />
+
+
+To demonstrate how to use recursion to solve problems, we'll write a string replace function. This is sometimes useful when you need to escape certain characters or substrings in your output. The stylesheet we'll develop here transforms an XML document into a set of SQL statements that will be executed at a Windows command prompt. We have to do several things:</p>
+      <dl>
+<dt><i>Put a caret <tt class="literal">(^)</tt> in front of all ampersands <tt class="literal">(&amp;)</tt></i></dt>
+        <dd>
+          
+<a name="INDEX-385" />
+<a name="INDEX-386" />
+<a name="INDEX-387" />
+<a name="INDEX-388" />
+
+On the Windows NT and Windows 2000 command prompt, the ampersand means that the current command has ended and another is beginning. For example, this command creates a new directory called <em class="emphasis">xslt</em> and changes the current directory to the newly created one:</p>
+          <blockquote><pre class="code">
+mkdir xslt &amp; chdir xslt</pre></blockquote>
+          <p>If we create a SQL statement that contains an ampersand, we'll need to escape the ampersand so it's processed as a literal character, not as an operator. If we insert the value <tt class="literal">Jones &amp; Son</tt> as the value of the company field in a row of the database, we need to change it to <tt class="literal">Jones ^&amp; Son</tt> before we try to run the SQL command. </p>
+        </dd>
+
+<dt><i>Put a caret <tt class="literal">(^)</tt>) in front of all vertical bars <tt class="literal">(|)</tt></i></dt>
+        <dd>
+          
+<a name="INDEX-389" />
+<a name="INDEX-390" />
+
+The vertical bar is the pipe operator on Windows systems, so we need to escape it if we want it interpreted as literal text instead of an operator. </p>
+        </dd>
+<dt><i>Replace any single quote <tt class="literal">(')</tt> with two single quotes <tt class="literal">('')</tt></i></dt>
+        <dd>
+          
+<a name="INDEX-391" />
+
+This is a requirement of our database system.</p>
+        </dd>
+      </dl>
+      <div class="sect3">
+        <h3 class="sect3">4.6.1.1. Procedural design</h3>
+        <p>
+<a name="INDEX-392" />
+<a name="INDEX-393" />
+<a name="INDEX-394" />
+<a name="INDEX-395" />
+<a name="INDEX-396" />
+
+
+Three functions we could use in our template are <tt class="literal">concat()</tt>, <tt class="literal">substring-before()</tt>, and <tt class="literal">substring-after()</tt>. To replace an ampersand with a caret and an ampersand, this would do the trick:</p>
+        <blockquote><pre class="code">
+&lt;xsl:value-of select="concat(substring-before(., '&amp;amp;'), '^&amp;amp;', 
+                             substring-after(., '&amp;amp;'))"/&gt;</pre></blockquote>
+        <p>The obvious problem with this step is that it only replaces the first occurrence of the ampersand. If there are two ampersands, or three, or three hundred, we need to call this method once for each ampersand in the original string. Because of the way variables work, we can't do what we'd do in a procedural language:</p>
+        <blockquote><pre class="code">
+private static String strChange(String string, String from, String to)
+{
+  String before = "", after = "";
+  int    index;
+
+  index = string.indexOf(from);
+  while (index &gt;= 0)
+  {
+    before = string.substring(0, index);
+    after = string.substring(index + from.length());
+    string = before + to + after;
+
+    index = string.indexOf(from, index + to.length());
+  }
+
+  return string;
+}</pre></blockquote>
+      </div>
+      <div class="sect3">
+        <h3 class="sect3">4.6.1.2. Recursive design</h3>
+        <p>
+
+<a name="INDEX-397" />
+<a name="INDEX-398" />
+
+To implement a string replace function with recursion, we take a modified version of the approach we used here. We build the replaced string in three pieces:  </p>
+        <ul>
+          <li>
+            <p>Everything up to the first occurrence of the substring we're replacing. If the substring doesn't exist in the main string, then this is the entire string. </p>
+          </li>
+          <li>
+            <p>The replacement substring. If the substring we're replacing doesn't exist in the main string, then this is blank. </p>
+          </li>
+          <li>
+            <p>Everything after the first occurrence of the substring. If the substring doesn't exist in the main string, then this is blank.</p>
+          </li>
+        </ul>
+        <p>The third portion is where we use recursion. If the substring we're replacing occurs in that part of the main string, we call the substring replace function on the last of the string. The key here, as with all recursive functions, is that we have an exit case, a condition in which we don't recurse. If the substring doesn't occur in the last portion of the string, we're done. </p>
+        <p>Here's the design in pseudocode:</p>
+        <blockquote><pre class="code">
+replaceSubstring(originalString, substring, replacementString)
+{
+  if (contains(originalString, substring))
+    firstOfString = substring-before(originalString, substring)
+  else
+    firstOfString = originalString
+
+  if (contains(originalString, substring))
+    middleOfString = replacementString
+  else
+    middleOfString = ""
+
+  if (contains(originalString, substring))
+  {
+    if (contains(substring-after(originalString, substring), substring))
+     lastOfString = replaceString(substring-after(originalString, substring), 
+                                  substring, replacementString)
+    else
+      lastOfString = substring-after(originalString, substring)
+  }
+  concat(firstOfString, middleOfString, lastOfString)
+}</pre></blockquote>
+        <p>In the recursive approach, the function calls itself whenever there's at least one more occurrence of the substring. Each time the function calls itself, the <tt class="literal">originalString</tt> parameter is a little smaller, until eventually we've processed the complete string. Here's the complete template:</p>
+        <blockquote><pre class="code">
+&lt;xsl:template name="replace-substring"&gt;
+  &lt;xsl:param name="original"/&gt;
+  &lt;xsl:param name="substring"/&gt;
+  &lt;xsl:param name="replacement" select="''"/&gt;
+  &lt;xsl:variable name="first"&gt;
+    &lt;xsl:choose&gt;
+      &lt;xsl:when test="contains($original, $substring)"&gt;
+        &lt;xsl:value-of select="substring-before($original, $substring)"/&gt;
+      &lt;/xsl:when&gt;
+      &lt;xsl:otherwise&gt;
+        &lt;xsl:value-of select="$original"/&gt;
+      &lt;/xsl:otherwise&gt;
+    &lt;/xsl:choose&gt;
+  &lt;/xsl:variable&gt;
+  &lt;xsl:variable name="middle"&gt;
+    &lt;xsl:choose&gt;
+      &lt;xsl:when test="contains($original, $substring)"&gt;
+        &lt;xsl:value-of select="$replacement"/&gt;
+      &lt;/xsl:when&gt;
+      &lt;xsl:otherwise&gt;
+        &lt;xsl:text&gt;&lt;/xsl:text&gt;
+      &lt;/xsl:otherwise&gt;
+    &lt;/xsl:choose&gt;
+  &lt;/xsl:variable&gt;
+  &lt;xsl:variable name="last"&gt;
+    &lt;xsl:choose&gt;
+      &lt;xsl:when test="contains($original, $substring)"&gt;
+        &lt;xsl:choose&gt;
+          &lt;xsl:when test="contains(substring-after($original, $substring), 
+                                   $substring)"&gt;
+            &lt;xsl:call-template name="replace-substring"&gt;
+              &lt;xsl:with-param name="original"&gt;
+                &lt;xsl:value-of select="substring-after($original, $substring)"/&gt;
+              &lt;/xsl:with-param&gt;
+              &lt;xsl:with-param name="substring"&gt;
+                &lt;xsl:value-of select="$substring"/&gt;
+              &lt;/xsl:with-param&gt;
+              &lt;xsl:with-param name="replacement"&gt;
+                &lt;xsl:value-of select="$replacement"/&gt;
+              &lt;/xsl:with-param&gt;
+            &lt;/xsl:call-template&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:otherwise&gt;
+            &lt;xsl:value-of select="substring-after($original, $substring)"/&gt;
+          &lt;/xsl:otherwise&gt;
+        &lt;/xsl:choose&gt;
+      &lt;/xsl:when&gt;
+      &lt;xsl:otherwise&gt;
+        &lt;xsl:text&gt;&lt;/xsl:text&gt;
+      &lt;/xsl:otherwise&gt;
+    &lt;/xsl:choose&gt;
+  &lt;/xsl:variable&gt;
+  &lt;xsl:value-of select="concat($first, $middle, $last)"/&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+      </div>
+      <p>This style of programming takes some getting used to, but whatever you want to do can usually be done. Our example here is a good illustration of the techniques we've discussed in this chapter, including branching statements, variables, invoking templates by name, and passing parameters.
+<a name="INDEX-399" />
+<a name="INDEX-400" />
+<a name="INDEX-401" />
+<a name="INDEX-402" />
+<a name="INDEX-403" />
+
+
+</p>
+    </div>
+  
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch04_07.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4.5. Variables</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">4.7. A Stylesheet That Emulates a for Loop</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

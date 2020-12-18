@@ -1,0 +1,782 @@
+<html><head><title>The Photo Image Type (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch17_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch17_08.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">17.7. The Photo Image Type</h2>
+
+<p><a name="INDEX-2682" /><a name="INDEX-2683" /><a name="INDEX-2684" /><a name="INDEX-2685" />Like Bitmap
+and Pixmap image types, a Photo supports <tt class="literal">-data</tt> and
+<tt class="literal">-file</tt> options. Unlike those simpler images, Photos
+additionally support several image formats and manipulation methods.
+The Photo constructor attempts to auto-detect the format of an image,
+but failing that, we can state it explicitly. The
+-<tt class="literal">format</tt> option is a case-insensitive string that
+can be one of <tt class="literal">"bmp"</tt>, <tt class="literal">"ppm"</tt>, or
+<tt class="literal">"gif"</tt> (or <tt class="literal">"png"</tt>,
+<tt class="literal">"jpeg"</tt>, or <tt class="literal">"tiff"</tt>, if you have
+those image extensions installed).
+</p>
+
+<p><a name="INDEX-2686" /><a name="INDEX-2687" /><a name="INDEX-2688" />All
+current Photo image formats are binary data, so to incorporate them
+into our Perl/Tk code we need to encode the data into printable
+characters. All Photo image formats that support the
+<tt class="literal">-data</tt> option require that the data be Base64 MIME
+encoded. Given a filename, <tt class="literal">encode_photo_data</tt> does
+just that and returns the resulting string:
+</p>
+
+<blockquote><pre class="code">sub encode_photo_data {
+    
+    my($file) = @_;
+
+    use MIME::Base64;
+    my ($bin, $data, $stat);
+
+    open PHOTO, $file or die "Cannot open $file: $!";
+    while ( $stat = sysread PHOTO, $bin, 57 * 17 ) {
+        $data .= encode_base64($bin);
+    }
+    close PHOTO or die $!;
+    die "sysread error: $!" unless defined $stat;
+
+    $data;
+
+} # end encode_photo_data</pre></blockquote>
+
+<p><a name="INDEX-2689" />The Photo
+<tt class="literal">data</tt> method can do the encoding for us as well.
+All we need to do is specify the format:
+</p>
+
+<blockquote><pre class="code">my $encoded_data = $photo-&gt;data(-format =&gt; 'png');</pre></blockquote>
+
+<p>In either case, you can print the encoded results to a file and
+insert the data directly into your Perl/Tk program.
+</p>
+
+<p><a name="INDEX-2690" /><a name="INDEX-2691" />Unfortunately, the Photo format handlers
+are not created equally where <tt class="literal">-data</tt> is concerned.
+Currently the PPM handler doesn't support
+<tt class="literal">-data</tt> at all, and the Photo constructor
+won't recognize a GIF format without a
+<tt class="literal">-format</tt> hint. <a href="ch17_07.htm#mastperltk-CHP-17-TABLE-1">Table 17-1</a> lists
+the photo formats.
+</p>
+
+<a name="mastperltk-CHP-17-TABLE-1" /><h4 class="objtitle">Table 17-1. Photo formats </h4><table border="1">
+
+
+
+
+<tr>
+<th>
+<p>Photo format</p>
+</th>
+<th>
+<p>-data supported?</p>
+</th>
+<th>
+<p>-format required to recognize -data?</p>
+</th>
+</tr>
+
+
+<tr>
+<td>
+<p>BMP</p>
+</td>
+<td>
+<p>Yes</p>
+</td>
+<td>
+<p>No</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>PPM</p>
+</td>
+<td>
+<p>No</p>
+</td>
+<td>
+<p>n/a</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>GIF</p>
+</td>
+<td>
+<p>Yes</p>
+</td>
+<td>
+<p>Yes</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>PNG</p>
+</td>
+<td>
+<p>Yes</p>
+</td>
+<td>
+<p>No</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>JPEG</p>
+</td>
+<td>
+<p>Yes</p>
+</td>
+<td>
+<p>No</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>TIFF</p>
+</td>
+<td>
+<p>Yes</p>
+</td>
+<td>
+<p>No</p>
+</td>
+</tr>
+
+</table><p>
+
+<p><a name="INDEX-2692" /><a name="INDEX-2693" /><a name="INDEX-2694" /><a name="INDEX-2695" />Photos allow direct manipulation of the
+image pixels. We'll look at the <tt class="literal">copy</tt> method
+in detail shortly. It allows us to copy selected pixels from one
+Photo to another or to subsample, zoom, clip, rotate, or re-aspect a
+Photo. Here a list of the other Photo methods:
+</p>
+
+<dl>
+<dt><tt class="literal">$photo-&gt;blank</tt>  </dt>
+<dd>
+<a name="INDEX-2696" />Blanks the
+Photo so it's transparent
+</p>
+</dd>
+
+
+<dt><tt class="literal">$photo-&gt;get</tt> </dt>
+<dd>
+<a name="INDEX-2697" />Fetches the RGB value of a pixel
+</p>
+</dd>
+
+
+<dt><tt class="literal">$photo-&gt;put</tt>  </dt>
+<dd>
+<a name="INDEX-2698" />Stores an array of RGB pixel values
+</p>
+</dd>
+
+
+<dt><tt class="literal">$photo-&gt;read</tt>  </dt>
+<dd>
+<a name="INDEX-2699" />Reads an array
+of pixels from a file into the Photo
+</p>
+</dd>
+
+
+<dt><tt class="literal">$photo-&gt;redither</tt>  </dt>
+<dd>
+<a name="INDEX-2700" />Redithers
+the Photo
+</p>
+</dd>
+
+
+<dt><tt class="literal">$photo-&gt;write</tt>  </dt>
+<dd>
+<a name="INDEX-2701" />Writes an array
+of Photo pixels to a file
+</p>
+</dd>
+
+</dl>
+
+<a name="mastperltk-CHP-17-SECT-7.1" /><div class="sect2">
+<h3 class="sect2">17.7.1. Creating a Color Palette with the put Method</h3>
+
+<p><a name="INDEX-2702" /><a name="INDEX-2703" />We can spiff up the native option menu
+example from <a href="ch12_01.htm">Chapter 12, "The Menu System"</a>. Rather than displaying
+textual menu items, create tiny Photo color swatches and show them
+instead. <a href="ch17_07.htm#mastperltk-CHP-17-FIG-8">Figure 17-8</a> shows an example.
+</p>
+
+<a name="mastperltk-CHP-17-FIG-8" /><div class="figure"><img src="figs/mptk.1708.gif" alt="Figure 17-8" width="243" height="107" /></div><h4 class="objtitle">Figure 17-8.  A multicolumn color palette menu; cyan is selected</h4>
+
+<p><a name="INDEX-2704" /><a name="INDEX-2705" />As
+a reminder, the menu items are radiobuttons, each of which accepts an
+-<tt class="literal">image</tt> option used when the radiobutton is not
+selected and a -<tt class="literal">selectimage</tt> option used when the
+radiobutton is selected. Essentially, we'll create two Photo
+images per radiobutton, a color swatch for the
+-<tt class="literal">image</tt> option, and a color swatch with a black
+border for the -<tt class="literal">selectimage</tt> option.
+</p>
+
+<p>Examine <a href="ch17_07.htm#mastperltk-CHP-17-FIG-8">Figure 17-8</a> closely, and note that each of
+the images (excluding cyan, which is selected) has a sunken relief.
+This illusion is created by drawing a one pixel wide line of the
+color <tt class="literal">$topborder</tt> along the top and left edges of
+the color swatch and a similar line of the color
+<tt class="literal">$bottomborder</tt> along the bottom and right edges.
+The top and left edges are a darker shade of gray, fooling us into
+thinking that the light originates from the upper left.
+</p>
+
+<blockquote><pre class="code">my $topborder    = 'gray50';
+my $bottomborder = 'gray75';
+
+foreach my $i (0 .. $#colors) {</pre></blockquote>
+
+<p><a name="INDEX-2706" />Each menu item has a
+-<tt class="literal">label</tt> option that is its actual color name, such
+as <tt class="literal">'red4'</tt>, <tt class="literal">'NavyBlue'</tt>, or
+<tt class="literal">'Cyan'</tt>, which we'll use to paint the color
+swatch. To begin, create an empty Photo 16 pixels on a side that is
+addressed using a scheme just like Canvas coordinates: (0, 0) is the
+upper-left coordinate and (15, 15) is the lower-right coordinate.
+</p>
+
+<p><a name="INDEX-2707" />Now it gets a little tricky. The first
+<tt class="literal">put</tt> method draws the top border line, so we want
+to paint pixels 0 through 15 in row zero. The -<tt class="literal">to</tt>
+option specifies the rectangular region to color, but the last row
+and last column of the rectangle are not drawn! So the 2-row by
+17-column rectangle defined by the coordinates (0, 0) and (16, 1)
+actually paints one row of 16 pixels. The next three
+<tt class="literal">put</tt> calls complete the relief border, and the last
+<tt class="literal">put</tt> colors the remaining interior pixels.
+</p>
+
+<blockquote><pre class="code">    my $color = $menu-&gt;entrycget($i, -label);
+    my $p = $mw-&gt;Photo(qw/-width 16 -height 16/);
+    $p-&gt;put($topborder,    qw/-to  0  0 16  1/);
+    $p-&gt;put($topborder,    qw/-to  0  1  1 16/);
+    $p-&gt;put($bottomborder, qw/-to  1 15 16 16/);
+    $p-&gt;put($bottomborder, qw/-to 15  1 16 15/);
+    $p-&gt;put($color,        qw/-to  1  1 15 15/);</pre></blockquote>
+
+<p><a name="INDEX-2708" />The second image
+(-<tt class="literal">selectimage</tt>) is similar to the first, except the
+border is solid black and two pixels wide.
+</p>
+
+<blockquote><pre class="code">    my $r = $mw-&gt;Photo(qw/-width 16 -height 16/);
+    $r-&gt;put(qw/black          -to  0  0 16  2/);
+    $r-&gt;put(qw/black          -to  0  2  2 16/);
+    $r-&gt;put(qw/black          -to  2 14 16 16/);
+    $r-&gt;put(qw/black          -to 14  2 16 14/);
+    $r-&gt;put($color       , qw/-to  2  2 14 14/);</pre></blockquote>
+
+<p>Now reconfigure the menu item and specify the two images.</p>
+
+<blockquote><pre class="code">    $menu-&gt;entryconfigure($i, -columnbreak =&gt; 1) unless $i % 4;
+    $menu-&gt;entryconfigure($i,
+        -image       =&gt; $p,
+        -hidemargin  =&gt; 1,
+        -selectimage =&gt; $r,
+    );
+
+}</pre></blockquote>
+
+<p>And finally, add a tearoff so we can float the palette wherever we
+want.<a name="INDEX-2709" /><a name="INDEX-2710" />
+</p>
+
+<blockquote><pre class="code">$menu-&gt;configure(-tearoff =&gt; 1);</pre></blockquote>
+
+</div>
+<a name="mastperltk-CHP-17-SECT-7.2" /><div class="sect2">
+<h3 class="sect2">17.7.2. Using put to Create a Progress Bar with a 3D Look</h3>
+
+<p><a name="INDEX-2711" /><a name="INDEX-2712" />We can use Photo's
+<tt class="literal">put</tt> method to generate dynamic images with minimal
+overhead. And, if we paint the pixels just right, we can add a
+lighting effect that simulates depth. The following progress bar
+image was borrowed from Mac OS 9 by initiating a copy and grabbing
+the Mac's progress bar in action, zooming in "fat
+bits" mode, and sampling individual pixels to determine their
+component RGB color values.
+</p>
+
+<p>Like the previous color swatch example, the light originates from the
+left and behind us, slightly above the horizon, as shown in <a href="ch17_07.htm#mastperltk-CHP-17-FIG-9">Figure 17-9</a>. The actual Mac progress bar consists of three
+main segments: the concave base on the left, a repeating column of
+pixels that represent the progress bar proper, and a dark cap on the
+right. Taken together, the three segments emphasize the desired
+lighting and 3D effect. This example ignores the right-side cap, but
+see <a href="ch15_01.htm">Chapter 15, "Anatomy of the MainLoop"</a>, where we turn this progress bar
+example into a real Perl/Tk mega-widget and treat the cap too. (We
+can imagine other uses for our progress bar; for instance, a volume
+meter that indicates the instantaneous level of an audio channel.)
+</p>
+
+<a name="mastperltk-CHP-17-FIG-9" /><div class="figure"><img src="figs/mptk.1709.gif" alt="Figure 17-9" width="173" height="78" /></div><h4 class="objtitle">Figure 17-9.  A 3D progress bar image</h4>
+
+<p>The Mac progress bar is 10 pixels high and dark blue on the top and
+bottom, graduating to almost pure white in the middle (which
+accentuates its protruding, rounded appearance). But for our
+purposes, we use a progress bar 20 pixels in height for clarity. We
+do this by doubling each row of a column so it occupies 2 pixels.
+Let's see how to accomplish this task.
+</p>
+
+<p>First, we use a Canvas with a cyan background as the backdrop for the
+progress bar. Then we create an empty Photo wide enough for a 100
+pixel image and place the empty image at Canvas coordinates (100,
+30). 
+</p>
+
+<blockquote><pre class="code">my $c = $mw-&gt;Canvas(qw/-width 200 -height 60 -background cyan/)-&gt;grid;
+
+my $w = 100;
+my $h = 20;
+
+my $i = $c-&gt;Photo(-width =&gt; $w, -height =&gt; $h);
+$c-&gt;createImage(100, 30, -image =&gt; $i);</pre></blockquote>
+
+<p>Now paint the bar's left-side base segment. The base is
+normally 2 pixels wide, but it's expanded to 4 pixels in this
+example: each of the two columns is painted over two columns. The
+left two columns are a single shade of dark blue, while the right two
+columns are dark on the top and bottom and grow brighter toward the
+middle. The net effect is a concave, 3D look.
+</p>
+
+<blockquote><pre class="code">$i-&gt;put('#6363ce', -to =&gt; 0, 0, 2, $h);
+$i-&gt;put([
+    '#6363ce', '#6363ce',
+    '#9c9cff', '#9c9cff',
+    '#ceceff', '#ceceff',
+    '#efefef', '#efefef',
+    '#efefef', '#efefef',
+    '#efefef', '#efefef',
+    '#ceceff', '#ceceff',
+    '#9c9cff', '#9c9cff',
+    '#6363ce', '#6363ce',
+    '#31319c', '#31319c',
+], -to =&gt; 2, 0, 4, $h);</pre></blockquote>
+
+<p><a name="INDEX-2713" /><a name="INDEX-2714" />Now for the progress bar itself.
+It's a single column of pixels (again, doubled in height for
+clarity) that's repeatedly laid out from left to right, one
+column every 25 milliseconds.
+</p>
+
+<blockquote><pre class="code">for (my $col = 4; $col &lt; $w; $col++) {
+    $i-&gt;put([
+        '#30319d', '#30319d',
+        '#6563cd', '#6563cd',
+        '#9c9cff', '#9c9cff',
+        '#ceceff', '#ceceff',
+        '#f0f0f0', '#f0f0f0',
+        '#ceceff', '#ceceff',
+        '#9c9cff', '#9c9cff',
+        '#6563cd', '#6563cd',
+        '#30319d', '#30319d',
+        '#020152', '#020152',
+    ], -to =&gt; $col, 0, $col + 1, $h);
+    $mw-&gt;update;
+    $mw-&gt;after(25);
+}</pre></blockquote>
+
+<p>To complete the effect, we should add a right-side end cap and some
+sort of border. <a href="ch15_01.htm">Chapter 15, "Anatomy of the MainLoop"</a> shows us how to do this.
+</p>
+
+</div>
+<a name="mastperltk-CHP-17-SECT-7.3" /><div class="sect2">
+<h3 class="sect2">17.7.3. Capturing a Window with Tk::WinPhoto</h3>
+
+<p><a name="INDEX-2715" /><a name="INDEX-2716" />There's a special Photo format
+called WinPhoto (available only on Unix) that makes Photo images not
+from files or embedded data but from a window on your display (hence
+the format's name). The WinPhoto format is not available by
+default; you have to <tt class="literal">use</tt> it:
+</p>
+
+<blockquote><pre class="code">use Tk::WinPhoto;</pre></blockquote>
+
+<p><a name="INDEX-2717" />To ensure that
+you capture the image you want, always <tt class="literal">update</tt> the
+display:
+</p>
+
+<blockquote><pre class="code">$mw-&gt;update;</pre></blockquote>
+
+<p><a name="INDEX-2718" />Create the
+Photo image by specifying the X11 window ID of the desired window
+with the <tt class="literal">-data</tt> option. You can manipulate the
+Photo as you see fit, including writing an image file in any
+supported format.
+</p>
+
+<blockquote><pre class="code">my $img = $mw-&gt;Photo(-format =&gt; 'Window', -data =&gt; oct($mw-&gt;id));
+$img-&gt;write('win.ppm', -format =&gt; 'ppm');</pre></blockquote>
+
+<a name="mastperltk-CHP-17-SECT-7.3.1" /><div class="sect3">
+<h3 class="sect3">17.7.3.1. What you see is not always what you get</h3>
+
+<p><a name="INDEX-2719" />Here's a little program that
+"diffs" two XPM files: the original and one created by
+capturing a WinPhoto of an image of the original, then writing a new
+XPM file. We'll see that typically the two files will be
+different. "Pure colors" such as black, white, red,
+green, and blue might capture correctly, but "off-colors"
+such as tabby-orange might easily have varying pixel representations,
+depending on your display, pixel depth, and visual.
+</p>
+
+<blockquote><pre class="code">use Tk::WinPhoto;
+
+# Create a Label with a picture of the neko.
+
+my $mw = MainWindow-&gt;new;
+my $neko = $mw-&gt;Label(-image =&gt; $mw-&gt;Photo(-file =&gt; 'Icon.xpm'),
+                       -borderwidth =&gt; 0);
+$neko-&gt;pack;
+
+# Capture the window and write a new XPM file.
+
+$mw-&gt;update;
+my $win_img = $mw-&gt;Photo(-format =&gt; 'Window', -data =&gt; oct($mw-&gt;id));
+$win_img-&gt;write('winphoto-neko.xpm', -format =&gt; 'xpm');
+
+# Graphically compare the original and captured XPM files. First,
+# read the original XPM file into a Text widget. 
+#
+# Notice the $/ trick.  Setting the input record separator to undef
+# means that the file is read as a single line with embedded newlines,
+# which is then inserted into the Text widget as a single line without
+# any tags. Otherwise, insert( ) would see a list of lines, insert the
+# first, treat the second as a tag, insert the third, treat the fourth
+# as a tag, etcetera.
+
+my $f = $mw-&gt;Frame-&gt;pack;
+my $t1 = $f-&gt;Text(qw/-width 35 -height 40 -font fixed/);
+$t1-&gt;pack(-side =&gt; 'left');
+
+open XPM, 'Icon.xpm' or die $!;
+$/ = undef;
+$t1-&gt;insert('end', &lt;XPM&gt;);
+close XPM;
+
+# Now create an empty Photo and read the new XPM image into it. We'll
+# then loop through the image pixel by pixel, read the RGB values,
+# and display them as a pseudo-XPM file.
+
+my $neko_image = $mw-&gt;Photo;
+$neko_image-&gt;read('winphoto-neko.xpm');
+
+my $t2 = $f-&gt;Text(qw/-width 32 -height 40 -font fixed/);
+$t2-&gt;pack(-side =&gt; 'left');
+
+# Typically, the image captured by WinPhoto is not identical to the
+# original.  This mapping approximates the original XPM file.
+
+my %pixmap = ('000000' =&gt; '.',
+              '00ff00' =&gt; 'o',
+              'ffffff' =&gt; ' ',
+              'ffd500' =&gt; 'X',
+              'ffaa00' =&gt; 'X',
+             );
+
+$t2-&gt;insert('end', "The new pixmappings differ:\n\n");
+foreach (keys %pixmap) {
+    $t2-&gt;insert('end', " $pixmap{$_}      $_\n");
+}
+
+# Prior to Tk800.018, the get( ) method returned a string with
+# 3 space-separated integers. Now get( ) returns a proper list.
+
+my($w, $h) = ($neko_image-&gt;width, $neko_image-&gt;height);
+
+foreach my $y (0 .. $h - 1) {
+    foreach my $x (0 .. $w - 1) {
+        #my($r, $g, $b) = split ' ', $neko_image-&gt;get($x, $y);
+        my($r, $g, $b) = $neko_image-&gt;get($x, $y);
+        my $code = sprintf  "%02x%02x%02x", $r, $g, $b;
+        $t2-&gt;insert('end', $pixmap{$code});
+    }
+    $t2-&gt;insert('end', "\n");
+}</pre></blockquote>
+
+<p><a href="ch17_07.htm#mastperltk-CHP-17-FIG-10">Figure 17-10</a> graphically shows the before and after
+images. In the original, the tabby-orange color is 0xFFBD00, but
+WinPhoto captured that color as two distinct (although very similar)
+colors, 0xFFD500 and 0xFFAA00.<a name="INDEX-2720" /> 
+</p>
+
+<a name="mastperltk-CHP-17-FIG-10" /><div class="figure"><img src="figs/mptk.1710.gif" alt="Figure 17-10" width="348" height="480" /></div><h4 class="objtitle">Figure 17-10.  A captured window only approximates the original</h4>
+
+</div>
+</div>
+<a name="mastperltk-CHP-17-SECT-7.4" /><div class="sect2">
+<h3 class="sect2">17.7.4. Tk::Thumbnail</h3>
+
+<p><a name="INDEX-2721" /><a name="INDEX-2722" />To appreciate the power of Photos,
+let's examine a Thumbnail widget. Thumbnails are shrunken
+images of larger (or zoomed images of smaller) pictures, typically
+arranged in a tabular format. Looking at <a href="ch17_07.htm#mastperltk-CHP-17-FIG-11">Figure 17-11</a>, Tk::Thumbnail's rendered POD
+documentation, we see the thumbnail width and height is selectable,
+the images can be labeled, and there's a
+-<tt class="literal">command</tt> option so we can supply a
+<tt class="literal">&lt;Button-1&gt;</tt> callback. The list of images (of
+any supported format) can be a mixture of filenames and/or existing
+Photo images. Tk::Thumbnail is responsible for disposing of any
+Photos it creates, thus it uses an <tt class="literal">OnDestroy</tt>
+callback to perform object cleanup.
+</p>
+
+<a name="mastperltk-CHP-17-FIG-11" /><div class="figure"><img src="figs/mptk.1711.gif" alt="Figure 17-11" width="314" height="534" /></div><h4 class="objtitle">Figure 17-11. POD documentation for Tk::Thumbnail</h4>
+
+<p><a name="INDEX-2723" /><a name="INDEX-2724" /><a name="INDEX-2725" />Given a desired thumbnail width and
+height, Tk::Thumbnail takes each image in turn and either shrinks it
+(via the <tt class="literal">copy</tt> <tt class="literal">-subsample</tt>
+method, described shortly) or enlarges it (via the
+<tt class="literal">copy</tt> <tt class="literal">-zoom</tt> method). This means
+that images of any size and format can be combined in the same
+Thumbnail widget.
+</p>
+
+<p>This sample code, <i class="command">tkthumb</i>, created <a href="ch17_07.htm#mastperltk-CHP-17-FIG-12">Figure 17-12</a>: 
+</p>
+
+<blockquote><pre class="code">use Tk::Thumbnail;
+
+my $mw = MainWindow-&gt;new;
+my $skel = $mw-&gt;Photo(-file =&gt; 'tkskel.gif');
+
+my $tn = $mw-&gt;Thumbnail(
+    -images     =&gt; ['mouse.xbm', $skel, &lt;*.ppm&gt;],
+    -command    =&gt; sub {
+        my $i = $_[0]-&gt;cget(-image);
+        print "args=@_, image=$i\n";
+    },
+    @ARGV);
+$tn-&gt;pack;</pre></blockquote>
+
+<p>The list of images consists of an XBM filename of the small mouse
+cursor, a large GIF Photo image, and a file glob of lots of
+medium-sized PPM images of the neko. In real life, the
+-<tt class="literal">command</tt> callback might actually do something when
+clicked over a thumbnail, but in <i class="command">tkthumb</i>, it
+simply prints an informative message. Finally, note that
+<tt class="literal">@ARGV</tt> holds the command-line arguments, so we can
+run the program with different options and experiment with the
+Thumbnail widget.
+</p>
+
+<a name="mastperltk-CHP-17-FIG-12" /><div class="figure"><img src="figs/mptk.1712.gif" alt="Figure 17-12" width="189" height="206" /></div><h4 class="objtitle">Figure 17-12.  A mixture of image formats and sizes in one Thumbnail</h4>
+
+<p>From the discussions in <a href="ch14_01.htm">Chapter 14, "Creating Custom Widgets in Pure Perl/Tk"</a>, it should be
+clear that Tk::Thumbnail is a derived mega-widget based on Tk::Table.
+By the time <tt class="literal">Populate</tt> is called, Perl/Tk has
+already created the Table, <tt class="literal">$self</tt>, for us and
+blessed it into class Tk::Thumbnail.
+</p>
+
+<blockquote><pre class="code">$Tk::Thumbnail::VERSION = '1.0';
+
+package Tk::Thumbnail;
+
+use Carp;
+use File::Basename;
+use Tk::widgets qw/Table JPEG PNG TIFF/;
+use base qw/Tk::Derived Tk::Table/;
+use subs qw/free_photos/;
+use strict;
+
+Construct Tk::Widget 'Thumbnail';</pre></blockquote>
+
+<p><tt class="literal">Populate</tt> removes from the argument hash those
+options that are specific to the Thumbnail and needed only within
+itself. Scrollbars have proven to be distracting, so they're
+disabled unless the user specifically requests them. The thumbnail
+pixel dimensions also have default values unless overridden by
+options on the constructor call.
+</p>
+
+<blockquote><pre class="code">sub Populate {
+
+    my($self, $args) = @_;
+
+    my $img = delete $args-&gt;{-images}; # reference to array of images
+    my $lbl = delete $args-&gt;{-labels}; # display file names IFF true
+    my $pxx = delete $args-&gt;{-width};  # thumbnail pixel width
+    my $pxy = delete $args-&gt;{-height}; # thumbnail pixel height
+    $args-&gt;{-scrollbars} = '' unless defined $args-&gt;{-scrollbars};
+    $pxx ||= 32;
+    $pxy ||= 32;
+    croak "Tk::Thumbnail: -images argument is required." unless defined $img;
+    $self-&gt;SUPER::Populate($args);</pre></blockquote>
+
+<p>This code computes the minimum dimensions required to fit all the
+thumbnail images in a square Table.
+</p>
+
+<blockquote><pre class="code">    my $count = scalar @$img;
+    my $rows = int(sqrt $count);
+    $rows++ if $rows * $rows != $count;</pre></blockquote>
+
+<p>For each element of the image array, we invoke
+<tt class="literal">UNIVERSAL::isa</tt> to test if it's already a
+Photo or if we need to create the Photo ourselves. (We could have
+used the <tt class="literal">ref</tt> function, but <tt class="literal">isa</tt>
+will detect derived Photo classes.) Once we have a Photo reference in
+<tt class="literal">$photo</tt>, we determine its width and height so we
+know whether to shrink or expand it to thumbnail size.
+</p>
+
+<blockquote><pre class="code">  THUMB:
+    foreach my $r (1 .. $rows) {
+        foreach my $c (1 .. $rows) {
+            last THUMB if --$count &lt; 0;
+
+            my $i = @$img[$#$img - $count];
+            my ($photo, $w, $h);
+            $photo = UNIVERSAL::isa($i, 'Tk::Photo') ? $i :
+                $self-&gt;Photo(-file =&gt; $i);
+
+            ($w, $h) = ($photo-&gt;width, $photo-&gt;height);</pre></blockquote>
+
+<p>We start by making an empty Photo, <tt class="literal">$subsample</tt>,
+which will receive pixels from the main Photo,
+<tt class="literal">$photo</tt>. To shrink a picture, we subsample it,
+which means we extract every <em class="emphasis">n</em>th pixel from the
+source Photo before copying to the destination Photo. For example, if
+the source Photo is 64x64, we subsample every other pixel to reduce
+it to a 32x32 thumbnail. If the source Photo is 320x320, we subsample
+every tenth bit, and so on. We do this for both x and y. The special
+value -1 tells us not to subsample a particular dimension, keeping
+its size unchanged, and gives us one way to change the
+Thumbnail's aspect ratio.
+</p>
+
+<blockquote><pre class="code">            my $subsample = $self-&gt;Photo;
+            my $sw = $pxx == -1 ? 1 : ($w / $pxx);
+            my $sh = $pxy == -1 ? 1 : ($h / $pxy);</pre></blockquote>
+
+<p>So the variables <tt class="literal">$sw</tt> and <tt class="literal">$sh</tt>
+are typically integers greater than one, specifying how many pixels
+to subsample in width and height. If that's the case, invoke a
+subsample copy from <tt class="literal">$photo</tt> to
+<tt class="literal">$subsample</tt>, creating a shrunken thumbnail. But if
+the source Photo is smaller than the thumbnail size, the subsample
+width and height are fractional and we need to enlarge the Photo, so
+we zoom in for a closer look.
+</p>
+
+<p>Finally, a little bookkeeping is required. We're responsible
+for deleting every thumbnail when the widget is destroyed, so we keep
+a list of Photos in an instance variable.
+</p>
+
+<blockquote><pre class="code">            if ($sw &gt;= 1 and $sh &gt;= 1) {
+                $subsample-&gt;copy($photo, -subsample =&gt; ($sw, $sh));
+            } else {
+                $subsample-&gt;copy($photo, -zoom =&gt; (1 / $sw, 1 / $sh));
+            }
+            push @{$self-&gt;{photos}}, $subsample;</pre></blockquote>
+
+<p>This uneventful code stuffs the thumbnail image in a Label and
+<tt class="literal">put</tt> s it in the Table widget, optionally adding a
+Label with the thumbnail's filename. The
+<tt class="literal">bind</tt> statement arranges for the user's
+-<tt class="literal">command</tt> callback (if any) to be invoked on a
+<tt class="literal">&lt;Button-1&gt;</tt> event over the thumbnail. Lastly,
+delete the source Photo, assuming we created it in the first place.
+</p>
+
+<blockquote><pre class="code">            my $f = $self-&gt;Frame;
+            my $l = $f-&gt;Label(-image =&gt; $subsample)-&gt;grid;
+            my $file = $photo-&gt;cget(-file);
+            $l-&gt;bind('&lt;Button-1&gt;' =&gt; [$self =&gt; 'Callback', '-command',
+                                      $l, $file]);
+            $f-&gt;Label(-text =&gt; basename($file))-&gt;grid if $lbl;
+            $self-&gt;put($r, $c, $f);
+
+            $photo-&gt;delete unless UNIVERSAL::isa($i, 'Tk::Photo');
+
+        } # forend columns
+    } #forend rows</pre></blockquote>
+
+<p>Here's a rather typical <tt class="literal">ConfigSpecs</tt> call.
+See <a href="ch14_01.htm">Chapter 14, "Creating Custom Widgets in Pure Perl/Tk"</a> for details.
+</p>
+
+<blockquote><pre class="code">    $self-&gt;ConfigSpecs(
+        -font       =&gt; ['DESCENDANTS',          
+                        'font',       'Font',      'fixed'],
+        -background =&gt; [['DESCENDANTS', 'SELF'],
+                        'background', 'Background', undef],
+        -command    =&gt; ['CALLBACK',
+                        'command',    'Command',     undef],
+                      );</pre></blockquote>
+
+<p>When an <tt class="literal">OnDestroy</tt> callback is invoked, it's
+guaranteed to have an intact mega-widget hash, including all instance
+variables. The object method <tt class="literal">free_photos</tt> then has
+a chance to delete all the thumbnail Photos.
+</p>
+
+<blockquote><pre class="code">    $self-&gt;OnDestroy([$self =&gt; 'free_photos']);
+             
+} # end Populate
+
+sub free_photos {
+
+    # Free all our subsampled Photo images.
+
+    foreach my $photo (@{$_[0]-&gt;{photos}}) {
+        $photo-&gt;delete;
+    }
+
+} # end free_photos
+
+1;</pre></blockquote>
+
+<p><a href="ch17_07.htm#mastperltk-CHP-17-FIG-13">Figure 17-13</a> and <a href="ch17_07.htm#mastperltk-CHP-17-FIG-14">Figure 17-14</a>
+demonstrate the flexibility of the Photo <tt class="literal">copy</tt>
+method.<a name="INDEX-2726" /><a name="INDEX-2727" />
+</p>
+
+<a name="mastperltk-CHP-17-FIG-13" /><div class="figure"><img src="figs/mptk.1713.gif" alt="Figure 17-13" width="71" height="89" /></div><h4 class="objtitle">Figure 17-13.  tkthumb -width 8 -height 8</h4>
+
+<a name="mastperltk-CHP-17-FIG-14" /><div class="figure"><img src="figs/mptk.1714.gif" alt="Figure 17-14" width="402" height="298" /></div><h4 class="objtitle">Figure 17-14.  tkthumb -width 64 -height 32 -labels 1 -background white</h4>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch17_06.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch17_08.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">17.6. The Pixmap Image Type</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">17.8. The Compound Image Type</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

@@ -1,0 +1,409 @@
+<html><head><title>Transformation Process (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch02_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">2.2. Transformation Process</h2>
+
+<p><a name="INDEX-216" />Now
+that we have seen an example, let's back up and talk about some
+basics. In particular, it is important to understand the relationship
+between <tt class="literal">&lt;xsl:template</tt>
+<tt class="literal">match=...&gt;</tt> and <tt class="literal">&lt;xsl:apply-templates
+select=...&gt;</tt>. This should help to solidify your
+understanding of the previous example and lay the groundwork for more
+sophisticated processing. Although XSLT is a language, it is not
+intended to be a general-purpose programming language. Because of its
+specialized mission as a transformation language,<a href="#FOOTNOTE-6">[6]</a> the design
+of XSLT works in the way that XML is structured, which is
+fundamentally a tree data structure.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-6" /><p> [6] XSLT is declarative in nature, while mainstream programming
+languages tend to be more procedural.</p> </blockquote>
+
+<a name="javaxslt-CHP-2-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">2.2.1. XML Tree Data Structure</h3>
+
+<p><a name="INDEX-217" /> <a name="INDEX-218" />Every
+<a name="INDEX-219" />
+<a name="INDEX-220" />well-formed XML document forms a
+tree data structure. The document itself is always the root of the
+tree, and every element within the document has exactly one parent.
+Since the document itself is the root, it has no parent. As you learn
+XSLT, it can be helpful to draw pictures of your XML data that show
+its tree structure. <a href="ch02_02.htm#javaxslt-CHP-2-FIG-2">Figure 2-2</a> illustrates the tree
+structure for <em class="filename">discussionForumHome.xml</em>.
+</p>
+
+<a name="javaxslt-CHP-2-FIG-2" /><div class="figure"><img src="figs/jxt_0202.gif" alt="Figure 2-2" width="349" height="185" /></div><h4 class="objtitle">Figure 2-2. Tree structure for discussionForumHome.xml</h4>
+
+<p>The document itself is the root of the tree and may contain
+processing instructions, the document root element, and even
+comments. XSLT has the ability to select any of these items, although
+you will probably want to select elements and attributes when
+transforming to HTML. As mentioned earlier, the
+<tt class="literal">"/"</tt><a name="INDEX-221" />
+pattern matches the document itself, which is the root node of the
+entire tree.
+</p>
+
+<p>A tree data structure is fundamentally recursive because it consists
+of leaf nodes and smaller trees. Each of these smaller trees, in
+turn, also consist of leaf nodes and still smaller trees. Algorithms
+that deal with tree structures can almost always be expressed
+recursively, and XSLT is no exception. The processing model adopted
+by XSLT is explicitly designed to take advantage of the recursive
+nature of every well-formed XML document. This means that most
+stylesheets can be broken down into highly modular, easily
+understandable pieces, each of which processes a subset of the
+overall tree (i.e., a subtree).
+</p>
+
+<p>Two important concepts in XSLT are the <em class="emphasis">current
+node</em><a name="INDEX-222" />
+and <em class="emphasis">current node list</em><a name="INDEX-223" />. The current node is comparable to
+the current working directory on a file system. The
+<tt class="literal">&lt;xsl:value-of select="."/&gt;</tt> element is
+similar to printing the name of the current working directory. The
+current node list is similar to the list of subdirectories. The key
+difference is that in XSLT, the current node appears in your source
+XML document. The current node list is a collection of nodes. As
+processing proceeds, the current node and current node list are
+constantly changing as you traverse the source tree, looking for
+patterns in the data.<a name="INDEX-224" /> 
+</p>
+
+</div>
+<a name="javaxslt-CHP-2-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">2.2.2. Recursive Processing with Templates</h3>
+
+<p><a name="INDEX-225" />Most
+transformation in XSLT is driven by two elements:
+<tt class="literal">&lt;xsl:template&gt;</tt><a name="INDEX-226" />
+<a name="INDEX-227" /> and
+<tt class="literal">&lt;xsl:apply-templates&gt;</tt><a name="INDEX-228" />
+<a name="INDEX-229" />. In XSLT lingo, a
+node can represent anything that appears within your XML data. Nodes
+are typically elements such as <tt class="literal">&lt;message&gt;</tt> or
+element attributes such as <tt class="literal">id="123"</tt>. Nodes can
+also be XML processing instructions, text, or even comments. XSLT
+transformation begins with a current node list that contains a single
+entry: the root node. This is the XML document and is represented by
+the <tt class="literal">"/"</tt> pattern. Processing proceeds as follows:
+</p>
+
+<ul><li>
+<p>For each node "X" in the current node list, the processor
+searches for all <tt class="literal">&lt;xsl:template
+match="pattern"&gt;</tt> elements in your stylesheet that
+potentially match that node. From this list of templates, the one
+with the <em class="emphasis">best match<a href="#FOOTNOTE-7">[7]</a></em> is selected.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-7" /><p> [7] See section 5.5 of the
+XSLT specification for conflict-resolution rules.</p>
+</blockquote>
+</li><li>
+<p>The selected <tt class="literal">&lt;xsl:template match="pattern"&gt;</tt>
+is instantiated using node "X" as its current node. This
+template typically copies data from the source document to the result
+tree or produces brand new content in combination with data from the
+source.
+</p>
+</li><li>
+<p>If the template contains <tt class="literal">&lt;xsl:apply-templates</tt>
+<tt class="literal">select="newPattern"/&gt;</tt>, a new current node list
+is created and the process repeats recursively. The
+<tt class="literal">select</tt> pattern is relative to node
+"X", rather than the document root.
+</p>
+</li></ul>
+<p>As the XSLT transformation process continues, the current node and
+current node list are constantly changing. This is a good thing,
+since you do not want to constantly search for patterns beginning
+from the document root element. You are not limited to traversing
+down the tree, however; you can iterate over portions of the XML data
+many times or navigate back up through the document tree structure.
+This gives XSLT a huge advantage over CSS because CSS is limited to
+displaying the XML in the order in which it appears in the document.
+</p>
+
+<a name="javaxslt-CHP-2-SIDEBAR-1" /><blockquote><table border="1" cellpadding="6"><tr><td>
+<h4 class="objtitle">Comparing &lt;xsl:template&gt; to &lt;xsl:apply-templates&gt;</h4>
+&nbsp;
+<p><a name="INDEX-230" />
+<a name="INDEX-231" />One way to
+understand the difference between
+<tt class="literal">&lt;xsl:template&gt;</tt> and
+<tt class="literal">&lt;xsl:apply-templates&gt;</tt> is to think about the
+difference between a Java method and the code that invokes the
+method. For example, a method in Java is declared as follows:
+</p>
+&nbsp;
+<blockquote><pre class="code">public void printMessageBoard(MessageBoard board) {
+    // print information about the message board
+}</pre></blockquote>
+&nbsp;
+<p>In XSLT, the template plays a similar role:</p>
+&nbsp;
+<blockquote><pre class="code">&lt;xsl:template match="messageBoard"&gt;
+  &lt;!-- print information about the message board
+&lt;/xsl:template&gt;</pre></blockquote>
+&nbsp;
+<p>In order to invoke the Java method, use the following Java code:</p>
+&nbsp;
+<blockquote><pre class="code">someObject.printMessageBoard(currentBoard);</pre></blockquote>
+&nbsp;
+<p>And in XSLT, use:</p>
+&nbsp;
+<blockquote><pre class="code">&lt;xsl:apply-templates select="..."/&gt;</pre></blockquote>
+&nbsp;
+<p>to instantiate the template using the current
+<tt class="literal">&lt;messageBoard&gt;</tt> node.
+</p>
+&nbsp;
+<p>While this is a good comparison to help illustrate the difference
+between <tt class="literal">&lt;xsl:template&gt;</tt> and
+<tt class="literal">&lt;xsl:apply-templates&gt;</tt>, it is important to
+remember that the XSLT model is not really a method call. Instead,
+<tt class="literal">&lt;xsl:apply-templates&gt;</tt> instructs the
+processor to scan through the XML document again, looking for nodes
+that match a pattern. If matching nodes are found, the best matching
+template is instantiated.
+</p>
+&nbsp;
+<p>In the next chapter, we will see that XSLT also has
+<tt class="literal">&lt;xsl:call-template&gt;</tt>, which works similarly
+to a Java method call.
+</p>
+</td></tr></table><p></blockquote>
+
+<p>Let's suppose that your source document contains the following
+XML:
+</p>
+
+<blockquote><pre class="code">&lt;school&gt;
+  &lt;name&gt;SIUC&lt;/name&gt;
+  &lt;city&gt;Carbondale&lt;/city&gt;
+  &lt;state&gt;Illinois&lt;/state&gt;
+&lt;/school&gt;</pre></blockquote>
+
+<p>The following template could be used to match the
+<tt class="literal">&lt;school&gt;</tt> element and output its contents:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:template match="school"&gt;
+  &lt;b&gt;&lt;xsl:value-of select="name"/&gt; is located in 
+  &lt;xsl:value-of select="city"/&gt;, &lt;xsl:value-of select="state"/&gt;.&lt;/b&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+
+<p>The result will be something like:</p>
+
+<blockquote><pre class="code">&lt;b&gt;SIUC is located in Carbondale, Illinois.&lt;/b&gt;</pre></blockquote>
+
+<p>As you can see, elements that do not start with
+<tt class="literal">xsl:</tt> are simply copied to the result tree, as is
+plain text such as "is located in."<a href="#FOOTNOTE-8">[8]</a> We do not show this
+here, but if you try the example you will see that whitespace
+characters (spaces, tabs, and linefeeds) are also copied to the
+result tree. When the destination is HTML, it is usually safe to
+ignore this issue because the browser will collapse that whitespace.
+If you view the actual source code of the generated HTML, it can look
+pretty ugly. An alternative to simply including "is located
+in" is to use:
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-8" /><p> [8] Technically, elements that do not belong to the XSLT namespace
+are simply copied to the result tree; the namespace prefix might not
+be <tt class="literal">xsl:</tt>.</p> </blockquote>
+
+<blockquote><pre class="code">&lt;xsl:text&gt; is located in &lt;/xsl:text&gt;. </pre></blockquote>
+
+<p>This provides explicit control over how whitespace and linefeeds are
+treated.
+</p>
+
+<p><tt class="literal">&lt;xsl:value-of&gt;</tt> copies the value of something
+in the XML source tree to the result tree. In this case, the current
+node is <tt class="literal">&lt;school&gt;</tt>, so
+<tt class="literal">&lt;xsl:value-of</tt>
+<tt class="literal">select="name"/&gt;</tt> selects the text content of the
+<tt class="literal">&lt;name&gt;</tt> element contained within
+<tt class="literal">&lt;school&gt;</tt>. This is the simplest usage of
+XPath, which will be introduced shortly. XPath is not limited to the
+current node, so it can also be used to locate elements in other
+parts of the source document. It can even select attributes,
+processing instructions, or anything else that can occur in XML.
+</p>
+
+</div>
+<a name="javaxslt-CHP-2-SECT-2.3" /><div class="sect2">
+<h3 class="sect2">2.2.3. Built-in Template Rules</h3>
+
+<p>All <a name="INDEX-232" /> <a name="INDEX-233" />XSLT processors must
+include four built-in template rules that have lower precedence than
+any other rules, so they can be overridden by simply writing a new
+template rule that matches the same pattern. The best way to think
+about built-in rules is to assume they are always in the background,
+ready to be applied if no other rule is found that matches a node.
+</p>
+
+<p>The first rule allows recursive processing to continue in case an
+explicit rule does not match the current node or the root node:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:template match="*|/"&gt;
+  &lt;xsl:apply-templates/&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+
+<p>This template matches all elements (*) and the root node (/), i.e.,
+the document itself. It will not match processing instructions,
+comments, attributes, or text. The
+<tt class="literal">&lt;xsl:apply-templates/&gt;</tt> causes all children
+that are not attribute nodes or processing instruction nodes to be
+processed.
+</p>
+
+<p>The second built-in rule is identical to the first, except it applies
+to each <em class="emphasis">mode</em> used in the stylesheet:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:template match="*|/" mode="m"&gt;
+  &lt;xsl:apply-templates mode="m"/&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+
+<p>Template modes are discussed in the next chapter, so we will not go
+into details here. The third built-in rule simply copies all text and
+attribute nodes to the result tree:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:template match="text( )|@*"&gt;
+  &lt;xsl:value-of select="."/&gt;
+&lt;/xsl:template&gt;</pre></blockquote>
+
+<p>And finally, the built-in rule for processing instructions and
+comments does nothing. This is why comments and processing
+instructions in the input XML data do not automatically show up in
+the result tree:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:template match="processing-instruction()|comment( )"/&gt;</pre></blockquote>
+
+</div>
+<a name="javaxslt-CHP-2-SECT-2.4" /><div class="sect2">
+<h3 class="sect2">2.2.4. A Skeleton Stylesheet</h3>
+
+<p>As your XML <a name="INDEX-234" />documents get more complex, you will
+most likely want to break up your stylesheets into several <a name="INDEX-235" />templates. The starting point
+is a template that matches the
+<tt class="literal">"/"</tt><a name="INDEX-236" /> <a name="INDEX-237" />
+pattern:
+</p>
+
+<blockquote><pre class="code">&lt;xsl:template match="/"&gt;
+...content
+&lt;/xsl:template&gt;</pre></blockquote>
+
+<p>This template matches the document itself and is usually where you
+output the basic <tt class="literal">&lt;html&gt;</tt>,
+<tt class="literal">&lt;head&gt;</tt>, and <tt class="literal">&lt;body&gt;</tt>
+elements. Somewhere within this template, you must tell the processor
+to continue searching for additional patterns, thus beginning the
+recursive transformation process. In a typical stylesheet,
+<tt class="literal">&lt;xsl:apply-templates&gt;</tt><a name="INDEX-238" />
+<a name="INDEX-239" /> is used for this
+purpose, instructing the processor to search for additional content
+in the XML data.
+</p>
+
+<p>It should be stressed that this is not the only way to write a
+stylesheet, but it is a very natural way to handle the recursive
+nature of XML. <a href="ch02_02.htm#javaxslt-CHP-2-EX-4">Example 2-4</a> contains a
+<a name="INDEX-240" />
+<a name="INDEX-241" />skeleton XSLT stylesheet that you
+can use as a starting point for most of your projects.
+</p>
+
+<a name="javaxslt-CHP-2-EX-4" /><div class="example">
+<h4 class="objtitle">Example 2-4. Skeleton stylesheet </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;xsl:stylesheet
+    version="1.0"
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+  &lt;xsl:output method="html"/&gt;
+  &lt;!--****************************************************************
+      ** "/" template matches the document and is the starting point
+      *************************************************************--&gt;
+  &lt;xsl:template match="/"&gt;
+    &lt;html&gt;
+      &lt;head&gt;
+        &lt;title&gt;[title goes here]&lt;/title&gt;
+      &lt;/head&gt;
+      &lt;body&gt;
+         &lt;xsl:apply-templates select="[some XPath expression]"/&gt;
+      &lt;/body&gt;
+    &lt;/html&gt;
+  &lt;/xsl:template&gt;
+  &lt;!--****************************************************************
+      ** "[???]" template
+      *************************************************************--&gt;
+  &lt;xsl:template match="???"&gt;
+    [continue the process...]
+    &lt;xsl:apply-templates select="[another XPath expression]"/&gt;
+    [you can also include more content here...or even include
+     multiple apply-templates...]
+  &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+</div>
+
+<p>Deciding how to modularize the stylesheet is a subjective process.
+One suggestion is to look for moderately sized chunks of XML data
+repeated numerous times throughout a document. For example, a
+<tt class="literal">&lt;customer&gt;</tt> element may contain a name,
+address, and phone number. Creating a template that matches
+<tt class="literal">"customer"</tt> is probably a good idea. You may even
+want to create another template for the
+<tt class="literal">&lt;name&gt;</tt> element, particularly if the name is
+broken down into subelements, or if the name is reused in other
+contexts such as <tt class="literal">&lt;employee&gt;</tt> and
+<tt class="literal">&lt;manager&gt;</tt>.
+</p>
+
+<p>When you need to produce HTML tables or unordered lists in the result
+tree, two templates (instead of one) can make the job very easy. The
+first template will produce the <tt class="literal">&lt;table&gt;</tt> or
+<tt class="literal">&lt;ul&gt;</tt> element, and the second will produce
+each table row or list item. The following fragment illustrates this
+basic pattern:
+</p>
+
+<a name="INDEX-242" /><a name="INDEX-243" /><blockquote><pre class="code">&lt;!-- the outer template produces the unordered list --&gt;
+&lt;!-- (note: plural 'customers') --&gt;
+&lt;xsl:template match="customers"&gt;<tt class="userinput"><b>
+  &lt;ul&gt;</b></tt><tt class="userinput"><b>
+    &lt;xsl:apply-templates select="customer"/&gt;</b></tt><tt class="userinput"><b>
+  &lt;/ul&gt;</b></tt>
+&lt;/xsl:template&gt;
+
+&lt;!-- the inner template is repeated for each customer --&gt;
+&lt;xsl:template match="customer"&gt;<tt class="userinput"><b>
+  &lt;li&gt;&lt;xsl:value-of select="name"/&gt;&lt;/li&gt;</b></tt>
+&lt;/xsl:template&gt;</pre></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch02_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch02_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">2. XSLT Part 1 -- The Basics</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">2.3. Another XSLT Example, Using XHTML</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

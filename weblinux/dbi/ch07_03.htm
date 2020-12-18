@@ -1,0 +1,381 @@
+<?label 7.3. The Nuts and Bolts of ODBC ?><html><head><title>The Nuts and Bolts of ODBC  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch07_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch07_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">7.3. The Nuts and Bolts of ODBC </h2>
+
+
+
+<p>We'll now take a look at the main features of ODBC that set it
+apart from the DBI and that enable it to work well as a
+database-independent interface. The four main features are:</p>
+
+
+
+<ul><li><p>A standard SQL syntax</p></li><li><p>Standard error codes</p></li><li><p>Rich metadata</p></li><li><p>Many attributes and options</p></li></ul>
+<a name="ch07-1-fm2xml" /><div class="sect2">
+<h3 class="sect2">7.3.1. A Standard SQL Syntax </h3>
+
+
+
+<p>Standardized <a name="INDEX-848" />SQL <a name="INDEX-849" />syntax is something of a Holy
+Grail. <a name="INDEX-850" />ODBC drivers generally do a good job of
+implementing it, whereas the
+<a name="INDEX-851" />DBI just ducks the issue entirely! The
+problem is that while SQL may be a standardized language in theory,
+in practice it's far enough from the standard on most
+vendors' databases to cause portability problems.</p>
+
+
+
+<p>For example, even a simple task like concatenating two database
+fields needs to be written like this (for databases conforming to the
+SQL-92 standard):</p>
+
+
+
+<blockquote><pre class="code">SELECT first_name || ' ' || last_name FROM table</pre></blockquote>
+
+
+
+<p>Other databases require one of these forms:</p>
+
+
+
+<blockquote><pre class="code">SELECT first_name + ' ' + last_name FROM table
+SELECT CONCAT(first_name, ' ', last_name) FROM table
+SELECT CONCAT(CONCAT(first_name, ' ') last_name) FROM table
+SELECT first_name CONCAT  ' ' CONCAT last_name FROM table</pre></blockquote>
+
+
+
+<p>The SQL dialect used by different database systems is riddled with
+such inconsistencies, not to mention endless "extensions"
+to the standard. This is a major headache for developers wishing to
+write an application that will work with any of a number of
+databases.</p>
+
+
+
+<p>The <a name="INDEX-852" />ODBC approach to this problem is rather
+elegant. It allows portability when using standard SQL, but
+doesn't prevent access to database-specific features. When an
+application passes an SQL statement to the driver, the driver parses
+it as an SQL-92 statement, and then rewrites it to match the actual
+syntax of the database being used.</p>
+
+
+
+<p>If the parse fails because the SQL doesn't conform to the
+standard, then the original SQL is passed to the database unaltered.
+That way, database-specific features can be accessed, and the ODBC
+parsing doesn't get in the way.</p>
+
+
+
+<p>The DBI ducked this whole issue because it would require drivers to
+be far more complicated than they are now. Parsing and rewriting SQL
+is not a trivial activity; therefore, the DBI does not try to offer
+<a name="INDEX-853" />SQL-level portability. In practice,
+that hasn't been a big problem for people. Perl makes it very
+easy for applications to build SQL statements as needed for the
+database being used, as we discussed in <a href="ch05_01.htm">Chapter 5, "Interacting with the Database "</a>.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch07-2-fm2xml" /><div class="sect2">
+<h3 class="sect2">7.3.2. Standard Error Codes </h3>
+
+
+
+<p>If an <a name="INDEX-854" /><tt class="literal">INSERT</tt> statement fails,
+how can you tell whether it was because the table already has a
+record with the same primary key? With ODBC, you'd check the
+<tt class="literal">SQLSTATE</tt>
+<a name="INDEX-855" /> error indicator to see if it was
+"23000", regardless of the database being used. With DBI,
+you're on your own.</p>
+
+
+
+<p>
+<a name="INDEX-856" />ODBC defines a large number of standard
+error codes that you can use to determine in reasonable detail what
+went wrong. They're not often needed, but when they are,
+they're very useful. Having said that, this idyllic picture is
+tarnished by the fact that many of the codes change depending on the
+version of the ODBC driver being used. For example, while an ODBC 2.x
+driver returns "S0011" when a <tt class="literal">CREATE
+INDEX</tt> statement names an index that already exists, an ODBC
+3.x driver returns "42S11". So much for standards!</p>
+
+
+
+<p>The <a name="INDEX-857" />DBI leaves you with having to check for
+different <tt class="literal">$DBI::err</tt> values or
+<tt class="literal">$DBI::errstr</tt> strings, depending on the database
+driver being used. The DBI does provide a
+<tt class="literal">$DBI::state</tt>
+<a name="INDEX-858" /> variable and
+<tt class="literal">$h-</tt>
+<a name="INDEX-859" />&gt;<tt class="literal">state()</tt>
+method that drivers can use to provide the standard error codes, but
+few do at the moment.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch07-3-fm2xml" /><div class="sect2">
+<h3 class="sect2">7.3.3. Rich Metadata </h3>
+
+
+
+<p>ODBC <a name="INDEX-860" />
+<a name="INDEX-861" />defines a wide range of metadata
+functions that provide information both about the structure of the
+data in the database and the datatypes supported by the database. The
+following table lists the functions and shows which are supported by
+the <tt class="literal">Win32::ODBC</tt>
+<a name="INDEX-862" />
+<a name="INDEX-863" /> and DBI modules.</p>
+
+
+
+<a name="ch07-4-fm2xml" /><table border="1">
+
+
+
+
+<tr>
+<th>
+<p>ODBC Function</p></th>
+<th>
+<p>Win32::ODBC</p></th>
+<th>
+<p>DBI</p></th>
+</tr>
+
+
+
+
+
+
+<tr>
+<td>
+<p>Tables</p></td>
+<td>
+<img src='figs/check.gif' align='absmiddle' /></td>
+<td>
+<p><img src='figs/check.gif' align='absmiddle' /></p></td>
+</tr>
+
+
+<tr>
+<td>
+<p>TablePrivileges</p></td>
+<td />
+<td />
+</tr>
+
+
+<tr>
+<td>
+<p>Columns</p></td>
+<td><img src='figs/check.gif' align='absmiddle' /></td>
+<td />
+</tr>
+
+
+<tr>
+<td>
+<p>ColumnPrivileges</p></td>
+<td />
+<td />
+</tr>
+
+
+<tr>
+<td>
+<p>SpecialColumns</p></td>
+<td><img src='figs/check.gif' align='absmiddle' /></td>
+<td />
+</tr>
+
+
+<tr>
+<td>
+<p>Statistics</p></td>
+<td><img src='figs/check.gif' align='absmiddle' /></td>
+<td />
+</tr>
+
+
+<tr>
+<td>
+<p>PrimaryKeys</p></td>
+<td><img src='figs/check.gif' align='absmiddle' /></td>
+<td />
+</tr>
+
+
+<tr>
+<td>
+<p>ForeignKeys</p></td>
+<td><img src='figs/check.gif' align='absmiddle' /></td>
+<td />
+</tr>
+
+
+<tr>
+<td>
+<p>Procedures</p></td>
+<td />
+<td />
+</tr>
+
+
+<tr>
+<td>
+<p>ProcedureColumns</p></td>
+<td />
+<td />
+</tr>
+
+
+<tr>
+<td>
+<p>GetTypeInfo</p></td>
+<td><img src='figs/check.gif' align='absmiddle' /></td>
+<td>
+<p><img src='figs/check.gif' align='absmiddle' /></p></td>
+</tr>
+
+
+
+</table>
+
+<p>As you can see, the DBI lags behind the
+<tt class="literal">Win32::ODBC</tt> module. By the time you read this
+book, the DBI may have defined interfaces for some of the functions,
+but how quickly the drivers actually implement the functions is
+harder to guess. The <tt class="literal">DBD::ODBC</tt> and
+<tt class="literal">DBD::Oracle</tt> modules will probably lead the way.</p>
+</div>
+
+
+
+
+
+
+
+
+<a name="ch07-5-fm2xml" /><div class="sect2">
+<h3 class="sect2">7.3.4. Many Attributes and Options </h3>
+
+
+
+<p>In trying to be a <a name="INDEX-864" />comprehensive interface to a very wide
+variety of real-world data sources, ODBC provides a way to tell the
+application about every minute detail of the driver and data source
+it's connected to. There are so many details available via the
+<tt class="literal">GetInfo()</tt>
+<a name="INDEX-865" />
+function -- over 200 at the last count -- that we're not
+going to waste paper listing any of them.</p>
+
+
+
+<p>Though some books include the list as a great way of adding
+impressive bulk, we'll just direct you to the online version at
+Microsoft:</p>
+
+
+
+<p><a href="http://msdn.microsoft.com/library/sdkdoc/dasdk/odch5fu7.htm">http://msdn.microsoft.com/library/sdkdoc/dasdk/odch5fu7.htm</a></p>
+
+
+
+<p>If that URL ceases to work, then use the MSDN search facility at:</p>
+
+
+
+<p><a href="http://msdn.microsoft.com/us/dev/">http://msdn.microsoft.com/us/dev/</a></p>
+
+
+
+<p>and search for <tt class="literal">SQLGetInfo</tt>
+re<tt class="literal">turns</tt> using the exact phrase option. The link
+you want will probably just be called
+<tt class="literal">SQLGetInfo</tt>.<a href="#FOOTNOTE-65">[65]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-65" /><p>[65]Microsoft ODBC
+functions all have an SQL prefix.</p>
+
+
+</blockquote>
+
+
+
+<p>ODBC also provides for a great many knobs and buttons that you can
+use to tailor the fine details of driver behavior to suit your
+application. These can be accessed via the following functions:</p>
+
+
+
+<blockquote><pre class="code">GetEnvAttr       SetEnvAttr       --  4 attributes
+GetConnectAttr   SetConnectAttr   -- 16 attributes
+GetStmtAttr      SetStmtAttr      -- 33 attributes</pre></blockquote>
+
+
+
+<p>Prior to ODBC 3.x, there was an older set of functions with names
+that end in <tt class="literal">Option</tt> instead of
+<tt class="literal">Attr</tt>. These functions are almost identical to
+those above, but accept a smaller range of attributes. To find
+details of all these functions, you can use the Microsoft MSDN search
+procedure described earlier in this section.</p>
+
+
+
+<p>The <tt class="literal">Win32::ODBC</tt> module provides access to the
+<tt class="literal">GetInfo()</tt>,
+<tt class="literal">Get</tt>
+<a name="INDEX-866" />/<tt class="literal">SetConnectOption()</tt>,
+and
+<tt class="literal">Get</tt>
+<a name="INDEX-867" />/<tt class="literal">SetStmtOption()</tt>
+functions. The DBI defines only a very limited subset of this
+functionality via an assortment of DBI handle attributes.<a name="INDEX-868" /></p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch07_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch07_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">7.2. DBI -- Thrashed and Mutated </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">7.4. ODBC from Perl </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

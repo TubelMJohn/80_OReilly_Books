@@ -1,0 +1,213 @@
+<?label 14.3. Dynamic Database Access
+?><html><head><title>Dynamic Database Access
+ (MySQL &amp; mSQL)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Randy Jay Yarger, George Reese and Tim King" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924347L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="MySQL &amp; mSQL" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="MySQL and mSQL" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch14_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">MySQL &amp; mSQL</a></td><td width="172" valign="top" align="right"><a href="ch14_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<a name="INDEX-875" /><a name="INDEX-876" /><h2 class="sect1">14.3. Dynamic Database Access
+</h2>
+
+
+
+
+
+<p>So far we have dealt with applications where you know exactly what
+needs to be done at compile time. If this were the only kind of
+database support that JDBC provided, no one could ever write tools
+like the <em class="emphasis">mysql</em> and <em class="emphasis">msql</em>
+interactive command line tools that determine SQL calls at runtime
+and execute them. The JDBC
+<tt class="literal">Statement</tt>
+<a name="INDEX-877" /> class provides the
+<tt class="literal">execute()</tt>
+<a name="INDEX-878" /> method for executing SQL that may be
+either a query or an update. Additionally,
+<tt class="literal">ResultSet</tt> instances provide runtime information
+about themselves in the form of an interface called
+<tt class="literal">ResultSetMetaData</tt> which you can access via the
+<tt class="literal">getMetaData()</tt> call in the
+<tt class="literal">ResultSet</tt>.</p>
+
+
+
+
+
+<a name="ch14-6-fm2xml" /><div class="sect2">
+<h3 class="sect2">14.3.1. Meta Data</h3>
+
+
+
+
+
+<p>The term <a name="INDEX-879" />meta data sounds officious, but it is
+really nothing other than extra data about some object that would
+otherwise waste resources if it were actually kept in the object. For
+example, simple applications do not need the name of the columns
+associated with a
+<tt class="literal">ResultSet</tt>
+<a name="INDEX-880" /> -- the
+programmer probably knew that when the code was written. Embedding
+this extra information in the <tt class="literal">ResultSet</tt> class is
+thus not considered by JDBC's designers to be core to the
+functionality of a <tt class="literal">ResultSet</tt>. Data such as the
+column names, however, is very important to some database
+programmers -- especially those writing dynamic database access.
+The JDBC designers provide access to this extra information -- the
+meta data -- via the
+<tt class="literal">ResultSetMetaData</tt>
+<a name="INDEX-881" /> interface. This class specifically
+provides:</p>
+
+
+
+
+<ul><li><p>The number of columns in a result set</p></li><li><p>Whether <tt class="literal">NULL</tt> is a valid value for a column</p></li><li><p>The label to use for a column header</p></li><li><p>The name for a given column</p></li><li><p>The source table for a given column</p></li><li><p>The datatype of a given column</p></li></ul>
+
+<p>Another example class that comes with the mSQL-JDBC driver is the
+<tt class="literal">Exec</tt> application. It will accept any SQL you
+specify on a command line and execute it. <a href="ch14_03.htm#ch14-32764">Example 14-1</a> shows that source code.</p>
+
+
+
+
+
+<a name="ch14-32764" /><div class="example">
+<h4 class="objtitle">Example 14-1. The Source to the Exec Application for Executing Dynamic SQL </h4>
+
+
+
+
+<blockquote><pre class="code">import java.sql.*;
+
+public class Exec {
+    public static void main(String args[]) {
+        Connection con = null;
+        String sql = "";
+      
+        for(int i=0; i&lt;args.length; i++) {
+            sql = sql + args[i];
+            if( i &lt; args.length - 1 ) {
+                sql = sql + " ";
+            }
+        }
+        System.out.println("Executing: " + sql);
+        try {
+            Class.forName("com.imaginary.sql.msql.MsqlDriver").newInstance();
+            String url = "jdbc:msql://athens.imaginary.com:1114/db_test";
+            con = DriverManager.getConnection(url, "borg", "");
+            Statement s = con.createStatement();   
+          
+            if( s.execute(sql) ) {
+                ResultSet r = s.getResultSet();
+                ResultSetMetaData meta = r.getMetaData();
+                int cols = meta.getColumnCount();
+                int rownum = 0;
+              
+                while( r.next() ) {
+                    rownum++;
+                    System.out.println("Row: " + rownum);
+                    for(int i=0; i&lt;cols; i++) {
+                        System.out.print(meta.getColumnLabel(i+1) + ": "
+                                         + r.getObject(i+1) +  ", ");
+                    }
+                    System.out.println("");
+                }
+            }
+            else {
+                System.out.println(s.getUpdateCount() + " rows affected.");
+            }
+            s.close();
+            con.close();
+        }
+        catch( Exception e ) {
+            e.printStackTrace();
+        }
+        finally {
+            if( con != null ) {
+                try { con.close(); }
+                catch( SQLException e ) { }
+            }
+        }
+    }
+}</pre></blockquote>
+</div>
+
+
+
+
+
+<p>Each result set provides a
+<tt class="literal">ResultSetMetaData</tt>
+<a name="INDEX-882" /> instance via the
+<tt class="literal">getMetaData()</tt>
+<a name="INDEX-883" /> method. In the case of dynamic database
+access, we need to find out the how many columns are in a result set
+so that we are certain to retrieve each column as well as the names
+of each of the columns for display to the user. The meta data for our
+result set provides all of this information via the
+<tt class="literal">getColumnCount()</tt> and
+<tt class="literal">getColumnLabel()</tt> methods.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch14-7-fm2xml" /><div class="sect2">
+<a name="INDEX-884" /><h3 class="sect2">14.3.2. Processing Dynamic SQL</h3>
+
+
+
+
+
+<p>The concept introduced in <a href="ch14_03.htm#ch14-32764">Example 14-1</a> is the dynamic
+SQL call. Because we do not know whether we will be processing a
+query or an update, we need to pass the SQL call through the
+<tt class="literal">execute()</tt>
+<a name="INDEX-885" /> method. This method returns
+<tt class="literal">true</tt> if the statement returned a result set or
+<tt class="literal">false</tt> if none was produced. In the example, if it
+returns <tt class="literal">true</tt>, the application gets the returned
+<tt class="literal">ResultSet</tt> through a call to
+<tt class="literal">getResultSet()</tt>
+<a name="INDEX-886" />. The application can then go on to do
+normal result set processing. If, on the other hand, the statement
+performed some sort of database modification, you can call
+<tt class="literal">getUpdateCount()</tt>
+<a name="INDEX-887" /> to find out how many rows were
+modified by the statement.<a name="INDEX-888" />
+<a name="INDEX-889" /></p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch14_02.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch14_04.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">14.2. Simple Database Access
+</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">14.4. A Guest Book Servlet
+</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

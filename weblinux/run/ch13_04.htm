@@ -1,0 +1,535 @@
+<?label 13.4. Using Perl?><html><head><title>Using Perl (Running Linux)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Running Linux" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm" /></td><td width="172" valign="top" align="right"><a href="ch13_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">13.4. Using Perl</h2>
+
+<p><a name="INDEX-2702" />
+<a name="INDEX-2703" />
+<a name="INDEX-2704" />
+Perl may well be the best thing to happen to the Unix programming
+environment in years; it is worth the price of admission to Linux alone.
+Perl is a text- and file-manipulation language, originally intended to
+scan large amounts of text, process it, and produce nicely formatted
+reports from that data. However, as Perl has matured, it has developed
+into an all-purpose scripting language, capable of doing everything from
+managing processes to communicating via <span class="acronym">TCP/IP</span> over a network.
+Perl is free software developed by Larry Wall, the
+Unix guru who brought
+us the <tt class="command">rn</tt> newsreader and various popular tools, such as <tt class="command">patch</tt>.</p>
+
+<p>Perl's main strength is that it incorporates the most widely used features
+of languages, such as C, <tt class="command">sed</tt>, <tt class="command">awk</tt>, and various shells, 
+into a single interpreted script language. In the past, getting a complicated
+job done was a matter of juggling these various languages into complex
+arrangements, often entailing <tt class="command">sed</tt> scripts piping into <tt class="command">awk</tt>
+scripts piping into shell scripts and eventually piping into a C program.
+Perl gets rid of the common Unix philosophy of using many small tools to
+handle small parts of one large problem. Instead, Perl does it all, and
+it provides many different ways of doing the same thing. In fact, this 
+chapter was written by an Artificial Intelligence program developed in Perl. ( Just kidding, Larry.)</p>
+
+<p>Perl provides a nice programming interface to many features that were
+sometimes difficult to use in other languages. For example, a common 
+task of many Unix system administration scripts is to scan a large 
+amount of text, cut fields out of each line of text based on a pattern
+(usually represented as a <em class="emphasis">regular expression</em>), and produce a report
+based on the data. Let's say that you want to process
+the output of the Unix <tt class="command">last</tt> command, which displays a record of
+login times for all users on the system, as so:
+<blockquote><pre class="code">mdw       ttypf    loomer.vpizza.co Sun Jan 16 15:30 - 15:54  (00:23)
+larry     ttyp1    muadib.oit.unc.e Sun Jan 16 15:11 - 15:12  (00:00)
+johnsonm  ttyp4    mallard.vpizza.c Sun Jan 16 14:34 - 14:37  (00:03)
+jem       ttyq2    mallard.vpizza.c Sun Jan 16 13:55 - 13:59  (00:03)
+linus     FTP      kruuna.helsinki. Sun Jan 16 13:51 - 13:51  (00:00)
+linus     FTP      kruuna.helsinki. Sun Jan 16 13:47 - 13:47  (00:00)</pre></blockquote></p>
+
+<p>If we wanted to count up the total login time for each user (given in 
+parentheses in the last field), we could write a <tt class="command">sed</tt>
+script to splice the time values from the input, an <tt class="command">awk</tt> script
+to sort the data for each user and add up the times, and another <tt class="command">awk</tt>
+script to produce a report based on the accumulated data. Or, we could
+write a somewhat complex C program to do the entire task--complex because,
+as any C programmer knows, text-processing functions within C are
+somewhat limited.</p>
+
+<p>However, this
+task can be easily accomplished by a simple Perl script. The facilities
+of I/O, regular-expression pattern matching, sorting by 
+associative arrays, and number crunching are all easily accessed from
+a Perl program with little overhead. Perl programs are generally
+short and to the point, without a lot of technical mumbo-jumbo getting
+in the way of what you want your program to actually <em class="emphasis">do</em>.</p>
+
+<p><a name="INDEX-2705" />
+
+Using Perl under Linux is really no different than on other
+Unix systems. Several good books on Perl already exist, including
+<em class="emphasis">Programming Perl</em>, by Larry Wall, Randal
+L. Schwartz, and Tom Christiansen;
+<em class="emphasis">Learning Perl</em>, by Randal
+L. Schwartz and Tom Christiansen; <em class="emphasis">Advanced Perl
+   Programming</em> by Sriram Srinivasan; and <em class="emphasis">Perl 
+   Cookbook</em> by Tom Christiansen and Nathan
+   Torkington. Nevertheless, we think Perl is such a great tool
+that it deserves something in the way of an introduction. After all,
+Perl is free software, as is Linux; they go hand in hand. 
+</p>
+
+<div class="sect2">
+<h3 class="sect2">13.4.1. A Sample Program</h3>
+
+<p>What we really like about Perl is that it lets you immediately
+jump to the task at hand; you don't have to write extensive
+code to set up
+data structures, open files or pipes, allocate space for data, and 
+so on. All these features are taken care of for you in a very
+friendly way.</p>
+
+<p>The example of login times, just discussed, serves to introduce many of the basic
+features of Perl. First, we'll give the entire script (complete with
+comments) and then a description of how it works. This script reads
+the output of the <tt class="command">last</tt> command (see the previous example)
+and prints an entry for each
+user on the system, describing the total login time and number of
+logins for each. (Line numbers are printed to the left of each line
+for reference):</p>
+
+<blockquote><pre class="code">1       #!/usr/bin/perl 
+2 
+3       while (&lt;STDIN&gt;) {   # While we have input...   
+4         # Find lines and save username, login time 
+5         if (/^(\S*)\s*.*\((.*):(.*)\)$/) {   
+6           # Increment total hours, minutes, and logins 
+7           $hours{$1} += $2; 
+8           $minutes{$1} += $3; 
+9           $logins{$1}++; 
+10        } 
+11      } 
+12 
+13      # For each user in the array...        
+14      foreach $user (sort(keys %hours)) { 
+15         # Calculate hours from total minutes 
+16         $hours{$user} += int($minutes{$user} / 60); 
+17         $minutes{$user} %= 60; 
+18         # Print the information for this user 
+19         print "User $user, total login time "; 
+20         # Perl has printf, too 
+21         printf "%02d:%02d, ", $hours{$user}, $minutes{$user}; 
+22         print "total logins $logins{$user}.\n"; 
+23      }</pre></blockquote>
+
+<p>Line 1 tells the loader that this script should be executed
+through Perl, not as a shell script. 
+Line 3 is the beginning of the program. It is the head of a simple
+<tt class="literal">while</tt> loop, which C and shell programmers will be
+familiar with: the
+code within the braces from lines 4-10 should be executed while
+a certain expression is true.  However, the conditional expression 
+<tt class="literal">&lt;STDIN&gt;</tt> looks funny. Actually, this expression is true whenever
+there is input on the <tt class="literal">STDIN</tt> filehandle--which refers to standard
+input, as you might guess.</p>
+
+<p>Perl reads input one line at a time (unless you tell it to do otherwise).
+It also reads by default from standard input, again, unless you tell it
+to do otherwise. Therefore, this <tt class="literal">while</tt> loop will continuously
+read lines from standard input, until there are no lines left to be
+read.</p>
+
+<p>The evil-looking mess on line 5 is just an <tt class="literal">if</tt> statement. As with
+most programming languages, the code within the braces (on lines
+6-9) will be executed if the expression that follows the <tt class="literal">if</tt> is
+true. But what is the expression between the parentheses? 
+Those readers familiar with Unix tools such as <tt class="command">grep</tt> and <tt class="command">sed</tt>
+will peg this immediately as a <em class="emphasis">regular
+expression</em>: a cryptic
+but useful way to represent a pattern to be matched in the input text.
+Regular expressions are usually found between delimiting slashes
+(<tt class="literal">/&#133;/</tt>).</p>
+
+<?troff .Nd 10?><p>This particular regular expression matches lines of
+the form:
+
+<blockquote><pre class="code">mdw       ttypf    loomer.vpizza.co Sun Jan 16 15:30 - 15:54  (00:23)</pre></blockquote>
+
+
+<a name="INDEX-2706" />
+This expression also "remembers" the username (<b class="emphasis-bold">mdw</b>) and the
+total login time for this entry (<tt class="literal">00:23</tt>). You needn't worry
+about the expression itself; building regular expressions is a
+complex subject. For now, all that you need to know is that
+this <tt class="literal">if</tt> statement finds lines of the form given in
+the example, and
+splices out the username and login time for processing. 
+The username is assigned to the variable <tt class="literal">$1</tt>, the hours to
+the variable <tt class="literal">$2</tt>, and the minutes to <tt class="literal">$3</tt>. 
+(Variables in Perl begin with the <tt class="literal">$</tt> character, but unlike the
+shell, the <tt class="literal">$</tt> must be used when assigning to the variable as well.)
+This assignment is done by the regular expression match itself
+(anything enclosed in parentheses in a regular expression is 
+saved for later use to one of the variables <tt class="literal">$1</tt> through
+<tt class="literal">$9</tt>).</p>
+
+<p><a name="INDEX-2707" />
+Lines 6-9 actually process these three pieces of information. 
+And they do it in an interesting way: through the use of an 
+<em class="emphasis">associative array</em>. Whereas a normal array is indexed with
+a number as a subscript, an associative array is indexed by an arbitrary 
+string. This lends itself to many powerful applications; it allows
+you to associate one set of data with another set of data gathered on the fly.
+In our short program, the keys are the usernames, gathered from the
+output of <tt class="command">last</tt>. We maintain three associative arrays, all
+indexed by username: <tt class="literal">hours</tt>, which records the total number of
+hours the user logged in; <tt class="literal">minutes</tt>, which records the
+number of minutes; and <tt class="literal">logins</tt>, which records the total number of
+logins.</p>
+
+<p>As an example, referencing the variable
+<tt class="literal">$hours{'mdw'}</tt> returns the total number of hours
+that the user <b class="emphasis-bold">mdw</b> was logged in.
+Similarly, if the username <b class="emphasis-bold">mdw</b> is stored in the variable <tt class="literal">$1</tt>,
+referencing <tt class="literal">$hours{$1}</tt> produces the same effect.</p>
+
+<p>In lines 6-9, we increment the values of these arrays according to the
+data on the present line of input. For example, given the input line:
+
+<blockquote><pre class="code">jem       ttyq2    mallard.vpizza.c Sun Jan 16 13:55 - 13:59  (00:03)</pre></blockquote>
+
+
+Line 7 increments the value of the <tt class="literal">hours</tt> array, indexed with
+<tt class="literal">$1</tt> (the username, <b class="emphasis-bold">jem</b>
+<?troff \/?>), by the number of hours that 
+<b class="emphasis-bold">jem</b> was logged in (stored in the variable <tt class="literal">$2</tt>). The
+Perl increment operator <tt class="literal">+=</tt> is equivalent to the corresponding 
+C operator. Line 8 increments the value of <tt class="literal">minutes</tt> for the
+appropriate user similarly. Line 9 increments the value of the <tt class="literal">logins</tt>
+array by one, using the <tt class="literal">++</tt> operator.</p>
+
+<p>Associative arrays are one of the most useful features of Perl. They 
+allow you to build up complex databases while parsing text. It would
+be nearly impossible to use a standard array for this same task. We
+would first have to count the number of users in the input stream
+and then allocate an array of the appropriate size, assigning a position
+in the array to each user (through the use of a hash function or some
+other indexing scheme). An associative array, however, allows you to 
+index data directly using strings and without regard for the size of
+the array in question. (Of course, performance issues always arise when
+attempting to use large arrays, but for most applications this isn't
+a problem.)</p>
+
+<p>Let's move on. Line 14 uses the Perl <tt class="literal">foreach</tt> statement, which
+you may be used to if you write shell scripts. (The <tt class="literal">foreach</tt>
+loop actually breaks down into a <tt class="literal">for</tt> loop, much like that
+found in C.) Here, in each iteration of the loop, the variable
+<tt class="literal">$user</tt> is assigned the next value in the list given by the
+expression <tt class="literal">sort(keys %hours)</tt>. <tt class="literal">%hours</tt> simply 
+refers to the entire associative array <tt class="literal">hours</tt> that we
+have constructed. The function <tt class="literal">keys</tt> returns a list of all
+the keys used to index the array, which is in this case a list
+of usernames. Finally, the <tt class="literal">sort</tt> function sorts the list returned
+by <tt class="literal">keys</tt>. Therefore, we are looping over a sorted list of usernames,
+assigning each username in turn to the variable <tt class="literal">$user</tt>.</p>
+
+<p>Lines 16 and 17 simply correct for situations where the number of 
+minutes is greater than 60; it determines the total number of hours
+contained in the <tt class="literal">minutes</tt> entry for this user and increments
+<tt class="literal">hours</tt> accordingly. The <tt class="literal">int</tt>
+function returns the integral
+portion of its argument. (Yes, Perl handles floating-point numbers
+as well; that's why use of <tt class="literal">int</tt> is necessary.)</p>
+
+<p>Finally, lines 19-22 print the total login time and number of logins for
+each user. The simple <tt class="literal">print</tt> function just prints its arguments,
+like the <tt class="command">awk</tt> function of the same name. Note that variable
+evaluation can be done within a <tt class="literal">print</tt> statement, as on lines 19 and 22.
+However, if you want to do some fancy text formatting, you need
+to use the <tt class="literal">printf</tt> function (which is just like its C equivalent). 
+In this case, we wish to set the minimum output length of the 
+<tt class="literal">hours</tt> and <tt class="literal">minutes</tt> values for this user to 2 characters
+wide, and to left-pad the output with zeroes. To do this, we use the
+<tt class="literal">printf</tt> command on line 21.</p>
+
+<p>If this script is saved in the file <tt class="literal">logintime</tt>, we can execute
+it as follows:
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>last | logintime</b></tt> 
+User johnsonm, total login time 01:07, total logins 11. 
+User kibo, total login time 00:42, total logins 3. 
+User linus, total login time 98:50, total logins 208. 
+User mdw, total login time 153:03, total logins 290. 
+papaya$</pre></blockquote></p>
+
+<p>Of course, this example doesn't serve well as a Perl tutorial, but it should
+give you some idea of what it can do. We encourage you to read one of
+the excellent Perl books out there to learn more.</p>
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">13.4.2. More Features</h3>
+
+<p>The previous example introduced the most commonly used Perl features
+by demonstrating a living, breathing program. There is much
+more where that came from--in the way of both well-known and 
+not-so-well-known features.</p>
+
+<p><a name="INDEX-2708" />
+As we mentioned, Perl provides a report-generation mechanism beyond the
+standard <tt class="literal">print</tt> and <tt class="literal">printf</tt> functions. Using this feature,
+the programmer defines a report "format" that describes how each
+page of the report will look. For example, we could have included the
+following format definition in our example:
+
+<blockquote><pre class="code">format STDOUT_TOP = 
+User           Total login time     Total logins
+-------------- -------------------- -------------------
+.
+format STDOUT =
+@&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt; @&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;            @####
+$user,         $thetime,            $logins{$user}
+.</pre></blockquote></p>
+
+<p>The <tt class="literal">STDOUT_TOP</tt> definition describes the header of the report,
+which will be printed at the top of each page of output. The <tt class="literal">STDOUT</tt>
+format describes the look of each line of output. Each field
+is described beginning with the <tt class="literal">@</tt> character; 
+<tt class="literal">@&lt;&lt;&lt;&lt;</tt> specifies a left-justified text field, and 
+<tt class="literal">@####</tt> specifies a numeric field. The line below the field 
+definitions gives the names
+of the variables to use in printing the fields. Here, we have used the
+variable <tt class="literal">$thetime</tt> to store the formatted time string.</p>
+
+<p>To use this report for the output, we replace lines 19-22 in the
+original script with the following:
+
+<blockquote><pre class="code">$thetime = sprintf("%02d:%02d", $hours{$user}, $minutes{$user});
+write;</pre></blockquote>
+
+
+The first line uses the <tt class="literal">sprintf</tt> function to format the time
+string and save it in the variable <tt class="literal">$thetime</tt>; the second line
+is a <tt class="literal">write</tt> command that tells Perl to go off and use the 
+given report format to print a line of output.</p>
+
+<p>Using this report format, we'll get something looking like:
+<blockquote><pre class="code">User           Total login time     Total logins
+-------------- -------------------- -------------------
+johnsonm       01:07                   11
+kibo           00:42                    3
+linus          98:50                  208
+mdw            153:03                 290</pre></blockquote></p>
+
+<p>Using other report formats we can achieve different (and better-looking)
+results.</p>
+
+<p>Perl comes with a huge number of modules that you
+can plug in to your programs for quick access to very powerful
+features. A popular online archive called CPAN (for Comprehensive
+Perl Archive Network) contains even more modules: net
+modules that let you send mail and carry on other networking tasks,
+modules for dumping data and debugging, modules for manipulating dates
+and times, modules for math functions--the list could go on for pages.</p>
+
+<p>If you hear of an interesting module, check first to see whether
+it's already loaded on your system.  You can look at the directories
+where modules are located (probably under <em class="filename">/usr/lib/perl5</em> )
+or just try loading in the module and see if it works. Thus, the
+command:
+
+<blockquote><pre class="code">$ <tt class="userinput"><b>perl -MCGI -e 1</b></tt>
+Can't locate CGI in @INC...</pre></blockquote>
+
+
+gives you the sad news that the CGI.pm module (which we'll use
+in "<a href="ch16_01.htm#x-100-3-sec-net-www-cgi">Section 16.1.5.2, "Writing the CGI script"</a>" in <a href="ch16_01.htm">Chapter 16, "The World Wide Web and
+ Electronic Mail"</a>, to handle a web form) is
+not on your system.  CGI.pm is popular enough to be included in the
+standard Perl distribution, and you can install it from there, but for
+many modules you will have to go to CPAN (and some don't make it into
+CPAN either). CPAN, which is maintained by Jarkko Hietaniemi and
+Andreas K&ouml;nig, resides on dozens
+of mirror sites around the world because so many
+people want to download its modules.
+The easiest way to get onto CPAN is to visit <a href="http://www.perl.com/CPAN-local/">http://www.perl.com/CPAN-local/</a>.</p>
+
+<p> The following program--which we wanted to keep short, and
+therefore we neglected to find a useful task to perform--shows two
+modules, one that manipulates dates and times in a sophisticated
+manner and another that sends mail. The disadvantage of using such
+powerful features is that a huge amount of code is loaded from them,
+making the runtime size of the program quite large:</p>
+
+<blockquote><pre class="code">#! /usr/local/bin/perl
+
+# We will illustrate Date and Mail modules
+use Date::Manip;
+use Mail::Mailer;
+
+# Illustration of Date::Manip module
+if ( Date_IsWorkDay( "today", 1) )  {
+
+    # Today is a work day
+    $date = ParseDate( "today" );
+
+}
+else {
+
+    # Today is not a work day, so choose next work day
+    $date=DateCalc( "today" , "+ 1 business day" );
+
+}
+
+# Convert date from compact string to readable string like "April  8"
+$printable_date = UnixDate( $date , "%B %e" );
+
+# Illustration of Mail::Mailer module
+my ($to) = "the_person\@you_want_to.mail_to";
+my ($from) = "owner_of_script\@system.name";
+
+$mail = Mail::Mailer-&gt;new;
+
+$mail-&gt;open(
+            {
+                From =&gt; $from,
+                To =&gt; $to,
+                Subject =&gt; "Automated reminder",
+            }
+           );
+
+print $mail &lt;&lt;"MAIL_BODY";
+If you are at work on or after
+$printable_date,
+you will get this mail.
+MAIL_BODY
+
+$mail-&gt;close;
+
+# The mail has been sent! (Assuming there were no errors.)</pre></blockquote>
+
+<p><a name="INDEX-2709" />
+The reason packages are so easy to use is that
+Perl added object-oriented features in version 5. The Date module used
+in the previous example is not object oriented, but the Mail module
+is. The <tt class="literal">$mail</tt> variable in the example is a Mailer
+object, and it makes mailing a messages straightforward through
+methods like <tt class="literal">new</tt>, <tt class="literal">open</tt>, and
+<tt class="literal">close</tt>.</p>
+
+<p>
+
+To do some major task like parsing HTML, just read in the proper CGI
+package and issue a <tt class="literal">new</tt> command to create the
+proper object--all the functions you need for parsing HTML will then
+be available.</p>
+
+<p>If you want to give a graphical interface to your Perl script,
+<a name="INDEX-2710" />
+<a name="INDEX-2711" />
+<a name="INDEX-2712" />
+<a name="INDEX-2713" />
+you can use the Tk module, which originally was developed for use with
+the Tcl language, or the Gtk module, which uses the newer GIMP
+Toolkit (GTK). The book <em class="emphasis">Learning Perl/Tk</em>  by
+Nancy Walsh shows you how
+to do graphics with that module. Both Tcl and Tk are discussed later
+in the chapter.</p>
+
+<p><a name="INDEX-2714" />
+Another abstruse feature of Perl is its ability to (more or less)
+directly access several Unix system calls, including interprocess
+communications. For example, Perl provides the functions 
+<tt class="literal">msgctl</tt>, <tt class="literal">msgget</tt>, <tt class="literal">msgsnd</tt>, and <tt class="literal">msgrcv</tt> from
+System V <span class="acronym">IPC</span>. Perl also supports the <span class="acronym">BSD</span> socket 
+implementation, allowing communications via <span class="acronym">TCP/IP</span> directly from
+a Perl program. No longer is C the exclusive language of networking
+daemons and clients. A Perl program loaded with IPC features can
+be very powerful indeed--especially considering that many 
+client-server implementations call for advanced text-processing
+features such as those provided by Perl. It is generally easier to
+parse protocol commands transmitted between client and server from
+a Perl script, rather than write a complex C program to do the
+work.</p>
+
+<p><a name="INDEX-2715" />
+As an example, take the well-known <span class="acronym">SMTP</span> daemon, which handles
+the sending and receiving of electronic mail. The <span class="acronym">SMTP</span> protocol
+uses internal commands such as <tt class="literal">recv from</tt> and
+<tt class="literal">mail to</tt>
+to enable the client to communicate with the server. 
+Either the client or the server, or both, can be written in Perl,
+and can have full access to Perl's text- and file-manipulation 
+features as well as the vital socket communication functions.</p>
+
+<p>Perl is a fixture of CGI programming, that is, writing
+		small programs 
+		that run on a web server and help web pages becoming more
+		interactive.</p>
+
+<p>
+As a far-out example of the kinds of things Perl and <span class="acronym">IPC</span> can do,
+Larry Wall was reportedly considering rewriting the <tt class="command">rn</tt> newsreader
+entirely in Perl.</p>
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">13.4.3. Pros and Cons</h3>
+
+<p>One of the features of (some might say "problems with") Perl is the 
+ability to abbreviate--and obfuscate--code considerably. In
+the previous
+script, we have used several common shortcuts. For example, input into
+the Perl script is read into the variable <tt class="literal">$_</tt>. However, 
+most operations act on the variable <tt class="literal">$_</tt> by default, so it's
+usually not necessary to reference <tt class="literal">$_</tt> by name.</p>
+
+<p>Perl also gives you several ways of doing the same thing, which can,
+of course, be either a blessing or a curse depending on how you look
+at it. In <em class="emphasis">Programming Perl</em>, Larry Wall gives the following 
+example of a short program that simply prints its standard input.
+All of the following statements are equivalent:
+<blockquote><pre class="code">while ($_ = &lt;STDIN&gt;) { print; }
+while (&lt;STDIN&gt;) { print; }
+for (;&lt;STDIN&gt;;) { print; }
+print while $_ = &lt;STDIN&gt;;
+print while &lt;STDIN&gt;;</pre></blockquote>
+
+
+The programmer can use the syntax most appropriate for the situation at hand.</p>
+
+<p>Perl is popular, and not just because it is useful. Because Perl
+provides much in the way of eccentricity, it gives hackers something
+to play with, so to speak. Perl programmers are constantly outdoing 
+each other with trickier bits of code. Perl lends itself to interesting
+kludges, neat hacks, and both very good and very bad programming. 
+Unix programmers see it as a challenging medium to work with--because 
+Perl is relatively new, not all of the possibilities have been exploited. 
+Even if you find Perl too baroque for your taste, there is still something 
+to be said for its artistry. The ability to call oneself a "Perl hacker"
+is a point of pride within the Unix community.</p>
+
+<a name="INDEX-2716" /><a name="INDEX-2717" /><a name="INDEX-2718" />
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch13_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">13.3. Shell Programming</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">13.5. Programming in Tcl and Tk</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

@@ -1,0 +1,218 @@
+<html><head><title>tkmpg123 (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appc_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="appc_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">C.5. tkmpg123</h2>
+
+<p>The <em class="emphasis">tkmpg123</em> program is an MPG player based on
+Apple's <em class="emphasis">itunes</em>. The explanation and
+demonstration can be found in <a href="ch15_01.htm">Chapter 15, "Anatomy of the MainLoop"</a>.
+</p>
+
+<blockquote><pre class="code">#!/usr/local/bin/perl -w
+#
+# tkmpg123 - keep mpg123 and Tk happily eventing w/o blocking.
+#
+# Stephen.O.Lidie@Lehigh.EDU, 2001/04/17.
+
+use Audio::Play::MPG123;
+use Tk;
+use Tk::PNG;
+use subs qw/build_player start_play  edit_menuitems file_menuitems
+    help_menuitems init play/;
+our ($c, , @info, $infov, $mw, $paus, $phand, $play, $player, $timev, $v);
+use strict;
+
+$v = '-0.97';
+
+$player = Audio::Play::MPG123-&gt;new;
+$phand = $player-&gt;IN;
+
+$mw = MainWindow-&gt;new;
+$mw-&gt;configure(-menu =&gt; my $menubar = $mw-&gt;Menu);
+map {$menubar-&gt;cascade( -label =&gt; '~' . $_-&gt;[0], -menuitems =&gt; $_-&gt;[1] )}
+    ['File', file_menuitems],
+    ['Edit', edit_menuitems],
+    ['Help', help_menuitems];
+
+
+build_player;
+
+MainLoop;
+
+sub build_player {
+    
+    $c = $mw-&gt;Canvas(
+        -width  =&gt; 1,
+        -height =&gt; 1,
+        -background =&gt; 'dark slate gray',
+    )-&gt;pack;
+    my $itunes = $c-&gt;Photo(-file =&gt; 'images/itunes.gif');
+    $c-&gt;createImage(0, 0,
+        -image =&gt; $itunes,
+        -tag   =&gt; 'itunes',
+        -anchor =&gt; 'nw',
+    );
+    $c-&gt;configure(-width =&gt; $itunes-&gt;width, -height =&gt; $itunes-&gt;height);
+
+    $paus = $c-&gt;Photo(-file =&gt; 'images/paus.gif');
+    $play = $c-&gt;Photo(-file =&gt; 'images/play.gif');
+
+    $c-&gt;createImage(80, 40, -image =&gt; $play, -tag =&gt; 'play-image');
+    $c-&gt;bind('play-image', '&lt;1&gt;' =&gt; \&amp;pause);
+
+    my $green = '#d5dac1';
+    my $font = 'courier 12';
+
+    my $f = $c-&gt;Frame(
+        -width      =&gt; 250,
+        -height     =&gt; 50,
+        -background =&gt; $green,
+        -relief     =&gt; 'sunken',
+        -borderwidth =&gt; 3,	     
+    );
+    $f-&gt;packPropagate(0);
+    $c-&gt;createWindow(170, 20, -anchor =&gt; 'nw', -window =&gt; $f);
+
+    $infov = '';
+    my $info = $f-&gt;Label(
+        -textvariable =&gt; \$infov,
+        -font         =&gt; $font,
+        -background   =&gt; $green,			 
+    );
+    $info-&gt;pack(-side =&gt; 'top');
+
+    $timev = 'Elapsed Time: 0:00';
+    my $time = $f-&gt;Label(
+        -textvariable =&gt; \$timev,
+        -font         =&gt; $font,
+        -background   =&gt; $green,			 
+    );
+    $time-&gt;pack(-side =&gt; 'top');
+
+    my $f2 = $c-&gt;Frame(
+        -width      =&gt; 570,
+        -height     =&gt; 280,
+        -background =&gt; $green,
+        -relief     =&gt; 'sunken',
+        -borderwidth =&gt; 3,	     
+    );
+    $f2-&gt;packPropagate(0);
+    $c-&gt;createWindow(15, 85, -anchor =&gt; 'nw', -window =&gt; $f2);
+
+    my $mpgs = $f2-&gt;Scrolled('Listbox')-&gt;pack(-fill =&gt; 'y', -expand =&gt; 1);
+    foreach my $mpg (&lt;*.mpg&gt;, &lt;*.mp3&gt;) {
+        $mpgs-&gt;insert('end', $mpg);
+    }
+    $mpgs-&gt;bind('&lt;1&gt;' =&gt; sub {play $mpgs-&gt;get( $mpgs-&gt;nearest($Tk::event-&gt;y)  )});
+
+} # end build_player
+
+sub pause {
+    $player-&gt;pause;
+    $c-&gt;itemconfigure('play-image',
+        -image =&gt; ($player-&gt;state == 1) ? $paus : $play
+    );
+}
+
+sub edit_menuitems {
+    [
+      ['command', 'Preferences ...', -command =&gt; sub {$mw-&gt;bell}],
+    ];
+}
+
+sub file_menuitems {
+
+    [
+      [
+        qw/cascade ~Play -menuitems/ =&gt;
+        [
+          [qw/command ~File... -command/ =&gt; \&amp;play_file],
+          [qw/command ~URL...  -command/ =&gt; \&amp;play_url],
+        ],
+      ],
+      [qw/command ~Quit  -command/ =&gt; \&amp;exit],
+    ];
+
+}
+
+sub help_menuitems {
+    [
+      ['command', 'Version', -command =&gt; sub {print "Version $v\n"}],
+      '',
+      ['command', 'About',   -command =&gt; sub {print "Playing songs\n"}],
+    ];
+}
+
+sub play_file {
+    play $mw-&gt;getOpenFile(-title =&gt; 'Pick A Song');
+}
+
+sub play_url {			# for now
+    my $song = 'http://www.lehigh.edu/sol0/beat.mpg';;
+    play $song;
+}
+
+sub play {
+    my $song = shift;
+    print "song=$song!\n";
+    if (defined $song) {
+        $player-&gt;load($song);
+        @info = map {$player-&gt;$_} qw/title artist album/;
+        start_play;
+    }
+}
+
+sub ctm {
+    my $s = shift;
+    my $m = int($s / 60);
+    sprintf("%02d:%02d", $m, $s - $m * 60);
+}
+
+sub start_play {
+
+    my $info_tid = $mw-&gt;repeat(5000 =&gt; sub {
+        $infov = $info[0];
+         unshift @info, pop @info;
+    });
+
+    my $time_tid = $mw-&gt;repeat(1000 =&gt; sub {
+	my(@toks) = split ' ', $player-&gt;stat;
+        $timev = sprintf( "Elapsed Time: %s of %s\n",
+               &amp;ctm($toks[3]), &amp;ctm($toks[3] + $toks[4]) );
+    });
+    
+    my $in_hand = sub {
+	$player-&gt;poll(0);
+	$mw-&gt;update;
+	if ($player-&gt;state == 0) {
+	    $player-&gt;stop;
+	    $mw-&gt;fileevent(\$phand, 'readable' =&gt; '');
+	    $mw-&gt;afterCancel($info_tid);
+	    $mw-&gt;afterCancel($time_tid);
+	}
+    };
+    $mw-&gt;fileevent(\$phand, 'readable' =&gt; $in_hand);
+
+}</pre></blockquote>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="appc_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="appc_06.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">C.4. Proc::Killfam</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">C.6. Tk::Trace</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

@@ -1,0 +1,157 @@
+<html><head><title>Processes as Filehandles (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch14_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">14.5. Processes as Filehandles</h2>
+
+<p><a name="INDEX-977" /> <a name="INDEX-978" />So far, we've been looking at ways to
+deal with synchronous processes, where Perl stays in charge, launches
+a command, (usually) waits for it to finish, then possibly grabs its
+output. But Perl can also launch a child process that stays alive,
+communicating<a href="#FOOTNOTE-322">[322]</a> to Perl on an ongoing basis until the task is complete.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-322" /><p>[322]Via pipes, or whatever your operating
+system provides for simple interprocess communication.</p>
+</blockquote>
+
+<p>The syntax for launching a concurrent (parallel) child process is to
+put the command as the "filename" for an
+<tt class="literal">open</tt> call, and either precede the command or
+follow the command with a vertical bar, which is the
+"pipe" character. For that reason, this is often called a
+<a name="INDEX-979" />
+<a name="INDEX-980" /><em class="firstterm">piped open</em>:
+</p>
+
+<blockquote><pre class="code">open DATE, "date|" or die "cannot pipe from date: $!";
+open MAIL, "|mail merlyn" or die "cannot pipe to mail: $!";</pre></blockquote>
+
+<p>In the first example, with the vertical bar on the right, the command
+is launched with its standard output connected to the
+<tt class="literal">DATE</tt> filehandle opened for reading, similar to the
+way that the command <i class="command">date | your_program</i> would
+work from the shell. In the second example, with the vertical bar on
+the left, the command's standard input is connected to the
+<tt class="literal">MAIL</tt> filehandle opened for writing, similar to
+what happens with the command <i class="command">your_program | mail
+merlyn</i>. In either case, the command is now launched and
+continues independently of the Perl process.<a href="#FOOTNOTE-323">[323]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-323" /><p>[323]If the
+Perl process exits before the command is complete, a command
+that's been reading will see end-of-file, while a command
+that's been writing will get a "broken pipe" error
+signal on the next write, by default.</p> </blockquote>
+
+<p>The open fails if the child process cannot be created. If the command
+itself does not exist or exits erroneously, this will (generally) not
+be seen as an error when opening, but as an error when closing.
+We'll get to that in a moment.
+</p>
+
+<p>For all intents and purposes, the rest of the program doesn't
+know, doesn't care, and would have to work pretty hard to
+figure out that this is a filehandle opened on a process rather than
+on a file. So, to get data from a filehandle opened for reading,
+we'll just do the normal read:
+</p>
+
+<blockquote><pre class="code">my $now = &lt;DATE&gt;;</pre></blockquote>
+
+<p>And to send data to the mail process (waiting for the body of a
+message to deliver to <em class="emphasis">merlyn</em> on standard input),
+a simple print-with-a-filehandle will do:
+</p>
+
+<blockquote><pre class="code">print MAIL "The time is now $now"; # presume $now ends in newline</pre></blockquote>
+
+<p>In short, you can pretend that these filehandles are hooked up to
+magical files, one that contains the output of the
+<i class="command">date</i> command, and one that will automatically be
+mailed by the <i class="command">mail</i> command.
+</p>
+
+<p>If a process is connected to a filehandle that is open for reading,
+and then exits, the filehandle returns end-of-file, just like reading
+up to the end of a normal file. When you close a filehandle open for
+writing to a process, the process will see end-of-file. So, to finish
+sending the email, close the handle:
+</p>
+
+<blockquote><pre class="code">close MAIL;
+die "mail: non-zero exit of $?" if $?;</pre></blockquote>
+
+<p>Closing a filehandle attached to a process waits for the process to
+complete, so that Perl can get the process's exit status. The
+exit status is then available in the <tt class="literal">$?</tt> variable
+(reminiscent of the same variable in the Bourne Shell), and is the
+same kind of number as the value returned by the
+<tt class="literal">system</tt> function: zero for success, nonzero for
+failure. Each new exited process overwrites the previous value
+though, so save it quickly if you want it. (The <tt class="literal">$?</tt>
+variable also holds the exit status of the most recent
+<tt class="literal">system</tt> or backquoted command, if you're
+curious.)
+</p>
+
+<p>The processes are synchronized just like a pipelined command. If you
+try to read and no data is available, the process is suspended
+(without consuming additional CPU time) until the sending program has
+started speaking again. Similarly, if a writing process gets ahead of
+the reading process, the writing process is slowed down until the
+reader starts to catch up. There's a buffer (usually 4K bytes
+or so) in between so they don't have to stay precisely in lock
+step.
+</p>
+
+<p>Why use processes as filehandles? Well, it's the only easy way
+to write to a process based on the results of a computation. But if
+you're just reading, backquotes are often much easier to
+manage, unless you want to have the results as they come in.
+</p>
+
+<p>For example, the Unix <i class="command">find</i><a name="INDEX-981" /> command locates files based on
+their attributes, and it can take quite a while if used on a fairly
+large number of files (such as starting from the
+<em class="emphasis">root</em> directory). You can put a
+<i class="command">find</i> command inside backquotes, but it's
+often nicer to see the results as they are found:
+</p>
+
+<blockquote><pre class="code">open F, "find / -atime +90 -size +1000 -print|" or die "fork: $!";
+while (&lt;F&gt;) {
+  chomp;
+  printf "%s size %dK last accessed on %s\n",
+    $_, (1023 + -s $_)/1024, -A $_;
+}</pre></blockquote>
+
+<p>The <i class="command">find</i> command here is looking for all the files
+that were not accessed within the past 90 days and that are larger
+than 1000 blocks. (These are good candidates to be moved off to
+longer-term storage.) While <i class="command">find</i> is searching and
+searching, Perl can wait. As each file is found, Perl responds to the
+incoming name and displays some information about that file for
+further research. Had this been written with backquotes, we'd
+not see any output until the <i class="command">find</i> commmand had
+finished, and it's comforting to see that it's actually
+doing the job even before it's<i class="command" /><a name="INDEX-982" /> done.<a name="INDEX-983" /> <a name="INDEX-984" />
+</p>
+
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch14_04.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch14_06.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">14.4. Using Backquotes to Capture Output</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">14.6. Getting Down and Dirty with Fork</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

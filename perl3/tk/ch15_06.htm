@@ -1,0 +1,223 @@
+<html><head><title>Nonblocking Wait Activities (Mastering Perl/Tk)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Steve Lidie and Nancy Walsh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="1565927168L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Mastering Perl/Tk" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Mastering Perl/Tk" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch15_07.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">15.6. Nonblocking Wait Activities</h2>
+
+<p><a name="INDEX-2487" />Perl/Tk provides three
+commands that wait for particular events to occur. Although the wait
+is nonblocking (Tk events continue to be processed), program flow is
+logically suspended at the wait point only until the appropriate
+event occurs. The commands are:
+</p>
+
+<dl>
+<dt><tt class="literal">$widget-&gt;waitVariable(</tt><tt><em class="replaceable"><tt>varRef</tt></em></tt><tt class="literal">)</tt></dt>
+<dd>
+<a name="INDEX-2488" />Waits
+until the variable referenced by <tt><em class="replaceable"><tt>varRef</tt></em></tt>
+changes (i.e., it is written or <tt class="literal">undef</tt>).
+</p>
+</dd>
+
+
+<dt><tt class="literal">$widget-&gt;waitVisibility</tt></dt>
+<dd>
+<a name="INDEX-2489" /><a name="INDEX-2490" />Waits until
+<tt class="literal">$widget</tt>'s visibility state changes. The most
+common use for this command is to wait for a window to appear on the
+display. (Event type = <tt class="literal">Visibility</tt>.)
+</p>
+</dd>
+
+
+<dt><tt class="literal">$widget-&gt;waitWindow</tt></dt>
+<dd>
+<a name="INDEX-2491" /><a name="INDEX-2492" />Waits until <tt class="literal">$widget</tt>
+is destroyed. (Event type = <tt class="literal">Destroy</tt>.)
+</p>
+</dd>
+
+</dl>
+
+<p><tt class="literal">waitVariable</tt> can be employed in a number of
+ingenious situations. In <a href="ch23_01.htm">Chapter 23, "Plethora of pTk Potpourri"</a>, we use it as a
+means of effecting interprocess communications. But perhaps the most
+common is waiting for a user response to, say, a Dialog widget. A
+Dialog posts a message and one or more Buttons, then waits for the
+user to make a selection by clicking a Button. The specified Button
+label text is then stored in the variable that
+<tt class="literal">waitVariable</tt> is watching, and logical program flow
+continues.
+</p>
+
+<a name="mastperltk-CHP-15-SECT-6.1" /><div class="sect2">
+<h3 class="sect2">15.6.1. Tk::waitVariableX</h3>
+
+<p>Although <tt class="literal">waitVariable</tt> is nonblocking in the sense
+that Tk events continue to be processed, the program flow at the wait
+point is blocked until the variable changes. If the variable never
+changes, then that thread of execution can never continue. So, we can
+imagine a <tt class="literal">waitVariable</tt> with a timeout such that,
+after a certain amount of time, program flow resumes even if the
+variable never changes. We can go a step further and wait for a list
+of variables with a timeout. It's actually very easy to
+implement these features, using the existing
+<tt class="literal">waitVariable</tt> command and Tie::Watch.
+</p>
+
+<p><a name="INDEX-2493" /><a name="INDEX-2494" />We'll call this new command
+<tt class="literal">waitVariableX</tt>. The scheme is sublimely simple and
+clever. Our new command employs <tt class="literal">waitVariable</tt> to
+wait for a single scalar to change value. That scalar is set either
+by a timer callback or a Store callback invoked by watchpoints placed
+on the list of variables. Furthermore,
+<tt class="literal">waitVariableX</tt> tells us why it completed, by
+returning zero if the timer expired or a reference to the variable
+that changed.
+</p>
+
+<p>Here is a typical calling sequence, where we wait for
+<tt class="literal">$splash_var</tt> to change value, or 3000 milliseconds,
+whichever occurs first. If the timeout is zero, no timer callback is
+queued.
+</p>
+
+<blockquote><pre class="code">$mw-&gt;waitVariableX(3 * 1000, \$splash_var);</pre></blockquote>
+
+<p>In typical Perl/Tk style, we've decided that the first argument
+passed to <tt class="literal">waitVariableX</tt> can also be an array
+reference. In this case, the first element is the millisecond timeout
+value (or zero) and the second, a standard Perl/Tk callback that is
+invoked just before <tt class="literal">waitVariableX</tt> returns:
+</p>
+
+<blockquote><pre class="code">$self-&gt;waitVariableX( [$millis, $destroy_splashscreen] );</pre></blockquote>
+
+<p>Here's the code for <tt class="literal">waitVariableX</tt>:</p>
+
+<blockquote><pre class="code">$Tk::waitVariableX::VERSION = '1.0';
+
+package Tk::waitVariableX;
+
+use Carp;
+use Exporter;
+
+use base qw/Exporter/;
+@EXPORT = qw/waitVariableX/;
+use strict;
+
+sub waitVariableX {
+
+    use Tie::Watch;
+
+    my ($parent, $millis) = (shift, shift); # @_ has list of var refs
+
+    croak "waitVariableX:  no milliseconds." unless defined $millis;
+    my ($callback, $st, $tid, @watch, $why);
+
+    if (ref $millis eq 'ARRAY') {
+        $callback = Tk::Callback-&gt;new($millis-&gt;[1]);
+        $millis = $millis-&gt;[0];
+    }
+
+    $st = sub {my $argv = $_[0]-&gt;Args('-store'); $why = $argv-&gt;[0]};
+    foreach my $vref (@_) {
+        push @watch,
+            Tie::Watch-&gt;new(-variable =&gt; $vref, -store =&gt; [$st, $vref]);
+    }
+    $tid = $parent-&gt;after($millis =&gt; sub {$why = 0}) unless $millis == 0;
+
+    $parent-&gt;waitVariable(\$why); # wait for timer or watchpoint(s)
+
+    $_-&gt;Unwatch foreach @watch;
+    $parent-&gt;afterCancel($tid);
+    $callback-&gt;Call($why) if defined $callback;
+
+    return $why;						# why we stopped waiting: 0 or $vref
+
+} # end waitVariableX
+
+1;</pre></blockquote>
+
+<p>Once again, we have an Exporter module, not a mega-widget class
+module. We first save the parent widget reference and the
+milliseconds arguments, leaving the list of variables in
+<tt class="literal">@_</tt>. If the milliseconds argument is really an
+array reference, we create a Tk::Callback object and reset
+<tt class="literal">$millis</tt>.
+</p>
+
+<p>Now we create the Store callback used by the list of variable
+watchpoints. If and when invoked, the callback calls the Tie::Watch
+method <tt class="literal">Args</tt> to fetch a reference to the list of
+Store arguments we supply to the Tie::Watch constructor,
+<tt class="literal">new</tt>. The first argument in the argument vector
+<tt class="literal">$argv</tt> is a reference to the watched variable,
+which is then stored in the lexical <tt class="literal">$why</tt>.
+</p>
+
+<p>The <tt class="literal">foreach</tt> loop creates the actual watchpoint
+objects, using our callbacks <tt class="literal">$st</tt> and
+<tt class="literal">$vref</tt>, which, because we have a closure, uniquely
+point to each watched variable in turn. If and when the
+<tt class="literal">$st</tt> callback is invoked, it uses
+<tt class="literal">Args</tt> to fetch the closed <tt class="literal">$vref</tt>.
+Each variable's Store callback then stores
+<tt class="literal">$vref</tt> in the same lexical variable,
+<tt class="literal">$why</tt>.
+</p>
+
+<p>If a millisecond timeout was specified, we use
+<tt class="literal">after</tt> to queue a timer event that sets
+<tt class="literal">$why</tt> to zero, assuming the timer ever
+expires<em class="emphasis">.</em></tt> This is the same lexical variable set
+by the Store callbacks.
+</p>
+
+<p>Finally, with everything in place, we wait for
+<tt class="literal">$why</tt> to change. When it does, we destroy all the
+watchpoint objects, cancel any outstanding timer event, execute the
+optional completion callback (passing it <tt class="literal">$why</tt> for
+completeness), and return <tt class="literal">$why</tt>; why
+<tt class="literal">waitVariableX</tt> is returned.
+</p>
+
+<p>Note that:</p>
+
+<ul><li>
+<p>The list of variables is optional. If omitted and milliseconds is
+greater than 0, the command behaves much like
+<tt class="literal">after</tt>.
+</p>
+</li><li>
+<p>If a variable list is specified but the millisecond timer is zero,
+the command behaves much like <tt class="literal">waitVariable</tt>.
+</p>
+</li><li>
+<p>If the variable list is omitted and the millisecond timer is zero,
+the command waits forever. Hmm, perhaps we should disallow this
+possibility!<a name="INDEX-2495" /><a name="INDEX-2496" /><a name="INDEX-2497" />
+</p>
+</li></ul>
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch15_05.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch15_07.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">15.5. Tracing Perl/Tk Variables</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">15.7. Splash Screens</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

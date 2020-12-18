@@ -1,0 +1,464 @@
+<html><head><title>XSLT Processing with Java (Java and XSLT)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Eric M. Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001453L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java and XSLT" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch05_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 5. XSLT Processing with Java</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#javaxslt-CHP-5-SECT-1">A Simple Example</a><br />
+<a href="ch05_02.htm">Introduction to JAXP 1.1</a><br />
+<a href="ch05_03.htm">Input and Output</a><br />
+<a href="ch05_04.htm">Stylesheet Compilation</a><br /></p></div><p>Since many of the <a name="INDEX-478" /></a>XSLT processors are written in Java, they
+can be directly invoked from a Java application or servlet. Embedding
+the processor into a Java application is generally a matter of
+including one or two JAR files on the CLASSPATH and then invoking the
+appropriate methods. This chapter shows how to do this, along with a
+whole host of other programming techniques.
+</p>
+
+<p>When invoked from the command line, an XSLT processor such as Xalan
+expects the location of an XML file and an XSLT stylesheet to be
+passed as parameters. The two files are then parsed into memory using
+an XML parser such as Xerces or Crimson, and the transformation is
+performed. But when the XSLT processor is invoked programmatically,
+you are not limited to using static files. Instead, you can send a
+precompiled stylesheet and a dynamically generated DOM tree directly
+to the processor, or even fire SAX events as processor input. A major
+goal is to eliminate the overhead of parsing, which can dramatically
+improve performance.
+</p>
+
+<p>This chapter is devoted to Java and XSLT programming techniques that
+work for both standalone applications as well as servlets, with a
+particular emphasis on Sun's Java API for XML Processing (JAXP)
+API. In <a href="ch06_01.htm">Chapter 6, "Servlet Basics and XSLT"</a>, we will apply these techniques
+to servlets, taking into account issues such as concurrency,
+deployment, and performance.
+</p><div class="sect1"><a name="javaxslt-CHP-5-SECT-1" /></a>
+<h2 class="sect1">5.1. A Simple Example</h2>
+
+<p><a name="INDEX-479" /></a> <a name="INDEX-480" /></a>Let's start with perhaps the
+simplest program that can be written. For this task, we will write a
+simple Java program that transforms a static XML data file into HTML
+using an XSLT stylesheet. The key benefit of beginning with a simple
+program is that it isolates problems with your development
+environment, particularly CLASSPATH issues, before you move on to
+more complex tasks.
+</p>
+
+<p>Two versions of our Java program will be written, one for Xalan and
+another for SAXON. A JAXP implementation will follow in the next
+section, showing how the same code can be utilized for many different
+processors.
+</p>
+
+<a name="javaxslt-CHP-5-SIDEBAR-1" /></a><blockquote><table border="1" cellpadding="6"><tr><td>
+<h4 class="objtitle">CLASSPATH Problems</h4>
+&nbsp;
+<p><a name="INDEX-481" /></a> <a name="INDEX-482" /></a>CLASSPATH problems are a common culprit
+when your code is not working, particularly with XML-related APIs.
+Since so many tools now use XML, it is very likely that a few
+different <a name="INDEX-483" /></a>DOM and SAX implementations reside on
+your system. Before trying any of the examples in this chapter, you
+may want to verify that older parsers are not listed on your
+CLASSPATH.
+</p>
+&nbsp;
+<p>More subtle problems can occur if an older library resides in the
+Java 2 <em class="emphasis">optional packages</em> directory. Any JAR file
+found in the <em class="filename">jre/lib/ext</em> directory is
+automatically available to the JVM without being added to the
+CLASSPATH. You should look for files such as
+<em class="filename">jaxp.jar</em> and <em class="filename">parser.jar</em>,
+which could contain older, incompatible XML APIs. If you experience
+problems, remove all JAR files from the optional packages directory.
+</p>
+&nbsp;
+<p>Unfortunately, you will have to do some detective work to figure out
+where the JAR files came from. Although Java 2 Version 1.3 introduced
+enhanced JAR features that included versioning information, most of
+the JAR files you encounter probably will not utilize this
+capability.
+</p>
+</td></tr></table><p></blockquote>
+
+<a name="javaxslt-CHP-5-SECT-1.1" /></a><div class="sect2">
+<h3 class="sect2">5.1.1. The Design</h3>
+
+<p>The design of this application is pretty simple. A single class
+contains a <tt class="literal">main( )</tt> method that performs the
+transformation. The application requires two arguments: the XML file
+name followed by the XSLT file name. The results of the
+transformation are simply written to <tt class="literal">System.out</tt>.
+We will use the following XML data for our example:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;message&gt;Yep, it worked!&lt;/message&gt;</pre></blockquote>
+
+<p>The following XSLT stylesheet will be used. It's output method
+is <tt class="literal">text</tt>, and it simply prints out the contents of
+the <tt class="literal">&lt;message&gt;</tt> element. In this case, the
+text will be <tt class="literal">Yep, it worked!</tt>.
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;xsl:stylesheet 
+    version="1.0"
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"&gt;
+  &lt;xsl:output method="text" encoding="UTF-8"/&gt;
+
+  &lt;!-- simply copy the message to the result tree --&gt;
+  &lt;xsl:template match="/"&gt;
+    &lt;xsl:value-of select="message"/&gt;
+  &lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt; </pre></blockquote>
+
+<p>Since the filenames are passed as command-line parameters, the
+application can be used with other XML and XSLT files. You might want
+to try this out with one of the president examples from <a href="ch02_01.htm">Chapter 2, "XSLT Part 1 -- The Basics"</a> and 3.
+</p>
+
+</div>
+<a name="javaxslt-CHP-5-SECT-1.2" /></a><div class="sect2">
+<h3 class="sect2">5.1.2. Xalan 1 Implementation</h3>
+
+<p><a name="INDEX-484" /></a>The
+complete code for the Xalan implementation is listed in <a href="ch05_01.htm#javaxslt-CHP-5-EX-1">Example 5-1</a>. As comments in the code indicate, this code
+was developed and tested using Xalan 1.2.2, which is not the most
+recent XSLT processor from Apache. Fully qualified Java class names,
+such as <tt class="literal">org.apache.xalan.xslt.XSLTProcessor</tt>, are
+used for all Xalan-specific code.
+</p>
+
+<a name="ch05-6-fm2xml" /></a><blockquote><b>NOTE:</b> 
+
+A Xalan 2 example is not shown here because Xalan 2 is compatible with Sun's JAXP. The JAXP version of this program works with Xalan 2, as well as any other JAXP compatible processor.
+<p></p>
+</blockquote>
+<a name="javaxslt-CHP-5-EX-1" /></a><div class="example">
+<h4 class="objtitle">Example 5-1. SimpleXalan1.java </h4>
+<blockquote><pre class="code">package chap5;
+
+import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
+import org.xml.sax.SAXException;
+
+
+/**
+ * A simple demo of Xalan 1. This code was originally written using
+ * Xalan 1.2.2.  It will not work with Xalan 2.
+ */
+public class SimpleXalan1 {
+
+    /**
+     * Accept two command line arguments: the name of an XML file, and
+     * the name of an XSLT stylesheet. The result of the transformation
+     * is written to stdout.
+     */
+    public static void main(String[] args)
+            throws MalformedURLException, SAXException {
+        if (args.length != 2) {
+            System.err.println("Usage:");
+            System.err.println("  java " + SimpleXalan1.class.getName( )
+                    + " xmlFileName xsltFileName");
+            System.exit(1);
+        }
+
+        String xmlFileName = args[0];
+        String xsltFileName = args[1];
+
+        String xmlSystemId = new File(xmlFileName).toURL().toExternalForm( );
+        String xsltSystemId = new File(xsltFileName).toURL().toExternalForm( );
+
+        org.apache.xalan.xslt.XSLTProcessor processor =
+                org.apache.xalan.xslt.XSLTProcessorFactory.getProcessor( );
+
+        org.apache.xalan.xslt.XSLTInputSource xmlInputSource =
+                new org.apache.xalan.xslt.XSLTInputSource(xmlSystemId);
+
+        org.apache.xalan.xslt.XSLTInputSource xsltInputSource =
+                new org.apache.xalan.xslt.XSLTInputSource(xsltSystemId);
+
+        org.apache.xalan.xslt.XSLTResultTarget resultTree =
+                new org.apache.xalan.xslt.XSLTResultTarget(System.out);
+
+        processor.process(xmlInputSource, xsltInputSource, resultTree);
+    }
+}</pre></blockquote>
+</div>
+
+<p>The code begins with the usual list of imports and the class
+declaration, followed by a simple check to ensure that two command
+line arguments are provided. If all is OK, then the XML file name and
+XSLT file name are converted into <em class="emphasis">system
+identifier</em><a name="INDEX-485" /></a> values:
+</p>
+
+<blockquote><pre class="code">String xmlSystemId = new File(xmlFileName).toURL().toExternalForm( );
+String xsltSystemId = new File(xsltFileName).toURL().toExternalForm( );</pre></blockquote>
+
+<p>System identifiers are part of the XML specification and really mean
+the same thing as a <a name="INDEX-486" /></a>Uniform Resource Identifier (URI).
+A <a name="INDEX-487" /></a>Uniform Resource Locator (URL) is a
+specific type of URI and can be used for methods that require system
+identifiers as parameters. From a Java programming perspective, this
+means that a platform-specific filename such as
+<em class="filename">C:/data/simple.xml</em> needs to be converted to
+<em class="emphasis">file:///C:/data/simple.xml</em> before
+it can be used by most XML APIs. The code shown here does the
+conversion and will work on Unix, Windows, and other platforms
+supported by Java. Although you could try to manually prepend the
+filename with the literal string <tt class="literal">file:///</tt>, that
+may not result in portable code. The documentation for
+<tt class="literal">java.io.File</tt> clearly states that its
+<tt class="literal">toURL( )</tt><a name="INDEX-488" /></a>
+<a name="INDEX-489" /></a> method generates a system-dependent URL, so
+the results will vary when the same code is executed on a non-Windows
+platform. In fact, on Windows the code actually produces a
+nonstandard URL (with a single slash), although it does work within
+Java programs: <em class="emphasis">file:/C:/data/simple.xml</em>.
+</p>
+
+<p>Now that we have system identifiers for our two input files, an
+instance of the XSLT processor is created:
+</p>
+
+<blockquote><pre class="code">org.apache.xalan.xslt.XSLTProcessor processor =
+        org.apache.xalan.xslt.XSLTProcessorFactory.getProcessor( );</pre></blockquote>
+
+<p><tt class="literal">XSLTProcessor</tt><a name="INDEX-490" /></a> is an interface, and
+<tt class="literal">XSLTProcessorFactory</tt><a name="INDEX-491" /></a> is a factory for creating new instances
+of classes that implement it. Because Xalan is open source software,
+it is easy enough to determine that <tt class="literal">XSLTEngineImpl</tt>
+is the class that implements the <tt class="literal">XSLTProcessor</tt>
+interface, although you should try to avoid code that depends on the
+specific implementation.
+</p>
+
+<p>The next few lines of code create <tt class="literal">XSLTInputSource</tt>
+objects, one for the XML file and another for the XSLT file:
+</p>
+
+<blockquote><pre class="code">org.apache.xalan.xslt.XSLTInputSource xmlInputSource =
+        new org.apache.xalan.xslt.XSLTInputSource(xmlSystemId);
+
+org.apache.xalan.xslt.XSLTInputSource xsltInputSource =
+        new org.apache.xalan.xslt.XSLTInputSource(xsltSystemId);</pre></blockquote>
+
+<p><tt class="literal">XSLTInputSource</tt> is a subclass of
+<tt class="literal">org.xml.sax.InputSource</tt>, adding the ability to
+read directly from a DOM <tt class="literal">Node</tt>.
+<tt class="literal">XSLTInputSource</tt> has the ability to read XML or
+XSLT data from a system ID, <tt class="literal">java.io.InputStream</tt>,
+<tt class="literal">java.io.Reader</tt>,
+<tt class="literal">org.w3c.dom.Node</tt>, or an existing
+<tt class="literal">InputSource</tt>. As shown in the code, the source of
+the data is specified in the constructor.
+<tt class="literal">XSLTInputSource</tt> also has a
+<tt class="literal">no-arg</tt> constructor, along with get/set methods for
+each of the supported data source types.
+</p>
+
+<p>An instance of <tt class="literal">XSLTResultTarget</tt> is created next,
+sending the result of the transformation to
+<tt class="literal">System.out</tt>:
+</p>
+
+<blockquote><pre class="code">org.apache.xalan.xslt.XSLTResultTarget resultTree =
+        new org.apache.xalan.xslt.XSLTResultTarget(System.out);</pre></blockquote>
+
+<p>In a manner similar to <tt class="literal">XSLTInputSource</tt>, the
+<tt class="literal">XSLTResultTarget</tt> can also be wrapped around an
+instance of <tt class="literal">org.w3c.dom.Node</tt>, an
+<tt class="literal">OutputStream</tt> or <tt class="literal">Writer</tt>, a
+filename (not a system ID!), or an instance of
+<tt class="literal">org.xml.sax.DocumentHandler</tt>.
+</p>
+
+<p>The final line of code simply instructs the processor to perform the
+transformation:
+</p>
+
+<a name="INDEX-492" /></a><blockquote><pre class="code">processor.process(xmlInputSource, xsltInputSource, resultTree);</pre></blockquote>
+
+</div>
+<a name="javaxslt-CHP-5-SECT-1.3" /></a><div class="sect2">
+<h3 class="sect2">5.1.3. SAXON Implementation</h3>
+
+<p>F<a name="INDEX-493" /></a>or
+comparison, a SAXON 5.5.1 implementation is presented in <a href="ch05_01.htm#javaxslt-CHP-5-EX-2">Example 5-2</a>. As you scan through the code, you will notice
+the word "trax" appearing in the Java packages. This is
+an indication that Version 5.5.1 of SAXON was moving towards
+something called Transformation API for XML (TrAX). More information
+on TrAX is coming up in the JAXP discussion. In a nutshell, TrAX
+provides a uniform API that should work with any XSLT processor.
+</p>
+
+<a name="javaxslt-CHP-5-EX-2" /></a><div class="example">
+<h4 class="objtitle">Example 5-2. SimpleSaxon.java </h4>
+<blockquote><pre class="code">package chap5;
+
+import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
+import org.xml.sax.SAXException;
+
+/**
+ * A simple demo of SAXON. This code was originally written using
+ * SAXON 5.5.1.
+ */
+public class SimpleSaxon {
+
+    /**
+     * Accept two command line arguments: the name of an XML file, and
+     * the name of an XSLT stylesheet. The result of the transformation
+     * is written to stdout.
+     */
+    public static void main(String[] args)
+            throws MalformedURLException, IOException, SAXException {
+        if (args.length != 2) {
+            System.err.println("Usage:");
+            System.err.println("  java " + SimpleSaxon.class.getName( )
+                    + " xmlFileName xsltFileName");
+            System.exit(1);
+        }
+
+        String xmlFileName = args[0];
+        String xsltFileName = args[1];
+
+        String xmlSystemId = new File(xmlFileName).toURL().toExternalForm( );
+        String xsltSystemId = new File(xsltFileName).toURL().toExternalForm( );
+
+        com.icl.saxon.trax.Processor processor =
+                com.icl.saxon.trax.Processor.newInstance("xslt");
+
+        // unlike Xalan, SAXON uses the SAX InputSource.  Xalan
+        // uses its own class, XSLTInputSource
+        org.xml.sax.InputSource xmlInputSource =
+                new org.xml.sax.InputSource(xmlSystemId);
+        org.xml.sax.InputSource xsltInputSource =
+                new org.xml.sax.InputSource(xsltSystemId);
+
+        com.icl.saxon.trax.Result result =
+                new com.icl.saxon.trax.Result(System.out);
+
+        // create a new compiled stylesheet
+        com.icl.saxon.trax.Templates templates =
+                processor.process(xsltInputSource);
+
+        // create a transformer that can be used for a single transformation
+        com.icl.saxon.trax.Transformer trans = templates.newTransformer( );
+        trans.transform(xmlInputSource, result);
+    }
+}</pre></blockquote>
+</div>
+
+<p>The SAXON implementation starts exactly as the Xalan implementation
+does. Following the class declaration, the command-line parameters
+are validated and then converted to system IDs. The XML and XSLT
+system IDs are then wrapped in
+<tt class="literal">org.xml.sax.InputSource</tt> objects as follows:
+</p>
+
+<blockquote><pre class="code">org.xml.sax.InputSource xmlInputSource =
+        new org.xml.sax.InputSource(xmlSystemId);
+org.xml.sax.InputSource xsltInputSource =
+        new org.xml.sax.InputSource(xsltSystemId);</pre></blockquote>
+
+<p>This code is virtually indistinguishable from the Xalan code, except
+Xalan uses <tt class="literal">XSLTInputSource</tt> instead of
+<tt class="literal">InputSource</tt>. As mentioned before,
+<tt class="literal">XSLTInputSource</tt> is merely a subclass of
+<tt class="literal">InputSource</tt> that adds support for reading from a
+DOM <tt class="literal">Node</tt>. SAXON also has the ability to read from
+a DOM node, although its approach is slightly different.
+</p>
+
+<p>Creating a <tt class="literal">Result</tt> object sets up the destination
+for the XSLT result tree, which is directed to
+<tt class="literal">System.out</tt> in this example:
+</p>
+
+<blockquote><pre class="code">com.icl.saxon.trax.Result result =
+        new com.icl.saxon.trax.Result(System.out);</pre></blockquote>
+
+<p>The XSLT stylesheet is then compiled, resulting in an object that can
+be used repeatedly from many concurrent threads:
+</p>
+
+<blockquote><pre class="code">com.icl.saxon.trax.Templates templates =
+        processor.process(xsltInputSource);</pre></blockquote>
+
+<p>In a typical XML and XSLT web site, the XML data is generated
+dynamically, but the same stylesheets are used repeatedly. For
+instance, stylesheets generating common headers, footers, and
+navigation bars will be used by many pages. To maximize performance,
+you will want to process the stylesheets once and reuse the instances
+for many clients at the same time. For this reason, the thread safety
+that <tt class="literal">Templates</tt> offers is critical.
+</p>
+
+<p>An instance of the <tt class="literal">Transformer</tt> class is then
+created to perform the actual transformation. Unlike the stylesheet
+itself, the transformer cannot be shared by many clients and is not
+thread-safe. If this was a servlet implementation, the
+<tt class="literal">Transformer</tt> instance would have to be created with
+each invocation of <tt class="literal">doGet</tt> or
+<tt class="literal">doPost</tt>. In our example, the code is as follows:
+</p>
+
+<a name="INDEX-494" /></a><a name="INDEX-495" /></a><a name="INDEX-496" /></a><blockquote><pre class="code">com.icl.saxon.trax.Transformer trans = templates.newTransformer( );
+trans.transform(xmlInputSource, result);
+</pre></blockquote>
+
+</div>
+<a name="javaxslt-CHP-5-SECT-1.4" /></a><div class="sect2">
+<h3 class="sect2">5.1.4. SAXON, Xalan, or TrAX?</h3>
+
+<p>As the previous examples show, SAXON and Xalan have many
+similarities. While similarities make learning the various APIs easy,
+they do not result in portable code. If you write code directly
+against either of these interfaces, you lock yourself into that
+particular implementation unless you want to rewrite your
+application.
+</p>
+
+<p>The other option is to write a facade around both processors,
+presenting a consistent interface that works with either processor
+behind the scenes. The only problem with this approach is that as new
+processors are introduced, you must update the implementation of your
+facade. It would be very difficult for one individual or organization
+to keep up with the rapidly changing world of XSLT processors.
+</p>
+
+<p>But if the facade was an open standard and supported by a large
+enough user base, the people and organizations that write the XSLT
+processors would feel pressure to adhere to the common API, rather
+than the other way around. TrAX was initiated in early 2000 as an
+effort to define a consistent API to any XSLT processor. Since some
+of the key people behind TrAX were also responsible for implementing
+some of the major XSLT processors, it was quickly accepted that TrAX
+would be a de facto standard, much in the way that SAX is.
+</p>
+
+</div>
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch05_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">4.4. Summary of Key Approaches</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">5.2. Introduction to JAXP 1.1</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm"></map>
+
+</body></html>

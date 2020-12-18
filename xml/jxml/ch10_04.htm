@@ -1,0 +1,801 @@
+<html><head><title>XSP (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch10_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch10_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">10.4. XSP</h2>
+
+<p><a name="INDEX-1055" />XSP stands for
+<a name="INDEX-1056" />Extensible
+Server Pages, and is perhaps the most important development coming
+out of the Cocoon project. <a name="INDEX-1057" />JavaServer Pages (JSP) allows tags and
+inline Java code to be inserted into an otherwise normal HTML page;
+when the JSP page is requested, the code is executed and the results
+are inserted right into the output HTML.<a href="#FOOTNOTE-17">[17]</a> This has taken the Java and ASP worlds by storm,
+ostensibly simplifying server-side Java programming and allowing a
+separation of output and logic. However, there are still some
+significant problems. First, <a name="INDEX-1058" />JSP
+does not really provide a separation of content and presentation.
+This is the same problem I have been talking about: changes to a
+banner, font color, or text size require the JSP (with the inline
+Java and JavaBean references) to be modified. JSP also mingles
+content (pure data) with presentation in the same way static HTML
+does. Second, there is no ability to transform the JSP into any other
+format, or use it across applications, because the JSP specification
+is designed primarily for delivery of output.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-17" /><p>[17]This is a
+drastic oversimplification; the JSP is actually precompiled into a
+servlet, and a <tt class="literal">PrintWriter</tt>  handles output. For
+more information on JSP, refer to <em class="emphasis">JavaServerPages</em> by Hans Bergsten (O'Reilly).</p>
+</blockquote>
+
+<p><a name="INDEX-1059" /> <a name="INDEX-1060" />XSP
+remedies these problems. XSP is simply XML at its heart. Take a look
+at the sample XSP page in <a href="ch10_04.htm#javaxml2-CHP-10-EX-7">Example 10-7</a>.
+</p>
+
+<a name="javaxml2-CHP-10-EX-7" /><div class="example">
+<h4 class="objtitle">Example 10-7. A simple XSP page </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+&lt;?cocoon-process type="xsp"?&gt;
+&lt;?cocoon-process type="xslt"?&gt;
+&lt;?xml-stylesheet href="myStylesheet.xsl" type="text/xsl"?&gt;
+
+&lt;xsp:page language="java" 
+          xmlns:xsp="http://www.apache.org/1999/XSP/Core"
+&gt;
+ 
+ &lt;xsp:logic&gt;
+  private static int numHits = 0; 
+  
+  private synchronized int getNumHits( ) { 
+   return ++numHits; 
+  }
+ &lt;/xsp:logic&gt;
+
+ &lt;page&gt;
+  &lt;title&gt;Hit Counter&lt;/title&gt;
+ 
+  &lt;p&gt;I've been requested &lt;xsp:expr&gt;getNumHits( )&lt;/xsp:expr&gt; times.&lt;/p&gt;
+ &lt;/page&gt;
+&lt;/xsp:page&gt;</pre></blockquote>
+</div>
+
+<p>All XML conventions are followed. For now, think of the
+<tt class="literal">xsp:logic</tt> element content as
+"off-limits" to the XML parser; I'll discuss that
+later. Other than that, the entire document is simply XML with some
+new elements. In fact, it references an <a name="INDEX-1061" />
+<a name="INDEX-1062" />XSL
+stylesheet that has nothing remarkable about it, as you can see in
+<a href="ch10_04.htm#javaxml2-CHP-10-EX-8">Example 10-8</a>.
+</p>
+
+<a name="javaxml2-CHP-10-EX-8" /><div class="example">
+<h4 class="objtitle">Example 10-8. XSL stylesheet for the XSP page </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+
+&lt;xsl:stylesheet version="1.0" 
+                xmlns:xsl="http://www.w3.org/1999/XSL/Transform" 
+&gt;
+
+  &lt;xsl:template match="page"&gt;
+    &lt;xsl:processing-instruction name="cocoon-format"&gt;
+      type="text/html"
+    &lt;/xsl:processing-instruction&gt;
+    &lt;html&gt;
+      &lt;head&gt;
+        &lt;title&gt;&lt;xsl:value-of select="title"/&gt;&lt;/title&gt;
+      &lt;/head&gt;
+      &lt;body&gt;
+        &lt;xsl:apply-templates select="*[not(self::title)]" /&gt;
+      &lt;/body&gt;
+    &lt;/html&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="p"&gt;
+    &lt;p align="center"&gt;
+      &lt;xsl:apply-templates /&gt;
+    &lt;/p&gt;
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+</div>
+
+<p>Thus, XSP easily handles the first major problem of JSP: it separates
+content from presentation. This separation allows developers to
+handle content generation (the XSP page can be generated from a
+servlet or other Java code as well as being static), while XML and
+XSL authors can handle presentation and styling through modification
+of the XSL stylesheet applied to the XSP page. Just as easily, XSP
+solves the other significant deficiency of JSP: because XSP
+processing occurs before any stylesheets are applied, the resultant
+XML document can be transformed into any other format. XSP maintains
+all the advantages of XML, as the XSP page can be transferred between
+applications as well as being used just for presentation.
+</p>
+
+<a name="javaxml2-CHP-10-SECT-4.1" /><div class="sect2">
+<h3 class="sect2">10.4.1. Creating an XSP Page</h3>
+
+<p><a name="INDEX-1063" />Now
+that you have had a taste of XSP, you can build your own XSP page.
+For this example, I'll continue looking at the XML documents
+already created. Let's revisit the XML document constructed
+earlier. This document represents a portion of this chapter and was
+transformed into a PDF document. Instead of simply using this
+document for display, assume that the author wants to let his editor
+view the document as it is being written. However, in addition to the
+text of the book, the editor should be able to see comments from the
+author that the public should not see: for example, questions about
+style and formatting. First, add the following comment to the
+<em class="emphasis">chapterTen.xml</em><a name="INDEX-1064" />
+file you built earlier:
+</p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+
+&lt;?cocoon-process type="xslt"?&gt;
+&lt;?xml-stylesheet href="XSL/JavaXML.fo.xsl" type="text/xsl"?&gt;
+
+&lt;book&gt;
+ &lt;cover&gt;
+  &lt;title&gt;Java and XML&lt;/title&gt;
+  &lt;author&gt;Brett McLaughlin&lt;/author&gt;
+ &lt;/cover&gt;
+
+ &lt;contents&gt;
+  &lt;chapter title="Web Publishing Frameworks" number="10"&gt;
+      
+   &lt;paragraph&gt; This chapter begins looking at specific Java and XML 
+topics. So far, I have covered the basics of using XML from Java, 
+looking at the SAX, DOM, JDOM, and JAXP APIs to manipulate XML and the 
+fundamentals of using and creating XML itself. Now that you have a grasp 
+on using XML from your code, I want to spend time on specific 
+applications. The next six chapters represent the most significant 
+applications of XML, and, in particular, how those applications are 
+implemented in the Java space. While there are literally thousands of 
+important applications of XML, the topics in these chapters are those 
+that continually seem to be in the spotlight, and that have a significant
+potential to change the way traditional development processes occur. 
+   &lt;/paragraph&gt;
+   <tt class="userinput"><b>
+   &lt;authorComment&gt;Mike - Do you think the following sidebar is a little
+   much? I could easily leave it out if it's still clear without it.
+   &lt;/authorComment&gt;</b></tt>
+
+    &lt;sidebar title="The More Things Change, the More They Stay the Same"&gt;
+Readers of the first edition of this book will find that 
+much of this chapter on Cocoon is the same as the first edition. Although
+I promised you that Cocoon 2 would be out by now, and although I expected
+to be writing a chapter on Cocoon 2, things haven't progressed as quickly
+as expected. Stefano Mazzochi, the driving force behind Cocoon, finally 
+got around to finishing school (good choice, Stefano!), and so 
+development on Cocoon 2 has significantly slowed. The result is that 
+Cocoon 1.x is still the current development path, and you should stick 
+with it for now. I've updated the section on Cocoon 2 to reflect what is 
+coming, and you should keep an eye out for more Cocoon-related books from
+O'Reilly in the months to come.&lt;/sidebar&gt;
+
+   &lt;paragraph&gt; I'll begin this look at hot topics with the one XML 
+application that seems to have generated the largest amount of excitement
+in the XML and Java communities: the web publishing framework. Although 
+I have continually emphasized that generating presentation from content 
+is perhaps over-hyped when compared to the value of the portable data 
+that XML provides, using XML for presentation styling is still very 
+important. This importance increases when looking at web-based 
+applications.&lt;/paragraph&gt;
+  &lt;/chapter&gt;
+
+ &lt;/contents&gt;
+&lt;/book&gt;</pre></blockquote>
+
+<p>With this comment in your XML document, add a corresponding entry
+into your XSL stylesheet, <em class="emphasis">JavaXML.fo.xsl</em><a name="INDEX-1065" />
+<a name="INDEX-1066" />:
+</p>
+
+<blockquote><pre class="code">  &lt;xsl:template match="sidebar"&gt;
+    &lt;fo:block font-size="14pt"
+              font-style="italic"
+              color="blue" 
+              space-before.optimum="16pt" 
+              text-align="center"&gt;
+      &lt;xsl:value-of select="@title" /&gt;
+    &lt;/fo:block&gt;
+    &lt;fo:block font-size="12pt"
+              color="blue" 
+              space-before.optimum="16pt" 
+              text-align="justify"&gt;
+      &lt;xsl:apply-templates/&gt;
+    &lt;/fo:block&gt;
+  &lt;/xsl:template&gt;
+<tt class="userinput"><b>
+  &lt;xsl:template match="authorComment"&gt;
+   &lt;fo:block font-size="10pt" 
+             font-style="italic" 
+             color="red" 
+             space-before.optimum="12pt" 
+             text-align="justify"&gt;
+     &lt;xsl:apply-templates/&gt;
+   &lt;/fo:block&gt;
+  &lt;/xsl:template&gt;</b></tt></pre></blockquote>
+<p>The comments appear slightly smaller than the rest of the text,
+italicized, and in red. Now it's possible to turn your XML
+document into an XSP page (as in <a href="ch10_04.htm#javaxml2-CHP-10-EX-9">Example 10-9</a>) by
+adding processing instructions for Cocoon and surrounding the
+elements within a new root element, xsp:page.
+</p>
+
+<a name="javaxml2-CHP-10-EX-9" /><div class="example">
+<h4 class="objtitle">Example 10-9. Turning chapterTen.xml into an XSP page </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+
+<tt class="userinput"><b>&lt;?cocoon-process type="xsp"?&gt;</b></tt>
+&lt;?cocoon-process type="xslt"?&gt;
+&lt;?xml-stylesheet href="XSL/JavaXML.fo.xsl" type="text/xsl"?&gt;
+
+<tt class="userinput"><b>&lt;xsp:page language="java"
+          xmlns:xsp="http://www.apache.org/1999/XSP/Core"</b></tt>
+&gt;
+&lt;book&gt;
+ &lt;cover&gt;
+  &lt;title&gt;Java and XML&lt;/title&gt;
+  &lt;author&gt;Brett McLaughlin&lt;/author&gt;
+ &lt;/cover&gt;
+
+ &lt;contents&gt;
+  &lt;chapter title="Web Publishing Frameworks" number="10"&gt;
+  &lt;!-- Text of chapter --&gt;
+  &lt;/chapter&gt;
+ &lt;/contents&gt;
+&lt;/book&gt;
+<tt class="userinput"><b>&lt;/xsp:page&gt;</b></tt></pre></blockquote>
+</div>
+
+<p>Before adding XSP logic to determine whether to show the comment,
+build a simple HTML page letting the viewer indicate if he is the
+book's editor. In a real application, this could be a page that
+handles authentication and determines a user's role; for this
+example, it lets the user select author, editor, or just a curious
+reader, and enter a password for verification. An HTML page that does
+this is shown in <a href="ch10_04.htm#javaxml2-CHP-10-EX-10">Example 10-10</a>. Save this file as
+<em class="emphasis">entry.html</em> in your
+context's document root.
+</p>
+
+<a name="javaxml2-CHP-10-EX-10" /><div class="example">
+<h4 class="objtitle">Example 10-10. Entry page for chapterTen.xml XSP page </h4>
+<blockquote><pre class="code">&lt;html&gt;
+ &lt;head&gt;
+  &lt;title&gt;Welcome to the Java and XML Book in Progress&lt;/title&gt;
+ &lt;/head&gt;
+
+ &lt;body&gt;
+  &lt;h1 align="center"&gt;&lt;i&gt;Java and XML&lt;/i&gt; Book in Progress&lt;/h1&gt;
+  &lt;center&gt;
+   &lt;form action="/cocoon/chapterTen.xml" method="POST"&gt;
+    Select your role:
+    &lt;select name="userRole"&gt;
+     &lt;option value="author"&gt;I'm the Author&lt;/option&gt;
+     &lt;option value="editor"&gt;I'm the Editor&lt;/option&gt;
+     &lt;option value="reader"&gt;I'm a Reader&lt;/option&gt;
+    &lt;/select&gt;
+    &lt;br /&gt;
+    Enter your password:
+    &lt;input type="password" name="password" size="8" /&gt;
+    &lt;br /&gt;&lt;br /&gt;
+    &lt;input type="submit" value="Take me to the Book!" /&gt;
+   &lt;/form&gt;
+  &lt;/center&gt;
+ &lt;/body&gt;
+&lt;/html&gt;</pre></blockquote>
+</div>
+
+<p>Also notice that this HTML submits the form data directly to your XSP
+page. In this example, the XSP acts like a servlet. It reads the
+request parameters, determines what user role was selected,
+authenticates that role using the password supplied, and finally
+determines whether the author comments should be shown. To begin,
+define a <tt class="literal">boolean</tt> variable; this variable holds the
+result of comparing the request parameters to see if the user is an
+author or editor and supplied a correct password. The value of the
+variable is checked, and if it is true, the
+<tt class="literal">authorComment</tt> element is displayed; surround the
+<tt class="literal">authorComment</tt> element with the XSP directives
+shown here:
+</p>
+
+<blockquote><pre class="code"><tt class="userinput"><b>
+   &lt;xsp:logic&gt;
+    boolean authorOrEditor = false;
+
+    // Perform logic to see if user is an author or editor
+
+    if (authorOrEditor) {
+      &lt;xsp:content&gt;   </b></tt>
+        &lt;authorComment&gt;Mike - Do you think the following sidebar is 
+        a little much? I could easily leave it out if it's still 
+        clear without it.&lt;/authorComment&gt;<tt class="userinput"><b>
+      &lt;/xsp:content&gt;
+    }
+   &lt;/xsp:logic&gt;</b></tt></pre></blockquote>
+<p>This shouldn't look strange; other than the XSP-specific tags,
+you're just defining a variable and checking its value. If the
+variable evaluates to true, the authorComment element is added to the
+XSP page's output; otherwise, the element is not included in
+the output. One interesting thing to note is that the actual XML
+document output is surrounded within the xsp:logic block with an
+xsp:content element (which in turn is within the outer xsp:page
+element), ensuring that the XSP processor does not try to interpret
+any elements or text within the block as XSP structures. The same
+code in JSP might look like this:
+</p>
+<blockquote><pre class="code">
+&lt;%
+ if (authorOrEditor) {
+%&gt;
+        &lt;authorComment&gt;Mike - Do you think the following sidebar is 
+        a little much? I could easily leave it out if it's still 
+        clear without it.&lt;/authorComment&gt;
+&lt;%
+ }
+%&gt;</pre></blockquote>
+
+<p>This is not very structured, as the JSP block ends before the
+<tt class="literal">authorComment</tt> element begins; then a new block is
+appended after the element, which closes the brackets opened in the
+first JSP block. It is very easy to mismatch coding structures or
+forget to add matching JSP blocks. The XSP paradigm forces every open
+element to be closed (standard XML well-formedness) and one block of
+code is matched with one element.
+</p>
+
+<p>With these logical structures in place, the XSP page just needs to
+interpret the request parameters. You can use the built-in XSP
+variable <tt class="literal">request</tt>, which mimics the
+<tt class="literal">javax.servlet.http.HttpServletRequest</tt> object. The
+following code additions read the values of the
+<tt class="literal">userRole</tt> and <tt class="literal">password</tt> request
+parameters (if they exist). The value of <tt class="literal">userRole</tt>
+is then compared with the roles that can see the comments
+("author" and "editor"). If a match occurs,
+the password is checked as well. If the password matches the key for
+the supplied role, the <tt class="literal">boolean</tt> variable is set to
+true, and the <tt class="literal">authorComment</tt> element is part of the
+XML output:
+</p>
+
+<blockquote><pre class="code">   &lt;xsp:logic&gt;
+    boolean authorOrEditor = false;
+
+    // Perform logic to see if user is an author or editor<tt class="userinput"><b>
+ &lt;![CDATA[
+ String[] roleValues = request.getParameterValues("userRole");
+ String[] passwordValues = request.getParameterValues("password");
+ if ((roleValues != null) &amp;&amp; (passwordValues != null)) {
+   String userRole = roleValues[0];
+   String password = passwordValues[0];
+   if (userRole.equals("author") &amp;&amp; password.equals("brett")) {
+     authorOrEditor = true;
+   } else
+     if (userRole.equals("editor") &amp;&amp; password.equals("mike")) {
+     authorOrEditor = true;
+   }
+ }
+ ]]&gt;</b></tt>
+    
+    if (authorOrEditor) {
+...</pre></blockquote>
+
+<p>Notice that I enclose a good bit of this logic within a
+<tt class="literal">CDATA</tt> tag. Remember that XSP is still evaluated as
+XML, and must follow the rules of an XML document; however, the
+double quotes and ampersands used in the Java fragments are not
+allowed in XML documents. Instead of escaping these characters and
+getting a very strange XSP fragment, you can use the
+<tt class="literal">CDATA</tt> tag and write standard Java code. Without
+it, you would have to code as follows:
+</p>
+
+<blockquote><pre class="code">&lt;xsp:logic&gt;
+ boolean authorOrEditor = false;
+
+ String[] roleValues = 
+   request.getParameterValues(&amp;quot;userRole&amp;quot;);
+ String[] passwordValues = 
+   request.getParameterValues(&amp;quot;password&amp;quot;);
+ if ((roleValues != null) &amp;amp;&amp;amp; 
+     (passwordValues != null)) {
+   String userRole = roleValues[0];
+   String password = passwordValues[0];
+   if (userRole.equals("author") &amp;amp;&amp;amp; 
+       password.equals("brett")) {
+     authorOrEditor = true;
+   } else
+   if (userRole.equals("editor") &amp;amp;&amp;amp; 
+       password.equals("mike")) {
+     authorOrEditor = true;
+   }
+ }
+...
+&lt;/xsp:logic&gt;</pre></blockquote>
+
+<p>Now test the entry page and the resultant PDF generated from the XML.
+You should get output similar to <a href="ch10_04.htm#javaxml2-CHP-10-FIG-8">Figure 10-8</a> if you
+direct your web browser to <em class="emphasis">http://&lt;hostname&gt;:&lt;port&gt;/cocoon/entry.html</em>.
+</p>
+
+<a name="javaxml2-CHP-10-FIG-8" /><div class="figure"><img height="275" alt="Figure 10-8" src="figs/javax_1008.gif" width="481" /></div><h4 class="objtitle">Figure 10-8. Entry page for chapterTen.xml XSP page</h4>
+
+<p>Select the role of author and use the password "brett",
+or select the editor role with the password "mike".
+Either case gives you the PDF output shown in <a href="ch10_04.htm#javaxml2-CHP-10-FIG-9">Figure 10-9</a>. 
+</p>
+
+<a name="javaxml2-CHP-10-FIG-9" /><div class="figure"><img height="343" alt="Figure 10-9" src="figs/javax_1009.gif" width="481" /></div><h4 class="objtitle">Figure 10-9. XSP output with author or editor role</h4>
+
+<p>The one thing that has not yet been done is to isolate the
+page's logic from its content. Just as JSP allows inclusion of
+JavaBeans to abstract the content and presentation from the logic of
+an application component, XSP allows tag libraries to be created.
+These tag libraries allow XML tags to trigger the matching code
+within a tag library.<a name="INDEX-1067" /> 
+</p>
+
+</div>
+<a name="javaxml2-CHP-10-SECT-4.2" /><div class="sect2">
+<h3 class="sect2">10.4.2. Using XSP Tag Libraries</h3>
+
+<p>In addition to showing comments based on the user's identity,
+the XSP page should indicate that the chapter is in a draft state.
+The current date can be shown to indicate the date of the draft (then
+the date is frozen when the chapter is considered complete). Instead
+of adding inline Java tags to load the current date, simply create a
+custom tag library for this purpose. It's also worth looking at
+the process of creating an XSP element that takes in the chapter
+number and title and formats the complete title. This function will
+handle the insertion of the draft date, as well. To do this, you
+first need to create a tag library that is available to the XSP page.
+Much of the tag library is based on an XSL stylesheet. You can start
+with the skeleton shown in <a href="ch10_04.htm#javaxml2-CHP-10-EX-11">Example 10-11</a>, which passes
+anything it receives through as output. Save this skeleton as
+<em class="emphasis">JavaXML.xsp.xsl</em> in the
+<em class="emphasis">XSL/</em> subdirectory. Be sure to
+include the <tt class="literal">javaxml2</tt> namespace declaration, as it
+will be used to match elements within that namespace used in the XSP
+pages.
+</p>
+
+<a name="javaxml2-CHP-10-EX-11" /><div class="example">
+<h4 class="objtitle">Example 10-11. Skeleton of XSP tag library </h4>
+<blockquote><pre class="code">&lt;?xml version="1.0"?&gt;
+
+&lt;xsl:stylesheet version="1.0"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:xsp="http://www.apache.org/1999/XSP/Core"
+  xmlns:javaxml2="http://www.oreilly.com/javaxml2"
+&gt;
+  &lt;xsl:template match="xsp:page"&gt;
+    &lt;xsp:page&gt;
+      &lt;xsl:copy&gt;
+        &lt;xsl:apply-templates select="@*"/&gt;
+      &lt;/xsl:copy&gt;
+
+      &lt;xsl:apply-templates/&gt;
+    &lt;/xsp:page&gt;
+  &lt;/xsl:template&gt;
+
+  &lt;xsl:template match="@*|*|text()|processing-instruction( )"&gt;
+    &lt;xsl:copy&gt;
+      &lt;xsl:apply-templates 
+           select="@*|*|text()|processing-instruction( )"/&gt;
+    &lt;/xsl:copy&gt;
+  &lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;</pre></blockquote>
+</div>
+
+<p>By matching the <tt class="literal">xsp:page</tt> tag, it's possible
+to ensure that all elements are matched and handled within this
+stylesheet; this is referred to as a <em class="filename">logicsheet</em>
+in XSP parlance. Now add Java methods for the templates within this
+logicsheet to call:
+</p>
+
+<blockquote><pre class="code">  &lt;xsl:template match="xsp:page"&gt;
+    &lt;xsp:page&gt;
+      &lt;xsl:copy&gt;
+        &lt;xsl:apply-templates select="@*"/&gt;
+      &lt;/xsl:copy&gt;
+<tt class="userinput"><b>
+      &lt;xsp:structure&gt;
+        &lt;xsp:include&gt;java.util.Date&lt;/xsp:include&gt;
+        &lt;xsp:include&gt;java.text.SimpleDateFormat&lt;/xsp:include&gt;
+      &lt;/xsp:structure&gt;
+
+      &lt;xsp:logic&gt;
+        private static String getDraftDate( ) {
+          return (new SimpleDateFormat("MM/dd/yyyy"))
+            .format(new Date( ));
+        }
+
+        private static String getTitle(int chapterNum, 
+                                       String chapterTitle) {
+          return chapterNum + ". " + chapterTitle;
+        }
+      &lt;/xsp:logic&gt;</b></tt>
+
+      &lt;xsl:apply-templates/&gt;
+    &lt;/xsp:page&gt;
+  &lt;/xsl:template&gt;</pre></blockquote>
+
+<p>Several new XSP elements are introduced here. First,
+<tt class="literal">xsp:structure</tt> is used to surround several
+<tt class="literal">xsp:include</tt> statements. These work just like their
+Java counterpart, <tt class="literal">import</tt>, making the specified
+Java classes available for use by their unqualified names (rather
+than the complete packaged names). Once these are available, the
+logicsheet defines and implements two methods: one that creates a
+chapter title from the chapter number and textual title, and one that
+returns the current date as a formatted <tt class="literal">String</tt>.
+These methods are available to any elements within this logicsheet.
+</p>
+
+<p>Now define the element that specifies when an XSP result should
+replace an XML element. The <tt class="literal">javaxml2</tt>-associated
+namespace is already declared in the root element, so it can be used
+as the namespace for the new tag library elements. Add the following
+template into your logicsheet:
+</p>
+
+<blockquote><pre class="code"><tt class="userinput"><b>
+  &lt;!-- Create formatted title --&gt;
+  &lt;xsl:template match="javaxml2:draftTitle"&gt;
+    &lt;xsp:expr&gt;getTitle(&lt;xsl:value-of select="@chapterNum" /&gt;,
+                       "&lt;xsl:value-of select="@chapterTitle" /&gt;")
+    &lt;/xsp:expr&gt; (&lt;xsp:expr&gt;getDraftDate( )&lt;/xsp:expr&gt;)
+  &lt;/xsl:template&gt;</b></tt>
+
+  &lt;xsl:template match="@*|*|text()|processing-instruction( )"&gt;
+    &lt;xsl:copy&gt;
+      &lt;xsl:apply-templates 
+           select="@*|*|text()|processing-instruction( )"/&gt;
+    &lt;/xsl:copy&gt;
+  &lt;/xsl:template&gt;</pre></blockquote>
+
+<p>When a document with this tag library uses the element
+<tt class="literal">javaxml2:draftTitle</tt> (or just
+<tt class="literal">draftTitle</tt> if the default namespace is mapped to
+<em class="emphasis">http://www.oreilly.com/javaxml2</em>),
+the result of the method <tt class="literal">getTitle( )</tt> is prepended
+to the value of the <tt class="literal">getDraftDate( )</tt> method. The
+<tt class="literal">javaxml2:draftTitle</tt> element also expects two
+attributes to be declared: the chapter number and the textual title
+of the chapter. Signify to the XSP processor that you are calling a
+defined method by enclosing the method call within a set of
+<tt class="literal">&lt;xsp:expr&gt;</tt> tags. To indicate that the second
+argument (the chapter title) is a <tt class="literal">String</tt>, it
+should be enclosed within quotes. Since the chapter number should be
+treated as an <tt class="literal">int</tt>, it is left without quotation
+marks.
+</p>
+
+<p>Once you have completed the XSP logicsheet (available online at the
+book's web site as well), you need to make it accessible to
+Cocoon. This can be done one of two ways. The first is to specify the
+location of the file as a URI, which allows the servlet engine (and
+therefore Cocoon) to locate the logicsheet. For example, to add the
+XSP logicsheet to Cocoon's set of resources through its URI,
+you could add the following lines to the <em class="emphasis">cocoon.properties</em> file on a Unix-based
+system:
+</p>
+
+<blockquote><pre class="code"># Set the libraries associated with the given namespace.
+# Use the syntax:
+#   processor.xsp.logicsheet.&lt;namespace-tag&gt;.&lt;language&gt; = URL to file
+# where "URL to file" is usually starting with file:// if you locate
+# your custom library in your file system.
+processor.xsp.logicsheet.context.java  =resource://org/apache/cocoon/processor/
+xsp/library/java/context.xsl
+processor.xsp.logicsheet.cookie.java   =resource://org/apache/cocoon/processor/
+xsp/library/java/cookie.xsl
+processor.xsp.logicsheet.global.java   =resource://org/apache/cocoon/processor/
+xsp/library/java/global.xsl
+processor.xsp.logicsheet.request.java  =resource://org/apache/cocoon/processor/
+xsp/library/java/request.xsl
+processor.xsp.logicsheet.response.java =resource://org/apache/cocoon/processor/
+xsp/library/java/response.xsl
+processor.xsp.logicsheet.session.java  =resource://org/apache/cocoon/processor/
+xsp/library/java/session.xsl
+processor.xsp.logicsheet.util.java     = 
+  resource://org/apache/cocoon/processor/xsp/library/java/util.xsl
+processor.xsp.logicsheet.sql.java      = 
+  resource://org/apache/cocoon/processor/xsp/library/sql/sql.xsl
+processor.xsp.logicsheet.esql.java      = 
+  resource://org/apache/cocoon/processor/xsp/library/sql/esql.xsl
+processor.xsp.logicsheet.fp.java       = 
+  resource://org/apache/cocoon/processor/xsp/library/fp/fp.xsl
+<tt class="userinput"><b>
+processor.xsp.library.JavaXML.java = 
+  file:///usr/local/jakarta-tomcat/webapps/cocoon/XSL/JavaXML.xsp.xsl</b></tt></pre></blockquote>
+<p>For Windows systems, this would be:</p>
+<blockquote><pre class="code">
+# Set the libraries associated with the given namespace.
+# Use the syntax:
+#   processor.xsp.logicsheet.&lt;namespace-tag&gt;.&lt;language&gt; = URL to file
+# where "URL to file" is usually starting with file:// if you locate
+# your custom library in your file system.
+processor.xsp.logicsheet.context.java  =resource://org/apache/cocoon/processor/
+xsp/library/java/context.xsl
+processor.xsp.logicsheet.cookie.java   =resource://org/apache/cocoon/processor/
+xsp/library/java/cookie.xsl
+processor.xsp.logicsheet.global.java   =resource://org/apache/cocoon/processor/
+xsp/library/java/global.xsl
+processor.xsp.logicsheet.request.java  =resource://org/apache/cocoon/processor/
+xsp/library/java/request.xsl
+processor.xsp.logicsheet.response.java =resource://org/apache/cocoon/processor/
+xsp/library/java/response.xsl
+processor.xsp.logicsheet.session.java  =resource://org/apache/cocoon/processor/
+xsp/library/java/session.xsl
+processor.xsp.logicsheet.util.java     = 
+  resource://org/apache/cocoon/processor/xsp/library/java/util.xsl
+processor.xsp.logicsheet.sql.java      = 
+  resource://org/apache/cocoon/processor/xsp/library/sql/sql.xsl
+processor.xsp.logicsheet.esql.java      = 
+  resource://org/apache/cocoon/processor/xsp/library/sql/esql.xsl
+processor.xsp.logicsheet.fp.java       = 
+  resource://org/apache/cocoon/processor/xsp/library/fp/fp.xsl
+<tt class="userinput"><b>
+processor.xsp.library.javaxml2.java = 
+  file:///C:/java/jakarta-tomcat/webapps/cocoon/XSL/JavaXML.xsp.xsl</b></tt></pre></blockquote>
+<p>While this is handy for testing, it is not a very good solution for
+uncoupling your logicsheets from the servlet engine, and also adds
+quite a bit of maintenance overhead when adding new logicsheets: a
+new line would have to be added to the <em class="emphasis">cocoon.properties</em> file for new logicsheets to
+be available. Allowing specification of a resource in the servlet
+engine's classpath is an alternative method for loading
+logicsheets. This lets you add custom logicsheets to a <em class="emphasis">jar</em> file, and that <em class="emphasis">jar</em> file to the servlet engine classpath
+(which in Tomcat simply means adding that archive to the <em class="emphasis">lib/</em> directory!). In addition, new
+logicsheets can be put within the <em class="emphasis">jar</em> file, providing a central location for
+storing your custom XSP logicsheets. From the <em class="emphasis">XSL/</em> subdirectory in your web server's
+document root, perform the following command to create a <em class="emphasis">jar</em> file that contains your logicsheet:
+</p>
+<blockquote><pre class="code">
+jar cvf logicsheets.jar JavaXML.xsp.xsl</pre></blockquote>
+
+<p>Move the created <em class="emphasis">logicsheets.jar</em>
+archive into your <em class="emphasis">TOMCAT_HOME/lib/</em> directory
+with the other Cocoon libraries. That will ensure that Tomcat loads
+the library on startup. With your logicsheet available, you can now
+let Cocoon know where to look for
+<tt class="literal">javaxml2</tt>-associated namespace references within
+XSP pages. Edit the <em class="emphasis">cocoon.properties</em> file; locate the section
+that lists the various Cocoon XSP resources, and add the new
+logicsheet reference:
+</p>
+
+<blockquote><pre class="code"># Set the libraries associated with the given namespace.
+# Use the syntax:
+#   processor.xsp.logicsheet.&lt;namespace-tag&gt;.&lt;language&gt; = URL to file
+# where "URL to file" is usually starting with file:// if you locate
+# your custom library in your file system.
+processor.xsp.logicsheet.context.java  =resource://org/apache/cocoon/processor/
+xsp/library/java/context.xsl
+processor.xsp.logicsheet.cookie.java   =resource://org/apache/cocoon/processor/
+xsp/library/java/cookie.xsl
+processor.xsp.logicsheet.global.java   =resource://org/apache/cocoon/processor/
+xsp/library/java/global.xsl
+processor.xsp.logicsheet.request.java  =resource://org/apache/cocoon/processor/
+xsp/library/java/request.xsl
+processor.xsp.logicsheet.response.java =resource://org/apache/cocoon/processor/
+xsp/library/java/response.xsl
+processor.xsp.logicsheet.session.java  =resource://org/apache/cocoon/processor/
+xsp/library/java/session.xsl
+processor.xsp.logicsheet.util.java     = 
+  resource://org/apache/cocoon/processor/xsp/library/java/util.xsl
+processor.xsp.logicsheet.sql.java      = 
+  resource://org/apache/cocoon/processor/xsp/library/sql/sql.xsl
+processor.xsp.logicsheet.esql.java      = 
+  resource://org/apache/cocoon/processor/xsp/library/sql/esql.xsl
+processor.xsp.logicsheet.fp.java       = 
+  resource://org/apache/cocoon/processor/xsp/library/fp/fp.xsl
+<tt class="userinput"><b>
+processor.xsp.logicsheet.javaxml2.java = resource://JavaXML.xsp.xsl</b></tt></pre></blockquote>
+<p>Because the logicsheet is not nested within any subdirectories in the
+<em class="emphasis">logicsheets.jar</em> file, you can
+simply use the name of the logicsheet as its resource path. Finally,
+restart your servlet engine (this also ensures that Tomcat auto-loads
+the new library). This will reload the <em class="emphasis">cocoon.properties</em> file, and the logicsheet
+will be available for use. As the Cocoon engine is used to handle
+requests, any XSP page that declares that it uses the javaxml2
+namespace will have access to the logicsheet specified as the
+javaxml2 library. So the XSP page needs to add a namespace
+declaration for the javaxml2 namespace:
+</p>
+<blockquote><pre class="code">
+&lt;?xml version="1.0"?&gt;
+
+&lt;?cocoon-process type="xsp"?&gt;
+&lt;?cocoon-process type="xslt"?&gt;
+&lt;?xml-stylesheet href="XSL/JavaXML.fo.xsl" type="text/xsl"?&gt;
+
+&lt;xsp:page language="java"
+          xmlns:xsp="http://www.apache.org/1999/XSP/Core"<tt class="userinput"><b>
+          xmlns:javaxml2="http://www.oreilly.com/javaxml2"</b></tt>
+&gt;
+&lt;book&gt;
+  &lt;!-- Book content --&gt;
+&lt;/book&gt;
+&lt;/xsp:page&gt;</pre></blockquote>
+
+<p>With the tag library now available for use, you can finally add in
+the <tt class="literal">javaxml2:draftTitle</tt> element to your XML
+document, <em class="emphasis">chapterTen.xml</em>:
+</p>
+
+<blockquote><pre class="code">&lt;contents&gt;
+  &lt;chapter title="Web Publishing Frameworks" number="10"&gt;<tt class="userinput"><b>
+    &lt;javaxml2:draftTitle chapterNum="10"
+                         chapterTitle="Web Publishing Framework" /&gt;</b></tt>
+...</pre></blockquote>
+
+<p>Replace the hardcoded chapter title with the element defined in the
+XSP tag library with the following change to your <em class="emphasis">JavaXML.fo.xsl</em> stylesheet:
+</p>
+
+<blockquote><pre class="code">  &lt;xsl:template match="chapter"&gt;
+    &lt;fo:block font-size="24pt" 
+              text-align-last="center" 
+              space-before.optimum="24pt"&gt;<tt class="userinput"><b>
+&lt;!--              
+      &lt;xsl:value-of select="@number" /&gt;.
+      &lt;xsl:value-of select="@title" /&gt;
+--&gt;      </b></tt>
+      &lt;xsl:apply-templates/&gt;
+    &lt;/fo:block&gt;
+  &lt;/xsl:template&gt;</pre></blockquote>
+
+<p>This should generate the title with the chapter number, chapter
+title, and the date of the draft. Accessing this new version of the
+XSP page results in the output shown in <a href="ch10_04.htm#javaxml2-CHP-10-FIG-10">Figure 10-10</a>.
+</p>
+
+<a name="javaxml2-CHP-10-FIG-10" /><div class="figure"><img height="384" alt="Figure 10-10" src="figs/javax_1010.gif" width="481" /></div><h4 class="objtitle">Figure 10-10. Output using XSP tag library</h4>
+
+<p>I have only scratched the surface of XSP. Even this simple example
+allows the title to be converted to a different form by modifying
+only the XSP logicsheet -- not the content or presentation of the
+page -- when the chapter is complete. In the same way, XSP allows
+the creation of very strict contracts separating presentation from
+content from application logic. Adding server-side Java components
+such as Enterprise JavaBeans can bring business logic into the
+equation. Rather than using a less flexible solution like JSP that is
+coupled to HTML and a presentation format, using XSP allows a looser
+coupling of components and thus is a better solution for application
+development. XSP also promises to be key in the upcoming Cocoon 2.0,
+which I look at now.<a name="INDEX-1068" /><a name="INDEX-1069" /> 
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch10_03.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch10_05.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">10.3. Using a Publishing Framework</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">10.5. Cocoon 2.0 and Beyond</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

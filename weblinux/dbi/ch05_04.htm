@@ -1,0 +1,194 @@
+<?label 5.4. Binding Output Columns ?><html><head><title>Binding Output Columns  (Programming the Perl DBI)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Alligator Descartes and Tim Bunce" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565926994L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Programming the Perl DBI" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Programming the Perl DBI" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Programming the Perl DBI</a></td><td width="172" valign="top" align="right"><a href="ch05_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">5.4. Binding Output Columns </h2>
+
+
+
+<p>In <a name="INDEX-635" />the <a name="INDEX-636" />examples of
+fetching data that we've seen so far, a
+<tt class="literal">fetch()</tt> method has been called that returns values
+we've copied into Perl variables. For example:</p>
+
+
+
+<blockquote><pre class="code">while( ( $foo, $bar ) = $sth-&gt;fetchrow_array ) { ... }</pre></blockquote>
+
+
+
+<p>This syntax is fine, but it can get messy if many fields are being
+returned. It also involves extra copying of data, which can get
+expensive if many large strings are being fetched.</p>
+
+
+
+<p>DBI supports a feature that simplifies the fetching of data and
+avoids the extra copying. This has the desired effect of making
+fetches very fast. It's known as <em class="emphasis">binding
+columns</em>, and it works by nominating a Perl variable to be
+used directly for storing values of a particular column as they are
+fetched. This has the basic effect that when data is fetched from the
+database via a <tt class="literal">fetch(
+)</tt>
+<a name="INDEX-637" />
+<a name="INDEX-638" />
+<a name="INDEX-639" /> method,<a href="#FOOTNOTE-53">[53]</a> the Perl
+variables associated with each column are automatically updated with
+the fetched values.</p><blockquote>
+
+
+<a name="FOOTNOTE-53" /><p>[53]<tt class="literal">fetch( )</tt> is just a handy short alias for
+<tt class="literal">fetchrow_arrayref( )</tt>.</p>
+
+
+</blockquote>
+
+
+
+<p>The best way to illustrate this process is by an example:</p>
+
+
+
+<blockquote><pre class="code">### Perl variables to store the field data in
+my ( $name, $location, $type );
+
+### Prepare and execute the SQL statement
+$sth = $dbh-&gt;prepare( "
+            SELECT meg.name, meg.location, st.site_type
+            FROM megaliths meg, site_types st
+            WHERE meg.site_type_id = st.id
+          " );
+$sth-&gt;execute(  );
+
+### Associate Perl variables with each output column
+$sth-&gt;bind_col( 1, \$name );
+$sth-&gt;bind_col( 2, \$location );
+$sth-&gt;bind_col( 3, \$type );
+
+### Fetch the data from the result set
+while ( $sth-&gt;fetch ) {
+    print "$name is a $type located in $location\n";
+}</pre></blockquote>
+
+
+
+<p>The method we have used to explicitly associate the Perl variables to
+the output columns is <tt class="literal">bind_col(
+)</tt>
+<a name="INDEX-640" />
+<a name="INDEX-641" />,
+which takes the index of the column to associate, starting from 1,
+and a reference to the Perl variable to associate it with. Thus, when
+the <tt class="literal">fetch()</tt> call completes, the associated Perl
+variables will be automatically updated without having to explicitly
+assign the fetched values. This is an extremely efficient way of
+fetching data from the database, both from a programming perspective
+and also from a performance point of view. <tt class="literal">bind_col(
+)</tt> uses references to Perl variables, and, as such, there is
+no additional object or memory allocation when using bound output
+columns.</p>
+
+
+
+<p>To ensure maximum portability, <tt class="literal">bind_col( )</tt> should
+be called against an executed statement handle. For example, if your
+database does not return any real information from the
+<tt class="literal">prepare( )</tt> call, <tt class="literal">bind_col( )</tt>
+will not have sufficient information to succesfully associate the
+output columns with the Perl variables. This might lead to extremely
+peculiar results.</p>
+
+
+
+<p>Using <tt class="literal">bind_col( )</tt> to explicitly bind each column
+individually can get a bit tiresome, especially if many output
+columns are used. Fortunately, DBI defines an additional method
+called <tt class="literal">bind_columns(
+)</tt>
+<a name="INDEX-642" />
+<a name="INDEX-643" />
+that can be used to quickly specify column bindings for multiple
+columns in one call.</p>
+
+
+
+<p><tt class="literal">bind_columns( )</tt> works in an almost identical way
+to <tt class="literal">bind_col( )</tt> except that instead of explicitly
+specifying the column index to bind a Perl variable to, you simply
+specify the Perl variables and the column assignation occurs
+automatically. For example, the code from earlier can be rewritten in
+the following way to use <tt class="literal">bind_columns( )</tt>:</p>
+
+
+
+<blockquote><pre class="code">### Perl variables to store the field data in
+my ( $name, $location, $type );
+
+### Prepare and execute the SQL statement
+$sth = $dbh-&gt;prepare( "
+            SELECT meg.name, meg.location, st.site_type
+            FROM megaliths meg, site_types st
+            WHERE meg.site_type_id = st.id
+          " );
+$sth-&gt;execute(  );
+
+### Associate Perl variables with each output column
+$sth-&gt;bind_columns( undef, \$name, \$location, \$type );
+
+### Fetch the data from the result set
+while ( $sth-&gt;fetch ) {
+    print "$name is a $type located in $location\n";
+}</pre></blockquote>
+
+
+
+<p>It is important to know that the number of columns specified in the
+SQL statement and the number of Perl variables specified in
+<tt class="literal">bind_columns( )</tt> must match exactly. You cannot
+pick and choose which columns to fetch the data from as you can with
+<tt class="literal">bind_col( )</tt>.<a href="#FOOTNOTE-54">[54]</a></p><blockquote>
+
+
+<a name="FOOTNOTE-54" /><p>[54]The first argument to
+<tt class="literal">bind_columns( )</tt> is an <tt class="literal">undef</tt>,
+due to historical reasons. It's no longer required if you are
+using DBI 1.08 or later.</p>
+
+
+</blockquote>
+
+
+
+<p>Since <tt class="literal">bind_columns( )</tt> uses <tt class="literal">bind_col(
+)</tt> internally, the rules for using these two methods are the
+same.</p>
+
+
+
+<p>Finally, we should mention that bind values specified with a SQL
+statement are completely unrelated to the ability to bind Perl
+variables to output columns of an SQL statement. They are separate
+operations. Bind values operate at a database input level, whereas
+output column bindings operate purely at a Perl <a name="INDEX-644" />output
+<a name="INDEX-645" />level.</p>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch05_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch05_05.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">5.3. Binding Parameters to Statements </td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">5.5. do( ) Versus prepare( ) </td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

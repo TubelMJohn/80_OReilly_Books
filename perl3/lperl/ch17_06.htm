@@ -1,0 +1,338 @@
+<html><head><title>Slices (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch17_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch17_07.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">17.6. Slices</h2>
+
+<p><a name="INDEX-1121" />It often
+happens that we need to work with only a few elements from a given
+list. For example, the Bedrock Library keeps information about their
+patrons in a large file.<a href="#FOOTNOTE-370">[370]</a> Each
+line in the file describes one patron with six colon-separated
+fields: a person's name, library card number, home address,
+home phone number, work phone number, and number of items currently
+checked out. A little bit of the file looks something like this:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-370" /><p>[370]It should really be a
+full-featured database rather than a flat file. They plan to upgrade
+their system, right after the next Ice Age.</p> </blockquote>
+
+<blockquote><pre class="code">fred flintstone:2168:301 Cobblestone Way:555-1212:555-2121:3
+barney rubble:709918:3128 Granite Blvd:555-3333:555-3438:0</pre></blockquote>
+
+<p>One of the library's applications needs only the card numbers
+and number of items checked out; it doesn't use any of the
+other data. It could use code something like this to get only the
+fields it needs:
+</p>
+
+<blockquote><pre class="code">while (&lt;FILE&gt;) {
+  chomp;
+  my @items = split /:/;
+  my($card_num, $count) = ($items[1], $items[5]);
+  ...  # now work with those two variables
+}</pre></blockquote>
+
+<p>But the array <tt class="literal">@items</tt> isn't needed for
+anything else; it seems like a waste.<a href="#FOOTNOTE-371">[371]</a>
+Maybe it would be better to assign the result of
+<tt class="literal">split</tt><a name="INDEX-1122" /> to a list of scalars, like this:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-371" /><p>[371]It's not
+much of a waste, really. But stay with us. All of these techniques
+are used by programmers who don't understand slices, so
+it's worthwhile to see all of them here.</p> </blockquote>
+
+<blockquote><pre class="code">my($name, $card_num, $addr, $home, $work, $count) = split /:/;</pre></blockquote>
+
+<p>Well, that avoids the unneeded array
+<tt class="literal">@items</tt> -- but now we have four scalar variables
+that we didn't really need. For this situation, some people
+used to make up a number of dummy variable names, like
+<tt class="literal">$dummy_1</tt>, that showed that they really
+didn't care about that element from the
+<tt class="literal">split</tt>. But Larry thought that that was too much
+trouble, so he added a special use of
+<tt class="literal">undef</tt><a name="INDEX-1123" />. If
+an item in a list being assigned to is <tt class="literal">undef</tt>, that
+means simply to ignore the corresponding element of the source list:
+</p>
+
+<blockquote><pre class="code">my(undef, $card_num, undef, undef, undef, $count) = split /:/;</pre></blockquote>
+
+<p>Is this any better? Well, it has an advantage that there aren't
+any unneeded variables. But it has the disadvantage that you have to
+count <tt class="literal">undef</tt>s to tell which element is
+<tt class="literal">$count</tt>. And this becomes quite unwieldy if there
+are more elements in the list. For example, some people who wanted
+just the mtime value from <tt class="literal">stat</tt> were writing code
+like this:
+</p>
+
+<blockquote><pre class="code">my(undef, undef, undef, undef, undef, undef, undef, 
+  undef, undef, $mtime) = stat $some_file;</pre></blockquote>
+
+<p>If you use the wrong number of <tt class="literal">undef</tt>s,
+you'll get the atime or ctime by mistake, and that's a
+tough one to debug. There's a better way: Perl can index into a
+list as if it were an array. This is a <em class="firstterm">list
+slice</em>. Here, since the mtime is item <tt class="literal">9</tt>
+in the list returned by <tt class="literal">stat</tt>,<a href="#FOOTNOTE-372">[372]</a> we can
+get it with a subscript:
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-372" /><p>[372]It's the tenth item, but the index number is
+<tt class="literal">9</tt>, since the first item is at index
+<tt class="literal">0</tt>. This is the same kind of zero-based indexing
+that we've used already with arrays.</p> </blockquote>
+
+<blockquote><pre class="code">my $mtime = (stat $some_file)[9];</pre></blockquote>
+
+<p>Those parentheses are required around the list of items (in this
+case, the return value from <tt class="literal">stat</tt>). If you wrote it
+like this, it wouldn't work:
+</p>
+
+<blockquote><pre class="code">my $mtime = stat($some_file)[9];  # Syntax error!</pre></blockquote>
+
+<p>A list slice has to have a subscript expression in square brackets
+after a list in parentheses. The parentheses holding the arguments to
+a function call don't count.
+</p>
+
+<p>Going back to the Bedrock Library, the list we're working with
+is the return value from <tt class="literal">split</tt>. We can now use a
+slice to pull out item <tt class="literal">1</tt> and item
+<tt class="literal">5</tt> with subscripts:
+</p>
+
+<blockquote><pre class="code">my $card_num = (split /:/)[1];
+my $count = (split /:/)[5];</pre></blockquote>
+
+<p>Using a scalar-context slice like this (pulling just a single element
+from the list) isn't bad, but it would be more efficient and
+simpler if we didn't have to do the <tt class="literal">split</tt>
+twice. So let's not do it twice; let's get both values at
+once by using a list slice in list context:
+</p>
+
+<blockquote><pre class="code">my($card_num, $count) = (split /:/)[1, 5];</pre></blockquote>
+
+<p>The indices pull out element <tt class="literal">1</tt> and element
+<tt class="literal">5</tt> from the list, returning those as a two-element
+list. When that's assigned to the two <tt class="literal">my</tt>
+variables, we get exactly what we wanted. We do the
+<tt class="literal">slice</tt> just once, and we set the two variables with
+a simple notation.
+</p>
+
+<p>A slice is often the simplest way to pull a few items from a list.
+Here, we can pull just the first and last items from a list, using
+the fact that index <tt class="literal">-1</tt> means the last
+element:<a href="#FOOTNOTE-373">[373]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-373" /><p>[373]Sorting a list merely to find the extreme
+elements isn't likely to be the most efficient way. But
+Perl's sort is fast enough that this is generally acceptable,
+as long as the list doesn't have more than a few hundred
+elements.</p> </blockquote>
+
+<blockquote><pre class="code">my($first, $last) = (sort @names)[0, -1];</pre></blockquote>
+
+<p>The subscripts of a slice may be in any order and may even repeat
+values. This example pulls five items from a list of ten:
+</p>
+
+<blockquote><pre class="code">my @names = qw{ zero one two three four five six seven eight nine };
+my @numbers = ( @names )[ 9, 0, 2, 1, 0 ];
+print "Bedrock @numbers\n";  # says Bedrock nine zero two one zero</pre></blockquote>
+
+<a name="lperl3-CHP-17-SECT-6.1" /><div class="sect2">
+<h3 class="sect2">17.6.1. Array Slice</h3>
+
+<p>That previous example could be made even simpler. When slicing
+elements from an
+<a name="INDEX-1124" />array (as opposed to a list), the
+parentheses aren't needed. So we could have done the slice like
+this:
+</p>
+
+<blockquote><pre class="code">my @numbers = @names[ 9, 0, 2, 1, 0 ];</pre></blockquote>
+
+<p>This isn't merely a matter of omitting the parentheses; this is
+actually a different notation for accessing array elements: an
+<em class="firstterm">array slice</em>. Earlier (in <a href="ch03_01.htm">Chapter 3, "Lists and Arrays "</a>), we said that the at-sign on
+<tt class="literal">@names</tt> meant "all of the elements."
+Actually, in a linguistic sense, it's more like a plural
+marker, much like the letter "s" in words like
+"cats" and "dogs." In Perl, the dollar sign
+means there's just one of something, but the at-sign means
+there's a list of items.
+</p>
+
+<p>A slice is always a list, so the array slice notation uses an at-sign
+to indicate that. When you see something like <tt class="literal">@names[ ...
+]</tt> in a Perl program, you'll need to do just as Perl
+does and look at the at-sign at the beginning as well as the square
+brackets at the end. The square brackets mean that you're
+indexing into an array, and the at-sign means that you're
+getting a whole list<a href="#FOOTNOTE-374">[374]</a>
+of elements, not just a single one (which is what the dollar sign
+would mean). See <a href="ch17_06.htm#lperl3-CHP-17-FIG-1">Figure 17-1</a>.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-374" /><p>[374]Of course, when we say "a
+whole list," that doesn't necessarily mean more elements
+than one -- the list could be empty, after all.</p> </blockquote>
+
+<a name="lperl3-CHP-17-FIG-1" /><div class="figure"><img height="191" alt="Figure 17-1" src="figs/lrnp_1701.gif" width="161" /></div><h4 class="objtitle">Figure 17-1. Array slices versus single elements</h4>
+
+<p>The punctuation mark at the front of the variable reference (either
+the dollar sign or at-sign) determines the context of the subscript
+expression. If there's a dollar sign in front, the subscript
+expression is evaluated in a scalar context to get an index. But if
+there's an at-sign in front, the subscript expression is
+evaluated in a list context to get a list of indices.
+</p>
+
+<p>So we see that <tt class="literal">@names[ 2, 5 ]</tt> means the same list
+as <tt class="literal">($names[2],</tt> <tt class="literal">$names[5])</tt> does.
+If you want that list of values, you can simply use the array slice
+notation. Any place you might want to write the list, you can instead
+use the simpler array slice.
+</p>
+
+<p>But the slice can be used in one place where the list can't: a
+slice may be interpolated directly into a string:
+</p>
+
+<blockquote><pre class="code">my @names = qw{ zero one two three four five six seven eight nine };
+print "Bedrock @names[ 9, 0, 2, 1, 0 ]\n";</pre></blockquote>
+
+<p>If we were to interpolate <tt class="literal">@names</tt>, that would give
+all of the items from the array, separated by spaces. If instead we
+interpolate <tt class="literal">@names[ 9, 0, 2, 1, 0 ]</tt>, that gives
+just those items from the array, separated by spaces.<a href="#FOOTNOTE-375">[375]</a>
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-375" /><p>[375]More accurately, the items of the list are separated by the
+contents of Perl's <tt class="literal">$"</tt> variable, whose
+default is a space. This should not normally be changed. When
+interpolating a list of values, Perl internally does <tt class="literal">join
+$", @list</tt>, where <tt class="literal">@list</tt> stands in for the
+list expression. </p> </blockquote>
+
+<p>Let's go back to the Bedrock Library for a moment. Maybe now
+our program is updating Mr. Slate's address and phone number in
+the patron file, because he just moved into a large new place in the
+Hollyrock hills. If we've got a list of information about him
+in <tt class="literal">@items</tt>, we could do something like this to
+update just those two elements of the array:
+</p>
+
+<blockquote><pre class="code">my $new_home_phone = "555-6099";
+my $new_address = "99380 Red Rock West";
+@items[2, 3] = ($new_address, $new_home_phone);</pre></blockquote>
+
+<p>Once again, the array slice makes a more compact notation for a list
+of elements. In this case, that last line is the same as an
+assignment to <tt class="literal">($items[2],</tt>
+<tt class="literal">$items[3])</tt>, but more compact and efficient.
+</p>
+
+</div>
+<a name="lperl3-CHP-17-SECT-6.2" /><div class="sect2">
+<h3 class="sect2">17.6.2. Hash Slice</h3>
+
+<p>In a way exactly analogous to an array slice, we can also slice some
+elements from a <a name="INDEX-1125" />hash in a <em class="firstterm">hash
+slice</em>. Remember when three of our characters went
+bowling, and we kept their bowling scores in the
+<tt class="literal">%score</tt> hash? We could pull those scores with a
+list of hash elements or with a slice. These two techniques are
+equivalent, although the second is more concise and efficient:
+</p>
+
+<blockquote><pre class="code">my @three_scores = ($score{"barney"}, $score{"fred"}, $score{"dino"});
+
+my @three_scores = @score{ qw/ barney fred dino/ };</pre></blockquote>
+
+<p>A slice is always a list, so the hash slice notation uses an at-sign
+to indicate that.<a href="#FOOTNOTE-376">[376]</a> When you see something like <tt class="literal">@score{ ...
+}</tt> in a Perl program, you'll need to do just as Perl
+does and look at the at-sign at the beginning as well as the curly
+braces at the end. The curly braces mean that you're indexing
+into a hash; the at-sign means that you're getting a whole list
+of elements, not just a single one (which is what the dollar sign
+would mean). See <a href="ch17_06.htm#lperl3-CHP-17-FIG-2">Figure 17-2</a>.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-376" /><p>[376]If it sounds as if we're
+repeating ourselves here, it's because we want to emphasize
+that hash slices are analogous to array slices. If it sounds as if
+we're not repeating ourselves here, it's because we want
+to emphasize that hash slices are analogous to array slices. </p>
+</blockquote>
+
+<a name="lperl3-CHP-17-FIG-2" /><div class="figure"><img height="191" alt="Figure 17-2" src="figs/lrnp_1702.gif" width="150" /></div><h4 class="objtitle">Figure 17-2. Hash slices versus single elements</h4>
+
+<p>As we saw with the array slice, the punctuation mark at the front of
+the variable reference (either the dollar sign or at-sign) determines
+the context of the subscript expression. If there's a dollar
+sign in front, the subscript expression is evaluated in a scalar
+context to get a single key.<a href="#FOOTNOTE-377">[377]</a> But if there's an at-sign in front, the
+subscript expression is evaluated in a list context to get a list of
+keys.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-377" /><p>[377]There's an
+exception you're not likely to run across, since it isn't
+used much in modern Perl code. See the entry for
+<tt class="literal">$;</tt> in the <em class="emphasis">perlvar</em> manpage.
+</p> </blockquote>
+
+<p>It's normal at this point to wonder why there's no
+percent sign ("<tt class="literal">%</tt>") here, when
+we're talking about a hash. That's the marker that means
+there's a whole hash; a hash slice (like any other slice) is
+always a <em class="emphasis">list</em>, not a hash.<a href="#FOOTNOTE-378">[378]</a> In Perl, the dollar sign means
+there's just one of something, but the at-sign means
+there's a list of items, and the percent sign means
+there's an entire hash.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-378" /><p>[378]A
+hash slice is a slice (not a hash) in the same way that a house fire
+is a fire (not a house), while a fire house is a house (not a fire).
+More or less.</p> </blockquote>
+
+<p>As we saw with array slices, a hash slice may be used instead of the
+corresponding list of elements from the hash, anywhere within Perl.
+So we can set our friends' bowling scores in the hash (without
+disturbing any other elements in the hash) in this simple way:
+</p>
+
+<blockquote><pre class="code">my @players = qw/ barney fred dino /;
+my @bowling_scores = (195, 205, 30);
+@score{ @players } = @bowling_scores;</pre></blockquote>
+
+<p>That last line does the same thing as if we had assigned to the
+three-element list <tt class="literal">($score{"barney"}, $score{"fred"},
+$score{"dino"})</tt>.
+</p>
+
+<p>A hash slice may be interpolated, too. Here, we print out the scores
+for our favorite bowlers:
+</p>
+
+<a name="INDEX-1126" /><blockquote><pre class="code">print "Tonight's players were: @players\n";
+print "Their scores were: @score{@players}\n";</pre></blockquote>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch17_05.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch17_07.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">17.5. More Powerful Regular Expressions</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">17.7. Exercise</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

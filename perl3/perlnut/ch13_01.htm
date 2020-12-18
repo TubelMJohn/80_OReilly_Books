@@ -1,0 +1,269 @@
+<html><head><title>XML and Perl (Perl in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Stephen Spainhour" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002416L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="part6.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch13_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 13. XML and Perl</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#perlnut2-CHP-13-SECT-1">XML Parsing and Validation</a><br />
+<a href="ch13_02.htm">XML::Parser Methods</a><br />
+<a href="ch13_03.htm">Expat Handlers</a><br />
+<a href="ch13_04.htm">XML::Parser Styles</a><br />
+<a href="ch13_05.htm">Expat Encodings</a><br />
+<a href="ch13_06.htm">XML::Parser::ContentModel Methods</a><br /></p></div>
+
+<p>The <a name="INDEX-1801" /></a>Extensible Markup Language (XML) is a
+metalanguage for providing complete, configurable information for
+documents and other types of data. XML is based loosely on SGML, but
+has divorced itself of much of the complexity that made SGML
+unsuitable for everyday use. Without opening a can of worms about the
+differences between SGML and XML, suffice it to say that SGML is the
+predecessor to XML, and XML is a subset of SGML, with extensions.
+</p>
+
+<p>With XML, you aren't bound by a fixed format, but
+can mark up a document to make it easily adaptable to whatever final
+format you later decide to apply it to. In fact, this book is written
+in XML, to be produced later not only in a print format but in an
+online format as well.
+</p>
+
+<p>XML is often associated with web content, but it is much more
+flexible than that. Lately, XML's application to web
+services such as SOAP and XML-RPC has given it a chance to flex its
+muscles and show what it's capable of. XML gives you
+the structure to hold any content you'd like,
+whether it be the pages of this book in their rawest form, a list of
+your favorite recipes, or the ledger from your checkbook. XML is
+structured so that you can represent any kind of data in XML.
+XML's openness means that you can implement an
+XML-based application on any platform.
+</p>
+
+<p>This chapter is focused on parsing, checking and delivering XML
+content. <a href="ch14_01.htm">Chapter 14, "SOAP"</a> covers SOAP programming in XML.
+</p>
+<div class="sect1"><a name="perlnut2-CHP-13-SECT-1" /></a>
+<h2 class="sect1">13.1. XML Parsing and Validation</h2>
+
+<p>The two most common tasks that you'll perform on
+your XML content are likely to be parsing and validating. If
+you've ever combed around on CPAN for XML-related
+modules, you probably already know that there's no
+shortage of resources when it comes to Perl and XML. On the contrary,
+the sheer volume of modules available for Perl and XML is rather
+daunting, so you might be looking for a place to start.
+</p>
+
+<p>This chapter covers two Perl/XML modules in particular: XML::Simple
+and XML::Parser. These modules were selected because they allow you
+to parse and manipulate most XML. While these modules themselves
+don't validate XML, we'll resort to
+a little bit of trickery to show you how you can do exactly that.
+</p>
+
+<p><a name="INDEX-1802" /></a>XML::Simple
+provides an easy API that allows you to read and write XML. It is
+built on top of XML::Parser, which will be covered shortly. As its
+name suggests, XML::Simple implements only two methods:
+<tt class="literal">XMLin(
+)</tt><a name="INDEX-1803" /></a> and
+<tt class="literal">XMLout( )</tt>. But don't let its
+apparent lack of methods fool you; XML::Simple lets you do great
+things simply, such as parsing XML-written configuration files.
+</p>
+
+<p>Let's say that your company keeps a log of its Sun
+Microsystems servers and their respective operation-system versions,
+IP addresses, and current patch levels. While you could keep this
+information in your home directory as a delimited file (which you can
+parse and analyze when you need to, or import into a database, such
+as PostGresSQL or MySQL), why not just write it in XML?
+You'll find that by writing this information in an
+XML document, you'll be able to operate on this
+information just as flexibly as you can with one of the
+aforementioned strategies. In addition, your information would reside
+in a structure in which the relationships between items and their
+meanings are clear.
+</p>
+
+<p>Let's say that your flat text log file looks like
+this:
+</p>
+
+<blockquote><pre class="code"># sunhosts - patches and levels
+atlas|solaris|2.8|192.168.0.2|Generic_108528-10|5.6.1
+carrie|solaris|2.8|192.168.1.10|Generic_108527-12|5.6.0
+not4sun|solaris|2.8|192.168.0.25|Generic_108482-06|5.005_03</pre></blockquote>
+
+<p>While you could parse this configuration file easily, and generate
+some kind of report from it, your configuration file
+doesn't really tell you anything about the data that
+it represents. You can represent the same data in XML like so:
+</p>
+
+<blockquote><pre class="code">&lt;config servertype="sunhosts" reporttype="patches and levels"&gt;
+  &lt;server name="atlas" osname="solaris" osversion="2.8"&gt;
+    &lt;address&gt;192.168.0.2&lt;/address&gt;
+    &lt;patchlevel&gt;Generic_108528-10&lt;/patchlevel&gt;
+    &lt;perlversion&gt;5.6.1&lt;/perlversion&gt;
+  &lt;/server&gt;
+
+  &lt;server name="carrie" osname="solaris" osversion="2.8"&gt;
+    &lt;address&gt;192.168.1.10&lt;/address&gt;
+    &lt;patchlevel&gt;Generic_108527-12&lt;/patchlevel&gt;
+    &lt;perlversion&gt;5.6.0&lt;/perlversion&gt;
+  &lt;/server&gt;
+
+  &lt;server name="not4sun" osname="solaris" osversion="2.8"&gt;
+    &lt;address&gt;192.168.0.25&lt;/address&gt;
+    &lt;patchlevel&gt;Generic_108482-06&lt;/patchlevel&gt;
+    &lt;perlversion&gt;5.005_03&lt;/perlversion&gt;
+  &lt;/server&gt;
+&lt;/config&gt;</pre></blockquote>
+
+<p>In the above XML, all of the entries will be keyed on
+<tt class="literal">server</tt> so that for each entry in your XML
+that's called <tt class="literal">server</tt>,
+you'll be able to view its information for address,
+patchlevel, and perlversion. The following XML::Simple code does just
+that:
+</p>
+
+<blockquote><pre class="code">#!/usr/local/bin/perl -w
+
+use XML::Simple;
+
+my $config = XMLin('./myconfig.xml');
+
+# Simply show us the IP address of each server in our table
+foreach my $server (keys %{$config-&gt;{server}}) {
+    print "$server -&gt; $config-&gt;{server}{$server}{address}\n";
+}</pre></blockquote>
+
+<p>Now that you've parsed your configuration file,
+let's say you want to write XML back to your
+configration. To do this, you should use <tt class="literal">XMLout(
+)</tt>, which is covered in the XML::Simple documentation.
+</p>
+
+<p>While XML::Simple doesn't provide a thorough method
+for validating XML, it does insist that a document is compliant XML.
+This means that if you present XML::Simple with a document
+that's not syntatically correct, XML::Simple will
+stop parsing the XML document and store the error message in
+<tt class="literal">$@</tt>. For example:
+</p>
+
+<blockquote><pre class="code">&lt;config servertype="sunhosts" reporttype="patches and levels"&gt;
+  &lt;server name="atlas" osname="solaris" osversion="2.8"&gt;
+    &lt;address&gt;192.168.0.2&lt;/address&gt;
+    &lt;patchlevel&gt;Generic_108528-10&lt;/patchlevel&gt;
+    &lt;perlversion&gt;5.6.1&lt;/perlversion&gt;
+&lt;/config&gt;</pre></blockquote>
+
+<p>The following code would find the error in your XML and exit upon
+finding it:
+</p>
+
+<blockquote><pre class="code">#!/usr/local/bin/perl -w
+
+use XML::Simple;
+
+my $config = eval { XMLin('./mybadconfig.xml') };
+print("I found an error in your XML: $@") if $@;
+
+foreach my $server (keys %{$config-&gt;{server}}) {
+    print "$server -&gt; $config-&gt;{server}{$server}\n";
+}</pre></blockquote>
+
+<p>This gives you: </p>
+
+<blockquote><pre class="code">I found an error in your XML: 
+mismatched tag at line 6, column 2, byte 241 at
+/usr/local/lib/perl5/site_perl/5.6.1/sun4-solaris/XML/Parser.pm line 185</pre></blockquote>
+
+<p><a name="INDEX-1804" /></a>Two
+components are very useful for parsing XML with Perl:
+<a name="INDEX-1805" /></a>Expat and <a name="INDEX-1806" /></a>XML::Parser.
+Although there are several XML parsing options for Perl, such as
+GNOME's <em class="emphasis">libxml</em> and offerings
+from the PerlSAX2 project, we stick to Expat and XML::Parser in this
+chapter.
+</p>
+
+<p>Expat is a nonvalidating (that is, it does not check XML for
+correctness) XML parser that was written by
+<a name="INDEX-1807" /></a>James Clark.
+XML::Parser, a Perl wrapper around Expat, was originally written by
+<a name="INDEX-1808" /></a>Larry Wall and
+later developed by <a name="INDEX-1809" /></a>Clark Cooper. If you're
+using the ActivePerl, you should be able to install XML::Parser with
+<em class="emphasis">ppm</em>. Otherwise, you'll have to
+build Expat first, then link XML::Parser against it.
+</p>
+
+<p>Each call to one of the XML::Parser parsing methods creates a new
+instance of XML::Parser::Expat, which is then used to parse the
+document. Expat options may be provided when the XML::Parser object
+is created. These options are then passed on to the Expat object on
+each parse call. They can also be given as extra arguments to the
+parse methods, in which case they override options given at
+XML::Parser creation time.
+</p>
+
+<p>The XML parser takes your XML document and turns it into a data
+structure that you can operate on. XML::Parser gives you low-level
+control (and precision) over the data structure that it created, from
+which you can build parsers on top of it. XML::Simple is an example
+of this.
+</p>
+
+<p>The behavior of the parser is controlled either by
+<tt class="literal">Style</tt> and/or <tt class="literal">Handlers</tt> options
+or by the <tt class="literal">setHandlers</tt> method. These all provide
+mechanisms that XML::Parser can use to set the handlers needed by
+XML::Parser::Expat. If neither <tt class="literal">Style</tt> nor
+<tt class="literal">Handlers</tt> are specified, then parsing just checks
+if the document is well-formed.
+</p>
+
+<p>When underlying handlers get called, they receive as their first
+parameter the Expat object, not the Parser object.
+</p>
+
+<p>You can show the relationships between entries in a configuration
+file with XML::Parser as well. For example:
+</p>
+
+<blockquote><pre class="code">#!/usr/local/bin/perl -w
+
+use XML::Parser;
+use Data::Dumper;
+
+# Simply dump all of the entries and their relationships
+my $p1 = XML::Parser-&gt;new(Style =&gt; 'Tree');
+my $tree = $p1-&gt;parsefile('myconfig.xml');
+
+print Dumper($tree);</pre></blockquote>
+
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="part6.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch13_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">VI. XML and SOAP</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">13.2. XML::Parser Methods</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+      </map>
+
+</body></html>

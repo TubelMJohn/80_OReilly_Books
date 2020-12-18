@@ -1,0 +1,933 @@
+<html><head><title>Content Handlers (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch03_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">3.3. Content Handlers</h2>
+
+<p><a name="INDEX-249" />In order to let an application do
+something useful with XML data as it is being parsed, you must
+register
+<em class="filename">handlers</em><a name="INDEX-250" />
+<a name="INDEX-251" /> with the
+SAX parser. A handler is nothing more than a set of callbacks that
+SAX defines to let programmers insert application code at important
+events within a document's parsing. These events take place as
+the document is parsed, not after the parsing has occurred. This is
+one of the reasons that SAX is such a powerful interface: it allows a
+document to be handled sequentially, without having to first read the
+entire document into memory. Later, we will look at the Document
+Object Model (DOM), which has this limitation.<a href="#FOOTNOTE-3">[3]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-3" /><p>[3]Of
+course, this limitation is also an advantage; having the entire
+document in memory allows for random access. In other words,
+it's a double-edged sword, which I'll look at more in
+<a href="ch05_01.htm">Chapter 5, "DOM"</a>.</p> </blockquote>
+
+<p>There are four core handler interfaces defined by SAX 2.0:
+<tt class="literal">org.xml.sax.ContentHandler</tt><a name="INDEX-252" />
+<a name="INDEX-253" />,
+<tt class="literal">org.xml.sax.ErrorHandler</tt>,
+<tt class="literal">org.xml.sax.DTDHandler</tt>, and
+<tt class="literal">org.xml.sax.EntityResolver</tt>. In this chapter, I
+will discuss <tt class="literal">ContentHandler</tt> and
+<tt class="literal">ErrorHandler</tt>. I'll leave discussion of
+<tt class="literal">DTDHandler</tt> and <tt class="literal">EntityResolver</tt>
+for the next chapter; it is enough for now to understand that
+<tt class="literal">EntityResolver</tt><a name="INDEX-254" /> works just like the other handlers,
+and is built specifically for resolving external entities specified
+within an XML document. Custom application classes that perform
+specific actions within the parsing process can implement each of
+these interfaces. These
+<a name="INDEX-255" />
+<a name="INDEX-256" />implementation classes can be
+registered with the reader using the methods
+<tt class="literal">setContentHandler(
+)</tt><a name="INDEX-257" /> <a name="INDEX-258" /> <a name="INDEX-259" /> <a name="INDEX-260" />, <tt class="literal">setErrorHandler( )</tt>,
+<tt class="literal">setDTDHandler( )</tt>, and <tt class="literal">setEntityResolver(
+)</tt>. Then the reader invokes the callback methods on the
+appropriate handlers during parsing.
+</p>
+
+<p>For the <tt class="literal">SAXTreeViewer</tt> example, a good start is to
+implement the <tt class="literal">ContentHandler</tt> interface. This
+interface defines several important methods within the parsing
+lifecycle that our application can react to. Since all the necessary
+import statements are in place (I cheated and put them in already),
+all that is needed is to code an implementation of the
+<tt class="literal">ContentHandler</tt><a name="INDEX-261" />
+<a name="INDEX-262" />
+interface. For simplicity, I'll do this as a nonpublic class,
+still within the <em class="emphasis">SAXTreeViewer.java</em> source file. Add in the
+<tt class="literal">JTreeContentHandler</tt><a name="INDEX-263" />
+<a name="INDEX-264" />
+class, as shown here:
+</p>
+
+<blockquote><pre class="code">class JTreeContentHandler implements ContentHandler {
+
+    /** Tree Model to add nodes to */
+    private DefaultTreeModel treeModel;
+
+    /** Current node to add sub-nodes to */
+    private DefaultMutableTreeNode current;
+
+    public JTreeContentHandler(DefaultTreeModel treeModel, 
+                               DefaultMutableTreeNode base) {
+        this.treeModel = treeModel;
+        this.current = base;
+    }
+
+    // ContentHandler method implementations
+}</pre></blockquote>
+
+<p>Don't bother trying to compile the source file at this point;
+you'll get a ton of errors about methods defined in
+<tt class="literal">ContentHandler</tt> not being implemented. The rest of
+this section walks through each of these methods, adding as we go. In
+this basic class, it's enough to pass in the
+<tt class="literal">TreeModel</tt> implementation, which is used to add new
+nodes to the <tt class="literal">JTree</tt>, and the base node (created in
+the <tt class="literal">buildTree( )</tt> method, earlier). The base node
+is set to a member variable called <tt class="literal">current</tt>; this
+variable always points to the node being worked with, and the code
+needs to move that node down the tree hierarchy (when nested elements
+are found), as well as back up the tree (when elements end and the
+parent becomes current again). With that in place, it's time to
+look at the various <tt class="literal">ContentHandler</tt> callbacks and
+implement each. First take a quick glance at the
+<tt class="literal">ContentHandler</tt> interface, which shows the
+callbacks that need to be implemented:
+</p>
+
+<blockquote><pre class="code">public interface ContentHandler {
+    public void setDocumentLocator(Locator locator);
+    public void startDocument( ) throws SAXException;
+    public void endDocument( ) throws SAXException;
+    public void startPrefixMapping(String prefix, String uri)
+		throws SAXException;
+    public void endPrefixMapping(String prefix)
+		throws SAXException;
+    public void startElement(String namespaceURI, String localName,
+	    		            String qName, Attributes atts)
+		throws SAXException;
+    public void endElement(String namespaceURI, String localName,
+			          String qName)
+		throws SAXException;
+    public void characters(char ch[], int start, int length)
+		throws SAXException;
+    public void ignorableWhitespace(char ch[], int start, int length)
+		throws SAXException;
+    public void processingInstruction(String target, String data)
+		throws SAXException;
+    public void skippedEntity(String name)
+		throws SAXException;
+}</pre></blockquote>
+
+<a name="javaxml2-CHP-3-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">3.3.1. The Document Locator</h3>
+
+<p><a name="INDEX-265" />
+<a name="INDEX-266" />The
+first method you need to define is one that sets an
+<tt class="literal">org.xml.sax.Locator</tt> for use within any other SAX
+events. When a callback event occurs, the class implementing a
+handler often needs access to the location of the SAX parser within
+an XML file. This is used to help the application make decisions
+about the event and its location within the XML document, such as
+determining the line on which an error occurred. The
+<a name="INDEX-267" />
+<a name="INDEX-268" /><tt class="literal">Locator</tt>
+class has several useful methods such as
+<a name="INDEX-269" />
+<a name="INDEX-270" /><tt class="literal">getLineNumber( )</tt> and
+<a name="INDEX-271" />
+<a name="INDEX-272" /><tt class="literal">getColumnNumber( )</tt> that
+return the current location of the parsing process within an XML file
+when invoked. Because this location is only valid for the current
+parsing lifecycle, the <tt class="literal">Locator</tt> should be used only
+within the scope of the <tt class="literal">ContentHandler</tt>
+implementation. Since this might be handy to use later, the code
+shown here saves the provided <tt class="literal">Locator</tt> instance to
+a member variable:
+</p>
+
+<blockquote><pre class="code">class JTreeContentHandler implements ContentHandler {
+
+    <tt class="userinput"><b>/** Hold onto the locator for location information */
+    private Locator locator;</b></tt>
+
+    // Constructor
+
+    <tt class="userinput"><b>public void setDocumentLocator(Locator locator) {
+        // Save this for later use
+        this.locator = locator;
+    }</b></tt>
+}</pre></blockquote>
+
+</div>
+<a name="javaxml2-CHP-3-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">3.3.2. The Beginning and the End of a Document</h3>
+
+<p><a name="INDEX-273" />In any lifecycle process, there
+must always be a beginning and an end. These important events should
+each occur once, the former before all other events, and the latter
+after all other events. This rather obvious fact is critical to
+applications, as it allows them to know exactly when parsing begins
+and ends. SAX provides callback methods for each of these events,
+<a name="INDEX-274" />
+<a name="INDEX-275" /><tt class="literal">startDocument( )</tt> and
+<a name="INDEX-276" />
+<a name="INDEX-277" /><tt class="literal">endDocument( )</tt>.
+</p>
+
+<p>The first method, <tt class="literal">startDocument( )</tt>, is called
+before any other callbacks, including the callback methods within
+other SAX handlers, such as <tt class="literal">DTDHandler</tt>. In other
+words, <tt class="literal">startDocument( )</tt> is not only the first
+method called within <tt class="literal">ContentHandler</tt>, but also
+within the entire parsing process, aside from the
+<tt class="literal">setDocument-Locator( )</tt> method just discussed. This
+ensures a finite beginning to parsing, and lets the application
+perform any tasks it needs to before parsing takes place.
+</p>
+
+<p>The second method, <tt class="literal">endDocument( )</tt>, is always the
+last method called, again across all handlers. This includes
+situations in which
+<a name="INDEX-278" />errors occur that cause parsing to
+halt. I will discuss errors later, but there are both recoverable
+errors and unrecoverable errors. If an unrecoverable error occurs,
+the <tt class="literal">ErrorHandler</tt>'s callback method is
+invoked, and then a final call to <tt class="literal">endDocument( )</tt>
+completes the attempted parsing.
+</p>
+
+<p>In the example code, no visual event should occur with these methods;
+however, as with implementing any interface, the methods must still
+be present:
+</p>
+
+<blockquote><pre class="code">    public void startDocument( ) throws SAXException {
+        // No visual events occur here
+    }
+
+    public void endDocument( ) throws SAXException {
+        // No visual events occur here
+    }</pre></blockquote>
+
+<p>Both of these callback methods can throw
+<a name="INDEX-279" /><tt class="literal">SAXException</tt>s.
+The only types of exceptions that SAX events ever throw, they provide
+another standard interface to the parsing behavior. However, these
+exceptions often wrap other exceptions that indicate what problems
+have occurred. For example, if an XML file was parsed over the
+network via a URL, and the connection suddenly became invalid, a
+<tt class="literal">java.net.SocketException</tt> might occur. However, an
+application using the SAX classes should not have to catch this
+exception, because it should not have to know where the XML resource
+is located (it might be a local file, as opposed to a network
+resource). Instead, the application can catch the single
+<tt class="literal">SAXException</tt>. Within the SAX reader, the original
+exception is caught and rethrown as a
+<tt class="literal">SAXException</tt>, with the originating exception
+stuffed inside the new one. This allows applications to have one
+standard exception to trap for, while allowing specific details of
+what errors occurred within the parsing process to be wrapped and
+made available to the calling program through this standard
+exception. The <a name="INDEX-280" />
+<a name="INDEX-281" /><tt class="literal">SAXException</tt>
+class provides a method, <a name="INDEX-282" />
+<a name="INDEX-283" /><tt class="literal">getException( )</tt>, which
+returns the underlying <tt class="literal">Exception</tt> (if one exists).
+</p>
+
+</div>
+<a name="javaxml2-CHP-3-SECT-3.3" /><div class="sect2">
+<h3 class="sect2">3.3.3. Processing Instructions</h3>
+
+<p>I talked about <a name="INDEX-284" />processing instructions (PIs) within XML
+as a bit of a special case. They were not considered XML elements,
+and were handled differently by being made available to the calling
+application. Because of these special characteristics, SAX defines a
+specific callback for handling processing instructions. This method
+receives the target of the processing instruction and any data sent
+to the PI. For this chapter's example, the PI can be converted
+to a new node and displayed in the tree viewer:
+</p>
+
+<blockquote><pre class="code">    public void processingInstruction(String target, String data)
+        throws SAXException {
+
+        DefaultMutableTreeNode pi = 
+            new DefaultMutableTreeNode("PI (target = '" + target +
+                                       "', data = '" + data + "')");
+        current.add(pi);
+    }</pre></blockquote>
+
+<p>In a real application using XML data, this is where an application
+could receive instructions and set variable values or execute methods
+to perform application-specific processing. For example, the Apache
+Cocoon publishing framework might set flags to perform
+transformations on the data once it is parsed, or to display the XML
+as a specific content type. This method, like the other SAX
+callbacks, throws a <tt class="literal">SAXException</tt> when errors
+occur.
+</p>
+
+<a name="ch03-15-fm2xml" /><blockquote><b>NOTE:</b> 
+
+It's worth pointing out that this method will not receive notification of the XML declaration:
+<blockquote><pre class="code"> &lt;?xml version="1.0" standalone="yes"?&gt;</pre></blockquote>
+</p>
+
+
+<p>In fact, SAX provides no means of getting at this information (and
+you'll find out that it's not currently part of DOM or
+JDOM, either!). The general underlying principle is that this
+information is for the XML parser or reader, not the consumer of the
+document's data. For that reason, it's not exposed to the
+developer.
+</p>
+</blockquote>
+
+</div>
+<a name="javaxml2-CHP-3-SECT-3.4" /><div class="sect2">
+<h3 class="sect2">3.3.4. Namespace Callbacks</h3>
+
+<p><a name="INDEX-285" />From the discussion of namespaces in
+<a href="ch02_01.htm">Chapter 2, "Nuts and Bolts"</a>, you should be starting to realize their
+importance and impact on parsing and handling XML. Alongside XML
+Schema, XML Namespaces is easily the most significant concept added
+to XML since the original XML 1.0 Recommendation. With SAX 2.0,
+support for namespaces was introduced at the element level. This
+allows a distinction to be made between the namespace of an element,
+signified by an element prefix and an associated namespace URI, and
+the local name of an element. In this case, the term <em class="filename">local
+name</em> refers to the unprefixed name of an element. For
+example, the local name of the <tt class="literal">ora:copyright</tt>
+element is simply <tt class="literal">copyright</tt>. The namespace prefix
+is <tt class="literal">ora</tt>, and the namespace URI is declared as
+<a href="http://www.oreilly.com">http://www.oreilly.com</a>.
+</p>
+
+<p>There are two SAX callbacks specifically dealing with namespaces.
+These callbacks are invoked when the parser reaches the beginning and
+end of a <a name="INDEX-286" /><em class="filename">prefix mapping</em>.
+Although this is a new term, it is not a new concept; a prefix
+mapping is simply an element that uses the <tt class="literal">xmlns</tt>
+attribute to declare a namespace. This is often the root element
+(which may have multiple mappings), but can be any element within an
+XML document that declares an explicit namespace. For example:
+</p>
+
+<blockquote><pre class="code">&lt;catalog&gt;
+  &lt;books&gt;
+    &lt;book title="XML in a Nutshell" 
+          xmlns:xlink="http://www.w3.org/1999/xlink"&gt;
+      &lt;cover xlink:type="simple" xlink:show="onLoad" 
+             xlink:href="xmlnutCover.jpg" ALT="XML in a Nutshell" 
+             width="125" height="350" /&gt;
+    &lt;/book&gt;
+  &lt;/books&gt;
+&lt;/catalog&gt;</pre></blockquote>
+
+<p>In this case, an explicit namespace is declared several element
+nestings deep within the document. That prefix and URI mapping (in
+this case, <tt class="literal">xlink</tt> and <a href="http://www.w3.org/1999/xlink">http://www.w3.org/1999/xlink</a>, respectively)
+are then available to elements and attributes within the declaring
+element.
+</p>
+
+<p>The <a name="INDEX-287" /><tt class="literal">startPrefixMapping( )</tt>
+callback is given the namespace prefix as well as the URI associated
+with that prefix. The mapping is considered "closed" or
+"ended" when the element that declared the mapping is
+closed, which triggers the <tt class="literal">endPrefixMapping( )</tt>
+callback. The only twist to these callbacks is that they don't
+quite behave in the sequential manner in which SAX usually is
+structured; the prefix mapping callback occurs directly
+<em class="emphasis">before</em> the callback for the element that
+declares the namespace, and the ending of the mapping results in an
+event just <em class="emphasis">after</em> the close of the declaring
+element. However, it actually makes a lot of sense: for the declaring
+element to be able to use the declared namespace mapping, the mapping
+must be available before the element's callback. It works in
+just the opposite way for ending a mapping: the element must close
+(as it may use the namespace), and then the namespace mapping can be
+removed from the list of available mappings.
+</p>
+
+<p>In the <tt class="literal">JTreeContentHandler</tt>, there aren't any
+visual events that should occur within these two callbacks. However,
+a common practice is to store the prefix and <a name="INDEX-288" />
+<a name="INDEX-289" />URI mappings in a data structure. You will
+see in a moment that the element callbacks report the namespace URI,
+but not the namespace prefix. If you don't store these prefixes
+(reported through <tt class="literal">startPrefixMapping( )</tt>), they
+won't be available in your element callback code. The easiest
+way to do this is to use a <tt class="literal">Map</tt>, add the reported
+prefix and URI to this <tt class="literal">Map</tt> in
+<tt class="literal">startPrefixMapping( )</tt>, and then remove them in
+<tt class="literal">endPrefixMapping( )</tt>. This can be accomplished with
+the following code additions:
+</p>
+
+<blockquote><pre class="code">class JTreeContentHandler implements ContentHandler {
+
+    /** Hold onto the locator for location information */
+    private Locator locator;
+
+    <tt class="userinput"><b>/** Store URI to prefix mappings */
+    private Map namespaceMappings;</b></tt>
+
+    /** Tree Model to add nodes to */
+    private DefaultTreeModel treeModel;
+
+    /** Current node to add sub-nodes to */
+    private DefaultMutableTreeNode current;
+
+    public JTreeContentHandler(DefaultTreeModel treeModel, 
+                               DefaultMutableTreeNode base) {
+        this.treeModel = treeModel;
+        this.current = base;<tt class="userinput"><b>
+        this.namespaceMappings = new HashMap( );</b></tt>
+    }
+
+    // Existing methods
+
+    public void startPrefixMapping(String prefix, String uri) {
+        // No visual events occur here.
+        namespaceMappings.put(uri, prefix);
+    }
+
+    public void endPrefixMapping(String prefix) {
+        // No visual events occur here.
+        for (Iterator i = namespaceMappings.keySet().iterator( ); 
+             i.hasNext( ); ) {
+
+            String uri = (String)i.next( );
+            String thisPrefix = (String)namespaceMappings.get(uri);
+            if (prefix.equals(thisPrefix)) {
+                namespaceMappings.remove(uri);
+                break;
+            }
+        }
+    }
+}</pre></blockquote>
+
+<p>One thing of note: I used the URI as a key to the mappings, rather
+than the prefix. As I mentioned a moment ago, the
+<tt class="literal">startElement( )</tt><a name="INDEX-290" />
+callback reports the namespace URI for the element, not the prefix.
+So keying on URIs makes those lookups faster. However, as you see in
+<tt class="literal">endPrefixMapping( )</tt>, it does add a little bit of
+work to removing the mapping when it is no longer available. In any
+case, storing namespace mappings in this fashion is a fairly typical
+SAX trick, so store it away in your toolkit for XML programming.
+</p>
+<blockquote><b>WARNING:</b> 
+
+The solution shown here is far from a complete one in terms of dealing with more complex namespace issues. It's perfectly legal to reassign prefixes to new URIs for an element's scope, or to assign multiple prefixes to the same URI. In the example, this would result in widely scoped namespace mappings being overwritten by narrowly scoped ones in the case where identical URIs were mapped to different prefixes. In a more robust application, you would want to store prefixes and URIs separately, and have a method of relating the two without causing overwriting. However, you get the idea in the example of how to handle namespaces in the general sense.<a name="INDEX-291" />
+</p>
+</blockquote>
+</div>
+<a name="javaxml2-CHP-3-SECT-3.5" /><div class="sect2">
+<h3 class="sect2">3.3.5. Element Callbacks</h3>
+
+<p><a name="INDEX-292" />By now you are probably ready to get
+to the data in the XML document. It is true that over half of the SAX
+callbacks have nothing to do with XML elements, attributes, and data.
+This is because the process of
+<a name="INDEX-293" />parsing XML is intended to do more
+than simply provide your application with the XML data; it should
+give the application instructions from XML PIs so your application
+knows what actions to take, let the application know when parsing
+begins and when it ends, and even tell it when there is whitespace
+that can be ignored! If some of these callbacks don't make much
+sense yet, keep reading.
+</p>
+
+<p>Of course, there certainly are SAX callbacks intended to give you
+access to the XML data within your documents. The three primary
+events involved in getting that data are the start and end of
+elements and the <tt class="literal">characters( )</tt> callback. These
+tell you when an element is parsed, the data within that element, and
+when the closing tag for that element is reached. The first of
+these,<a name="INDEX-294" />
+<tt class="literal">startElement( )</tt><a name="INDEX-295" />, gives an application information about an
+XML element and any attributes it may have. The parameters to this
+callback are the name of the element (in various forms) and an
+<a name="INDEX-296" /> <a name="INDEX-297" /><tt class="literal">org.xml.sax.Attributes</tt>
+instance. This helper class holds references to all of the attributes
+within an element. It allows easy iteration through the
+element's attributes in a form similar to a
+<tt class="literal">Vector</tt>. In addition to being able to reference an
+attribute by its index (used when iterating through all attributes),
+it is possible to reference an attribute by its name. Of course, by
+now you should be a bit cautious when you see the
+<a name="INDEX-298" />word
+"name" referring to an XML element or attribute, as it
+can mean various things. In this case, either the complete name of
+the attribute (with a namespace prefix, if any), called its
+<a name="INDEX-299" />
+<a name="INDEX-300" /><em class="filename">Q name</em>, can be
+used, or the combination of its local name and namespace URI if a
+namespace is used. There are also helper methods such as
+<a name="INDEX-301" />
+<a name="INDEX-302" /><tt class="literal">getURI(int</tt>
+<tt class="literal">index)</tt> and <a name="INDEX-303" />
+<a name="INDEX-304" /><tt class="literal">getLocal-Name(int</tt>
+<tt class="literal">index)</tt> that help give additional namespace
+information about an attribute. Used as a whole, the
+<a name="INDEX-305" />
+<a name="INDEX-306" /><tt class="literal">Attributes</tt>
+interface provides a comprehensive set of information about an
+element's attributes.
+</p>
+
+<p>In addition to the element attributes, you get several forms of the
+element's <a name="INDEX-307" />name. This again is in deference to XML
+namespaces. The <a name="INDEX-308" />namespace URI of the element is supplied
+first. This places the element in its correct context across the
+document's complete set of namespaces. Then the local name of
+the element is supplied, which is the unprefixed element name. In
+addition (and for backwards compatibility), the Q name of the element
+is supplied. This is the unmodified, unchanged name of the element,
+which includes a namespace prefix if present; in other words, exactly
+what was in the XML document: <tt class="literal">ora:copyright</tt> for
+the copyright element. With these three types of names supplied, you
+should be able to describe an element with or without respect to its
+namespace.
+</p>
+
+<p>In the example, several things occur that illustrate this capability.
+First, a new node is created and added to the tree with the local
+name of the element. Then, that node becomes the current node, so all
+nested elements and attributes are added as leaves. Next, the
+namespace is determined, using the supplied namespace URI and the
+<tt class="literal">namespaceMappings</tt><a name="INDEX-309" /> object (to get the prefix) that you just
+added to the code from the last section. This is added as a node, as
+well. Finally, the code iterates through the
+<tt class="literal">Attributes</tt> interface, adding each (with local name
+and namespace information) as a child node. The code to accomplish
+all this is shown here:
+</p>
+
+<blockquote><pre class="code">    public void startElement(String namespaceURI, String localName,
+                             String qName, Attributes atts)
+        throws SAXException {
+
+        DefaultMutableTreeNode element = 
+            new DefaultMutableTreeNode("Element: " + localName);
+        current.add(element);
+        current = element;
+
+        // Determine namespace
+        if (namespaceURI.length( ) &gt; 0) {
+            String prefix = 
+                (String)namespaceMappings.get(namespaceURI);
+            if (prefix.equals("")) {
+                prefix = "[None]";
+            }
+            DefaultMutableTreeNode namespace =
+                new DefaultMutableTreeNode("Namespace: prefix = '" +
+                    prefix + "', URI = '" + namespaceURI + "'");
+            current.add(namespace);
+        }
+
+        // Process attributes
+        for (int i=0; i&lt;atts.getLength( ); i++) {
+            DefaultMutableTreeNode attribute =
+                new DefaultMutableTreeNode("Attribute (name = '" +
+                                           atts.getLocalName(i) + 
+                                           "', value = '" +
+                                           atts.getValue(i) + "')");
+            String attURI = atts.getURI(i);
+            if (attURI.length( ) &gt; 0) {
+                String attPrefix = 
+                    (String)namespaceMappings.get(namespaceURI);
+                if (attPrefix.equals("")) {
+                    attPrefix = "[None]";
+                }
+                DefaultMutableTreeNode attNamespace =
+                    new DefaultMutableTreeNode("Namespace: prefix = '" +
+                        attPrefix + "', URI = '" + attURI + "'");
+                attribute.add(attNamespace);            
+            }
+            current.add(attribute);
+        }
+    }</pre></blockquote>
+
+<p>The end of an element is much easier to code. Since there is no need
+to give any visual information, all that must be done is to walk back
+up the tree one node, leaving the element's parent as the new
+current node:
+</p>
+
+<blockquote><pre class="code">    public void endElement(String namespaceURI, String localName,
+                           String qName)
+        throws SAXException {
+
+        // Walk back up the tree
+        current = (DefaultMutableTreeNode)current.getParent( );
+    }</pre></blockquote>
+
+<p>One final note before moving on to element data: you may have noticed
+that with a namespace URI and an element's Q name, it would be
+possible to figure out the prefix as well as the URI from the
+information supplied to the <tt class="literal">startElement( )</tt>
+callback, without having to use a map of namespace associations.
+That's absolutely true, and would serve the example code well.
+However, most applications have hundreds and even thousands of lines
+of code in these callbacks (or, better yet, in methods invoked from
+code within these callbacks). In those cases, relying on parsing of
+the element's Q name is not nearly as robust a solution as
+storing the data in a custom structure. In other words, splitting the
+Q name on a colon is great for simple applications, but isn't
+so wonderful for complex (and therefore more realistic)
+ones.<a name="INDEX-310" />
+</p>
+
+</div>
+<a name="javaxml2-CHP-3-SECT-3.6" /><div class="sect2">
+<h3 class="sect2">3.3.6. Element Data</h3>
+
+<p><a name="INDEX-311" /> <a name="INDEX-312" />Once the beginning and end of an
+element block are identified and the element's attributes are
+enumerated for an application, the next piece of important
+information is the actual data contained within the element itself.
+This generally consists of additional elements,
+<a name="INDEX-313" />
+<a name="INDEX-314" />textual
+data, or a combination of the two. When other elements appear, the
+callbacks for those elements are initiated, and a type of
+pseudo-recursion happens: elements nested within elements result in
+callbacks "nested" within callbacks. At some point,
+though, textual data will be encountered. Typically the most
+important information to an XML client, this data is usually either
+what is shown to the client or what is processed to generate a client
+response.
+</p>
+
+<p>In XML, textual data within elements is sent to a wrapping
+application via the <a name="INDEX-315" />
+<a name="INDEX-316" /><tt class="literal">characters( )</tt> callback.
+This method provides the wrapping application with an array of
+characters as well as a starting index and the length of the
+characters to read. Generating a <tt class="literal">String</tt> from this
+array and applying the data is a piece of cake:
+</p>
+
+<blockquote><pre class="code">    public void characters(char[] ch, int start, int length)
+        throws SAXException {
+
+        String s = new String(ch, start, length);
+        DefaultMutableTreeNode data =
+            new DefaultMutableTreeNode("Character Data: '" + s + "'");
+        current.add(data);
+    }</pre></blockquote>
+
+<p>Seemingly a simple callback, this method often results in a
+significant amount of confusion because the SAX interface and
+standards do not strictly define how this callback must be used for
+lengthy pieces of character data. In other words, a parser may choose
+to return all contiguous character data in one invocation, or split
+this data up into multiple method invocations. For any given element,
+this method will be called not at all (if no character data is
+present within the element) or one or more times. Parsers implement
+this behavior differently, often using algorithms designed to
+increase parsing speed. Never count on having all the textual data
+for an element within one callback method; conversely, never assume
+that multiple callbacks would result from one element's
+contiguous character data.
+</p>
+
+<p>As you write SAX event handlers, be sure to keep your mind in a
+hierarchical mode. In other words, you should not get in the habit of
+thinking that an
+<a name="INDEX-317" />element <em class="emphasis">owns</em> its
+data and child elements, but only that it serves as a parent. Also
+keep in mind that the parser is moving along, handling elements,
+attributes, and data as it comes across them. This can make for some
+surprising results. Consider the following XML document fragment:
+</p>
+
+<blockquote><pre class="code">&lt;parent&gt;This element has &lt;child&gt;embedded text&lt;/child&gt; within it.&lt;/parent&gt;</pre></blockquote>
+
+<p>Forgetting that SAX parses sequentially, making callbacks as it sees
+elements and data, and forgetting that the XML is viewed as
+hierarchical, you might make the assumption that the output here
+would be something like <a href="ch03_03.htm#javaxml2-CHP-3-FIG-2">Figure 3-2</a>.
+</p>
+
+<a name="javaxml2-CHP-3-FIG-2" /><div class="figure"><img height="142" alt="Figure 3-2" src="figs/javax_0302.gif" width="393" /></div><h4 class="objtitle">Figure 3-2. Expected, and incorrect, graphical tree</h4>
+
+<p>This seems logical, as the <tt class="literal">parent</tt> element
+completely "owns" the <tt class="literal">child</tt> element.
+But what actually occurs is that a callback is made at each SAX
+event-point, resulting in the tree shown in <a href="ch03_03.htm#javaxml2-CHP-3-FIG-3">Figure 3-3</a>. 
+</p>
+
+<a name="javaxml2-CHP-3-FIG-3" /><div class="figure"><img height="174" alt="Figure 3-3" src="figs/javax_0303.gif" width="367" /></div><h4 class="objtitle">Figure 3-3. Actual generated tree</h4>
+
+<p>SAX does not read ahead, so the result is exactly what you would
+expect if you viewed the XML document as sequential data, without all
+the human assumptions that we tend to make. This is an important
+point to remember.
+</p>
+<blockquote><b>WARNING:</b> 
+
+Currently, neither Apache Xerces nor just about any other parser available performs validation by default. In the example program, since nothing has been done to turn it on, no validation occurs. However, that does not mean that a DTD or schema is not processed, again in almost all cases. Note that even without validation, an exception resulted when no system ID could be found, and the DTD reference could not be resolved (in the section on <tt class="literal">InputSource</tt>s). So be sure to realize the difference between <em class="emphasis">validation</em> occurring, and <em class="emphasis">DTD or schema processing</em> occurring. Triggering of <tt class="literal">ignorableWhitespace( )</tt> only requires that DTD or schema <em class="emphasis">processing</em> occurs, not that validation occurs.
+</p>
+</blockquote>
+<p>Finally,
+<a name="INDEX-318" />whitespace
+is often reported by the <a name="INDEX-319" /><tt class="literal">characters( )</tt> method.
+This introduces additional confusion, as another SAX callback,
+<a name="INDEX-320" /><tt class="literal">ignorableWhitespace( )</tt>,
+also reports whitespace. Unfortunately, a lot of books (including,
+I'm embarrassed to admit, my first edition of <em class="emphasis">Java and XML</em>) got the details of whitespace
+either partially or completely wrong. So, let me take this
+opportunity to set the record straight. First, if no DTD or XML
+Schema is referenced, the <tt class="literal">ignorable-Whitespace( )</tt>
+method should never be invoked. Period.
+</p>
+
+<p>The reason is that a DTD (or schema) details the content model for an
+element. In other words, in the <em class="emphasis">JavaXML.dtd</em> file, the
+<tt class="literal">contents</tt> element can only have
+<tt class="literal">chapter</tt> elements within it. Any whitespace between
+the start of the <tt class="literal">contents</tt> element and the start of
+a <tt class="literal">chapter</tt> element is (by logic) ignorable. It
+doesn't mean anything, because the DTD says not to expect any
+character data (whitespace or otherwise). The same thing applies for
+whitespace between the end of a <tt class="literal">chapter</tt> element
+and the start of another <tt class="literal">chapter</tt> element, or
+between it and the end of the <tt class="literal">contents</tt> element.
+Because the constraints (in DTD or schema form) specify that no
+character data is allowed, this whitespace cannot be meaningful.
+However, <em class="emphasis">without</em> a constraint specifying that
+information to a parser, that whitespace <em class="emphasis">cannot</em>
+be interpreted as meaningless. So by removing the reference to a DTD,
+these various whitespaces would trigger the <tt class="literal">characters(
+)</tt> callback, where previously they triggered the
+<tt class="literal">ignorableWhitespace( )</tt> callback. Thus whitespace
+is never simply ignorable, or nonignorable; it all depends on what
+(if any) constraints are referenced. Change the constraints, and you
+might change the meaning of the whitespace.
+</p>
+
+<p>Let's dive even deeper. In the case where an element can only
+have other elements within it, things are reasonably clear.
+Whitespace in between elements is ignorable. However, consider a
+mixed content model:
+</p>
+
+<blockquote><pre class="code">&lt;!ELEMENT p (b* | i* | a* | #PCDATA)&gt;</pre></blockquote>
+
+<p>If this looks like gibberish, think of HTML; it represents (in part)
+the constraints for the <tt class="literal">p</tt> element, or paragraph
+tag. Of course, text within this tag can exist, and also bold
+(<tt class="literal">b</tt>), italics (<tt class="literal">i</tt>), and links
+(<tt class="literal">a</tt>) elements as well. In this model, there is no
+whitespace between the starting and ending <tt class="literal">p</tt> tags
+that will ever be reported as ignorable (with or without a DTD or
+schema reference). That's because it's impossible to
+distinguish between whitespace used for readability and whitespace
+that is supposed to be in the document. For example:
+</p>
+
+<blockquote><pre class="code">&lt;p&gt;
+  &lt;i&gt;Java and XML&lt;/i&gt;, 2nd edition, is now available at bookstores, as
+    well as through O'Reilly at 
+    &lt;a href="http://www.oreilly.com"&gt;http://www.oreilly.com&lt;/a&gt;.
+&lt;/p&gt;</pre></blockquote>
+
+<p>In this XHTML fragment, the whitespace between the opening
+<tt class="literal">p</tt> element and the opening <tt class="literal">i</tt>
+element is not ignorable, and therefore reported through the
+<tt class="literal">characters( )</tt> callback. If you aren't
+completely confused (and I don't think you are), be prepared to
+closely monitor both of the character-related callbacks. That will
+make explaining the last SAX callback related to this issue a
+snap.<a name="INDEX-321" />
+<a name="INDEX-322" />
+</p>
+
+</div>
+<a name="javaxml2-CHP-3-SECT-3.7" /><div class="sect2">
+<h3 class="sect2">3.3.7. Ignorable Whitespace</h3>
+
+<p>With all that whitespace discussion done, adding an implementation
+for the <tt class="literal">ignorableWhitespace( )</tt> method is a piece
+of cake. Since the whitespace reported is ignorable, the code does
+just that -- ignore it:
+</p>
+
+<blockquote><pre class="code">    public void ignorableWhitespace(char[] ch, int start, int length)
+        throws SAXException {
+        
+        // This is ignorable, so don't display it
+    }</pre></blockquote>
+
+<p>Whitespace is reported in the same manner as character data; it can
+be reported with one callback, or a SAX parser may break up the
+whitespace and report it over several method invocations. In either
+case, adhere closely to the precautions about not making assumptions
+or counting on whitespace as textual data in order to avoid
+troublesome bugs in your applications.
+</p>
+
+</div>
+<a name="javaxml2-CHP-3-SECT-3.8" /><div class="sect2">
+<h3 class="sect2">3.3.8. Entities</h3>
+
+<p>As you recall, there is only one entity reference in the <em class="emphasis">contents.xml</em> document,
+<tt class="literal">OReillyCopyright</tt>. When parsed and resolved, this
+results in another file being loaded, either from the local
+filesystem or some other URI. However, validation is not turned on in
+the reader implementation being used.<a href="#FOOTNOTE-4">[4]</a>
+An often overlooked facet of nonvalidating parsers is that they are
+not required to resolve entity references, and instead may skip them.
+This has caused some headaches before, as parser results may simply
+not include entity references that were expected to be included. SAX
+2.0 nicely accounts for this with a callback that is issued when an
+entity is skipped by a nonvalidating parser. The callback gives the
+name of the entity, which can be included in the viewer's
+output:
+</p><blockquote class="footnote"> <a name="FOOTNOTE-4" /><p>[4]I'm
+assuming that even if you aren't using Apache Xerces, your
+parser does not leave validation on by default. If you get different
+results than shown in this chapter, consult your documentation and
+see if validation is on. If it is, sneak a peek at <a href="ch04_01.htm">Chapter 4, "Advanced SAX "</a> and see how to turn it off.</p> </blockquote>
+
+<blockquote><pre class="code">    public void skippedEntity(String name) throws SAXException {
+        DefaultMutableTreeNode skipped =
+            new DefaultMutableTreeNode("Skipped Entity: '" + name + "'");
+        current.add(skipped);
+    }</pre></blockquote>
+
+<p>Before you go looking for the <tt class="literal">OReillyCopyright</tt>
+node, though, you should be aware that most established parsers will
+not skip entities, even if they are not validating. Apache Xerces,
+for example, never invokes this callback; instead, the entity
+reference is expanded and the result included in the data available
+after parsing. In other words, it's there for parsers to use,
+but you will be hard-pressed to find a case where it crops up! If you
+do have a parser that exhibits this behavior, note that the parameter
+passed to the callback does not include the leading ampersand and
+trailing semicolon in the entity reference. For
+<tt class="literal">&amp;OReillyCopyright;</tt>, only the name of the
+entity reference, <tt class="literal">OReillyCopyright</tt>, is passed to
+<tt class="literal">skippedEntity( )</tt>.
+</p>
+
+</div>
+<a name="javaxml2-CHP-3-SECT-3.9" /><div class="sect2">
+<h3 class="sect2">3.3.9. The Results</h3>
+
+<p>Finally, you need to register the content handler implementation with
+the <tt class="literal">XMLReader</tt> you've instantiated. This is
+done with <a name="INDEX-323" /><tt class="literal">setContentHandler( )</tt>. Add
+the following lines to the <tt class="literal">buildTree( )</tt> method:
+</p>
+
+<blockquote><pre class="code">    public void buildTree(DefaultTreeModel treeModel, 
+                          DefaultMutableTreeNode base, String xmlURI) 
+        throws IOException, SAXException {
+
+        // Create instances needed for parsing
+        XMLReader reader = 
+            XMLReaderFactory.createXMLReader(vendorParserClass);
+        <tt class="userinput"><b>ContentHandler jTreeContentHandler = 
+            new JTreeContentHandler(treeModel, base);
+
+        // Register content handler
+        reader.setContentHandler(jTreeContentHandler);</b></tt>
+
+        // Register error handler
+
+        // Parse
+        InputSource inputSource = 
+            new InputSource(xmlURI);
+        reader.parse(inputSource);
+    }</pre></blockquote>
+
+<p>If you have entered all of these document callbacks, you should be
+able to compile the <tt class="literal">SAXTreeViewer</tt> source file.
+Once done, you may run the SAX viewer demonstration on the XML sample
+file created earlier. Also, make sure that you have added your
+working directory to the classpath. The complete Java command should
+read:
+</p>
+
+<blockquote><pre class="code">C:\javaxml2\build&gt;java javaxml2.SAXTreeViewer ..\ch03\xml\contents.xml</pre></blockquote>
+
+<p>This should result in a Swing window firing up, loaded with the XML
+document's content. If you experience a slight pause in
+startup, you are probably waiting on your machine to connect to the
+Internet and resolve the <tt class="literal">OReillyCopyright</tt> entity
+reference. If you aren't online, refer to <a href="ch02_01.htm">Chapter 2, "Nuts and Bolts"</a> for instructions on replacing the reference in
+the DTD with a local copyright file. In any case, your output should
+look similar to <a href="ch03_03.htm#javaxml2-CHP-3-FIG-4">Figure 3-4</a>, depending on what nodes
+you have expanded.
+</p>
+
+<a name="javaxml2-CHP-3-FIG-4" /><div class="figure"><img height="360" alt="Figure 3-4" src="figs/javax_0304.gif" width="481" /></div><h4 class="objtitle">Figure 3-4. SAXTreeViewer in action</h4>
+
+<p>A couple of things to notice: first, the surrounding whitespace of
+elements is not present, since the presence of a DTD and strict
+content model forces that whitespace to be ignored (as it is reported
+to the <tt class="literal">ignorableWhitespace( )</tt> callback). Second,
+the entity reference is resolved, and you see the contents of the
+<em class="emphasis">copyright.xml</em> file nested within
+the larger tree structure. Also, because this file has no DTD,
+whitespace that might be considered ignorable is reported as
+character data through the <tt class="literal">characters( )</tt> callback.
+That results in the odd little control characters in the tree's
+text value (these are most often carriage returns in the underlying
+document). Finally, notice how the text "O'Reilly &amp;
+Associates" within <em class="filename">copyright.xml</em> is
+actually reported through three invocations of the
+<tt class="literal">characters( )</tt> callback. This is a perfect
+illustration of textual data not being reported as one block of text.
+In this case, the parser split the text on the entity reference
+(<tt class="literal">&amp;amp;</tt>), which is a common behavior. In any
+case, you should try running the viewer on different XML documents
+and see how the output changes.
+</p>
+
+<p>You have now seen how a SAX-compliant parser handles a well-formed
+XML document. You should also be getting an understanding of the
+document callbacks that occur within the parsing process and of how
+an application can use these callbacks to get information about an
+XML document as it is parsed. In the next chapter, I will look at
+validating an XML document by using additional SAX classes designed
+for handling DTDs. Before moving on, though, I want to address the
+issue of what happens when your XML document is not valid, and the
+errors that can result from this condition.<a name="INDEX-324" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch03_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch03_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">3.2. SAX Readers</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">3.4. Error Handlers</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

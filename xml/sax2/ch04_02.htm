@@ -1,0 +1,294 @@
+<html><head><title>The LexicalHandler Interface  (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch04_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+	<h2 class="sect1">4.2. The LexicalHandler Interface </h2>
+
+	<p>
+<a name="INDEX-532" />
+        This extension interface is new in SAX2.
+	It's in the <em class="emphasis">org.xml.sax.ext</em> package, which
+	means among other things that it is optional and isn't supported
+	by all SAX APIs and layers,
+	such as <em class="emphasis">DefaultHandler</em>.
+	However, any SAX2 parser that can be bootstrapped with JAXP
+	supports this interface.
+	Parsers that support <em class="emphasis">LexicalHandler</em>
+	expose comment text and the boundaries of CDATA sections,
+	DTDs, and most parsed entities.
+	There is no <tt class="literal">setLexicalHandler()</tt> method;
+	bind these handlers to parsers like this:
+	</p>
+
+	<blockquote><pre class="code">
+XMLReader	producer = ...;
+LexicalHandler	handler = ...;
+
+producer.setProperty ("http://xml.org/sax/properties/lexical-handler",
+	handler);
+// throws SAXNotSupportedException if parameter isn't a LexicalHandler
+// throws SAXNotRecognizedException if parser doesn't support it.
+</pre></blockquote>
+
+	<p>The information this exposes is needed
+	for applications that need more in the way of "round-tripping"
+	support than the SAX2 core allows.
+	That is, less of the information read by parsers
+	will be completely discarded.
+	The application needs SAX to provide more complete support
+	for the XML Infoset (or for the XPath data model).
+	To completely support DOM, XPath, or XSLT on top of a SAX2
+	parser, this interface is as necessary as the namespaces
+	exposed in the SAX2 <em class="emphasis">ContentHandler</em>
+	and <em class="emphasis">Attributes</em> interfaces.
+	The downside is that much of this information is in the category
+	of information applications shouldn't want to deal with.
+	Be careful how you use these callbacks; don't assume that
+	just because the information is available, you should use it.</p>
+ 
+	<p><em class="emphasis">LexicalHandler</em> has the following methods: 
+	</p>
+
+	<dl>
+
+	    <dt><b>
+    <tt class="literal">void comment(buf,offset,len)</tt>
+		    </b></dt>
+
+		<dd><p>
+<a name="INDEX-533" />
+<a name="INDEX-534" />
+<a name="INDEX-535" />
+                Reports characters inside a
+		<tt class="literal">&lt;!--...--&gt;</tt>
+		comment section (without the delimiting characters).For many applications, this event is the only reason to use this interface. This is <em class="emphasis">almost</em> the same convention <em class="emphasis">ContentHandler</em> uses to report character content or ignorable whitespace; the parameters are identical. Comments are always reported in a single callback. Two consecutive <tt class="literal">comment()</tt> calls means two consecutive comments, while two consecutive <tt class="literal">characters()</tt> calls just enlarge a given logical span of text.
+		</p>
+
+		<dl>
+
+		    <dt><b><tt class="literal">char</tt> <em class="replaceable">buf []</em></b></dt>
+		    <dd><p>
+<a name="INDEX-536" />
+                    A character array that holds the
+		    comment text. As with the
+		    <tt class="literal">ContentHandler.characters()</tt>
+		    callback, you must ignore characters in this buffer
+		    that are outside of the specified range.
+		    </p></dd>
+
+		    <dt><b><tt class="literal">int</tt> <em class="replaceable">offset</em></b></dt>
+		    <dd><p>The index of the first comment
+		    character in the buffer.
+		    </p></dd>
+
+		    <dt><b><tt class="literal">int</tt> <em class="replaceable">len</em></b></dt>
+		    <dd><p>How many comment characters are
+		    in the buffer, beginning at the specified offset.
+		    </p></dd>
+
+		</dl>
+
+		<p>
+<a name="INDEX-537" />
+                <?troff .sp -.3?>Comments show up in the XPath data model, so they are
+		reflected in layers (such as XSLT, XPointer, and XLink) that
+		build on XPath. Strictly speaking, applications should
+		ignore comments except when they round-trip data
+		provided during authoring. Instead, they should use
+		processing instructions when they need to work with
+		annotations. You might need to use comment data with HTML processors because it doesn't support processing instructions. For example, HTML documents often use comments to wrap CSS data, JavaScript code, or server-side includes.</p>
+
+		<p><?troff .sp -.3?>There are two good ways to handle comments. One
+		is just to discard them and make the implementation of
+		this method do nothing. (I like that one!) The other is
+		to create a new <em class="emphasis">String</em> using the 
+		method parameters and
+		save the string somewhere. Avoid parsing comment content;
+		if you're tempted to do that in new applications, try
+		to use PIs (which were designed for such purposes).
+		</p>
+
+		<blockquote><pre class="code">
+public void comment (String buf, int offset, int len)
+throws SAXException
+{
+    String value = new String (buf, offset, len);
+    ... now that you have it, what do you want to do?
+}</pre></blockquote>
+		
+		</dd>
+	
+
+	    <dt><b>
+		    <tt class="literal">void startDTD(name, publicId, systemId)</tt>
+		    </b></dt>
+		    <dt><b><tt class="literal">void endDTD()</tt></b></dt>
+
+		<dd><p>
+<a name="INDEX-538" />
+<a name="INDEX-539" />
+                The <tt class="literal">startDTD()</tt> event
+		reports the beginning of a document's DTD, and 
+		<tt class="literal">endDTD()</tt> reports the end.
+		These events can be useful when you save DTD information, such
+		as the partial support in DOM Level 2. It
+		is also important when you create SAX event streams
+		that may need to print as documents that include a DTD.
+		</p>
+
+		<dl>
+
+		    <dt><b>
+			<em class="emphasis">String name</em></b></dt>
+		    <dd><p>The declared name of the root
+		    element for the document. It is never omitted, though
+		    for invalid documents it may not correspond
+		    to the name of the root element.
+		    </p></dd>
+
+		    <dt><b>
+			<em class="emphasis">String publicId</em></b></dt>
+		    <dd><p>Normalized version of the public ID
+		    declared for the external subset, or null if no such subset
+		    was provided.
+		    </p></dd>
+
+		    <dt><b><em class="emphasis">String systemId</em>
+		    </b></dt>
+		    <dd><p>The system ID declared for the external
+		    subset, or null if no such ID was provided.
+		    Note that this URI is not absolutized.
+		    </p></dd>
+
+		</dl>
+
+		<p>When the end of the DTD is reported, all other
+		declarations that should have been reported (with
+		<em class="emphasis">DeclHandler</em>
+		or <em class="emphasis">DTDHandler</em> callbacks)
+		will have been reported. If any 
+		<tt class="literal">ContentHandler.skippedEntity()</tt> calls
+		were made for external parameter entities, applications will
+		normally infer that some declarations were not processed.
+		</p>
+		
+		<p>
+<a name="INDEX-540" />
+<a name="INDEX-541" />
+                Parsers are not required to distinguish the internal
+		and external subsets. There are two mechanisms
+		applications can use, but both of them are optional.
+		The natural method is to rely on external parameter entity
+		boundary reports, using other methods in this interface.
+		Not all parsers report those entities; you can check
+		the <em class="emphasis">lexical-handler/parameter-entities</em>
+		feature flag to see if this mechanism will work for you.
+		The other mechanism compares base URIs as reported through
+		the <tt class="literal">Locator.getSystemId()</tt> method;
+		base URIs for external subset components will differ from
+		those of the document itself.
+		Most parsers support this method, but it's awkward to
+		use for this purpose.
+		</p>
+
+		<p>If you're saving DTD content, these methods will
+		bracket a lot of work where you squirrel data
+		away for later use. Otherwise, you'll probably
+		arrange to ignore all the other DTD events and will
+		only need to decide what to do with comments and processing
+		instructions, if you don't just ignore them.
+		Ignoring them within DTDs is a popular strategy even when
+		they're not ignored elsewhere. This is because comments
+		or PIs inside a DTD would seem to apply to DTD contents,
+		while most applications are instead working with
+		document contents.
+
+		</p></dd>
+	
+	    
+		<dt><b><tt class="literal">void startCDATA()</tt></b></dt>
+		<dt><b><tt class="literal">void endCDATA()</tt></b></dt>
+
+		<dd><p>
+<a name="INDEX-542" />
+<a name="INDEX-543" />
+<a name="INDEX-544" />
+                These methods report the beginning and end of a
+		<tt class="literal">&lt;[CDATA[...]]&gt;</tt> text section;
+		the bracketing characters are not reported.
+		Any content within a CDATA section is reported with
+		<tt class="literal">characters()</tt>
+		events; the <tt class="literal">&lt;</tt> and 
+		<tt class="literal">&amp;</tt> characters within CDATA
+		sections are parsed like normal characters,
+		not like delimiters for markup.
+		</p>
+		
+		<p>Most software has little reason to care whether
+		character content is contained in CDATA sections.
+		Unless you are trying to round-trip data while preserving
+		those lexical artifacts (to simplify potential future work
+		done with text editors), the right response to CDATA
+		events is to ignore them.
+
+		</p></dd>
+	
+
+	    
+	    <dt><b><tt class="literal">void startEntity(String name)</tt></b></dt>
+	    <dt><b><tt class="literal">void endEntity(String name)</tt></b></dt>
+
+		<dd><p>
+<a name="INDEX-545" />
+<a name="INDEX-546" />
+                These methods report the beginning and
+		end of internal or external entity expansion. The entity is named using the same rules as the <tt class="literal">ContentHandler.skippedEntity()</tt> callback. If you need to indicate which kind of entity is being expanded, record information from the <tt class="literal">DeclHandler.externalEntityDecl()</tt> callback and consult it in these methods. (That means you'll likely really want an extended <em class="emphasis">DefaultHandler</em> or <em class="emphasis">XMLFilterImpl</em> that supports both of the standardized extension classes.)
+		</p>
+		
+		<p>Expansions of general entity references, like
+		<tt class="literal">&amp;dudley;</tt>, are reported
+		everywhere except inside attribute values.
+		Such expansions within entity values can't meaningfully be
+		reported, since all markup within start tags
+		is reported at the same time.
+		</p>
+		
+		<p>Not all parsers report expansion of parameter entities,
+		like <tt class="literal">%nell;</tt>, in DTDs.
+		There is a special parser feature flag
+		(<em class="emphasis">lexical-handler/parameter-entities</em>)
+		that determines whether parsers report such events.
+		As with general entity references, not all parameter
+		entity expansions can be meaningfully reported.
+		Parameter entities that expand as part of markup declarations or
+		conditional section markers won't be seen, since markup
+		declarations are reported only in their entirety.
+<a name="INDEX-547" />
+		</p>
+		
+		</dd>
+	
+	</dl>
+
+    
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch04_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4. Consuming SAX2 Events</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">4.3. Exposing DTD Information </td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

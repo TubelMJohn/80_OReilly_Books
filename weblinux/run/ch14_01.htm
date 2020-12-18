@@ -1,0 +1,1193 @@
+<?label 14. Tools for
+ Programmers?><html><head><title>Tools for
+ Programmers (Running Linux)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Running Linux" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_07.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm" /></td><td width="172" valign="top" align="right"><a href="ch14_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h1 class="chapter">Chapter 14. Tools for
+ Programmers</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4><p>
+<a href="ch14_01.htm">Debugging with gdb</a><br />
+<a href="ch14_02.htm">Programming Tools</a><br /></p></div>
+
+<p><a name="INDEX-2781" />
+Many judge a computer system by the tools it offers its
+programmers.  Unix systems have won the contest by many people's
+standards, having developed a very rich set over the years.  Leading
+the parade is the <span class="acronym">GNU</span> debugger, <tt class="command">gdb</tt>.  In this
+chapter, we take a close look at this invaluable utility and a number
+of other auxiliary tools C programmers will find useful.</p>
+
+<p><a name="INDEX-2782" />
+<a name="INDEX-2783" />
+<a name="INDEX-2784" />
+<a name="INDEX-2785" />
+Even if you are not a programmer, you should consider using the
+Revision Control System (<span class="acronym">RCS</span>).  It provides one of the most reassuring
+protections a computer user could ask for--backups for everything you
+do to a file.  If you delete a file by accident, or decide that
+everything you did for the past week was a mistake and should be
+ripped out, <span class="acronym">RCS</span> can recover any version you
+want. If you are working on a larger project that involves either a
+large number of developers or a large number of directories,
+Concurrent Versioning System
+(<span class="acronym">CVS</span>) might be more suitable for you. It is
+based on <span class="acronym">RCS</span>, but provides some additional
+features.</p>
+
+<div class="sect1"><a name="x-100-3-prog-gdb" />
+<h2 class="sect1">14.1. Debugging with gdb</h2>
+
+<p><a name="INDEX-2786" />
+<a name="INDEX-2787" />
+<a name="INDEX-2788" />
+Are you one of those programmers who scoff at the very idea
+of using a debugger to trace through code? Is it your philosophy that 
+if the code is too complex for even the programmer to understand,
+then the programmer deserves no mercy when it comes to bugs? Do you step through 
+your code, mentally, using a magnifying glass and a toothpick?
+More often than not, are bugs usually caused by a single-character omission, 
+such as using the <tt class="literal">=</tt> operator when you mean <tt class="literal">+=</tt>?</p>
+
+<p>Then perhaps you should meet <tt class="command">gdb</tt>--the <span class="acronym">GNU</span> debugger. Whether or not 
+you know it, <tt class="command">gdb</tt> is your friend. It can locate obscure and
+difficult-to-find bugs that result in core dumps, memory leaks, and 
+erratic behavior (both for the program and the programmer). Sometimes
+even the most harmless-looking glitches in your code can cause everything
+to go haywire, and without the aid of a debugger like <tt class="command">gdb</tt>, finding
+these problems can be nearly impossible--especially for programs longer than
+a few hundred lines. 
+In this section, we'll introduce you to the most useful features of
+<tt class="command">gdb</tt> by way of examples.
+
+There's a book on <tt class="command">gdb</tt>, too--the Free Software Foundation's
+<em class="emphasis">Debugging with GDB</em>.</p>
+
+<p><a name="INDEX-2789" />
+<a name="INDEX-2790" />
+<tt class="command">gdb</tt> is capable of either debugging programs as they run, or 
+examining the cause for a program crash with a core dump. Programs
+debugged at runtime with <tt class="command">gdb</tt> can either be executed from within
+<tt class="command">gdb</tt> itself or can be run separately; that is,
+<tt class="command">gdb</tt> can attach itself
+to an already running process to examine it. 
+First, we'll discuss how to debug programs running within <tt class="command">gdb</tt> and
+then move on to attaching to running processes and examining core dumps.</p>
+
+<div class="sect2">
+<h3 class="sect2">14.1.1. Tracing a Program</h3>
+
+<p><a name="INDEX-2791" />
+Our first example is a program called <em class="filename">trymh</em> that detects edges in
+a grayscale image.
+<em class="filename">trymh</em> takes as input an image file, does some
+calculations on the data, and spits out another image file. Unfortunately,
+it crashes whenever it is invoked, as so:
+<?troff-ps_indent0?>
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>trymh &lt; image00.pgm &gt; image00.pbm</b></tt> 
+Segmentation fault (core dumped)</pre></blockquote>
+
+<a name="INDEX-2792" />
+<a name="INDEX-2793" />
+Now, using <tt class="command">gdb</tt> we could analyze the resulting core file, but
+for this example, we'll show how to trace the program as
+it runs, instead.<a href="#FOOTNOTE-51">[51]</a></p><blockquote>
+
+<a name="FOOTNOTE-51" /><p>[51]The sample programs in this section are
+not programs you're likely to run into anywhere; they were 
+thrown together by the authors for the purpose of demonstration.</p>
+
+</blockquote>
+
+<p>Before we use <tt class="command">gdb</tt> to trace through the executable <em class="filename">trymh</em>,
+we need to ensure that the executable has been compiled with debugging
+code (see the section "<a href="ch13_01.htm#x-100-3-sec-prog-gcc-debug">Section 13.1.6, "Enabling Debugging Code"</a>"
+
+in <a href="ch13_01.htm">Chapter 13, "Programming
+ Languages"</a>). 
+To do so, we should compile <em class="filename">trymh</em> using the <span class="option">-g</span> switch with
+<tt class="command">gcc</tt>.</p>
+
+<p><a name="INDEX-2794" />
+<a name="INDEX-2795" />
+<a name="INDEX-2796" />
+<img src="figs/bomb.gif">&nbsp;&nbsp;
+Note that enabling optimization (<span class="option">-O</span>) with debug code (<span class="option">-g</span>) 
+is not illegal but not recommended. The problem is that <tt class="command">gcc</tt>
+is too smart for its own good. For example, if you have two identical
+lines of code in two different places in a function,
+<tt class="command">gdb</tt> may unexpectedly jump to the second occurrence of the line,
+instead of the first, as expected. This is because <tt class="command">gcc</tt> combined
+the two lines into a single line of machine code used in both instances.</p>
+
+<p>Some of the automatic optimizations performed by <tt class="command">gcc</tt> can be
+confusing when using a debugger. To turn off <em class="emphasis">all</em> optimization
+(even optimizations performed without specifying <span class="option">-O</span>), use the
+<span class="option">-O0</span> (that's <em class="emphasis">dash-oh-zero</em>) option with <tt class="command">gcc</tt>.</p>
+
+<p>Now we can fire up <tt class="command">gdb</tt> to see what the problem might be:
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>gdb trymh</b></tt> 
+GDB is free software and you are welcome to distribute copies of it 
+ under certain conditions; type "show copying" to see the conditions. 
+There is absolutely no warranty for GDB; type "show warranty" for details. 
+GDB 4.16 (i486-unknown-linux --target i486-linux),
+Copyright 1996 Free Software Foundation, Inc. 
+(gdb)</pre></blockquote>
+
+
+
+Now <tt class="command">gdb</tt> is waiting for a command. (The command <tt class="command">help</tt>
+displays information on the available commands.) The first thing we
+want to do is start running the program so that we can observe its behavior.
+However, if we immediately use the <tt class="command">run</tt> command, the program
+simply executes until it exits or crashes.</p>
+
+<p><a name="INDEX-2797" />
+First, we need to set a
+<em class="emphasis">breakpoint</em> somewhere in the program. A breakpoint is just a location
+in the program where <tt class="command">gdb</tt> should stop and allow us to control 
+execution of the program. 
+For the sake of simplicity, let's set a breakpoint on the first line of
+actual code, so that the program stops just as it begins to execute.
+<a name="INDEX-2798" />
+The <tt class="command">list</tt> command displays several lines of code (an
+amount that is variable) at a time:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>list</b></tt> 
+12        main() { 
+13 
+14         FloatImage inimage; 
+15         FloatImage outimage; 
+16         BinaryImage binimage; 
+17         int i,j; 
+18 
+19         inimage = (FloatImage)imLoadF(IMAGE_FLOAT,stdin); 
+20         outimage = laplacian_float(inimage); 
+21  
+(gdb) <tt class="userinput"><b>break 19</b></tt> 
+Breakpoint 1 at 0x289c: file trymh.c, line 19. 
+(gdb)</pre></blockquote>
+
+A breakpoint is now set at line 19 in the current source file.
+You can set many breakpoints in the program; breakpoints may be conditional
+(that is, triggered only when a certain expression is true), unconditional,
+delayed, temporarily disabled, and so on. You may set breakpoints on 
+a particular line of code, a particular function, a set of functions, 
+and in a slew of other ways. 
+<a name="INDEX-2799" />
+<a name="INDEX-2800" />
+You may also set a 
+<em class="emphasis">watchpoint</em>, using the <tt class="command">watch</tt> command, which is similar to a 
+breakpoint but is triggered whenever a certain event takes place--not 
+necessarily at a specific line of code within the program.
+We'll talk more about breakpoints and watchpoints later in the chapter.</p>
+
+<p><a name="INDEX-2801" />
+Next, we use the <tt class="command">run</tt> command to start the program running.
+<tt class="command">run</tt> takes as arguments the same arguments you'd give
+<em class="filename">trymh</em> on the command line; this can include shell
+wildcards and
+input/output redirection, as the command is passed to
+<em class="filename">/bin/sh</em> for execution:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>run &lt; image00.pgm &gt; image00.pfm</b></tt> 
+Starting program: /amd/dusk/d/mdw/vis/src/trymh &lt; image00.pgm &gt;\
+image00.pfm 
+<?troff .ne 10?>
+Breakpoint 1, main () at trymh.c:19 
+19         inimage = (FloatImage)imLoadF(IMAGE_FLOAT,stdin); 
+(gdb)</pre></blockquote>
+
+
+
+As expected, the breakpoint is reached immediately at the first line
+of code. We can now take over.</p>
+
+<p><a name="INDEX-2802" />
+<a name="INDEX-2803" />
+The most useful program-stepping commands are <tt class="command">next</tt> and <tt class="command">step</tt>.
+Both commands execute the next line of code in the program, except
+that <tt class="command">step</tt> descends into any function calls in the program,
+and <tt class="command">next</tt> steps only to the next line of code in the same
+function. <tt class="command">next</tt> quietly executes any function calls that 
+it steps over but does not descend in their code for us to examine.</p>
+
+<p><em class="emphasis">imLoadF</em> is a function that loads an image from a disk file. We
+know this function is not at fault (you'll have to trust us on that
+one), so we wish to step over it using the <tt class="command">next</tt> command: 
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>next</b></tt> 
+20         outimage = laplacian_float(inimage); 
+(gdb)</pre></blockquote>
+
+Here, we are interested in tracing into the suspicious-looking 
+<em class="emphasis">laplacian_float</em> function, so we use the <tt class="command">step</tt> command:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>step</b></tt> 
+laplacian_float (fim=0x0) at laplacian.c:21 
+21          i = 20.0; 
+(gdb)</pre></blockquote>
+
+ 
+Let's use the <tt class="command">list</tt> command to get some idea of where we are:</p>
+
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>list</b></tt>  
+16        FloatImage laplacian_float(FloatImage fim) {  
+17  
+18          FloatImage mask;  
+19          float i;  
+20  
+21          i = 20.0;  
+22          mask=(FloatImage)imNew(IMAGE_FLOAT,3,3);  
+23          imRef(mask,0,0) = imRef(mask,2,0) = imRef(mask,0,2) = 1.0;  
+24          imRef(mask,2,2) = 1.0; imRef(mask,1,0) = imRef(mask,0,1) = i/5;  
+25          imRef(mask,2,1) = imRef(mask,1,2) = i/5; imRef(mask,1,1) = -i;  
+(gdb) <tt class="userinput"><b>list</b></tt>  
+26  
+27          return convolveFloatWithFloat(fim,mask);  
+28        }  
+(gdb)</pre></blockquote>
+
+<p>As you can see, using <tt class="command">list</tt> multiple times just
+displays more of the code. Because we don't want to
+<tt class="command">step</tt> manually through this code, and we're not
+interested in the <tt class="command">imNew</tt> function on line 22, let's
+continue execution until line 27. For this, we use the
+<tt class="command">until</tt> command:</p>
+
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>until 27</b></tt> 
+laplacian_float (fim=0x0) at laplacian.c:27 
+27          return convolveFloatWithFloat(fim,mask);  
+(gdb)</pre></blockquote>
+
+<p>Before we step into the <em class="emphasis">convolveFloatWithFloat</em>
+function, let's be sure the two parameters, <tt class="literal">fim</tt> and
+<tt class="literal">mask</tt>, are valid.  The <tt class="command">print</tt>
+command examines the value of a variable:
+
+<a name="INDEX-2804" /></p>
+
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>print mask</b></tt> 
+$1 = (struct {...} *) 0xe838 
+(gdb) <tt class="userinput"><b>print fim</b></tt> 
+
+$2 = (struct {...} *) 0x0 
+(gdb)</pre></blockquote>
+
+<p><tt class="literal">mask</tt> looks fine, but <tt class="literal">fim</tt>, the
+input image, is null.  Obviously,
+<em class="emphasis">laplacian_float</em> was passed a null pointer
+instead of a valid image. If you have been paying close attention, you
+noticed this as we entered
+<em class="emphasis">laplacian_ float</em> earlier.</p>
+
+<p>Instead of stepping deeper into the program (as it's apparent that
+something has already gone wrong), let's continue execution until the
+current function returns. The <tt class="command">finish</tt> command
+accomplishes this:  
+<a name="INDEX-2805" /></p>
+
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>finish</b></tt> 
+Run till exit from #0  laplacian_float (fim=0x0) at laplacian.c:27 
+0x28c0 in main () at trymh.c:20 
+20       outimage = laplacian_float(inimage); 
+Value returned is $3 = (struct {...} *) 0x0 
+(gdb)</pre></blockquote>
+
+<p>Now we're back in <em class="emphasis">main</em>. To determine the source
+of the problem, let's examine the values of some variables:</p>
+
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>list</b></tt> 
+15       FloatImage outimage; 
+16       BinaryImage binimage; 
+17       int i,j; 
+18       
+19       inimage = (FloatImage)imLoadF(IMAGE_FLOAT,stdin); 
+20       outimage = laplacian_float(inimage); 
+21       
+22       binimage = marr_hildreth(outimage); 
+23       if  (binimage == NULL) { 
+24         fprintf(stderr,"trymh: binimage returned NULL\n"); 
+(gdb) <tt class="userinput"><b>print inimage</b></tt> 
+$6 = (struct {...} *) 0x0 
+(gdb)</pre></blockquote>
+
+<p>The variable <tt class="literal">inimage</tt>, containing the input image
+returned from <em class="emphasis">imLoadF</em>, is null. Passing a null
+pointer into the image-manipulation routines certainly would cause a
+core dump in this case.  However, we know
+<em class="emphasis">imLoadF</em> to be tried and true because it's in a
+well-tested library, so what's the
+problem?</p>
+
+<p>As it turns out, our library function <em class="emphasis">imLoadF</em> returns <tt class="literal">NULL</tt> 
+on failure--if the input format is bad, for example. Because we never 
+checked the return
+value of <em class="emphasis">imLoadF</em> before passing it along to <em class="emphasis">laplacian_float</em>, 
+the program goes haywire when <tt class="literal">inimage</tt> is assigned <tt class="literal">NULL</tt>.
+To correct the problem, we simply insert code to cause the problem to
+exit with an error message if <em class="emphasis">imLoadF</em> returns a null pointer.</p>
+
+<p><a name="INDEX-2806" />
+To quit <tt class="command">gdb</tt>, just use the command <tt class="command">quit</tt>. Unless the program
+has finished execution, <tt class="command">gdb</tt> will complain that the program is still
+running:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>quit</b></tt> 
+The program is running.  Quit anyway (and kill it)? (y or n) <tt class="userinput"><b>y</b></tt> 
+papaya$</pre></blockquote></p>
+
+<p>In the following sections
+we examine some specific features provided by the debugger, given the
+general picture just presented.</p>
+
+<a name="INDEX-2807" />
+</div>
+
+
+
+
+<a name="x-100-3-sec-coredebug" /><div class="sect2">
+<h3 class="sect2">14.1.2. Examining a Core File</h3>
+
+<p><a name="INDEX-2808" />
+
+Do you hate it when a program crashes and spites you again by leaving
+a 10 MB core file in your working directory, wasting much-needed
+space? Don't be so quick to delete that core file; it can be very
+helpful.  A core file is just a dump of the memory image of a process
+at the time of the crash. You can use the core file with
+<tt class="command">gdb</tt> to examine the state of your program (such as
+the values of variables and data) and determine the cause for failure.</p>
+
+<p><a name="INDEX-2809" />
+
+The core file is written to disk by the operating system whenever
+certain failures occur. The most frequent reason for a crash and the
+subsequent core dump is a memory violation--that is, trying to
+read or write memory that your program does not have access to. For
+example, attempting to write data into a null pointer can cause a
+<em class="emphasis">segmentation fault</em>, which is essentially a fancy way to say, "you screwed up." Other errors that result in core
+files are so-called "bus errors" and "floating-point 
+exceptions." Segmentation faults are a common error and occur
+when you try to access (read from or write to) a memory address that
+does not belong to your process's address space. This includes the
+address 0, as often happens with uninitialized pointers. Bus errors
+result in using incorrectly aligned data and are therefore rare on the 
+Intel architecture, which does not pose strong alignment conditions
+like other architectures, such as SPARC. Floating-point exceptions
+point to a severe 
+problem in a floating-point calculation like an overflow, but the most 
+usual case is a division by zero.</p>
+
+<p><a name="INDEX-2810" />
+However, not all such memory errors will cause immediate crashes.  For
+example, you may overwrite memory in some way, but the program
+continues to run, not knowing the difference between actual data and
+instructions or garbage. Subtle memory violations can cause programs
+to behave erratically. One of the authors once witnessed a bug that caused the
+program to jump randomly around but without tracing it with
+<tt class="command">gdb</tt>, it still appeared to work normally.  The only
+evidence of a bug was that the program returned output that meant,
+roughly, that two and two did not add up to four.  Sure enough, the
+bug was an attempt to write one too many characters into a block of
+allocated memory. That single-byte error caused hours of grief.</p>
+
+<p><a name="INDEX-2811" />
+<a name="INDEX-2812" />
+<a name="INDEX-2813" />
+<a name="INDEX-2814" />
+
+You can prevent these kinds of memory problems (even the best
+programmers make these mistakes!) using the Checker package, a set of
+memory-management routines that replaces the commonly used
+<em class="emphasis">malloc()</em> and
+<em class="emphasis">free()</em> functions. We'll talk about
+Checker in the section "<a href="ch14_02.htm#x-100-3-sec-prog-tools-checker">Section 14.2.5, "Using Checker"</a>."</p>
+
+<p>However, if your program does cause a memory fault, it will crash and
+dump core. Under Linux, core files are named, appropriately, 
+<em class="filename">core</em>. The core file appears
+in the current working directory of the running process, which is 
+usually the working directory of the shell that started the program,
+but on occasion, programs may change their own working directory.</p>
+
+<p><a name="INDEX-2815" />
+Some shells provide facilities for controlling whether core files
+are written. Under <tt class="command">bash</tt>, for example, the default behavior is
+not to write core files at all. In order to enable core file output, you
+should use the command:
+<blockquote><pre class="code">ulimit -c unlimited</pre></blockquote>
+
+ 
+probably in your <em class="filename">.bashrc</em> initialization file. You can specify a
+maximum size for core files other than <tt class="literal">unlimited</tt>, but truncated
+core files may not be of use when debugging applications.</p>
+
+<p>Also, in order for a core file to be useful, the program must be
+compiled with debugging code enabled, as described in the previous section.
+Most binaries on your system will not contain debugging code, so the
+core file will be of limited value.</p>
+
+<p>Our example for using <tt class="command">gdb</tt> with a core file is yet another
+mythical program called <em class="filename">cross</em>. Like <em class="filename">trymh</em> in the previous
+section, <em class="filename">cross</em> takes as input an image file, does some calculations
+on it, and outputs another image file. However, when running <em class="filename">cross</em>,
+we get a segmentation fault:
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>cross &lt; image30.pfm &gt; image30.pbm</b></tt> 
+Segmentation fault (core dumped) 
+papaya$</pre></blockquote></p>
+
+<p>To invoke <tt class="command">gdb</tt> for use with a core file, you must specify not only the
+core filename but also the name of the executable that goes along with
+that core file. This is because the core file itself does not contain all
+the information necessary for debugging: 
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>gdb cross core</b></tt> 
+GDB is free software and you are welcome to distribute copies of it
+ under certain conditions; type "show copying" to see the conditions.
+There is absolutely no warranty for GDB; type "show warranty" for details.
+GDB 4.8, Copyright 1993 Free Software Foundation, Inc...
+Core was generated by `cross'.
+Program terminated with signal 11, Segmentation fault.
+#0  0x2494 in crossings (image=0xc7c8) at cross.c:31
+31              if ((image[i][j] &gt;= 0) &amp;&amp;
+(gdb)</pre></blockquote></p>
+
+<p><a name="INDEX-2816" />
+<tt class="command">gdb</tt> tells us that the core file terminated with signal 11. A
+<em class="emphasis">signal</em> is a kind of message that is sent to a running program
+from the kernel, the user, or the program itself.
+Signals are generally used to terminate a program (and possibly cause it
+to dump core). For example, when you type the interrupt character, 
+a signal is sent to the running program, 
+which will probably kill the program.</p>
+
+<p>In this case, signal 11 was sent to the running <em class="filename">cross</em> process by
+the kernel when <em class="filename">cross</em> attempted to read or write to memory that it 
+did not have access to. This signal caused <em class="filename">cross</em> to die and dump
+core. <tt class="command">gdb</tt> says that the illegal memory reference occurred on line
+31 of the source file <em class="filename">cross.c</em>:</p>
+
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>list</b></tt>  
+26          xmax = imGetWidth(image)-1; 
+27          ymax = imGetHeight(image)-1; 
+28         
+29          for (j=1; j&lt;xmax; j++) { 
+30            for (i=1; i&lt;ymax; i++) { 
+31              if ((image[i][j] &gt;= 0) &amp;&amp; 
+32                  (image[i-1][j-1] &lt; 0) || 
+33                  (image[i-1][j] &lt; 0) || 
+34                  (image[i-1][j+1] &lt; 0) || 
+35                  (image[i][j-1] &lt; 0) || 
+(gdb)</pre></blockquote>
+
+<p>Here, we see several things. First of all, there is a loop across
+the two index variables <tt class="literal">i</tt> and <tt class="literal">j</tt>, presumably in order to
+do calculations on the input image. Line 31 is an attempt to reference
+data from <tt class="literal">image[i][j]</tt>, a two-dimensional array. When a program
+dumps core while attempting to access data from an array, it's usually
+a sign that one of the indices is out of bounds. Let's check them:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>print i</b></tt> 
+$1 = 1 
+(gdb) <tt class="userinput"><b>print j</b></tt> 
+$2 = 1194 
+(gdb) <tt class="userinput"><b>print xmax</b></tt> 
+$3 = 1551 
+(gdb) <tt class="userinput"><b>print ymax</b></tt> 
+$4 = 1194 
+(gdb)</pre></blockquote></p>
+
+<p>Here we see the problem. The program was attempting to reference 
+element <tt class="literal">image[1][1194]</tt>, however, the array extends only to
+<tt class="literal">image[1550][1193]</tt> (remember that arrays in C are indexed
+from 0 to <em class="replaceable">max</em>-1). In other words, we attempted to read the
+1195th row of an image that only has 1194 rows.</p>
+
+<p>If we look at lines 29 and 30, we see the problem: the 
+values <tt class="literal">xmax</tt> and <tt class="literal">ymax</tt> are reversed. The variable 
+<tt class="literal">j</tt> should range from 1 to <tt class="literal">ymax</tt> (because it is the
+row index of the array), and <tt class="literal">i</tt> should range from 1 to <tt class="literal">xmax</tt>.
+Fixing the two <tt class="literal">for</tt> loops on lines 29 and 30 corrects the problem.</p>
+
+<p>Let's say that your program is crashing within a function that is 
+called from many different locations, and you want to determine where
+the function was invoked from and what situation led up to the crash.
+The <tt class="command">backtrace</tt> command displays the <em class="emphasis">call
+stack</em> of the program at the time of failure. If you are
+like me and are too lazy to type <tt class="literal">backtrace</tt> all the
+time, you will be delighted to hear that you can also use the shortcut 
+<tt class="command">bt</tt>.
+<a name="INDEX-2817" />
+<a name="INDEX-2818" /></p>
+
+<p>The call stack is the list of functions that led up to the current
+one. For example, if the program starts in function <em class="emphasis">main</em>, 
+which calls function <em class="emphasis">foo</em>, which calls <em class="emphasis">bamf</em>, the call
+stack looks like:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>backtrace</b></tt> 
+#0  0x1384 in bamf () at goop.c:31 
+#1  0x4280 in foo () at goop.c:48 
+#2  0x218 in main () at goop.c:116 
+(gdb)</pre></blockquote>
+
+As each function is called, it pushes certain data onto the stack, such
+as saved registers, function arguments, local variables, and so forth. 
+Each function has a certain amount of space allocated on the stack for
+its use. The chunk of memory on the stack for a particular function is
+called a <em class="emphasis">stack frame</em>, and the call stack is the ordered
+list of stack frames.
+<a name="INDEX-2819" /></p>
+
+<p>In the following example, we are looking at
+a core file for an X-based animation program. Using <tt class="command">backtrace</tt>
+gives us:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>backtrace</b></tt>  
+#0  0x602b4982 in _end () 
+#1  0xbffff934 in _end () 
+#2  0x13c6 in stream_drawimage (wgt=0x38330000, sn=4)\
+at stream_display.c:94 
+#3  0x1497 in stream_refresh_all () at stream_display.c:116 
+#4  0x49c in control_update_all () at control_init.c:73 
+#5  0x224 in play_timeout (Cannot access memory at address 0x602b7676. 
+(gdb)</pre></blockquote>
+
+This is a list of stack frames for the process. The most recently called
+function is frame 0, which is the "function" <em class="emphasis">_end</em> in this
+case. Here, we see that <em class="emphasis">play_timeout</em> called 
+<em class="emphasis">control_update_all</em>, which called <em class="emphasis">stream_refresh_all</em>, and
+so on. Somehow, the program jumped to <em class="emphasis">_end</em> where it crashed.</p>
+
+<p>However, <em class="emphasis">_end</em> is not a function; it is simply a label that 
+specifies the end of the process data segment. When a program branches
+to an address such as <em class="emphasis">_end</em>, which is not a real function, it is
+a sign that something must have caused the process to go haywire,
+corrupting the call stack. (This is known in hacker jargon as "jumping
+to hyperspace.") In fact, the error "<tt class="literal">Cannot access memory at
+address 0x602b7676</tt>" is another indication that something bizarre has
+occurred.
+<a name="INDEX-2820" />
+<a name="INDEX-2821" /></p>
+
+<p>We can see, however, that the last "real" function called
+was <em class="emphasis">stream_drawimage</em>, and we might guess that it is the source of 
+the problem. To examine the state of <em class="emphasis">stream_drawimage</em>, we need
+to select its stack frame (frame number 2), using the <tt class="command">frame</tt> command:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>frame 2</b></tt> 
+#2  0x13c6 in stream_drawimage (wgt=0x38330000, sn=4)\
+at stream_display.c:94 
+94        XCopyArea(mydisplay,streams[sn].frames[currentframe],\
+XtWindow(wgt), 
+(gdb) <tt class="userinput"><b>list</b></tt> 
+91 
+92        printf("CopyArea frame %d, sn %d, wid %d\n",currentframe,sn,wgt); 
+93 
+94        XCopyArea(mydisplay,streams[sn].frames[currentframe],\
+XtWindow(wgt), 
+95                 picGC,0,0,streams[sn].width,streams[sn].height,0,0); 
+(gdb)</pre></blockquote></p>
+
+<p>Well, not knowing anything else about the program at hand, we can't
+see anything
+wrong here, unless the variable <tt class="literal">sn</tt> (being used as an index into
+the array <tt class="literal">streams</tt>) is out of range.  From the output of
+<tt class="command">frame</tt>, we see that 
+<em class="emphasis">stream_drawimage</em> was called with an <tt class="literal">sn</tt> parameter of 4. 
+(Function parameters are displayed in the output of <tt class="command">backtrace</tt>,
+as well as whenever we change frames.)</p>
+
+<p>Let's move up another frame, to <em class="emphasis">stream_refresh_all</em>, to see how
+<em class="emphasis">stream_display</em> was called. To do this, we use the <tt class="command">up</tt>
+command, which selects the stack frame above the current one:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>up</b></tt>  
+#3  0x1497 in stream_refresh_all () at stream_display.c:116 
+116         stream_drawimage(streams[i].drawbox,i); 
+(gdb) <tt class="userinput"><b>list</b></tt> 
+113     void stream_refresh_all(void) { 
+114       int i; 
+115       for (i=0; i&lt;=numstreams; i++) { 
+116         stream_drawimage(streams[i].drawbox,i); 
+117 
+(gdb) <tt class="userinput"><b>print i</b></tt> 
+$2 = 4 
+(gdb) <tt class="userinput"><b>print numstreams</b></tt> 
+$3 = 4 
+(gdb)</pre></blockquote></p>
+
+<p>Here, we see that the index variable <tt class="literal">i</tt> is looping from 0 to
+<tt class="literal">numstreams</tt>, and indeed <tt class="literal">i</tt> here is 4, the second
+parameter to <em class="emphasis">stream_drawimage</em>. However, <tt class="literal">numstreams</tt>
+is also 4. What's going on?</p>
+
+<p>The <tt class="literal">for</tt> loop on line 115 looks funny; it should read:
+<blockquote><pre class="code">for (i=0; i&lt;numstreams; i++) {</pre></blockquote>
+
+The error is in the use of the <tt class="literal">&lt;=</tt> comparison operator. The
+<tt class="literal">streams</tt> array is indexed from 0 to <tt class="literal">numstreams-&hairsp;1</tt>, not
+from 0 to <tt class="literal">numstreams</tt>. This simple off-by-one error caused the
+program to go berserk.</p>
+
+<p>As you can see, using <tt class="command">gdb</tt> with a core dump allows you to browse
+through the image of a crashed program to find bugs. Never again will
+you delete those pesky core files, right?</p>
+
+<a name="INDEX-2822" />
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">14.1.3. Debugging a Running Program</h3>
+
+<p><a name="INDEX-2823" />
+<tt class="command">gdb</tt> can also debug a program that is already
+running, allowing you to interrupt it, examine it, and then return the
+process to its regularly scheduled execution. This is very similar to
+running a program from within <tt class="command">gdb</tt>, and there are
+only a few new commands to learn.</p>
+
+<p><a name="INDEX-2824" />
+The <tt class="command">attach</tt> command attaches <tt class="command">gdb</tt>
+to a running process. In order to use <tt class="command">attach</tt> you
+must also have access to the executable that corresponds to the
+process.</p>
+
+<p>For example, if you have started the program
+<em class="filename">pgmseq</em> with process ID 254, you can start up
+<tt class="command">gdb</tt> with:
+
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>gdb pgmseq</b></tt></pre></blockquote>
+
+
+and once inside <tt class="command">gdb</tt>, use the command:
+
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>attach 254</b></tt> 
+Attaching program `/home/loomer/mdw/pgmseq/pgmseq', pid 254 
+_ _select (nd=4, in=0xbffff96c, out=0xbffff94c, ex=0xbffff92c, tv=0x0) 
+    at _ _select.c:22 
+_ _select.c:22: No such file or directory. 
+(gdb)</pre></blockquote>
+
+
+<a name="INDEX-2825" />
+The <tt class="literal">No such file or directory</tt> error is given
+because <tt class="command">gdb</tt> can't locate the source file for
+<tt class="command">_ _select</tt>. This is often the case with
+system calls and library functions, and it's nothing to worry about.</p>
+
+<p>You can also start <tt class="command">gdb</tt> with the command:
+
+<blockquote><pre class="code">papaya$ <tt class="userinput"><b>gdb pgmseq 254</b></tt></pre></blockquote></p>
+
+<p>Once <tt class="command">gdb</tt> attaches to the running process, it
+temporarily suspends the program and lets you take over, issuing
+<tt class="command">gdb</tt> commands.  Or you can set a breakpoint or
+watchpoint (with the <tt class="command">break</tt> and
+<tt class="command">watch</tt> commands) and use
+<tt class="command">continue</tt> to cause the program to continue execution
+until the breakpoint is triggered.</p>
+
+<p><a name="INDEX-2826" /> The
+<tt class="command">detach</tt> command detaches <tt class="command">gdb</tt> from
+the running process.  You can then use <tt class="command">attach</tt>
+again, on another process, if necessary.  If you find a bug, you can
+<tt class="command">detach</tt> the current process, make changes to the
+source, recompile, and use the <tt class="command">file</tt> command to load
+the new executable into <tt class="command">gdb</tt>. You can then start the
+new version of the program and use the <tt class="command">attach</tt>
+command to debug it. All without leaving
+<tt class="command">gdb</tt>!</p>
+
+<p>In fact, <tt class="command">gdb</tt> allows you to debug three programs
+concurrently: one running directly under <tt class="command">gdb</tt>, one
+tracing with a core file, and one running as an independent
+process. The <tt class="command">target</tt> command allows you to select
+which one you wish to debug.
+<a name="INDEX-2827" /></p>
+
+<a name="INDEX-2828" />
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">14.1.4. Changing and Examining Data</h3>
+
+<p><a name="INDEX-2829" />
+<a name="INDEX-2830" />
+
+To examine the values of variables in your program, you can use the
+<tt class="command">print</tt>, <tt class="command">x</tt>, and
+<tt class="command">ptype</tt> commands. The <tt class="command">print</tt>
+command is the most commonly used data inspection command; it 
+
+takes as
+an argument an expression in the source language (usually C or C++)
+and returns its value. For example:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>print mydisplay</b></tt> 
+$10 = (struct _XDisplay *) 0x9c800 
+(gdb)</pre></blockquote>
+
+
+This displays the value of the variable <tt class="literal">mydisplay</tt>, as well as
+an indication of its type. Because this variable is a pointer, you can
+examine its contents by dereferencing the pointer, as you would in C:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>print *mydisplay</b></tt>  
+$11 = {ext_data = 0x0, free_funcs = 0x99c20, fd = 5, lock = 0,  
+  proto_major_version = 11, proto_minor_version = 0,  
+  vendor = 0x9dff0 "XFree86", resource_base = 41943040,  
+  &#133; 
+  error_vec = 0x0, cms = {defaultCCCs = 0xa3d80 "",\
+clientCmaps = 0x991a0 "'",  
+    perVisualIntensityMaps = 0x0}, conn_checker = 0, im_filters = 0x0} 
+(gdb)</pre></blockquote>
+
+<tt class="literal">mydisplay</tt> is an extensive structure used by X
+programs; we have
+abbreviated the output for your reading enjoyment.</p>
+
+<p><tt class="command">print</tt> can print the value of just about any expression, including
+C function calls (which it executes on the fly, within
+the context of the running program):
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>print getpid()</b></tt> 
+$11 = 138 
+(gdb)</pre></blockquote>
+
+Of course, not all functions may be called in this manner. Only those
+functions that have been linked to the running program may be called.
+If a function has not been linked to the program and you attempt
+to call it, <tt class="command">gdb</tt> will complain that there is no such symbol in the
+current context.</p>
+
+<p>More complicated expressions may be used as arguments to <tt class="command">print</tt> as
+well, including assignments to variables. For example: 
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>print mydisplay-&gt;vendor = "Linux"</b></tt> 
+$19 = 0x9de70 "Linux" 
+(gdb)</pre></blockquote>
+
+assigns the value of the <tt class="literal">vendor</tt> member of the <tt class="literal">mydisplay</tt>
+structure the value <tt class="literal">"Linux"</tt> instead of <tt class="literal">"XFree86"</tt> (a useless
+modification, but interesting nonetheless). In this way, you can 
+interactively change data in a running program to correct errant
+behavior or test uncommon situations.</p>
+
+<p>Note that after each <tt class="command">print</tt> command, the value displayed is
+assigned to one of the <tt class="command">gdb</tt> convenience registers, which are
+<tt class="command">gdb</tt> internal variables that may be handy for you to use.
+For example, to recall the value of <tt class="literal">mydisplay</tt> in
+the previous example, we 
+need to merely print the value of <tt class="literal">$10</tt>:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>print $10</b></tt> 
+$21 = (struct _XDisplay *) 0x9c800 
+(gdb)</pre></blockquote></p>
+
+<p>You may also use expressions, such as typecasts, with the
+<tt class="command">print</tt> command. Almost anything goes.</p>
+
+<p><a name="INDEX-2831" />
+The <tt class="command">ptype</tt> command gives you detailed (and often long-winded)
+information about a variable's type or the definition of a <tt class="literal">struct</tt> or 
+<tt class="literal">typedef</tt>. To get a full definition for the <tt class="literal">struct _XDisplay</tt> 
+used by the <tt class="literal">mydisplay</tt> variable, we use:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>ptype mydisplay</b></tt>  
+type = struct _XDisplay { 
+    struct _XExtData *ext_data; 
+    struct _XFreeFuncs *free_funcs; 
+    int fd; 
+    int lock; 
+    int proto_major_version; 
+    &#133; 
+    struct _XIMFilter *im_filters; 
+} * 
+(gdb)</pre></blockquote></p>
+
+<p><a name="INDEX-2832" />
+If you're interested in examining memory on a more fundamental level,
+beyond the petty confines of defined types, you can use the <tt class="command">x</tt> 
+command. <tt class="command">x</tt> takes a memory address as an argument. If
+you give it a variable, it uses the <em class="emphasis">value</em> of that variable
+as the address.</p>
+
+<p><tt class="command">x</tt> also takes a count and a type specification as an optional
+argument. The count is the number of objects of the given type
+to display. For example, <tt class="literal">x/100x 0x4200</tt> displays 100 bytes of
+data, represented in hexadecimal format, at the address 0x4200. 
+Use <tt class="command">help x</tt> to get a description of the various output formats.</p>
+
+<?troff .Nd 10?><p>To examine the value of <tt class="literal">mydisplay-&gt;vendor</tt>, we
+can use:</p>
+
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>x mydisplay-&gt;vendor</b></tt> 
+0x9de70 &lt;_end+35376&gt;:   76 'L'  
+(gdb) <tt class="userinput"><b>x/6c mydisplay-&gt;vendor</b></tt> 
+0x9de70 &lt;_end+35376&gt;:   76 'L'  105 'i' 110 'n' 117 'u' 120 'x' 0 '\000' 
+(gdb) <tt class="userinput"><b>x/s mydisplay-&gt;vendor</b></tt> 
+0x9de70 &lt;_end+35376&gt;:    "Linux"  
+(gdb)</pre></blockquote>
+
+<p>The first field of each line gives the absolute address of the data. 
+The second represents the address as some symbol (in this case, <tt class="literal">_end</tt>)
+plus an offset in bytes. The remaining fields give the actual value of
+memory at that address, first in decimal, then as an <span class="acronym">ASCII</span> character.
+As described earlier you can force <tt class="command">x</tt> to print the data in other formats.</p>
+
+<a name="INDEX-2833" />
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">14.1.5. Getting Information</h3>
+
+<p><a name="INDEX-2834" />
+<a name="INDEX-2835" />
+The <tt class="command">info</tt> command provides information about the status of the 
+program being debugged. There are many subcommands under <tt class="command">info</tt>; 
+use <tt class="command">help info</tt> to see them all. For example,
+<tt class="command">info program</tt>
+displays the execution status of the program:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>info program</b></tt>  
+Using the running image of child process 138. 
+Program stopped at 0x9e. 
+It stopped at breakpoint 1. 
+(gdb)</pre></blockquote></p>
+
+<p>Another useful command is <tt class="command">info locals</tt>, which 
+displays the names and values of all local variables in the
+current function:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>info locals</b></tt> 
+inimage = (struct {...} *) 0x2000 
+outimage = (struct {...} *) 0x8000 
+(gdb)</pre></blockquote>
+
+This is a rather cursory description of the variables. The <tt class="command">print</tt>
+or <tt class="command">x</tt> commands describe them further.</p>
+
+<p>Similarly, <tt class="command">info variables</tt> displays a list of all known 
+variables in the program, ordered by source file. Note that many of
+the variables displayed will be from sources outside of your actual
+program--for example, the names of variables used within the library
+code. The values for these variables are not displayed,
+because the list is culled more or less directly from the executable's
+symbol table. Only those local variables in the current stack frame
+and global (static) variables are actually accessible from <tt class="command">gdb</tt>.
+
+
+
+<a name="INDEX-2836" />
+<a name="INDEX-2837" />
+<a name="INDEX-2838" />
+<tt class="command">info address</tt> gives you information about exactly where
+a certain variable is stored. For example:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>info address inimage</b></tt> 
+Symbol "inimage" is a local variable at frame offset -20. 
+(gdb)</pre></blockquote>
+
+
+By <tt class="literal">frame offset</tt>, <tt class="command">gdb</tt> means that
+<tt class="command">inimage</tt> is stored
+20 bytes below the top of the stack frame.</p>
+
+<p>You can get information on the current frame using the <tt class="command">info frame</tt>
+command, as so:</p>
+
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>info frame</b></tt>  
+Stack level 0, frame at 0xbffffaa8: 
+ eip = 0x9e in main (main.c:44); saved eip 0x34 
+ source language c. 
+ Arglist at 0xbffffaa8, args: argc=1, argv=0xbffffabc 
+ Locals at 0xbffffaa8, Previous frame's sp is 0x0 
+
+ Saved registers: 
+  ebx at 0xbffffaa0, ebp at 0xbffffaa8, esi at 0xbffffaa4, eip at\
+0xbffffaac 
+(gdb)</pre></blockquote>
+
+<p>This kind of information is useful if you're debugging at the
+assembly-language level with the <tt class="command">disass</tt>,
+<tt class="command">nexti</tt>, and <tt class="command">stepi</tt> commands (see
+the section "<a href="ch14_01.htm#x-100-3-sec-prog-gdb-instruction">Section 14.1.6.2, "Instruction-level debugging"</a>").</p>
+
+<a name="INDEX-2839" /><a name="INDEX-2840" />
+</div>
+
+
+
+
+<div class="sect2">
+<h3 class="sect2">14.1.6. Miscellaneous Features</h3>
+
+<p>We have barely scratched the surface about what <tt class="command">gdb</tt>
+can do.  It is an amazing program with a lot of power; we have
+introduced
+
+you only to the most commonly used commands. In this section, we'll
+look at other features of <tt class="command">gdb</tt> and then send you on
+your way.</p>
+
+<p>If you're interested in learning more about <tt class="command">gdb</tt>, we
+encourage you to read the <tt class="command">gdb</tt> manual page and the
+Free Software Foundation manual.  The manual is also available as an
+online Info file. (Info files
+
+may be read under Emacs, or using the <tt class="command">info</tt> reader; see 
+the section "<a href="ch09_02.htm#x-100-3-sec-tools-emacs-info">Section 9.2.3, "Tutorial and Online Help"</a>" in
+<a href="ch09_01.htm">Chapter 9, "Editors, Text Tools,
+ Graphics,
+ and Printing"</a>, for details.)</p>
+
+<div class="sect3">
+<h3 class="sect3">14.1.6.1. Breakpoints and watchpoints</h3>
+
+<p><a name="INDEX-2841" />
+<a name="INDEX-2842" />
+<a name="INDEX-2843" />
+<a name="INDEX-2844" />
+As promised, we're going to demonstrate further use of breakpoints and
+watchpoints. Breakpoints are set with the <tt class="command">break</tt> command;
+similarly, watchpoints are set with the <tt class="command">watch</tt> command. The only
+difference between the two is that breakpoints must break at a particular
+location in the program--on a certain line of code, for example--and
+watchpoints may be triggered whenever a certain expression is true,
+regardless of location within the program. Though powerful, watchpoints can
+be horribly inefficient; any time the state of the program changes, all
+watchpoints must be reevaluated.</p>
+
+<p><a name="INDEX-2845" />
+<a name="INDEX-2846" />
+When a breakpoint or watchpoint is triggered, <tt class="command">gdb</tt> suspends the
+program and returns control to you. Breakpoints and watchpoints allow you to run the program (using the <tt class="command">run</tt> and <tt class="command">continue</tt>
+commands)
+and stop only in certain situations, thus saving you the trouble of using
+many <tt class="command">next</tt> and <tt class="command">step</tt> commands to walk through the program
+manually.
+<a name="INDEX-2847" />
+<a name="INDEX-2848" /></p>
+
+<p>There are many ways to set a breakpoint in the program. You can
+specify a line number, as in <tt class="command">break 20</tt>. Or, you can
+specify a particular function, as in <tt class="command">break
+stream_unload</tt>. You can also specify a line number in another
+source file, as in <tt class="command">break foo.c:38</tt>.  Use
+<tt class="command">help break</tt> to see the complete syntax.</p>
+
+<p>Breakpoints may be conditional; that is, the breakpoint
+triggers only when a certain expression is true. For example, using the
+command:</p>
+
+<blockquote><pre class="code">break 184 if (status == 0)</pre></blockquote>
+
+<p>sets a conditional breakpoint at line 184 in the current source file,
+which triggers only when the variable <tt class="literal">status</tt> is
+zero. The variable <tt class="literal">status</tt> must be either a global
+variable or a local variable in the current stack frame.  The
+expression may be any valid expression in the source language that
+<tt class="command">gdb</tt> understands, identical to the expressions used
+by the <tt class="command">print</tt> command.  You can change the
+breakpoint condition (if it is conditional) using the
+<tt class="command">condition</tt> command.</p>
+
+<p>Using the command <tt class="command">info break</tt> gives you a list of all breakpoints
+and watchpoints and their status. This allows you to delete or 
+disable breakpoints, using the commands <tt class="command">clear</tt>, <tt class="command">delete</tt>, or 
+<tt class="command">disable</tt>. A disabled breakpoint is merely inactive, until you reenable it 
+(with the <tt class="command">enable</tt> command); on the other hand, a breakpoint that
+has been deleted is gone from the list of breakpoints for good. You can 
+also specify that a breakpoint be enabled once; meaning that once it is
+triggered, it will be disabled again--or enabled once and then deleted.</p>
+
+<p>To set a watchpoint, use the <tt class="command">watch</tt> command, as in:
+<blockquote><pre class="code">watch (numticks &lt; 1024 &amp;&amp; incoming != clear)</pre></blockquote>
+
+Watchpoint conditions may be any valid source expression, as with
+conditional breakpoints.</p>
+</div>
+
+
+<a name="x-100-3-sec-prog-gdb-instruction" /><div class="sect3">
+<h3 class="sect3">14.1.6.2. Instruction-level debugging</h3>
+
+<p><a name="INDEX-2849" />
+<a name="INDEX-2850" />
+<a name="INDEX-2851" />
+<tt class="command">gdb</tt> is capable of debugging on the processor-instruction level,
+allowing you to watch the innards of your program with great scrutiny.
+However, understanding what you see requires not only knowledge of
+the processor architecture and assembly language, but also some 
+gist of how the operating system sets up process address space. For example,
+it helps to understand the conventions used for setting up stack frames,
+calling functions, passing parameters and return values, and so on.
+Any book on protected-mode 80386/80486 programming can fill you in on
+these details. But be warned: protected-mode programming on this processor
+is quite different from real-mode programming (as is used in the <span class="acronym">MS-DOS</span>
+world). Be sure that you're reading about native <em class="emphasis">protected-mode</em>
+386 programming, or else you might subject yourself to terminal confusion.</p>
+
+<p>The primary <tt class="command">gdb</tt> commands used for instruction-level debugging
+are <tt class="command">nexti</tt>, <tt class="command">stepi</tt>, and <tt class="command">disass</tt>. <tt class="command">nexti</tt> is 
+equivalent to <tt class="command">next</tt>, except that it steps to the next instruction,
+not the next source line. Similarly, <tt class="command">stepi</tt> is the instruction-level
+analogue of <tt class="command">step</tt>.</p>
+
+<p><a name="INDEX-2852" /> 
+The <tt class="command">disass</tt> command displays a disassembly of an address range that
+you supply. This address range may be specified by literal address
+or function name. For example, to display a disassembly of the function
+<tt class="command">play_timeout</tt>, use the command:
+<blockquote><pre class="code">(gdb) <tt class="userinput"><b>disass play_timeout</b></tt> 
+Dump of assembler code for function play_timeout: 
+to 0x2ac: 
+0x21c &lt;play_timeout&gt;:           pushl  %ebp 
+0x21d &lt;play_timeout+1&gt;:         movl   %esp,%ebp 
+0x21f &lt;play_timeout+3&gt;:         call   0x494 &lt;control_update_all&gt; 
+0x224 &lt;play_timeout+8&gt;:         movl   0x952f4,%eax 
+0x229 &lt;play_timeout+13&gt;:        decl   %eax 
+0x22a &lt;play_timeout+14&gt;:        cmpl   %eax,0x9530c 
+0x230 &lt;play_timeout+20&gt;:        jne    0x24c &lt;play_timeout+48&gt; 
+0x232 &lt;play_timeout+22&gt;:        jmp    0x29c &lt;play_timeout+128&gt; 
+0x234 &lt;play_timeout+24&gt;:        nop     
+0x235 &lt;play_timeout+25&gt;:        nop     
+&#133; 
+
+0x2a8 &lt;play_timeout+140&gt;:       addb   %al,(%eax) 
+0x2aa &lt;play_timeout+142&gt;:       addb   %al,(%eax) 
+(gdb)</pre></blockquote>
+
+
+This is equivalent to using the command <tt class="command">disass
+0x21c</tt> (where <tt class="literal">0x21c</tt> is the literal address
+of the beginning of <em class="emphasis">play_timeout</em>).</p>
+
+<p>You can specify an optional second argument to <tt class="command">disass</tt>, which will be
+used as the address where disassembly should stop. Using
+<tt class="command">disass 0x21c 0x232</tt> will only display the first seven lines of the 
+assembly listing in the previous example (the instruction starting with <tt class="literal">0x232</tt> itself
+will not be displayed).</p>
+
+<p><a name="INDEX-2853" />
+<a name="INDEX-2854" />
+If you use <tt class="command">nexti</tt> and <tt class="command">stepi</tt>
+often, you may wish to use the command:
+<blockquote><pre class="code">display/i $pc</pre></blockquote>
+
+This causes the current instruction to be displayed after every
+<tt class="command">nexti</tt> or <tt class="command">stepi</tt> command. <tt class="command">display</tt> 
+<a name="INDEX-2855" />
+specifies variables to watch or commands to execute after every stepping
+command. <tt class="literal">$pc</tt> is a <tt class="command">gdb</tt> internal register that corresponds
+to the processor's program counter, pointing to the current instruction.</p>
+</div>
+
+
+<a name="x-100-3-sec-prog-gdb-emacs" /><div class="sect3">
+<h3 class="sect3">14.1.6.3. Using Emacs with gdb</h3>
+
+<p> 
+<a name="INDEX-2856" />
+<a name="INDEX-2857" />
+
+Emacs (described in the section "<a href="ch09_02.htm#x-100-3-sec-tools-emacs">Section 9.2, "The Emacs Editor"</a>" in
+<a href="ch09_01.htm">Chapter 9, "Editors, Text Tools,
+ Graphics,
+ and Printing"</a>) provides a debugging mode that lets you run
+<tt class="command">gdb</tt>--or another debugger--within the integrated
+program-tracing environment provided by
+Emacs. This so-called "Grand Unified Debugger" library is very
+powerful and allows
+you to debug and edit your programs entirely within Emacs.</p>
+
+<p>To start <tt class="command">gdb</tt> under Emacs, use the Emacs command <tt class="literal">M-x gdb</tt>
+and give the name of the executable to debug as the argument. A buffer
+will be created for <tt class="command">gdb</tt>, which is similar to using
+<tt class="command">gdb</tt> alone. You can then use <tt class="command">core-file</tt> to load a core file
+or <tt class="command">attach</tt> to attach to a running process, if you wish.</p>
+
+<p>Whenever you step to a new frame (e.g., when you first
+trigger a breakpoint), <tt class="command">gdb</tt> opens a separate window that
+displays the source corresponding to the current stack frame. This
+buffer may be used to edit the source text just as you normally would
+with Emacs, but the current source line is highlighted with an arrow
+(the characters <tt class="literal">=&gt;</tt>). This allows you to watch the source in one
+window, and execute <tt class="command">gdb</tt> commands in the other.</p>
+
+<p>Within the debugging window, there are several special key sequences
+that can be used. They are fairly long, though, so it's not
+clear that you'll find them more convenient than just entering
+<tt class="command">gdb</tt> commands directly.  Some of the more common commands
+include:</p>
+
+<dl>
+<dt><b><tt class="literal">C-x C-a C-s</tt></b></dt><dd><p>
+The equivalent of a <tt class="command">gdb</tt> <tt class="command">step</tt>
+command, updating the source window appropriately</p></dd>
+
+
+<dt><b><tt class="literal">C-x C-a C-i</tt></b></dt><dd><p>
+The equivalent of a <tt class="command">stepi</tt> command</p></dd>
+
+
+<dt><b><tt class="literal">C-x C-a C-n</tt></b></dt><dd><p>
+The equivalent of a <tt class="command">next</tt> command</p></dd>
+
+
+<dt><b><tt class="literal">C-x C-a C-r</tt></b></dt><dd><p>
+The equivalent of a <tt class="command">continue</tt> command</p></dd>
+
+
+<dt><b><tt class="literal">C-x C-a &lt;</tt></b></dt><dd><p>
+The equivalent of an <tt class="command">up</tt> command</p></dd>
+
+
+<dt><b><tt class="literal">C-x C-a &gt;</tt></b></dt><dd><p>
+The equivalent of a <tt class="command">down</tt> command</p></dd>
+
+</dl>
+
+<p>If you do type in commands in the traditional manner, you can use 
+<tt class="literal">M-p</tt> to move backwards to previously issued commands and <tt class="literal">M-n</tt> to
+move forward.  You can also move around in the buffer using Emacs
+commands for searching, cursor movement, and so on.  All in all, using
+<tt class="command">gdb</tt> within Emacs is more convenient than using it from
+the shell.</p>
+
+<p>In addition, you may edit the source text in the <tt class="command">gdb</tt> source buffer;
+the prefix arrow will not be present in the source when it is saved.</p>
+
+<p><a name="INDEX-2858" />
+Emacs is very easy to customize, and there are many extensions to this
+<tt class="command">gdb</tt> interface that you could write yourself. You could
+define Emacs keys for other commonly used <tt class="command">gdb</tt> commands or change
+the behavior of the source window. (For example, you could highlight all
+breakpoints in some fashion or provide keys to 
+disable or clear breakpoints.)</p>
+
+<a name="INDEX-2859" /><a name="INDEX-2860" /><a name="INDEX-2861" /><a name="INDEX-2862" />
+</div>
+</div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch13_07.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch14_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">13.7. Other Languages</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">14.2. Programming Tools</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

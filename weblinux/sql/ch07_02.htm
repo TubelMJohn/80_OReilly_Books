@@ -1,0 +1,345 @@
+<?label 7.2. What MySQL and mSQL Lack
+?><html><head><title>What MySQL and mSQL Lack
+ (MySQL &amp; mSQL)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Randy Jay Yarger, George Reese and Tim King" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565924347L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="MySQL &amp; mSQL" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="MySQL and mSQL" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch07_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">MySQL &amp; mSQL</a></td><td width="172" valign="top" align="right"><a href="ch07_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<a name="INDEX-552" /><a name="INDEX-553" /><h2 class="sect1">7.2. What MySQL and mSQL Lack
+</h2>
+
+
+
+
+
+<p>The word "lack" is chosen here in absence of a better
+term. As we noted earlier in the book, both MySQL and mSQL have
+consciously chosen to leave out features that will impact
+performance. In other words, for MySQL and mSQL, performance is the
+name of the game. Some mid-range users, however, may be willing to
+sacrifice a little performance for some other features. In order to
+understand what other mid-range databases offer, then, it helps to
+know the things that MySQL and mSQL have left out.</p>
+
+
+
+
+
+<a name="ch07-1-fm2xml" /><blockquote><h4 class="objtitle">NOTE</h4>
+
+<p>MySQL intends to eventually include some of these features with the
+ability to turn them off if you do not want them. At the time of
+printing, we are aware that Monty wants to implement a stored
+procedure mechanism and subselects and perhaps even transactions.</p>
+</blockquote>
+
+
+
+
+
+<a name="ch07-2-fm2xml" /><div class="sect2">
+<h3 class="sect2">7.2.1. Transactions</h3>
+
+
+
+
+
+<p>
+<a name="INDEX-554" />Transactions
+enable you to group multiple SQL statements together as one unit of
+work. By grouping statements together, you can be certain that no one
+else will see a partially changed database. You also know that if one
+of the statements fail, the entire unit of work fails. One way of
+visualizing transactions is as the intersection of a busy road. A
+single-threaded queuing system, such as mSQL, is like having a
+four-way stop at the intersection. Each car takes its turn, one at a
+time. If two cars are in a caravan through the intersection, they
+risk being split up at the stop sign.</p>
+
+
+
+
+
+<p>A <a name="INDEX-555" />multithreaded locking system, such as
+MySQL, is more like having a traffic officer instead of stop signs.
+The traffic can fly through the intersection in any order and at any
+speed and the officer intelligently makes sure there are no
+collisions. If two cars come through the intersection from opposite
+directions at the same time, the officer tells one of them to halt
+and wait for the other to get through the intersection.</p>
+
+
+
+
+
+<p>Transactions resemble a stop-light system. Incoming traffic halts at
+a red light for a period while traffic traveling together in the
+other direction moves through the intersection.</p>
+
+
+
+
+
+<p>A practical example might be a banking application where a transfer
+from savings to checking involves changing the balance in the savings
+and then changing the balance in the checking. This application might
+have these two SQL statements:</p>
+
+
+
+
+
+<blockquote><pre class="code"># Deduct $100 from the $110 in the savings account
+UPDATE account
+SET balance = 10.00
+WHERE id = 1234
+# Add $100 to the $55 in the checking account
+UPDATE account
+SET balance = 155.00
+WHERE id = 5678</pre></blockquote>
+
+
+
+
+
+<p>Between the two updates, another transaction could be issued by
+another client that checks the balance of the checking and savings
+accounts to see if there is enough money for a check. If that were to
+happen, the check would bounce. Worse still, if the server crashed
+between the two updates, your client would have just lost $100 to the
+bit bucket.</p>
+
+
+
+
+
+<p>By wrapping those two statements in a transaction, you are saying
+that they both must succeed or fail together. If the first one
+succeeds but the second one fails, you can issue something called a
+"rollback" that returns the database to its state before
+you began the transaction. Similarly, no one else can touch the files
+you are modifying until you are done with your work.<a href="#FOOTNOTE-10">[10]</a> MySQL lets you partially
+emulate transactions by using <tt class="literal">LOCK TABLES</tt>. Locks
+should work adequately for preventing corruption, but they do not
+provide the ability to roll back operations. mSQL has no transaction
+support.</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-10" /><p>[10]There are special nuances to this feature called
+"transaction isolation" values. Sometimes you may not
+care if people have read-only views of inconsistent data. By allowing
+them to do so, you speed up the database by not having them wait on
+transactions to complete.</p>
+
+
+
+
+</blockquote>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch07-3-fm2xml" /><div class="sect2">
+<a name="INDEX-556" /><h3 class="sect2">7.2.2. Triggers</h3>
+
+
+
+
+
+<p>Triggers are a feature closely related to transactions. To carry the
+traffic analogy one step further, imagine a police officer sitting on
+a hill overlooking the intersection. Should one of the cars do
+something illegal, the officer enters traffic and pursues the
+offending car.</p>
+
+
+
+
+
+<p>A <em class="emphasis">trigger</em> is one or more SQL statements stored
+in the database that are executed whenever some predefined event
+occurs. Triggers are a method of automating monitoring tasks.
+Whenever a certain condition is met, the trigger can act upon data or
+simply report that the triggering event took place.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch07-4-fm2xml" /><div class="sect2">
+<a name="INDEX-557" /><h3 class="sect2">7.2.3. Stored Procedures</h3>
+
+
+
+
+
+<p>At their simplest, stored procedures are simply one or more SQL
+statements stored in the database under some simple name to
+encapsulate a certain behavior. In the example of the account
+transfer mentioned above, you could simply store those two SQL
+statements as a single stored procedure called
+"transfer." Your application passes the stored procedure
+the two account numbers and an amount and it executes those two SQL
+statements in a single transaction.</p>
+
+
+
+
+
+<p>On a more complex level, stored procedures may add to the basic SQL
+syntax so that it looks more like a traditional programming language.
+Oracle's PL/SQL and Sybase/Microsoft's TransactSQL are
+two examples of such SQL extensions. You may often hear of people
+using these kinds of stored procedures to "put the business
+logic in the database."</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch07-5-fm2xml" /><div class="sect2">
+<a name="INDEX-558" /><h3 class="sect2">7.2.4. 
+Subselects</h3>
+
+
+
+
+
+<p>The standard SQL <tt class="literal">SELECT</tt> statement enables complete
+access to all of the data stored within a table -- if you know
+what you are looking for. Unless you are willing to retrieve the
+entire contents of the table, the most basic form of
+<tt class="literal">SELECT</tt> requires you to input at least a portion of
+the data you wish to retrieve. For example, <tt class="literal">SELECT name FROM
+friends WHERE name LIKE </tt>'<tt class="literal">B%</tt>' requires
+you to know at least one letter of the name you are looking for. More
+specifically, what if you wanted to know who was making more than the
+average salary? The query would look something like:</p>
+
+
+
+
+
+<blockquote><pre class="code">SELECT name FROM people WHERE salary &gt; ???</pre></blockquote>
+
+
+
+
+
+<p>Greater than what? You do not have any idea what the average salary
+is unless you select that! You need to take the value of
+<tt class="literal">SELECT AVG(salary) FROM people</tt> and plug it into
+the earlier query. A subselect enables you to do this:</p>
+
+
+
+
+
+<blockquote><pre class="code">SELECT name 
+FROM people
+WHERE salary &gt; (SELECT AVG(salary) FROM people)</pre></blockquote>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch07-6-fm2xml" /><div class="sect2">
+<h3 class="sect2">7.2.5. Objects</h3>
+
+
+
+
+
+<p>Relational databases are not the end of the line for databases. You
+will also find plenty of object-relational and
+<a name="INDEX-559" />
+<a name="INDEX-560" />object-oriented databases. In the
+high-end market, the idea of a pure relational database is slowly
+disappearing. The new SQL3 standard will incorporate many of the
+changes in the high-end market for support of objects.</p>
+
+
+
+
+
+<p>To a Relational Database Management (RDBMS), all data is stored in
+tables, which are simply a list of records, which in turn are
+collections of bits that represent text, numbers, or other kinds of
+data. In an Object-oriented Database Management System (OODBMS), the
+fundamental unit of data is an object. An object may not only contain
+the kinds of data found in relational systems, but it may contain
+other objects or multidimensional data like arrays or even executable
+functions -- more commonly called methods in the object
+world.<a name="INDEX-561" />
+<a name="INDEX-562" /></p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch07_01.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch07_03.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">7. Other Mid-Range Database Engines</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">7.3. PostgreSQL</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

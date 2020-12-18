@@ -1,0 +1,720 @@
+<html><head><title>Wrappers and Decorators (Java &amp; XML, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Brett McLaughlin" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600197L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Java &amp; XML, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XML, 2nd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"></td><td align="right" valign="top" width="228"><a href="ch08_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">8.3. Wrappers and Decorators</h2>
+
+<p>One of the most common requests that comes up about
+<a name="INDEX-823" />JDOM is related to interfaces. Many, many
+users have asked for interfaces in JDOM, and that request has been
+consistently denied. The reasoning is simple: no set of common
+methods could be arrived at for all JDOM constructs. There has been a
+reluctance to use the DOM approach, which provides a set of common
+methods for most constructs. For example, <tt class="literal">getChildren(
+)</tt> is on the common DOM <tt class="literal">org.w3c.dom.Node</tt>
+interface; however, it returns <tt class="literal">null</tt> when it
+doesn't apply, such as to a <tt class="literal">Text</tt> node. The
+JDOM approach has been to only provide methods on a basic interface
+common to all JDOM classes, and no methods fulfilling this
+requirement have been found. Additionally, for every request to add
+interfaces, there has been a request to leave the API as is.
+</p>
+
+<p>However, there are patterns that allow interface-type functionality
+to be used with JDOM without changing the API drastically (in fact,
+without changing it at all!). In this section, I want to talk about
+the most effective of those patterns, which involves using
+<em class="filename">wrappers</em><a name="INDEX-824" />
+or
+<em class="filename">decorators</em><a name="INDEX-825" />.
+I'm not going to dive into a lot of design pattern material in
+this book, but suffice it to say that a wrapper or decorator (I use
+the two interchangeably in this chapter) is on the
+<em class="emphasis">exterior</em> of existing classes, rather than on the
+<em class="emphasis">interior</em>, as a core JDOM interface would be. In
+other words, existing behavior is wrapped. In this section, I show
+you how this pattern allows you to customize JDOM (or any other API)
+in any way you please.
+</p>
+
+<a name="ch08-9-fm2xml" /><blockquote><b>NOTE:</b> 
+
+By now, you should be fairly advanced in Java and XML. For that reason, I'm going to move through the example code in this section with a minimal amount of comment. You should be able to figure out what's going on pretty easily, and I'd rather get in more code than more talk.
+</p>
+</blockquote>
+<a name="javaxml2-CHP-8-SECT-3.1" /><div class="sect2">
+<h3 class="sect2">8.3.1. JDOMNode</h3>
+
+<p>To get started, I've defined a
+<tt class="literal">JDOMNode</tt><a name="INDEX-826" /> <a name="INDEX-827" />
+<a name="INDEX-828" />
+interface in <a href="ch08_03.htm#javaxml2-CHP-8-EX-5">Example 8-5</a>. This interface defines
+very simple behavior that I want accessible for all JDOM nodes, and
+that I want without having to perform type-casting.
+</p>
+
+<a name="javaxml2-CHP-8-EX-5" /><div class="example">
+<h4 class="objtitle">Example 8-5. A node decorator interface </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.util.List;
+import java.util.Iterator;
+
+// JDOM imports
+import org.jdom.Document;
+
+public interface JDOMNode {
+
+    public Object getNode( );
+	 
+    public String getNodeName( );
+	
+    public JDOMNode getParentNode( );
+	
+    public String getQName( );
+	
+    public Iterator iterator( );
+	
+    public String toString( );
+}</pre></blockquote>
+</div>
+
+<p>The only method that may look odd is <tt class="literal">iterator( )</tt>;
+it will return a Java <tt class="literal">Iterator</tt> over a node's
+children, or return an empty list <tt class="literal">Iterator</tt> if
+there are no children (such as for attributes or text nodes).
+It's worth noting that I could have just as easily chosen to
+use the DOM <tt class="literal">org.w3c.dom.Node</tt> interface (if I
+wanted DOM and JDOM interoperability at a class level), or a
+different interface specific to my business needs. The sky is the
+limit on this core interface.
+</p>
+
+</div>
+<a name="javaxml2-CHP-8-SECT-3.2" /><div class="sect2">
+<h3 class="sect2">8.3.2. Implementing Classes</h3>
+
+<p>The next, more interesting step is to provide implementations of this
+interface that decorate existing JDOM constructs. These provide
+wrapping for the concrete classes already in JDOM, and most of the
+methods on the <tt class="literal">JDOMNode</tt> interface simply are
+passed through to the underlying (decorated) object. First up is
+<a href="ch08_03.htm#javaxml2-CHP-8-EX-6">Example 8-6</a>, which decorates a JDOM
+<tt class="literal">Element</tt>.
+</p>
+
+<a name="javaxml2-CHP-8-EX-6" /><div class="example">
+<h4 class="objtitle">Example 8-6. Decorator for JDOM Elements </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Iterator;
+
+// JDOM imports
+import org.jdom.Element;
+
+public class ElementNode implements JDOMNode {
+	
+    /** the decorated Element */
+    protected Element decorated;
+	
+    public ElementNode(Element element) {
+        this.decorated = element;
+    }
+	
+    public Object getNode( ) {
+        return decorated;
+    }
+
+    public String getNodeName( ) {
+        if (decorated != null) {
+            return decorated.getName( );
+        }
+        return "";
+    }
+
+    public JDOMNode getParentNode( ) {
+        if (decorated.getParent( ) != null) {
+            return new ElementNode(decorated.getParent( ));
+        }
+        return null;
+    }
+	
+    public String getQName( ) {
+        if (decorated.getNamespacePrefix( ).equals("")) { 
+            return decorated.getName( );
+        } else {
+            return new StringBuffer(decorated.getNamespacePrefix( ))
+                           .append(":")
+                           .append(decorated.getName()).toString( );
+        }
+    }
+	
+    public Iterator iterator( ) {
+        List list = decorated.getAttributes( );
+        ArrayList content = new ArrayList(list);
+
+        // put the element's content in the list in order
+        Iterator i = decorated.getMixedContent().iterator( );
+        while (i.hasNext( )) {
+            content.add(i.next( ));
+        }
+        return content.iterator( );
+    }
+
+    public String toString( ) {
+        return decorated.toString( );
+    }
+}</pre></blockquote>
+</div>
+
+<p>There's nothing too remarkable here, so let's keep going.
+In <a href="ch08_03.htm#javaxml2-CHP-8-EX-7">Example 8-7</a>, I've defined a similar class,
+<tt class="literal">AttributeNode</tt>, which decorates a JDOM
+<tt class="literal">Attribute</tt> and implements my core
+<tt class="literal">JDOMNode</tt> class. Notice the several no-op
+(no-operation) methods for things like getting the children of the
+attribute; this closely models the DOM approach. Again, keep in mind
+that these classes could just as easily implement any other interface
+(think <tt class="literal">org.w3c.dom.Attr</tt> in this case) without
+needing changes within the core JDOM API.
+</p>
+
+<a name="javaxml2-CHP-8-EX-7" /><div class="example">
+<h4 class="objtitle">Example 8-7. Decorator for JDOM Attributes </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.util.Iterator;
+import java.util.Collections;
+
+// JDOM imports
+import org.jdom.Attribute;
+
+public class AttributeNode implements JDOMNode {
+
+    /** The decorated attribute */
+    protected Attribute decorated;
+
+    public AttributeNode(Attribute attribute) {
+        this.decorated = attribute;
+    }
+
+    public Object getNode( ) {
+        return decorated;
+    }
+
+    public String getNodeName( ) {
+        if (decorated != null) {
+            return decorated.getName( );
+        }
+        return "";
+    }
+
+    public JDOMNode getParentNode( ) {
+        if (decorated.getParent( ) != null) {
+            return new ElementNode(decorated.getParent( ));
+        }
+        return null;
+    }
+
+    public String getQName( ) {
+        if (decorated.getNamespacePrefix( ).equals("")) { 
+            return decorated.getName( );
+        } else {
+            return new StringBuffer(decorated.getNamespacePrefix( ))
+                           .append(":")
+                           .append(decorated.getName()).toString( );
+        }
+    }
+
+    public Iterator iterator( ) {
+        return Collections.EMPTY_LIST.iterator( );
+    }
+
+    public String toString( ) {
+        return decorated.toString( );
+    }
+}</pre></blockquote>
+</div>
+
+<p>Finally, I'll decorate JDOM's textual content (see <a href="ch08_03.htm#javaxml2-CHP-8-EX-8">Example 8-8</a>). At the time of this writing, the JDOM
+<tt class="literal">Text</tt> class I talked about in the first of this
+chapter hadn't quite been integrated into its final form in the
+JDOM source tree. As a result, I'm actually wrapping a Java
+<tt class="literal">String</tt> in the <tt class="literal">TextNode</tt> class.
+When the <tt class="literal">Text</tt> node makes it in, this needs to be
+updated to wrap that type, which is a simple operation.
+</p>
+
+<a name="javaxml2-CHP-8-EX-8" /><div class="example">
+<h4 class="objtitle">Example 8-8. Decorator for JDOM textual content </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.util.Collections;
+import java.util.Iterator;
+
+// JDOM imports
+import org.jdom.Element;
+
+public class TextNode implements JDOMNode {
+	
+    /** The decorated String */
+    protected String decorated;
+	
+    /** The manually set parent of this string content */
+    private Element parent = null;
+	
+    public TextNode(String string) {
+        decorated = string;
+    }
+	
+    public Object getNode( ) {
+        return decorated;
+    }
+	
+    public String getNodeName( ) {
+        return "";
+    }
+	
+    public JDOMNode getParentNode( ) {
+        if (parent == null) {
+            throw new RuntimeException(
+                "The parent of this String content has not been set!");
+        }	
+        return new ElementNode(parent);
+    }
+	
+    public String getQName( ) {
+        // text nodes have no name
+        return "";
+    }
+	
+    public Iterator iterator( ) {
+        return Collections.EMPTY_LIST.iterator( );
+    }
+
+    public TextNode setParent(Element parent) {
+        this.parent = parent;
+        return this;
+    }
+
+    public String toString( ) {
+        return decorated;
+    }
+}</pre></blockquote>
+</div>
+
+<p>I'm not going to provide decorators for all the other JDOM
+types because you should be getting the picture by now. Note that I
+could also have provided a single <tt class="literal">JDOMNode</tt>
+implementation, <tt class="literal">ConcreteNode</tt> or something like
+that, that wrapped the various JDOM types all in one class. However,
+that would require quite a bit of special casing code that
+isn't suitable here. Instead, there is a one-to-one mapping
+between JDOM core classes and <tt class="literal">JDOMNode</tt>
+implementations.<a name="INDEX-829" /> <a name="INDEX-830" /> <a name="INDEX-831" /> 
+</p>
+
+</div>
+<a name="javaxml2-CHP-8-SECT-3.3" /><div class="sect2">
+<h3 class="sect2">8.3.3. Providing Support for XPath</h3>
+
+<p>Now that you've got some interface-based JDOM nodes, I will
+extend things a little further. This is a common business scenario,
+in which you need to provide specific functionality on top of an
+existing API. For a practical example, I tackle XPath. For any
+<tt class="literal">JDOMNode</tt> implementation, I'd like to be able
+to get the XPath expression representing that node. To allow for that
+functionality, I have written another wrapper class, shown in <a href="ch08_03.htm#javaxml2-CHP-8-EX-9">Example 8-9</a>. This class,
+<tt class="literal">XPathDisplayNode</tt><a name="INDEX-832" /> <a name="INDEX-833" /> <a name="INDEX-834" />,
+wraps an existing node (of any type, because of the interface-based
+logic), and provides a single public XPath method, <tt class="literal">getXPath(
+)</tt><a name="INDEX-835" />
+<a name="INDEX-836" />. This method returns an XPath expression
+for the wrapped node as a Java string of characters.
+</p>
+
+<a name="javaxml2-CHP-8-EX-9" /><div class="example">
+<h4 class="objtitle">Example 8-9. Wrapper for XPath support </h4>
+<blockquote><pre class="code">package javaxml2;
+
+import java.util.Vector;
+import java.util.List;
+import java.util.Iterator;
+import java.util.Stack;
+
+// JDOM imports
+import org.jdom.Attribute;
+import org.jdom.Element;
+import org.jdom.Namespace;
+
+public class XPathDisplayNode {
+
+    /** The JDOMNode this xpath is based on */
+    JDOMNode node;
+	
+    public XPathDisplayNode(JDOMNode node) {
+        this.node = node;
+    }
+
+    private String getElementXPath(JDOMNode currentNode) {
+        StringBuffer buf = new StringBuffer("/")
+            .append(currentNode.getQName( ));
+        Element current = (Element)currentNode.getNode( );
+        Element parent = current.getParent( );
+
+        // See if we're at the root element
+        if (parent == null ) {
+            return buf.toString( );
+        }
+
+        // Check for other siblings of the same name and namespace
+        Namespace ns = current.getNamespace( );
+        List siblings = parent.getChildren(current.getName( ), ns);
+		
+        int total = 0;
+        Iterator i = siblings.iterator( );
+        while (i.hasNext( )) {
+            total++;
+            if (current == i.next( )) {
+                break;
+            }
+        }
+
+        // No selector needed if this is the only element
+        if ((total == 1) &amp;&amp; (!i.hasNext( ))) {
+            return buf.toString( );
+        }
+
+        return buf.append("[")
+                  .append(String.valueOf(total))
+                  .append("]").toString( );
+    }
+
+    public String getXPath( ) {
+        // Handle elements
+        if (node.getNode( ) instanceof Element) {
+            JDOMNode parent = node.getParentNode( );
+
+            // If this is null, we're at the root
+            if (parent == null) {
+                return "/" + node.getQName( );
+            }
+
+            // Otherwise, build a path back to the root
+            Stack stack = new Stack( );
+            stack.add(node);
+            do {
+                stack.add(parent);
+                parent = parent.getParentNode( );
+            } while (parent != null);
+
+            // Build the path
+            StringBuffer xpath = new StringBuffer( );
+            while (!stack.isEmpty( )) {
+                xpath.append(getElementXPath((JDOMNode)stack.pop( )));
+            }
+            return xpath.toString( );
+        }	
+		
+        // Handle attributes
+        if (node.getNode( ) instanceof Attribute) {
+            Attribute attribute = (Attribute)node.getNode( );
+            JDOMNode parent = node.getParentNode( );
+            StringBuffer xpath = new StringBuffer("//")
+                .append(parent.getQName( ))
+                .append("[@")
+                .append(node.getQName( ))
+                .append("='")
+                .append(attribute.getValue( ))
+                .append("']");
+
+            return xpath.toString( );
+        }
+
+        // Handle text
+        if (node.getNode( ) instanceof String) {
+            StringBuffer xpath = new StringBuffer(
+                new XPathDisplayNode(node.getParentNode()).getXPath( ))
+                    .append("[child::text( )]");
+            return xpath.toString( );
+        }
+					
+        // Other node types could follow here
+        return "Node type not supported yet.";
+    }
+}</pre></blockquote>
+</div>
+
+<p>In this class, I provided special casing for each node type; in other
+words, I didn't implement an
+<tt class="literal">XPathElementNode</tt>,
+<tt class="literal">XPathAttributeNode</tt>, and so on. That's
+because the similarities in generating this XPath statement are much
+greater than the advantages of splitting out the code for each type.
+Of course, this is just the opposite of providing a type-specific
+node decorator for each JDOM type. You'll want to always try
+and figure out the difference in your applications, which results in
+much cleaner code (and often less code, as well).
+</p>
+
+<p>I'm going to leave the details of working through the process
+followed in this code up to you. For any node, the XPath expression
+is calculated and assembled manually, and you should be able to
+follow the logic pretty easily. That expression is then returned to
+the calling program, which I cover next.<a name="INDEX-837" /> <a name="INDEX-838" /> <a name="INDEX-839" /> 
+</p>
+
+</div>
+<a name="javaxml2-CHP-8-SECT-3.4" /><div class="sect2">
+<h3 class="sect2">8.3.4. Endgame</h3>
+
+<p><a name="INDEX-840" />Once you have all your various
+node types as well as the XPath wrapper, it's time to do
+something useful. In this case, I want to provide a document viewer,
+similar to the <tt class="literal">SAXTreeViewer</tt> class from <a href="ch03_01.htm">Chapter 3, "SAX"</a>, for a JDOM tree. However, I'd also like
+to provide the XPath expression for each item in that tree down in
+the status bar. <a href="ch08_03.htm#javaxml2-CHP-8-EX-10">Example 8-10</a> shows how to do this,
+using the nodes and wrappers discussed in this section.<a name="INDEX-841" /> <a name="INDEX-842" /> <a name="INDEX-843" />
+</p>
+
+<a name="javaxml2-CHP-8-EX-10" /><div class="example">
+<h4 class="objtitle">Example 8-10. The SimpleXPathViewer class </h4>
+<a name="INDEX-844" /><a name="INDEX-845" /><a name="INDEX-846" /><blockquote><pre class="code">package javaxml2;
+
+import java.awt.*;
+import java.io.File;
+import javax.swing.*;
+import javax.swing.tree.*;
+import javax.swing.event.*;
+import java.util.Iterator;
+
+// JDOM imports
+import org.jdom.*;
+import org.jdom.input.SAXBuilder;
+
+public class SimpleXPathViewer extends JFrame {
+
+    /** The event handler inner class */
+    EventHandler eventHandler = new EventHandler( );
+
+    /** A text field for displaying the XPath for the selectected node */
+    private JTextField statusText;
+
+    /** The JTree used to display the nodes of the xml document */
+    private JTree jdomTree;
+
+    /** The selection model used to determine which node was clicked */
+    private DefaultTreeSelectionModel selectionModel;
+
+    /** The filename containing the xml file to view */
+    private String filename;
+
+    /** Temporary hack to get around the lack of a text node */
+    private static Element lastElement;
+
+    class EventHandler implements TreeSelectionListener {
+
+        public void valueChanged(TreeSelectionEvent e) {
+            TreePath path= selectionModel.getLeadSelectionPath( );
+
+            // If you are just collapsing the tree, you may not have a new path
+            if (path != null) {
+                JDOMNode selection=
+                    (JDOMNode)((DefaultMutableTreeNode)path.getLastPathComponent( ))
+                        .getUserObject( );
+                buildXPath(selection);
+            }
+        };
+    };
+
+    public SimpleXPathViewer(String fileName) throws Exception {
+        super( );
+        this.filename = fileName;
+        setSize(600, 450);
+        initialize( );
+    }
+
+    private void initialize( ) throws Exception {
+        setTitle("Simple XPath Viewer");
+
+        // Setup the UI
+        initConnections( );
+		
+        // Load the JDOM Document
+        Document doc = loadDocument(filename);
+
+        // Create the initial JDOMNode from the Factory method
+        JDOMNode root = createNode(doc.getRootElement( ));
+			
+        // Create the root node of the JTree and build it from the JDOM Document
+        DefaultMutableTreeNode treeNode = 
+            new DefaultMutableTreeNode("Document: " + filename);
+        buildTree(root, treeNode);
+
+        // Add the node to the tree's model
+        ((DefaultTreeModel)jdomTree.getModel( )).setRoot(treeNode);
+    }
+
+    private void initConnections( ) {
+        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+
+        // Setup the JTree and a pane to display it in
+        jdomTree = new JTree( );
+        jdomTree.setName("JDOM Tree");
+        jdomTree.addTreeSelectionListener(eventHandler);
+        selectionModel = (DefaultTreeSelectionModel)jdomTree.getSelectionModel( );
+        getContentPane( ).add(new JScrollPane(jdomTree), BorderLayout.CENTER);
+
+        // Setup a text box for use in a status bar
+        statusText = new JTextField("Click on an element to view xpath");
+        JPanel statusBarPane= new JPanel( );
+        statusBarPane.setLayout(new BorderLayout( ));
+        statusBarPane.add(statusText, BorderLayout.CENTER );
+        getContentPane( ).add(statusBarPane, BorderLayout.SOUTH);
+    }
+
+    private Document loadDocument(String filename) throws JDOMException {
+        SAXBuilder builder = new SAXBuilder( );
+        builder.setIgnoringElementContentWhitespace(true);
+        return builder.build(new File(filename));
+    }
+
+    private JDOMNode createNode(Object node) {
+        if (node instanceof Element) {
+            lastElement = (Element)node;
+            return new ElementNode((Element)node);
+        }
+
+        if (node instanceof Attribute) {
+            return new AttributeNode((Attribute)node);
+        }
+
+        if (node instanceof String) {
+            return new TextNode((String)node).setParent(lastElement);
+        }
+
+        // All other nodes are not implemented
+        return null;
+    }
+	
+    private void buildTree(JDOMNode node, DefaultMutableTreeNode treeNode) {
+        // If this is a whitespace node or unhandled node, ignore it
+        if ((node == null) || (node.toString().trim( ).equals(""))) {
+            return;
+        }
+
+        DefaultMutableTreeNode newTreeNode = new DefaultMutableTreeNode(node);
+		
+        // Walk over the children of the node 
+        Iterator i = node.iterator( );
+        while (i.hasNext( )) {
+            // Create JDOMNodes on the children and add to the tree
+            JDOMNode newNode = createNode(i.next( ));
+            buildTree(newNode, newTreeNode);
+        }
+
+        // After all the children have been added, connect to the tree
+        treeNode.add(newTreeNode);
+    }
+	
+    private void buildXPath(JDOMNode node) {
+        statusText.setText(new XPathDisplayNode(node).getXPath( ));
+    }
+	
+    public static void main(java.lang.String[] args) {
+        try {
+            if (args.length != 1) {
+                System.out.println("Usage: java javaxml2.SimpleXPathViewer " + 
+                    "[XML Document filename]");
+                return;
+            }
+
+            /* Create the frame */
+            SimpleXPathViewer viewer= new SimpleXPathViewer(args[0]);
+
+            /* Add a windowListener for the windowClosedEvent */
+            viewer.addWindowListener(new java.awt.event.WindowAdapter( ) {
+                    public void windowClosed(java.awt.event.WindowEvent e) {
+                        System.exit(0);
+                    };
+                });
+            viewer.setVisible(true);
+        } catch (Exception e) {
+            e.printStackTrace( );
+        }
+    }
+}
+
+</pre></blockquote>
+</div>
+
+<p>As usual, I am skipping the Swing details. You can see that once the
+document is loaded using <tt class="literal">SAXBuilder</tt>, though, the
+root element of that document is obtained (in the
+<tt class="literal">initialize( )</tt> method). This element is used to
+create an instance of <tt class="literal">JDOMNode</tt> through the
+<tt class="literal">createNode( )</tt> utility function. The function
+simply converts between JDOM types and <tt class="literal">JDOMNode</tt>
+implementations, and took about 15 seconds to code up. Use a similar
+method in your own programs that use decorators and wrappers.
+</p>
+
+<p>Once I've got <tt class="literal">JDOMNode</tt> implementations,
+it's simple to walk the tree, creating visual objects for each
+node encountered. Additionally, for each node, I've set the
+status text of the window to the XPath expression for that node. You
+can compile all of these examples, and run them using this command:
+</p>
+
+<blockquote><pre class="code">C:\javaxml2\build&gt;java javaxml2.SimpleXPathViewer 
+                       c:\javaxml2\ch08\xml\contents.xml</pre></blockquote>
+
+<p>Be sure that JDOM and your XML parser are in your classpath. The
+result is the Swing UI shown in <a href="ch08_03.htm#javaxml2-CHP-8-FIG-1">Figure 8-1</a>. Notice
+how the status bar reflects the XPath expression for the currently
+selected node. Play around with this -- seeing four or five
+screenshots in a book isn't nearly as useful as your
+exploration of the tool.
+</p>
+
+<a name="javaxml2-CHP-8-FIG-1" /><div class="figure"><img height="360" alt="Figure 8-1" src="figs/javax_0801.gif" width="481" /></div><h4 class="objtitle">Figure 8-1. Viewing contents.xml and XPaths</h4>
+
+<p>And that's it! I know I've gone quickly, but the concepts
+involved are simple. You can think about how decorators and wrappers
+might help you with the interface-like functionality you need in your
+applications. Also check out the JDOM web site at <a href="http://www.jdom.org">http://www.jdom.org</a> for contributions that
+may include stock wrappers (like this one, or a DOM set of
+decorators).
+</p>
+
+<p>Finally, I'd like to thank Philip Nelson, who did the
+lion's share of the work on the decorator code shown here.
+Philip has really explored using decorators with JDOM, and was a
+great help in this section.<a name="INDEX-847" /> 
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch08_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch08_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">8.2. JDOM and Factories</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">8.4. Gotcha!</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

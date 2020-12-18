@@ -1,0 +1,520 @@
+<html><head><title>XML::RSS  (Perl and XML)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Erik T. Ray and Jason McIntosh" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="059600205XL" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl and XML" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; XML" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch09_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch09_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">9.2. XML::RSS </h2>
+
+<p>By<a name="INDEX-722" />
+<em class="emphasis">helper modules</em>, we<a name="INDEX-723" /> mean more focused versions of the XML
+processors we've already pawed through in our Perl
+and XML toolbox. In a way, <tt class="literal">XML::Parser</tt> and its ilk
+are helper applications since they save you from approaching each
+XML-chomping job with Perl's built-in file-reading
+functions and regular expressions by turning documents into
+immediately useful objects or event streams. Also,
+<tt class="literal">XML::Writer</tt> and friends replace plain old
+<tt class="literal">print</tt> statements with a more abstract and safer
+way to create XML documents.
+</p>
+
+<p>However, the XML modules we cover now offer their services in a very
+specific direction. By using one of these modules in your program,
+you establish that you plan to use XML, but only a small, clearly
+defined subsection of it. By submitting to this restriction, you get
+to use (and create) software modules that handle all the toil of
+working with raw XML, presenting the main part of your code with
+methods and routines specific only to the application at hand.
+</p>
+
+<p>For our example, we'll look at
+<tt class="literal">XML::RSS</tt> -- a little number by Jonathan
+Eisenzopf.
+</p>
+
+<a name="perlxml-CHP-9-SECT-2.1" /><div class="sect2">
+<h3 class="sect2">9.2.1. Introduction to RSS </h3>
+
+<p><a name="INDEX-724" /> <a name="INDEX-725" /> <a name="INDEX-726" />RSS (short for Rich Site Summary or Really
+Simple Syndication, depending upon whom you ask) is one of the first
+XML applications whose use became rapidly popular on a global scale,
+thanks to the Web. While RSS itself is little more than an
+agreed-upon way to summarize web page content, it gives the
+administrators of news sites, web logs, and any other frequently
+updated web site a standard and sweat-free way of telling the world
+what's new. Programs that can parse RSS can do
+whatever they'd like with this document, perhaps
+telling its masters by mail or by web page what interesting things it
+has learned in its travels. A special type of RSS program is an
+aggregator, a program that collects RSS from various sources and then
+knits it together into new RSS documents combining the information,
+so that lazier RSS-parsing programs won't have to
+travel so far.
+</p>
+
+<p>Current popular aggregators include
+<a name="INDEX-727" />Netscape, by way of
+its customizable my.netscape.com
+site (which was, in fact, the birthplace of the earliest RSS
+versions) and Dave Winer's <a href="http://www.scripting.com">http://www.scripting.com</a> (whose aggregator
+has a public frontend at <a href="http://aggregator.userland.com/register">http://aggregator.userland.com/register</a>).
+These aggregators, in turn, share what they pick up as RSS, turning
+them into one-stop RSS shops for other interested entities. Web sites
+that collect and present links to new stuff around the Web, such as
+the O'Reilly Network's Meerkat
+(<a href="http://meerkat.oreillynet.com">http://meerkat.oreillynet.com</a>),
+hit these aggregators often to get information on RSS-enabled web
+sites, and then present it to the site's user.
+</p>
+
+</div>
+<a name="perlxml-CHP-9-SECT-2.2" /><div class="sect2">
+<h3 class="sect2">9.2.2. Using XML::RSS </h3>
+
+<p>The <tt class="literal">XML::RSS</tt><a name="INDEX-728" /> module is
+useful whether you're coming or going. It can parse
+RSS documents that you hand it, or it can help you write your own RSS
+documents. Naturally, you can combine these abilities to parse a
+document, modify it, and then write it out again; the module uses a
+simple and well-documented object model to represent documents in
+memory, just like the tree-based modules we've seen
+so far. You can think of this sort of XML helper module as a
+tricked-out version of a familiar general XML tool.
+</p>
+
+<p>In the following examples, we'll work with a
+notional web log, a frequently updated and Web-readable personal
+column or journal. RSS lends itself to web logs, letting them quickly
+summarize their most recent entries within a single RSS document.
+</p>
+
+<p>Here are a couple of web log entries (admittedly sampling from the
+shallow end of the concept's notional pool, but it
+works for short examples). First, here is how one might look in a web
+browser:
+</p>
+
+<blockquote><pre class="code">Oct 18, 2002 19:07:06
+
+Today I asked lab monkey 45-X how he felt about his recent chess
+victory against Dr. Baker. He responded by biting my kneecap. (The
+monkey did, I mean.) I
+think this could lead to a communications breakthrough. As well as
+painful swelling, which is unfortunate.
+
+Oct 27, 2002 22:56:11
+
+On a tangential note, Dr. Xing's research of purple versus green monkey
+trans-sociopolitical impact seems to be stalled, having gained no
+ground for several weeks. Today she learned that her lab assistant
+never mentioned on his job application that he was colorblind. Oh well.</pre></blockquote>
+
+<p>Here it is again, as an RSS v1.0 document: </p>
+
+<blockquote><pre class="code">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+
+&lt;rdf:RDF
+ xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+ xmlns="http://purl.org/rss/1.0/"
+ xmlns:dc="http://purl.org/dc/elements/1.1/"
+ xmlns:taxo="http://purl.org/rss/1.0/modules/taxonomy/"
+ xmlns:syn="http://purl.org/rss/1.0/modules/syndication/"
+&gt;
+
+&lt;channel rdf:about="http://www.jmac.org/linklog/"&gt;
+&lt;title&gt;Link's Log&lt;/title&gt;
+&lt;link&gt;http://www.jmac.org/linklog/&lt;/link&gt;
+&lt;description&gt;Dr. Lance Link's online research journal&lt;/description&gt;
+&lt;dc:language&gt;en-us&lt;/dc:language&gt;
+&lt;dc:rights&gt;Copright 2002 by Dr. Lance Link&lt;/dc:rights&gt;
+&lt;dc:date&gt;2002-10-27T23:59:15+05:00&lt;/dc:date&gt;
+&lt;dc:publisher&gt;llink@jmac.org&lt;/dc:publisher&gt;
+&lt;dc:creator&gt;llink@jmac.org&lt;/dc:creator&gt;
+&lt;dc:subject&gt;llink&lt;/dc:subject&gt;
+&lt;syn:updatePeriod&gt;daily&lt;/syn:updatePeriod&gt;
+&lt;syn:updateFrequency&gt;1&lt;/syn:updateFrequency&gt;
+&lt;syn:updateBase&gt;2002-03-03T00:00:00+05:00&lt;/syn:updateBase&gt;
+&lt;items&gt;
+ &lt;rdf:Seq&gt;
+  &lt;rdf:li rdf:resource="http://www.jmac.org/linklog?2002-10-27#22:56:11" /&gt;
+  &lt;rdf:li rdf:resource="http://www.jmac.org/linklog?2002-10-18#19:07:06" /&gt;
+ &lt;/rdf:Seq&gt;
+&lt;/items&gt;
+&lt;/channel&gt;
+
+&lt;item rdf:about="http://www.jmac.org/linklog?2002-10-27#22:56:11"&gt;
+&lt;title&gt;2002-10-27 22:56:11&lt;/title&gt;
+&lt;link&gt;http://www.jmac.org/linklog?2002-10-27#22:56:11&lt;/link&gt;
+&lt;description&gt;
+Today I asked lab monkey 45-X how he felt about his recent chess
+victory against Dr. Baker. He responded by biting my kneecap. (The
+monkey did, I mean.) I
+think this could lead to a communications breakthrough. As well as
+painful swelling, which is unfortunate.
+&lt;/description&gt;
+&lt;/item&gt;
+
+&lt;item rdf:about="http://www.jmac.org/linklog?2002-10-18#19:07:06"&gt;
+&lt;title&gt;2002-10-18 19:07:06&lt;/title&gt;
+&lt;link&gt;http://www.jmac.org/linklog?2002-10-18#19:07:06&lt;/link&gt;
+&lt;description&gt;
+On a tangential note, Dr. Xing's research of purple versus green monkey
+trans-sociopolitical impact seems to be stalled, having gained no
+ground for several weeks. Today she learned that her lab assistant
+never mentioned on his job application that he was colorblind. Oh well.
+&lt;/description&gt;
+&lt;/item&gt;
+
+&lt;/rdf:RDF&gt;</pre></blockquote>
+
+<p>Note RSS 1.0's use of various metadata-enabling
+namespaces before it gets into the meat of laying out the actual
+content.<a href="#FOOTNOTE-30">[30]</a> The curious may wish to point
+their web browsers at the URIs with which they identify themselves,
+since they are good little namespaces who put their documentation
+where their mouth is. ("dc" is the
+Dublin Core, a standard set of elements for describing a
+document's source.
+"syn" points to a syndication
+namespace -- itself a sub-project by the RSS people -- holding
+a handful of elements that state how often a source refreshes itself
+with new content.) Then the whole document is wrapped up in an RDF
+element.
+</p><blockquote class="footnote"> <a name="FOOTNOTE-30" /><p>[30]I am careful to specify the RSS version here
+because RSS Version .9 and 0.91 documents are much simpler in
+structure, eschewing namespaces and RDF-encapsulated metadata in
+favor of a simple list of <tt class="literal">&lt;item&gt;</tt> elements
+wrapped in an <tt class="literal">&lt;rss&gt;</tt> element. For this
+reason, many people prefer to use pre-1.0 RSS, and socially astute
+RSS software can read from and write to all these versions.
+<tt class="literal">XML::RSS</tt> can do this, and as a side effect, allows
+easy conversion between these different versions (given a single
+original document).</p> </blockquote>
+
+<a name="perlxml-CHP-9-SECT-2.2.1" /><div class="sect3">
+<h3 class="sect3">9.2.2.1. Parsing </h3>
+
+<p>Using <tt class="literal">XML::RSS</tt><a name="INDEX-729" /><a name="INDEX-730" /> to read an existing document ought
+to look familiar if you've read the preceding
+chapters, and is quite simple:
+</p>
+
+<blockquote><pre class="code">use XML::RSS;
+
+# Accept file from user arguments
+my @rss_docs = @ARGV;
+
+# For now, we'll assume they're all files on disk...
+foreach my $rss_doc (@rss_docs) {
+
+  # First, create a new RSS object that will represent the parsed doc
+  my $rss = XML::RSS-&gt;new;
+  
+  # Now parse that puppy
+  $rss-&gt;parsefile($rss_doc);
+  
+  # And that's all. Do whatever else we may want here.
+}</pre></blockquote>
+
+</div>
+
+<a name="perlxml-CHP-9-SECT-2.2.2" /><div class="sect3">
+<h3 class="sect3">9.2.2.2. Inheriting from XML::Parser </h3>
+
+<p>If that <tt class="literal">parsefile</tt> method looked familiar, it had
+good reason: it's the same one used by grandpappy
+<tt class="literal">XML::Parser</tt><a name="INDEX-731" />, both in word and deed.
+</p>
+
+<p><tt class="literal">XML::RSS</tt> takes direct advantage of
+<tt class="literal">XML::Parser</tt>'s inheritability
+right off the bat, placing this module into its
+<tt class="literal">@ISA</tt> array before getting down to business with
+all that map definition.
+</p>
+
+<p>It shouldn't surprise those familiar with
+object-oriented Perl programming that, while it chooses to define its
+own <tt class="literal">new</tt> method, it does little more than invoke
+<tt class="literal">SUPER::new</tt>. In doing so, it lets
+<tt class="literal">XML::Parser</tt> initialize itself as it sees fit.
+Let's look at some code from that module
+itself -- specifically its constructor, <tt class="literal">new</tt>,
+which we invoked in our example:
+</p>
+
+<blockquote><pre class="code">sub new {
+    my $class = shift;
+    my $self = $class-&gt;SUPER::new(Namespaces    =&gt; 1,
+                                  NoExpand      =&gt; 1,
+                                  ParseParamEnt =&gt; 0,
+                                  Handlers      =&gt; { Char    =&gt; \&amp;handle_char,
+                                                     XMLDecl =&gt; \&amp;handle_dec,
+                                                     Start   =&gt; \&amp;handle_start})
+;
+    bless ($self,$class);
+    $self-&gt;_initialize(@_);
+    return $self;
+}</pre></blockquote>
+
+<p>Note how the module calls its parent's
+<tt class="literal">new</tt> with very specific arguments. All are standard
+and well-documented setup instructions in
+<tt class="literal">XML::Parser</tt>'s public interface,
+but by taking these parameters out of the user's
+hands and into its own, the <tt class="literal">XML::RSS</tt> module knows
+exactly what it's getting -- in this case, a
+parser object with namespace processing enabled, but not expansion or
+parsing of parameter entities -- and defines for itself what its
+handlers are.
+</p>
+
+<p>The result of calling <tt class="literal">SUPER::new</tt> is an
+<tt class="literal">XML::Parser</tt> object, which this module
+doesn't want to hand back to its users -- doing
+so would diminish the point of all this abstraction! Therefore, it
+reblesses the object (at this point, deemed to be a new
+<tt class="literal">$self</tt> for this class) using the Perl-itically
+correct two-argument method, so that the returned object claims
+fealty to <tt class="literal">XML::RSS</tt>, not<a name="INDEX-732" />
+<tt class="literal">XML::Parser</tt>.
+</p>
+
+</div>
+</div>
+<a name="perlxml-CHP-9-SECT-2.3" /><div class="sect2">
+<h3 class="sect2">9.2.3. The Object Model </h3>
+
+<p>Since we can see that
+<tt class="literal">XML::RSS</tt><a name="INDEX-733" /> is
+not very unique in terms of parser object construction and document
+parsing, let's look at where it starts to cut an
+edge of its own: through the shape of the internal data structure it
+builds and to which it applies its method-based API.
+</p>
+
+<p><tt class="literal">XML::RSS</tt>'s code is made up mostly
+of accessors -- methods that read and write to predefined places
+in the structure it's building. Using nothing more
+complex than a few Perl hashes, <tt class="literal">XML::RSS</tt> builds
+maps of what it expects to see in the document, made of nested hash
+references with keys named after the elements and attributes it might
+encounter, nested to match the way one might find them in a real RSS
+XML document. The module defines one of these maps for each version
+of RSS that it handles. Here's the simplest one,
+which covers RSS Version 0.9:
+</p>
+
+<blockquote><pre class="code">my %v0_9_ok_fields = (
+    channel =&gt; { 
+        title       =&gt; '',
+        description =&gt; '',
+        link        =&gt; '',
+        },
+    image  =&gt; { 
+        title =&gt; '',
+        url   =&gt; '',
+        link  =&gt; '' 
+        },
+    textinput =&gt; { 
+        title       =&gt; '',
+        description =&gt; '',
+        name        =&gt; '',
+        link        =&gt; ''
+        },
+    items =&gt; [],
+    num_items =&gt; 0,
+    version         =&gt; '',
+    encoding        =&gt; ''
+);</pre></blockquote>
+
+<p>This model is not entirely made up of hash references, of course; the
+top-level "items" key holds an
+empty array reference, and otherwise, all the end values for all the
+keys are scalars -- all empty strings. The exception is
+<tt class="literal">num_items</tt>, which isn't among
+RSS's elements. Instead, it serves the role of
+convenience, making a small trade-off of structural elegance for the
+sake of convenience (presumably so the code doesn't
+have to keep explicitly dereferencing the <tt class="literal">items</tt>
+array reference and then getting its value in scalar context).
+</p>
+
+<p>On the other hand, this example risks going out of sync with reality
+if what it describes changes and the programmer
+doesn't remember to update the number when that
+happens. However, this sort of thing often comes down to programming
+style, which is far beyond the bounds of this book.
+</p>
+
+<p>There's good reason for this arrangement, besides
+the fact that hash values have to be set to something (or
+<tt class="literal">undef</tt>, which is a special sort of something). Each
+hash doubles as a map for the module's subroutines
+to follow and a template for the structures themselves. With that in
+mind, let's see what happens when an
+<tt class="literal">XML::Parser</tt> item is constructed via this
+module's <tt class="literal">new</tt> class method.
+</p>
+
+</div>
+<a name="perlxml-CHP-9-SECT-2.4" /><div class="sect2">
+<h3 class="sect2">9.2.4. Input: User or File </h3>
+
+<p>After <a name="INDEX-734" />construction, an
+<tt class="literal">XML::RSS</tt><a name="INDEX-735" /> is ready to chew through an RSS
+document, thanks to the parsing powers afforded to it by its proud
+parent, <tt class="literal">XML::Parser</tt>. A user only needs to call the
+object's <tt class="literal">parse</tt> or
+<tt class="literal">parsefile</tt> methods, and off it goes -- filling
+itself up with data.
+</p>
+
+<p>Despite this, many of these objects will live long<a href="#FOOTNOTE-31">[31]</a> and
+productive lives without sinking their teeth into an existing XML
+document. Often RSS users would rather have the module help build a
+document from scratch -- or rather, from the bits of text that
+programs we write will feed to it. This is when all those accessors
+come in handy.
+</p><blockquote class="footnote">
+<a name="FOOTNOTE-31" /><p>[31]Well, a few hundredths of a second on a typical whizbang PC,
+but we mean long in the poetic sense.</p> </blockquote>
+
+<p>Thus, let's say we have a SQL database somewhere
+that contains some web log entries we'd like to
+RSS-ify. We could write up this little script:
+</p>
+
+<blockquote><pre class="code">#!/usr/bin/perl
+
+# Turn the last 15 entries of Dr. Link's Weblog into an RSS 1.0 document,
+# which gets pronted to STDOUT.
+
+use warnings;
+use strict;
+
+use XML::RSS;
+use DBIx::Abstract;
+
+my $MAX_ENTRIES = 15;
+
+my ($output_version) = @ARGV;
+$output_version ||= '1.0';
+unless ($output_version eq '1.0' or $output_version eq '0.9' 
+                                 or $output_version eq '0.91') {
+  die "Usage: $0 [version]\nWhere [version] is an RSS version to output: 
+0.9, 0 .91, or 1.0\nDefault is 1.0\n";
+}
+
+my $dbh = DBIx::Abstract-&gt;connect({dbname=&gt;'weblog',
+                                   user=&gt;'link',
+                                   password=&gt;'dirtyape'})
+  or die "Couln't connect to database.\n";
+
+my ($date) = $dbh-&gt;select('max(date_added)',
+                          'entry')-&gt;fetchrow_array;
+my ($time) = $dbh-&gt;select('max(time_added)',
+                          'entry')-&gt;fetchrow_array;
+
+my $time_zone = "+05:00"; # This happens to be where I live. :)
+my $rss_time = "${date}T$time$time_zone";
+# base time is when I started the blog, for the syndication info
+my $base_time = "2001-03-03T00:00:00$time_zone";
+
+# I'll choose to use RSS version 1.0 here, which stuffs some meta-information into 
+# 'modules' that go into their own namespaces, such as 'dc' (for Dublin Core) or 
+# 'syn' (for RSS Syndication), but fortunately it doesn't make defining the document 
+# any more complex, as you can see below...
+
+my $rss = XML::RSS-&gt;new(version=&gt;'1.0', output=&gt;$output_version);
+
+$rss-&gt;channel(
+              title=&gt;'Dr. Links Weblog',
+              link=&gt;'http://www.jmac.org/linklog/',
+              description=&gt;"Dr. Link's weblog and online journal",
+              dc=&gt; {
+                    date=&gt;$rss_time,
+                    creator=&gt;'llink@jmac.org',
+                    rights=&gt;'Copyright 2002 by Dr. Lance Link',
+                    language=&gt;'en-us',
+                   },
+              syn=&gt; {
+                     updatePeriod=&gt;'daily',
+                     updateFrequency=&gt;1,
+                     updateBase=&gt;$base_time,
+                    },
+             );
+
+
+$dbh-&gt;query("select * from entry order by id desc limit $MAX_ENTRIES");
+while (my $entry = $dbh-&gt;fetchrow_hashref) {
+  # Replace XML-naughty characters with entities
+  $$entry{entry} =~ s/&amp;/&amp;/g;
+  $$entry{entry} =~ s/&lt;/&amp;lt;/g;
+  $$entry{entry} =~ s/'/&amp;apos;/g;
+  $$entry{entry} =~ s/"/&amp;quot;/g;
+  $rss-&gt;add_item(
+         title=&gt;"$$entry{date_added} $$entry{time_added}",
+         link=&gt;"http://www.jmac.org/weblog?$$entry{date_added}#$$entry{time_added}",
+         description=&gt;$$entry{entry},
+                );
+}
+
+# Just throw the results into standard output. :)
+print $rss-&gt;as_string;</pre></blockquote>
+
+<p>Did you see any XML there? We didn't. Well, OK, we
+did have to give the truth of the matter a little nod by tossing in
+those entity-escape regexes, but other than that, we were reading
+from a database and then stuffing what we found into an object by way
+of a few method calls (or rather, a single, looped call to its
+<tt class="literal">add_item</tt> method). These calls accepted, as their
+sole argument, a hash made of some straightforward strings. While we
+(presumably) wrote this program to let our web log take advantage of
+everything RSS has to offer, no actual XML was munged in the
+production of this file.
+</p>
+
+</div>
+<a name="perlxml-CHP-9-SECT-2.5" /><div class="sect2">
+<h3 class="sect2">9.2.5. Off-the-Cuff Output </h3>
+
+<p>By<a name="INDEX-736" /> the way,
+<tt class="literal">XML::RSS</tt><a name="INDEX-737" />
+doesn't use XML-generation-helper modules such as
+<tt class="literal">XML::Writer</tt> to product its output; it just builds
+one long scalar based on what the map-hash looks like, running
+through ordinary <tt class="literal">if</tt>, <tt class="literal">else</tt>, and
+<tt class="literal">elsif</tt> blocks, each of which tend to use the
+<tt class="literal">.=</tt> self-concatenation operator. If you think you
+can get away with it in your own XML-generating modules, you might
+try this approach, building up the literal document-to-be in memory
+and <tt class="literal">print</tt>ing it to a filehandle; that way,
+you'll save a lot of overhead and gain control, but
+give up some safety in the process. Just be sure to test your output
+thoroughly for well-formedness. (If you're making a
+dual-purpose parser/generator like <tt class="literal">XML::RSS</tt>, you
+might try to have the module parse some of its own output and make
+sure everything<a name="INDEX-738" /> <a name="INDEX-739" /> <a name="INDEX-740" /> looks<a name="INDEX-741" /> as you'd expect.)
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch09_01.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch09_03.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">9. RSS, SOAP, and Other XML Applications </td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">9.3. XML Programming Tools </td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

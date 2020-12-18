@@ -1,0 +1,621 @@
+<html><head><title>Exposing DTD Information  (SAX2)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="David Brownell" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002378L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="SAX2" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="SAX2" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch04_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+	<h2 class="sect1">4.3. Exposing DTD Information </h2>
+
+	<p>
+<a name="INDEX-548" />
+<a name="INDEX-549" />
+        SAX2 exposes DTD information through three different
+	interfaces. Part of it is exposed through the <em class="emphasis">LexicalHandler</em>
+	extension interface: the DTD's root element type declaration
+	and boundaries of the various entities. The rest
+	is exposed through two DTD-specific interfaces, presented here.
+	</p>
+
+	<p>When you're working with streams of SAX event data, remember
+	that all DTD event data is seen before the document data 
+	it describes.
+	This means that if you need it inside the document, you'll
+	need to plan ahead to save the DTD data.
+	It also means that if you need to merge streams of event data,
+	such DTD data may create a problem.
+	Unless you know the DTD data in advance,
+	you'd need to dam up the event stream until all data that
+	needs to go into downstream DTD events is in hand. Only
+	then can you send the events downstream (with the DTD first).
+	Luckily, merging event streams with unknown DTD data isn't common.
+	</p>
+
+	<p>DTD information is automatically used inside XML parsers when they parse
+	XML documents. That includes expansion of conditional sections and parameter entities in
+	DTDs, expanding general entities, and normalizing or defaulting attributes. Most DTD validation
+	can be cleanly layered on top of SAX2 since these declaration
+	callbacks provide all the most important information.<a href="#FOOTNOTE-20">[20]</a>
+	SAX2 enables application-level processing of DTD constraints;
+	the only internal support it provides for DTDs is 
+	a feature flag to expose parser support for validation.
+	When applications need to construct valid documents, they
+	can use DTD information as they make changes, instead of
+	needing to save the document and reparse the whole thing.
+	</p><blockquote class="footnote">
+	    <a name="FOOTNOTE-20" /><p>[20]The exceptions relate to lexical constraints
+	    that should arguably be well-formedness constraints.
+	    Entity nesting is supposed to match nesting of grammatical
+	    constructs within DTDs; that's a validity constraint.
+	    However, the analogous constraint in a document body 
+	    affects well-formedness instead.
+	    </p></blockquote>
+
+	<p>The support for working with DTDs provided by most XML 
+	tools is not as good as the support provided by SAX2. For example,
+	DOM Level 2 provides weaker support, and the TRAX support for SAX
+	(<em class="emphasis">java.xml.transform.sax</em>) doesn't
+	support <em class="emphasis">DeclHandler</em> at all.
+	</p>
+
+<p>Note that while a fully featured SAX2 parser will let you re-create the internal subset, it will not let you round-trip any external parameter entities. That's because parameter entities will be expanded. You will not see conditional sections in external PEs, <?troff .ne 10?>or declarations being built up from parameter entities. Instead, you'll see the actual declarations that apply to your documents. This may help you to understand exactly what a complex DTD is doing.</p>
+
+	<a name="sax2-CHP-4-SECT-3.1" /><div class="sect2">
+	    <h3 class="sect2">4.3.1. The DeclHandler Interface </h3>
+
+	    <p>
+<a name="INDEX-550" />
+            This extension interface is new in SAX2.
+	    It's in the <em class="emphasis">org.xml.sax.ext</em> package,
+	    which means among other things that it is optional and not
+	    all SAX APIs support it. (<em class="emphasis">DefaultHandler</em>
+	    is one example of an API that does not.)
+	    However, any SAX2 parser that can be bootstrapped with JAXP
+	    must support this interface.
+	    There is no <tt class="literal">setDeclHandler()</tt> method;
+	    bind these handlers to parsers like this:
+	    </p>
+
+	    <blockquote><pre class="code">
+XMLReader	producer = ...;
+DeclHandler	handler = ...;
+
+producer.setProperty ("http://xml.org/sax/properties/
+	declaration-handler",handler);
+// throws SAXNotSupportedException if parameter isn't a DeclHandler.
+// throws SAXNotRecognizedException if parser doesn't support it.
+</pre></blockquote>
+
+	    <p>Parsers that support <em class="emphasis">DeclHandler</em>
+	    are essential for applications that need to work with declarations
+	    of elements and attributes or with parsed entities.
+	    DOM requires such support for parsed entities, although even
+	    Level 2 hides or ignores element and attribute 
+	    type data.
+	    This interface is the most common way SAX2 exposes type 
+	    constraints (the
+	    primary role of a Document Type Declaration) from DTDs, so
+	    if you need to see those constraints, you'll use this handler.
+	    It has four API callbacks:
+	    </p>
+
+	    <dl>
+
+		<dt><b>
+	<tt class="literal">void attributeDecl(eName,aName,type,mode,value)</tt>
+			</b></dt>
+
+		    <dd><p>
+<a name="INDEX-551" />
+<a name="INDEX-552" />
+                    This callback reports 
+		    <tt class="literal">&lt;!ATTLIST ... &gt;</tt>
+		    declarations in a DTD. A given declaration
+		    produces
+		    one callback for each attribute in the declaration.
+		    Much of this information will also be provided through
+		    <em class="emphasis">Attributes</em> methods if 
+		    an instance of that element appears in a document.
+		    </p>
+
+		    <dl>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">eName</em></b></dt>
+			<dd><p>This is the name of the element
+			whose attribute is being declared.
+			</p></dd>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">aName</em></b></dt>
+			<dd><p>This is the name of the
+			attribute associated with that element.
+			</p></dd>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">type</em></b></dt>
+			<dd><p>
+<a name="INDEX-553" />
+<a name="INDEX-554" />
+<a name="INDEX-555" />
+<a name="INDEX-556" />
+<a name="INDEX-557" />
+<a name="INDEX-558" />
+<a name="INDEX-559" />
+<a name="INDEX-560" />
+<a name="INDEX-561" />
+                        This is one of the strings
+			<tt class="literal">CDATA</tt>, <tt class="literal">ID</tt>,
+			<tt class="literal">IDREF</tt>, <tt class="literal">IDREFS</tt>,
+			<tt class="literal">NMTOKEN</tt>,
+			<tt class="literal">NMTOKENS</tt>,
+			<tt class="literal">ENTITY</tt>,
+			or <tt class="literal">ENTITIES</tt>,
+			or two types of enumerated values. Enumerated
+			values are encoded with parenthesized strings such
+			as <tt class="literal">(a|b|c)</tt> to indicate that
+			strings <tt class="literal">a</tt>,
+			<tt class="literal">b</tt>, or <tt class="literal">c</tt> 
+			are permissible. If the string is an
+			enumeration of notation names,
+			<tt class="literal">"NOTATION "</tt> (which
+			includes one space) precedes that
+			parenthesized string.
+			</p><p>This type information is more complete
+			than information you get through the
+			<em class="emphasis">Attributes</em> object provided
+			with <tt class="literal">startElement()</tt>, because
+			<em class="emphasis">Attributes</em> reports only 
+			enumerations as being either <tt class="literal">NOTATION</tt> or <tt class="literal">NMTOKEN</tt>. However, at this time several widely available SAX2 parsers conform to a beta test version of this API and don't correctly report enumerations. You may need to get a bug-fixed version of your parser if you're depending on this support.
+<a name="INDEX-562" />
+</p></dd>
+
+			<dt><b>
+			    <em class="emphasis">String mode</em></b></dt>
+			<dd><p>
+<a name="INDEX-563" />
+<a name="INDEX-564" />
+<a name="INDEX-565" />
+                        This describes the kind of default
+			value applied to this attribute:
+			<tt class="literal">#IMPLIED</tt> (the application 
+			determines the value),
+			<tt class="literal">#REQUIRED</tt> (the value must be given;
+			defaulting is not permitted),
+			<tt class="literal">#FIXED</tt> (only one value 
+			is permitted),
+			or null indicating that
+			<em class="replaceable">value</em> is the default.
+			</p>
+			
+			<p>Unless the document provided a value,
+			you won't see <tt class="literal">#IMPLIED</tt> 
+			attributes in the
+			<tt class="literal">Attributes</tt> object provided
+			with <tt class="literal">startElement()</tt>; if you
+			need to know this information, save it when you
+			get this callback.
+			</p></dd>
+
+			<dt><b>
+			    <em class="emphasis">String value</em></b></dt>
+			<dd><p>This parameter is either null 
+			or a string with the
+			default value for this attribute. That might be
+			the only permitted value if the attribute mode is
+			<tt class="literal">#FIXED</tt>.
+			The value will be reported exactly as applications will
+			see it: normalized and with character and
+			entity references replaced.
+			</p></dd>
+
+		    </dl>
+
+		    <p>
+
+                    XML structure editors can use this information
+		    to constrain the choices presented to document
+		    authors so that only valid documents can be created.
+		    Other tools that construct documents will also benefit
+		    from having this information.
+		    When you're mostly reading documents rather than
+		    creating them, the most important data here tends to
+		    be declaration of <tt class="literal">ID</tt>, 
+		    <tt class="literal">IDREF</tt>, and <tt class="literal">IDREFS</tt> 
+		    attributes, which are
+		    used to build links within and between XML
+		    documents.
+		    </p>
+
+		    <p>If more than one declaration for an attribute
+		    is provided, only the first one will be used.
+		    (The second one will be ignored;
+		    unlike the analogous case for element declarations,
+		    attribute redeclaration is not a validity error.)
+		    Normally code to implement this callback would
+		    first retrieve any existing per-element data
+		    structure, or it would create one 
+		    (with a null content model)
+		    if none is yet known.
+		    Then if there is no record of an attribute with this 
+		    name for that element, a per-attribute data structure
+		    instance would be created and saved in the element
+		    data structure, keyed by attribute name.
+
+		    </p></dd>
+	    
+
+		<dt><b>
+			<tt class="literal">void elementDecl(name,model)</tt>
+			</b></dt>
+
+		    <dd><p>
+<a name="INDEX-566" />
+                    This method reports 
+		    <tt class="literal">&lt;!ELEMENT ... &gt;</tt>
+		    declarations in a DTD.
+		    </p>
+
+		    <dl>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">name</em></b></dt>
+			<dd><p>This is the element name.
+			</p></dd>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">model</em></b></dt>
+			<dd><p>This is the element content model,
+			with all whitespace removed.
+			For example, element content models like 
+			<tt class="literal">(a,(b|c)+,d?)</tt>, mixed content models
+			like <tt class="literal">(#PCDATA|one|two|three)*</tt>,
+			and simple models like <tt class="literal">ANY</tt>
+			and <tt class="literal">EMPTY</tt>
+			may all be found in the same document. Note that parsers may do more than just remove the whitespace, as long as an equivalent content model is reported.</p></dd>
+
+		    </dl>
+
+		    <p>Because the content model is provided as a string,
+		    applications using it must always parse it themselves. Similarly, if applications want to validate against that model, they must provide code to do that. Except for the case of element content, such work is straightforward. Validating element content models requires constructing and using some sort of finite state automaton, and it takes a bit of work to parse the model. Mixed content models are easier to handle since they can be parsed with a <em class="emphasis">java.util.StringTokenizer</em> and because the validation logic is simpler.
+		    </p>
+
+		    <p>If more than one declaration for an element
+		    is provided, only the first one will be used.
+		    (The second one will be considered a validity error;
+		    element type redeclaration is not allowed.)
+		    Normally the code implementing this callback would
+		    create a new per-element data structure to save the
+		    name and content model and store it in data structure
+		    (hash table or other map) keyed by element name. Such a data structure might already exist if an element attribute was declared before the element. In this case, this callback just provides the content model, which was previously unknown.
+
+		    </p></dd>
+	    
+		<dt><b>
+		<tt class="literal">void externalEntityDecl(name,publicId,systemId)</tt>
+			</b></dt>
+
+		    <dd><p>
+<a name="INDEX-567" />
+                    This callback reports 
+		    <tt class="literal">&lt;!ENTITY ... &gt;</tt>
+		    declarations in a DTD for parsed external entities. These may be either general or parameter entities.
+		    </p>
+
+		    <dl>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">name</em></b></dt>
+			<dd><p>
+<a name="INDEX-568" />
+<a name="INDEX-569" />
+                        This is the entity name; it is
+			always provided. Names that start with 
+			<tt class="literal">%</tt> are
+			parameter entities; all others are general entities.
+			</p></dd>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">publicId</em></b></dt>
+			<dd><p>
+<a name="INDEX-570" />
+<a name="INDEX-571" />
+<a name="INDEX-572" />
+                        This is the public ID for the
+			entity and can be omitted (provided as null).
+			If public IDs are provided, any embedded 
+			whitespace is normalized,
+			so these strings may be directly compared.
+			They may be used to determine a location for
+			the entity, for example, by using an SGML Formal
+			Public Identifier with some sort of catalog.
+			</p></dd>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">systemId</em></b></dt>
+			<dd><p>This is the system ID for the entity
+			and is always provided. It is an absolute
+			URI, which parsers normally use
+			to retrieve the entity before parsing it. However, some SAX2 parsers have a bug, and won't report the absolute URI here.</p></dd>
+
+			</dl>
+
+		    <p>
+<a name="INDEX-573" />
+                    Applications usually ignore all parameter entity
+		    declarations and use the
+		    <em class="emphasis">org.xml.sax.EntityResolver</em> when
+		    they want to provide local copies of these entities to
+		    a parser.
+		    If applications don't ignore these declarations,
+		    redeclaration should be ignored
+		    (it is not an error).
+		    XML editors may want to offer menus of external
+		    (and internal) entities when editing element content.
+		    And in some cases you may want to track external entities
+		    by name so that you can tell when
+		    <tt class="literal">LexicalHandler.startEntity()</tt>
+		    is reporting the start of one; this is useful for
+		    applications that use <tt class="literal">xml:base</tt>
+		    attributes to change applications' views of the actual
+		    URI that contains an element, using the
+		    <tt class="literal">Locator.getSystemId()</tt> method.
+		    (Perhaps the actual location was not known, or
+		    should for some reason be ignored.)
+
+		    </p></dd>
+
+		<dt><b>
+		<tt class="literal">void internalEntityDecl(name,value)</tt>
+			</b></dt>
+
+		    <dd><p>
+<a name="INDEX-574" />
+                    This callback reports 
+		    <tt class="literal">&lt;!ENTITY ... &gt;</tt>
+		    declarations in a DTD for (parsed) internal entities.
+		    These may be either general or parameter entities.
+		    </p>
+
+		    <dl>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">name</em></b></dt>
+			<dd><p>This is the entity name.
+			Names that start with <tt class="literal">%</tt> are
+			parameter entities, all others are general entities.
+			</p></dd>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">value</em></b></dt>
+			<dd><p>This is the entity value, which
+			contains arbitrary XML content (including
+			elements and nested entity references) that will
+			be reparsed when this entity is expanded.
+			</p></dd>
+
+		    </dl>
+
+		    <p>Applications normally ignore all parameter entity
+		    declarations.
+		    If applications don't ignore these declarations,
+		    redeclaration for a name should be be ignored
+		    (it is not an error).
+		    XML editors may want to offer menus of
+		    internal entities when they edit attribute values or
+		    element content. However, SAX2 does not report
+		    entity references inside the attribute values it parses.
+		    This means that you won't be able to re-create such
+		    text without heuristics.
+
+<a name="INDEX-575" />
+		    
+</p></dd>
+
+	    </dl>
+
+	</div>
+
+	<a name="sax2-CHP-4-SECT-3.2" /><div class="sect2">
+	    <h3 class="sect2">4.3.2. The DTDHandler Interface </h3>
+
+	    <p>
+<a name="INDEX-576" />
+<a name="INDEX-577" />
+            The <em class="emphasis">DTDHandler</em> interface 
+	    was carried unchanged from SAX1
+	    into SAX2 and is primarily useful for applications that work
+	    with two specific SGML notions: notations and unparsed
+	    entities. Some DTDs, such as XML DocBook, use notations in such traditional roles. DOM also requires such support. Use <tt class="literal">XMLReader.setDTDHandler()</tt> to bind this handler to a parser. You probably won't ever need to use it for new code. On the Web, those SGML notions correspond roughly to MIME types and URIs respectively, web concepts that are much more widely understood and supported. The interface has only two API callbacks, provided to meet specific requirements in the XML 1.0 specification:
+	    </p>
+
+	    <dl>
+
+		<dt><b>
+			<tt class="literal">void notationDecl(name,publicId,systemId)</tt>
+			</b></dt>
+
+		    <dd><p>
+<a name="INDEX-578" />
+                    This callback reports a
+		    <tt class="literal">&lt;!NOTATION ...&gt;</tt>
+		    declaration in a DTD. </p>
+
+		    <dl>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">name</em></b></dt>
+
+			<dd><p>This is the notation name; it is
+			always provided.
+			These names are used explicitly in unparsed entity
+			declarations and in some kinds of
+			attribute declaration (elements can have one such
+			attribute, used to associate type with the element).
+			Also, some applications follow a
+			convention that they may be used to identify
+			processing instruction targets.
+			</p></dd>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">publicId</em></b></dt>
+
+			<dd><p>This is the public ID for the
+			notation and may be omitted (provided as null). If public IDs are supplied, then any embedded whitespace is normalized, so these strings may be directly compared. These may be used to assign a meaning to the notation, for example, by using an SGML Formal Public Identifier in a role much like a MIME type.</p></dd>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">systemId</em></b></dt>
+
+			<dd><p>This is the system ID for the
+			notation and may be omitted (provided as null).
+			When provided, it is an absolute URI. However, some SAX2 parsers have a bug, and won't report the absolute URI here. These may be used to assign a meaning to the notation, for example, by using a URI to identify a type or command.</p></dd>
+
+			</dl>
+
+		    <p>
+<a name="INDEX-579" />
+                    In addition to assigning types to
+		    unparsed entities, a <tt class="literal">NOTATION</tt> 
+		    attribute may also
+		    associate a type with an element
+		    or processing instruction.
+		    Some DTDs <?troff .ne 10?>provide extensive catalogs of notation
+		    declarations specifically for such uses.
+		    </p>
+
+		    <p>Note that notation declarations are the one place
+		    in XML syntax where you can provide a public ID without
+		    a system ID, and that at least one identifier (public
+		    or system) must always be provided.
+		    If applications don't ignore these declarations,
+		    redeclaration should be ignored
+		    (it is not an error).
+
+		    </p></dd>
+	    
+		<dt><b>
+    <tt class="literal">void unparsedEntityDecl(name,publicId,systemId,notation)</tt>
+		    </b></dt>
+
+		    <dd><p>
+<a name="INDEX-580" />
+<a name="INDEX-581" />
+<a name="INDEX-582" />
+<a name="INDEX-583" />
+<a name="INDEX-584" />
+<a name="INDEX-585" />
+                    This callback reports
+		    <tt class="literal">&lt;!ENTITY ... &gt;</tt>
+		    declarations with
+		    <tt class="literal">NDATA</tt> annotations to associate
+		    them with a notation (such as <em class="emphasis">jpeg</em>
+		    or <em class="emphasis">png</em>).
+		    Unparsed entities are used only in
+		    attributes that are declared to be of type
+		    <tt class="literal">ENTITY</tt> or
+		    <tt class="literal">ENTITIES</tt>.
+
+		    </p>
+
+		    <dl>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">name</em></b></dt>
+
+			<dd><p>This is the name of the unparsed
+			entity; it is always provided.
+			</p></dd>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">publicId</em></b></dt>
+
+			<dd><p>This is the public ID for the
+			notation and may be omitted (provided as null).
+			If public IDs are provided, any embedded 
+			whitespace is normalized,
+			so these strings may be directly compared.
+			These may be used to assign a location to the
+			entity, for example, by using an SGML Formal
+			Public Identifier in a role much like a URN.
+			</p></dd>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">systemId</em></b></dt>
+
+			<dd><p>
+<a name="INDEX-586" />
+                        This is the system ID for the
+			notation and is always provided.
+			It is normally an absolute URI. However, some SAX2 parsers have a bug, and won't report the absolute URI here. These may be used to assign a location to the entity.</p></dd>
+
+			<dt><b>
+			    <tt class="literal">String</tt> <em class="replaceable">notation</em></b></dt>
+
+			<dd><p>This is the name of the notation
+			associated with the entity; it is always provided.
+			The role of these names is much like that of
+			an external MIME type annotation for the entity.
+			</p></dd>
+
+			</dl>
+
+		    <p>In XML, unparsed entities are declared to parsers
+		    but pass through them without being parsed. Classic
+		    examples of unparsed entities include JPEG or PNG image
+		    files.
+		    Such entities may also be used for XML text that just
+		    doesn't need to be parsed in a given processing stage.
+		    If applications don't ignore these declarations,
+		    redeclaration should be be ignored
+		    (it is not an error).
+		    </p></dd>
+	    
+	    </dl>
+
+	    <p>Most XML applications that care about unparsed entities
+	    and notations do so because they interface with SGML systems that
+	    use them or are migrating such systems to use the
+	    XML generation of tools.
+	    XML editors supporting this functionality might use
+	    these event callbacks to create menus of notations or unparsed
+	    entities when they are editing attributes that hold such values.
+	    </p>
+
+	    <p>Applications that use this interface will normally
+	    use the callbacks to create two tables, keyed by
+	    entity or notation name respectively, that are used to
+	    interpret element attributes.
+	    More rarely, notations will be used to determine the operation
+	    corresponding to a given processing instruction target name.
+	    Secure applications will never use notations to directly encode
+	    system commands, but will always redirect through application
+	    controlled tables. For example, it would be foolish to
+	    rely on system IDs found in a document.
+	    System IDs such as <tt class="literal">rm -rf /</tt>,
+	    when run through a Unix or Linux shell, would remove
+	    all files accessible through the local system.
+<a name="INDEX-587" />
+<a name="INDEX-588" />
+	    </p>
+
+	</div>
+
+    
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_02.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch04_04.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4.2. The LexicalHandler Interface </td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">4.4. Turning SAX Events into Data Structures </td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="0,0,85,93" href="../index.htm"><area shape="rect" coords="85,0,180,98" href="../sax2/index.htm"><area shape="rect" coords="182,-1,261,100" href="../xmlnut/index.htm"><area shape="rect" coords="263,1,384,96" href="../jxml/index.htm"><area shape="rect" coords="386,1,463,100" href="../jxslt/index.htm"><area shape="rect" coords="466,1,533,112" href="../xslt/index.htm"><area shape="rect" coords="535,-1,610,108" href="../schema/index.htm"><area shape="rect" coords="613,1,696,121" href="../pxml/index.htm">
+</map>
+
+</body></html>

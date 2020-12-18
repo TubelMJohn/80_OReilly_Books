@@ -1,0 +1,189 @@
+<html><head><title>Variable-length Parameter Lists (Learning Perl, 3rd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Randal L. Schwartz and Tom Phoenix" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001320L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Learning Perl, 3rd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img alt="Book Home" border="0" src="gifs/smbanner.gif" usemap="#banner-map" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Learning Perl, 3rd Edition" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_07.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"></a></td><td align="right" valign="top" width="228"><a href="ch04_09.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">4.8. Variable-length Parameter Lists</h2>
+
+<p><a name="INDEX-348" />
+<a name="INDEX-349" />In real-world Perl code, subroutines are
+often given parameter lists of arbitrary length. That's because
+of Perl's "no unnecessary limits" philosophy that
+we've already seen. Of course, this is unlike many traditional
+programming languages, which require every subroutine to be strictly
+typed; that is, to permit only a certain, predefined number of
+parameters of predefined types. It's nice that Perl is so
+flexible, but (as we saw with the <tt class="literal">&amp;max</tt> routine
+earlier) that may cause problems when a subroutine is called with a
+different number of arguments than the author expected.
+</p>
+
+<p>Of course, the subroutine can easily check that it has the right
+number of arguments by examining the <tt class="literal">@_</tt> array. For
+example, we could have written <tt class="literal">&amp;max</tt> to check
+its argument list like this:<a href="#FOOTNOTE-113">[113]</a>
+</p><blockquote class="footnote"> <a name="FOOTNOTE-113" /><p>[113]As soon as you learn
+about <tt class="literal">warn</tt> (in <a href="ch11_01.htm">Chapter 11, "Filehandles and File Tests"</a>),
+you'll see that you can use it to turn improper usage like this
+into a proper warning. Or perhaps you'll decide that this case
+is severe enough to warrant using <tt class="literal">die</tt>, described
+in the same chapter.</p> </blockquote>
+
+<blockquote><pre class="code">sub max {
+  if (@_ != 2) {
+    print "WARNING! &amp;max should get exactly two arguments!\n";
+  }
+  # continue as before...
+  .
+  .
+  .
+}</pre></blockquote>
+
+<p>That <tt class="literal">if</tt>-test uses the "name" of the
+array in a scalar context to find out the number of array elements,
+as we saw in <a href="ch03_01.htm">Chapter 3, "Lists and Arrays "</a>.
+</p>
+
+<p>But in real-world Perl programming, this sort of check is hardly ever
+used; it's better to make the subroutine adapt to the
+parameters.
+</p>
+
+<a name="lperl3-CHP-4-SECT-8.1" /><div class="sect2">
+<h3 class="sect2">4.8.1. A Better &amp;max Routine</h3>
+
+<p>So let's rewrite
+<tt class="literal">&amp;max</tt><a name="INDEX-350" /> to allow for any number of
+arguments:
+</p>
+
+<blockquote><pre class="code">$maximum = &amp;max(3, 5, 10, 4, 6);
+
+sub max {
+  my($max_so_far) = shift @_;  # the first one is the largest yet seen
+  foreach (@_) {               # look at the remaining arguments
+    if ($_ &gt; $max_so_far) {    # could this one be bigger yet?
+      $max_so_far = $_;
+    }
+  }
+  $max_so_far;
+}</pre></blockquote>
+
+<p>This code uses what has often been called the "high-water
+mark" algorithm; after a flood, when the waters have surged and
+receded for the last time, the high-water mark shows where the
+highest water was seen. In this routine,
+<tt class="literal">$max_so_far</tt> keeps track of our high-water mark,
+the largest number yet seen.
+</p>
+
+<p>The first line sets <tt class="literal">$max_so_far</tt> to
+<tt class="literal">3</tt> (the first parameter in the example code) by
+shifting that parameter from the parameter array,
+<tt class="literal">@_</tt>. So <tt class="literal">@_</tt> now holds
+<tt class="literal">(5, 10,</tt> <tt class="literal">4, 6)</tt>, since the
+<tt class="literal">3</tt> has been shifted off. And the largest number yet
+seen is the <em class="emphasis">only</em> one yet seen:
+<tt class="literal">3</tt>, the first parameter.
+</p>
+
+<p>Now, the <tt class="literal">foreach</tt> loop will step through the
+remaining values in the parameter list, from <tt class="literal">@_</tt>.
+The control variable of the loop is, by default,
+<tt class="literal">$_</tt>. (But, remember, there's no automatic
+connection between <tt class="literal">@_</tt> and <tt class="literal">$_</tt>;
+it's just a coincidence that they have such similar names.) The
+first time through the loop, <tt class="literal">$_</tt> is
+<tt class="literal">5</tt>. The <tt class="literal">if</tt> test sees that it is
+larger than <tt class="literal">$max_so_far</tt>, so
+<tt class="literal">$max_so_far</tt> is set to
+<tt class="literal">5</tt> -- the new high-water mark.
+</p>
+
+<p>The next time through the loop, <tt class="literal">$_</tt> is
+<tt class="literal">10</tt>. That's a new record high, so it's
+stored in <tt class="literal">$max_so_far</tt> as well.
+</p>
+
+<p>The next time, <tt class="literal">$_</tt> is <tt class="literal">4</tt>. The
+<tt class="literal">if</tt> test fails, since that's no larger than
+<tt class="literal">$max_so_far</tt>, which is <tt class="literal">10</tt>, so
+the body of the <tt class="literal">if</tt> is skipped.
+</p>
+
+<p>The next time, <tt class="literal">$_</tt> is <tt class="literal">6</tt>, and the
+body of the <tt class="literal">if</tt> is skipped again. And that was the
+last time through the loop, so the loop is done.
+</p>
+
+<p>Now, <tt class="literal">$max_so_far</tt> becomes the return value.
+It's the largest number we've seen, and we've seen
+them all, so it must be the largest from the list:
+<tt class="literal">10</tt>. 
+</p>
+
+</div>
+<a name="lperl3-CHP-4-SECT-8.2" /><div class="sect2">
+<h3 class="sect2">4.8.2. Empty Parameter Lists</h3>
+
+<p>That improved <tt class="literal">&amp;max</tt> algorithm works fine now,
+even if there are more than two <a name="INDEX-351" />parameters.
+But what happens if there are none?
+</p>
+
+<p>At first, it may seem too esoteric to worry about. After all, why
+would someone call <tt class="literal">&amp;max</tt> without giving it any
+parameters? But maybe someone wrote a line like this one:
+</p>
+
+<blockquote><pre class="code">$maximum = &amp;max(@numbers);</pre></blockquote>
+
+<p>And the array <tt class="literal">@numbers</tt> might sometimes be an empty
+list; perhaps it was read in from a file that turned out to be empty,
+for example. So what does <tt class="literal">&amp;max</tt> do in that
+case?
+</p>
+
+<p>The first line of the subroutine sets <tt class="literal">$max_so_far</tt>
+by using <tt class="literal">shift</tt> on <tt class="literal">@_</tt>, the (now
+empty) parameter array. That's harmless; the array is left
+empty, and <tt class="literal">shift</tt> returns <tt class="literal">undef</tt>
+to <tt class="literal">$max_so_far</tt>.
+</p>
+
+<p>Now the <tt class="literal">foreach</tt> loop wants to iterate over
+<tt class="literal">@_</tt>, but since that's empty, the loop body is
+executed zero times.
+</p>
+
+<p>So in short order, Perl returns the value of
+<tt class="literal">$max_so_far</tt> -- <tt class="literal">undef</tt> -- as
+the return value of the subroutine. In some sense, that's the
+right answer, because there is no largest value in an empty list.
+</p>
+
+<p>Of course, whoever is calling this subroutine should be aware that
+the return value may be <tt class="literal">undef</tt> -- or they could
+simply ensure that the parameter list is never empty.<a name="INDEX-352" /> <a name="INDEX-353" />
+</p>
+
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch04_07.htm"><img alt="Previous" border="0" src="../gifs/txtpreva.gif" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img alt="Home" border="0" src="../gifs/txthome.gif" /></a></td><td align="right" valign="top" width="228"><a href="ch04_09.htm"><img alt="Next" border="0" src="../gifs/txtnexta.gif" /></a></td></tr><tr><td align="left" valign="top" width="228">4.7. The local Operator</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img alt="Book Index" border="0" src="../gifs/index.gif" /></a></td><td align="right" valign="top" width="228">4.9. Notes on Lexical (my) Variables</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img alt="Library Navigation Links" border="0" src="../gifs/navbar.gif" usemap="#library-map" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm"></map>
+
+</body></html>

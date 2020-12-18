@@ -1,0 +1,265 @@
+<html><head><title>LWP in Action (Perl &amp; LWP)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Sean Burke" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596001789L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl &amp; LWP" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Perl &amp; LWP" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch01_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch02_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+
+<h2 class="sect1">1.5. LWP in Action</h2>
+
+<p>Enough of why you should be careful
+<a name="INDEX-41" />when you automate the Web.
+Let's look at the types of things
+you'll be learning in this book. <a href="ch02_01.htm">Chapter 2, "Web Basics"</a> introduces web automation and LWP, presenting
+straightforward functions to let you fetch web pages. <a href="ch01_05.htm#perllwp-CHP-1-EX-1">Example 1-1</a> shows how to fetch the
+O'Reilly home page and count the number of times
+Perl is mentioned.
+</p>
+
+<a name="perllwp-CHP-1-EX-1" /><div class="example">
+<h4 class="objtitle">Example 1-1. Count "Perl" in the O'Reilly catalog </h4>
+<blockquote><pre class="code">#!/usr/bin/perl -w
+use strict;
+use LWP::Simple;
+  
+my $catalog = get("http://www.oreilly.com/catalog");
+my $count = 0;
+$count++ while $catalog =~ m{Perl}gi;
+print "$count\n";</pre></blockquote>
+</div>
+
+<p>The LWP::Simple module's <tt class="literal">get( )</tt>
+function <a name="INDEX-42" />
+<a name="INDEX-43" />returns the document at a given URL or
+<tt class="literal">undef</tt> if an error occurred. A regular expression
+match in a loop counts the number of occurrences.
+</p>
+
+<a name="perllwp-CHP-1-SECT-5.1" /><div class="sect2">
+<h3 class="sect2">1.5.1. The Object-Oriented Interface</h3>
+
+<p><a href="ch03_01.htm">Chapter 3, "The LWP Class Model"</a> goes beyond LWP::Simple to
+<a name="INDEX-44" />
+<a name="INDEX-45" />show larger
+LWP's powerful object-oriented interface. Most
+useful of all the features it covers are how to set headers in
+requests and check the headers of responses. <a href="ch01_05.htm#perllwp-CHP-1-EX-2">Example 1-2</a> prints the identifying string that every
+server returns.
+</p>
+
+<a name="perllwp-CHP-1-EX-2" /><div class="example">
+<h4 class="objtitle">Example 1-2. Identify a server </h4>
+<blockquote><pre class="code">#!/usr/bin/perl -w
+use strict;
+use LWP;
+  
+my $browser = LWP::UserAgent-&gt;new( );
+my $response = $browser-&gt;get("http://www.oreilly.com/");
+print $response-&gt;header("Server"), "\n";</pre></blockquote>
+</div>
+
+<p>The two variables, <tt class="literal">$browser</tt> and
+<tt class="literal">$response</tt>, are references to objects.
+LWP::UserAgent object <tt class="literal">$browser</tt> makes requests of a
+server and creates HTTP::Response objects such as
+<tt class="literal">$response</tt> to represent the
+server's reply. In <a href="ch01_05.htm#perllwp-CHP-1-EX-2">Example 1-2</a>, we
+call the <tt class="literal">header( )</tt> method on the response to check
+one of the HTTP header values.
+</p>
+
+</div>
+<a name="perllwp-CHP-1-SECT-5.2" /><div class="sect2">
+<h3 class="sect2">1.5.2. Forms</h3>
+
+<p><a href="ch05_01.htm">Chapter 5, "Forms"</a> shows how to analyze and submit
+<a name="INDEX-46" />forms with LWP,
+including both GET and POST submissions. <a href="ch01_05.htm#perllwp-CHP-1-EX-3">Example 1-3</a>
+makes queries of the California license plate database to see whether
+a personalized plate is available.
+</p>
+
+<a name="perllwp-CHP-1-EX-3" /><div class="example">
+<h4 class="objtitle">Example 1-3. Query California license plate database </h4>
+<blockquote><pre class="code">#!/usr/bin/perl -w
+# pl8.pl -  query California license plate database
+ 
+use strict;
+use LWP::UserAgent;
+my $plate = $ARGV[0] || die "Plate to search for?\n";
+$plate = uc $plate;
+$plate =~ tr/O/0/;  # we use zero for letter-oh
+die "$plate is invalid.\n"
+ unless $plate =~ m/^[A-Z0-9]{2,7}$/
+    and $plate !~ m/^\d+$/;  # no all-digit plates
+ 
+my $browser = LWP::UserAgent-&gt;new;
+my $response = $browser-&gt;post(
+  'http://plates.ca.gov/search/search.php3',
+  [
+    'plate'  =&gt; $plate,
+    'search' =&gt; 'Check Plate Availability'
+  ],
+);
+die "Error: ", $response-&gt;status_line
+ unless $response-&gt;is_success;
+ 
+if($response-&gt;content =~ m/is unavailable/) {
+  print "$plate is already taken.\n";
+} elsif($response-&gt;content =~ m/and available/) {
+  print "$plate is AVAILABLE!\n";
+} else {
+  print "$plate... Can't make sense of response?!\n";
+}
+exit;</pre></blockquote>
+</div>
+
+<p>Here's how you might use it:</p>
+
+<blockquote><pre class="code">% pl8.pl knee
+KNEE is already taken.
+% pl8.pl ankle
+ANKLE is AVAILABLE!</pre></blockquote>
+
+<p>We use the <tt class="literal">post( )</tt> method on an LWP::UserAgent
+object to POST form parameters to a page.
+</p>
+
+</div>
+<a name="perllwp-CHP-1-SECT-5.3" /><div class="sect2">
+<h3 class="sect2">1.5.3. Parsing HTML</h3>
+
+<p>The regular expression
+<a name="INDEX-47" />
+<a name="INDEX-48" />techniques
+in Examples <a href="ch01_05.htm#perllwp-CHP-1-EX-1">Example 1-1</a> and <a href="ch01_05.htm#perllwp-CHP-1-EX-3">Example 1-3</a> are discussed in detail in <a href="ch06_01.htm">Chapter 6, "Simple HTML Processing with Regular Expressions"</a>. <a href="ch07_01.htm">Chapter 7, "HTML Processing with Tokens"</a> shows a
+different approach, where the HTML::TokeParser module turns a string
+of HTML into a stream of chunks
+("start-tag,"
+"text,"
+"close-tag," and so on). <a href="ch08_01.htm">Chapter 8, "Tokenizing Walkthrough"</a> is a detailed step-by-step walkthrough showing
+how to solve a problem using HTML::TokeParser. <a href="ch01_05.htm#perllwp-CHP-1-EX-4">Example 1-4</a> uses HTML::TokeParser to extract the
+<tt class="literal">src</tt> parts of all <tt class="literal">img</tt> tags in
+the O'Reilly home page.
+</p>
+
+<a name="perllwp-CHP-1-EX-4" /><div class="example">
+<h4 class="objtitle">Example 1-4. Extract image locations </h4>
+<blockquote><pre class="code">#!/usr/bin/perl -w
+  
+use strict;
+use LWP::Simple;
+use HTML::TokeParser;
+  
+my $html   = get("http://www.oreilly.com/");
+my $stream = HTML::TokeParser-&gt;new(\$html);
+my %image  = ( );
+  
+while (my $token = $stream-&gt;get_token) {
+    if ($token-&gt;[0] eq 'S' &amp;&amp; $token-&gt;[1] eq 'img') {
+        # store src value in %image
+        $image{ $token-&gt;[2]{'src'} }++;
+    }
+}
+  
+foreach my $pic (sort keys %image) {
+    print "$pic\n";
+}</pre></blockquote>
+</div>
+
+<p>The <tt class="literal">get_token( )</tt> method on our HTML::TokeParser
+object returns an array reference, representing a token. If the first
+array element is S, it's a token representing the
+start of a tag. The second array element is the type of tag, and the
+third array element is a hash mapping attribute to value. The
+<tt class="literal">%image</tt> hash holds the images we find.
+</p>
+
+<p><a href="ch09_01.htm">Chapter 9, "HTML Processing with Trees"</a> and <a href="ch10_01.htm">Chapter 10, "Modifying HTML with Trees"</a> show how to use tree data structures to
+represent HTML. The HTML::TreeBuilder module constructs such trees
+and provides operations for searching and manipulating them. <a href="ch01_05.htm#perllwp-CHP-1-EX-5">Example 1-5</a> extracts image locations using a tree.
+</p>
+
+<a name="perllwp-CHP-1-EX-5" /><div class="example">
+<h4 class="objtitle">Example 1-5. Extracting image locations with a tree </h4>
+<blockquote><pre class="code">#!/usr/bin/perl -w
+  
+use strict;
+use LWP::Simple;
+use HTML::TreeBuilder;
+  
+my $html = get("http://www.oreilly.com/");
+my $root = HTML::TreeBuilder-&gt;new_from_content($html);
+my %images;
+foreach my $node ($root-&gt;find_by_tag_name('img')) {
+    $images{ $node-&gt;attr('src') }++;
+}
+  
+foreach my $pic (sort keys %images) {
+    print "$pic\n";
+}</pre></blockquote>
+</div>
+
+<p>We create a new tree from the HTML in the O'Reilly
+home page. The tree has methods to help us search, such as
+<tt class="literal">find_by_tag_name( )</tt>, which returns a list of nodes
+corresponding to those tags. We use that to find the img tags, then
+use the <tt class="literal">attr( )</tt> method to get their
+<tt class="literal">src</tt> attributes.
+</p>
+
+</div>
+<a name="perllwp-CHP-1-SECT-5.4" /><div class="sect2">
+<h3 class="sect2">1.5.4. Authentication</h3>
+
+<p><a href="ch11_01.htm">Chapter 11, "Cookies, Authentication,and Advanced Requests"</a> talks about advanced
+<a name="INDEX-49" />request
+features such as cookies (used to identify a user between web page
+accesses) and authentication. <a href="ch01_05.htm#perllwp-CHP-1-EX-6">Example 1-6</a> shows how
+easy it is to request a protected page with LWP.
+</p>
+
+<a name="perllwp-CHP-1-EX-6" /><div class="example">
+<h4 class="objtitle">Example 1-6. Authenticating </h4>
+<blockquote><pre class="code">#!/usr/bin/perl -w
+  
+use strict;
+use LWP;
+  
+my $browser = LWP::UserAgent-&gt;new( );
+$browser-&gt;credentials("www.example.com:80", "music", "fred" =&gt; "l33t1");
+my $response = $browser-&gt;get("http://www.example.com/mp3s");
+# ...</pre></blockquote>
+</div>
+
+<p>The <tt class="literal">credentials( )</tt> method on an LWP::UserAgent
+adds the authentication information (the host, realm, and
+username/password pair are the parameters). The realm identifies
+which username and password are expected if there are multiple
+protected areas on a single host. When we request a document using
+that LWP::UserAgent object, the authentication information is used if
+necessary.
+</p>
+
+
+ 
+</div>
+
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch01_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch02_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">1.4. Words of Caution</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">2. Web Basics</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+</map>
+
+</body></html>

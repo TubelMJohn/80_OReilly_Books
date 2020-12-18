@@ -1,0 +1,823 @@
+<?label 11.5. Logging the Action?><html><head><title>Logging the Action (Apache: The Definitive Guide)</title><link href="../style/style1.css" type="text/css" rel="stylesheet" />
+
+<meta name="DC.Creator" content="Ben Laurie and Peter Laurie" /><meta scheme="MIME" content="text/xml" name="DC.Format" /><meta content="en-US" name="DC.Language" /><meta content="O'Reilly & Associates, Inc." name="DC.Publisher" /><meta scheme="ISBN" name="DC.Source" content="1565925289L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Apache: The Definitive Guide" /><meta content="Text.Monograph" name="DC.Type" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" alt="Book Home" usemap="#banner-map" border="0" /><map name="banner-map"><area alt="Apache: The Definitive Guide" href="index.htm" coords="0,0,466,65" shape="rect" /><area alt="Search this book" href="jobjects/fsearch.htm" coords="467,0,514,18" shape="rect" /></map>
+
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch11_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm">Apache: The Definitive Guide</a></td><td width="172" valign="top" align="right"><a href="ch12_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+<hr align="left" width="515" />
+
+
+<h2 class="sect1">11.5. Logging the Action</h2>
+
+
+
+
+
+<p>
+<a name="INDEX-1005" />
+<a name="INDEX-1006" /> <a name="INDEX-1007" />Apache
+offers a wide range of options for controlling the format of the log
+files. In line with current thinking, older methods
+(<tt class="literal">RefererLog</tt>, <tt class="literal">AgentLog</tt>, and
+<tt class="literal">CookieLog</tt>) have now been replaced by the
+<em class="emphasis">config_log_module</em>. To illustrate this, we have
+taken <em class="filename">... /site.authent</em> and copied it to
+<em class="filename">... /site.logging</em> so that we can play with the
+logs: <a name="INDEX-1008" /></p>
+
+
+
+
+
+<blockquote><pre class="code">User webuser
+Group webgroup
+ServerName www.butterthlies.com
+
+IdentityCheck	on
+NameVirtualHost 192.168.123.2
+&lt;VirtualHost www.butterthlies.com&gt;
+LogFormat "customers: host %h, logname %l, user %u, time %t, request %r,
+    status %s,bytes %b,"
+CookieLog logs/cookies
+ServerAdmin sales@butterthlies.com
+DocumentRoot /usr/www/site.logging/htdocs/customers
+ServerName www.butterthlies.com
+ErrorLog /usr/www/site.logging/logs/customers/error_log
+TransferLog /usr/www/site.logging/logs/customers/access_log
+ScriptAlias /cgi_bin /usr/www/cgi_bin
+&lt;/VirtualHost&gt;
+&lt;VirtualHost sales.butterthlies.com&gt;
+LogFormat "sales: agent %{httpd_user_agent}i, cookie: %{http_Cookie}i, 
+    referer: %{Referer}o, host %!200h, logname %!200l, user %u, time %t,
+    request %r, status %s,bytes %b,"
+CookieLog logs/cookies
+ServerAdmin sales_mgr@butterthlies.com
+DocumentRoot /usr/www/site.logging/htdocs/salesmen
+ServerName sales.butterthlies.com
+ErrorLog /usr/www/site.logging/logs/salesmen/error_log
+TransferLog /usr/www/site.logging/logs/salesmen/access_log
+ScriptAlias /cgi_bin /usr/www/cgi_bin
+&lt;Directory /usr/www/site.logging/htdocs/salesmen&gt;
+AuthType Basic
+AuthName darkness
+AuthUserFile /usr/www/ok_users/sales
+AuthGroupFile /usr/www/ok_users/groups
+require valid-user
+&lt;/Directory&gt;
+&lt;Directory /usr/www/cgi_bin&gt;
+AuthType Basic
+AuthName darkness
+AuthUserFile /usr/www/ok_users/sales
+AuthGroupFile /usr/www/ok_users/groups
+#AuthDBMUserFile /usr/www/ok_dbm/sales
+#AuthDBMGroupFile /usr/www/ok_dbm/groups
+require valid-user
+&lt;/Directory&gt;
+&lt;/VirtualHost&gt;</pre></blockquote>
+
+
+
+
+
+<p>There are a number of directives.</p>
+
+
+
+
+
+<a name="ch11-32430" /><div class="sect2">
+<h3 class="sect2">11.5.1. ErrorLog</h3>
+
+
+
+
+
+<blockquote><pre class="code">ErrorLog <em class="replaceable">filename</em>|syslog[:<em class="replaceable">facility</em>] 
+Default: ErrorLog logs/error_log
+Server config, virtual host</pre></blockquote>
+
+
+
+
+
+<p>The <a name="INDEX-1009" />
+<a name="INDEX-1010" />
+<a name="INDEX-1011" />ErrorLog
+directive sets the name of the file to which the server will log any
+errors it encounters. If the filename does not begin with a slash
+("/"), it is assumed to be relative to the server root.</p>
+
+
+
+
+
+<p><img src="figs/unix_icon.gif" alt="Figure 11.5.1" />   If the filename begins with a pipe ("|"), it is assumed
+to be a command to spawn a file to handle the error log.</p>
+
+
+
+
+
+<p><img src="figs/unix_icon.gif" alt="Figure 11.5.1" />   Apache 1.3 and above: Using <tt class="literal">syslog</tt> instead of a
+filename enables logging via <em class="emphasis">syslogd(8)</em> if the
+system supports it. The default is to use <em class="emphasis">syslog</em>
+facility <em class="emphasis">local7</em>, but you can override this by
+using the
+<tt class="literal">syslog:</tt><em class="replaceable">facility</em> syntax,
+where <em class="replaceable">facility</em> can be one of the names
+usually documented in <em class="emphasis">syslog(1)</em>.</p>
+
+
+
+
+
+<p>Your security could be compromised if the directory where log files
+are stored is writable by anyone other than the user who starts the
+server.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch11-3-fm2xml" /><div class="sect2">
+<h3 class="sect2">11.5.2. TransferLog</h3>
+
+
+
+
+
+<blockquote><pre class="code">TransferLog [ <em class="replaceable">file</em> | '|' <em class="replaceable">command</em> ]
+Default: none
+Server config, virtual host</pre></blockquote>
+
+
+
+
+
+<p><tt class="literal">TransferLog</tt>
+<a name="INDEX-1012" /> <a name="INDEX-1013" />
+specifies the file in which to store the log of accesses to the site.
+If it is not explicitly included in the Config file, no log will be
+generated.</p>
+
+
+
+
+
+<dl>
+<dt><b><em class="replaceable">file</em></b></dt>
+<dd><p>A filename relative to the server root (if it doesn't start
+with a slash), or an absolute path (if it does).</p></dd>
+
+
+
+
+
+<dt><b><em class="replaceable">command</em></b></dt>
+<dd><p>A program to receive the agent log information on its standard input.
+Note that a new program is not started for a virtual host if it
+inherits the <tt class="literal">TransferLog</tt> from the main server. If
+a program is used, it runs using the permissions of the user who
+started <em class="emphasis">httpd</em>. This is root if the server was
+started by <em class="emphasis">root</em>, so be sure the program is
+secure. A useful Unix program to send to is
+<em class="emphasis">rotatelogs</em>,<a href="#FOOTNOTE-56">[56]</a> which can be found
+in the Apache <em class="filename">support</em> subdirectory. It closes
+the log periodically and starts a new one, and is useful for
+long-term archiving and log processing. Traditionally, this is done
+by shutting Apache down, moving the logs elsewhere, and then
+restarting Apache, which is obviously no fun for the clients
+connected at the time!</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-56" /><p>[56]Written by one of
+the authors of this book (BL).</p>
+
+
+
+
+</blockquote></dd>
+
+</dl>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch11-25335" /><div class="sect2">
+<h3 class="sect2">11.5.3. LogFormat</h3>
+
+
+
+
+
+<blockquote><pre class="code">LogFormat <em class="replaceable">format_string [nickname]</em>
+Default: "%h %l %u %t \"%r\" %s %b"
+Server config, virtual host</pre></blockquote>
+
+
+
+
+
+<p><tt class="literal">LogFormat</tt>
+<a name="INDEX-1014" /> <a name="INDEX-1015" /> <a name="INDEX-1016" /> sets the information to be included
+in the log file and the way in which it is written. The default
+format is the Common Log Format (CLF), which is expected by
+off-the-shelf log analyzers such as <em class="filename">wusage</em>
+(<a href="http://www.boutell.com/ ">http://www.boutell.com/ </a>) or
+<em class="filename">ANALOG</em>, so if you want to use one of them, leave
+this directive alone.<a href="#FOOTNOTE-57">[57]</a>
+The CLF format is:</p><blockquote>
+
+
+
+
+<a name="FOOTNOTE-57" /><p>[57]Actually, some log analyzers
+support some extra information in the log file, but you need to read
+the analyzer's documentation for details.</p>
+
+
+
+
+</blockquote>
+
+
+
+
+
+<blockquote><pre class="code"><em class="replaceable">host ident authuser date request status bytes</em></pre></blockquote>
+
+
+
+
+
+<dl>
+<dt><b><em class="replaceable">host</em></b></dt>
+<dd><p>Domain name of the client or its IP number.</p></dd>
+
+
+
+
+
+<dt><b><em class="replaceable">ident</em></b></dt>
+<dd><p>If <tt class="literal">IdentityCheck</tt> is enabled and the client machine
+runs <em class="emphasis">identd</em>, then this is the identity
+information reported by the client.</p></dd>
+
+
+
+
+
+<dt><b><em class="replaceable">authuser</em></b></dt>
+<dd><p>If the request was for a password-protected document, then this is
+the user ID.</p></dd>
+
+
+
+
+
+<dt><b><em class="replaceable">date</em></b></dt>
+<dd><p>The date and time of the request, in the following format:
+[<em class="replaceable">day</em>/<em class="replaceable">month</em>/<em class="replaceable">year:hour:minute:second
+tzoffset</em>].</p></dd>
+
+
+
+
+
+<dt><b><em class="replaceable">request</em></b></dt>
+<dd><p>Request line from client, in double quotes.</p></dd>
+
+
+
+
+
+<dt><b><em class="replaceable">status</em></b></dt>
+<dd><p>Three-digit status code returned to the client.</p></dd>
+
+
+
+
+
+<dt><b><em class="replaceable">bytes</em></b></dt>
+<dd><p>The number of bytes returned, excluding headers.</p></dd>
+
+</dl>
+
+
+
+
+
+<p>The log format can be customized using a
+<em class="replaceable">format_string</em>. The commands in it have the
+format
+<tt class="literal">%[</tt><em class="replaceable">condition</em><tt class="literal">]</tt><em class="replaceable">key_letter
+</em>; the <em class="replaceable">condition</em> need not be
+present. If it is, and the specified condition is not met, the output
+will be a "<tt class="literal">-</tt>". The
+<em class="replaceable">key_letter </em>s are as follows:</p>
+
+
+
+
+
+<dl>
+<dt><b><tt class="literal">b</tt></b></dt>
+<dd><p>Bytes sent.</p></dd>
+
+
+
+
+
+
+<dt><b><tt class="literal">{</tt><em class="replaceable">env_name</em><tt class="literal">}e</tt></b></dt>
+<dd><p>The value of the environment variable
+<em class="replaceable">env_name</em>.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">f</tt></b></dt>
+<dd><p>The filename being served.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">a</tt></b></dt>
+<dd><p>Remote IP address</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">h</tt></b></dt>
+<dd><p>Remote host.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">{</tt><em class="replaceable">header_name</em><tt class="literal">}i</tt></b></dt>
+<dd><p>Contents of <em class="replaceable">header_name</em>: header line(s)
+in the request sent from the client.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">l</tt></b></dt>
+<dd><p>Remote log name (from <em class="emphasis">identd</em>, if supplied).</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">{</tt><em class="replaceable">note_name</em><tt class="literal">}n</tt></b></dt>
+<dd><p>The value of a note. A <em class="firstterm">note</em> is a named entry
+in a table used internally in Apache for passing information between
+modules.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">{</tt><em class="replaceable">header_name</em><tt class="literal">}o</tt></b></dt>
+<dd><p>The contents of the <em class="replaceable">header_name</em> header
+line(s) in the reply.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">P</tt></b></dt>
+<dd><p>The PID of the child Apache handling the request.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">p</tt></b></dt>
+<dd><p>The server port.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">r</tt></b></dt>
+<dd><p>First line of request.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">s</tt></b></dt>
+<dd><p>Status: for requests that were internally redirected, this is the
+status of the original request.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">&gt;s </tt></b></dt>
+<dd><p>Status of the last request.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">t</tt></b></dt>
+<dd><p>Time, in common log time format.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">U</tt></b></dt>
+<dd><p>The URL requested.</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">u</tt></b></dt>
+<dd><p>Remote user (from <tt class="literal">auth </tt>; this may be bogus if
+return status [ <tt class="literal">%s </tt>] is 401).</p></dd>
+
+
+
+
+
+<dt><b><tt class="literal">v</tt></b></dt>
+<dd><p>The server virtual host.</p></dd>
+
+</dl>
+
+
+
+
+
+<p>The format string can have ordinary text of your choice in it in
+addition to the <tt class="literal">%</tt>
+directives.
+<a name="INDEX-1017" /> <a name="INDEX-1018" /> <a name="INDEX-1019" /></p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch11-28310" /><div class="sect2">
+<h3 class="sect2">11.5.4. CustomLog</h3>
+
+
+
+
+
+<blockquote><pre class="code"><a name="INDEX-1020" />LogFormat <em class="replaceable">file</em>|<em class="replaceable">pipe format</em>|<em class="replaceable">nickname</em>
+Server config, virtual host</pre></blockquote>
+
+
+
+
+
+<p>The first argument is the filename to which log records should be
+written. This is used exactly like the argument to
+<tt class="literal">TransferLog</tt>; that is, it is either a full path,
+relative to the current server root, or a pipe to a program.</p>
+
+
+
+
+
+<p>The format argument specifies a format for each line of the log file.
+The options available for the format are exactly the same as for the
+argument of the <tt class="literal">LogFormat</tt> directive. If the format
+includes any spaces (which it will do in almost all cases), it should
+be enclosed in double quotes.</p>
+
+
+
+
+
+<p>Instead of an actual format string, you can use a format nickname
+defined with the <tt class="literal">LogFormat</tt> directive.<a name="INDEX-1021" /></p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<a name="ch11-4-fm2xml" /><div class="sect2">
+<h3 class="sect2">11.5.5. <em class="filename">site.authent -- Another Example</em></h3>
+
+
+
+
+
+<p><em class="filename">site.authent</em>
+<a name="INDEX-1022" />
+<a name="INDEX-1023" /> is set up with two
+virtual hosts, one for customers and one for salespeople, and each
+has its own logs in <em class="filename">... /logs/customers</em> and
+<em class="filename">... /logs/salesmen</em>. We can follow that scheme
+and apply one <tt class="literal">LogFormat</tt> to both, or each can have
+its own logs with its own <tt class="literal">LogFormat</tt>s inside the
+<tt class="literal">&lt;VirtualHost&gt;</tt> directives. They can also have
+common log files, set up by moving <tt class="literal">ErrorLog</tt> and
+<tt class="literal">TransferLog</tt> outside the
+<tt class="literal">&lt;VirtualHost&gt;</tt> sections, with different
+<tt class="literal">LogFormat</tt>s within the sections to distinguish the
+entries. In this last case, the <tt class="literal">LogFormat</tt> files
+could look like this:</p>
+
+
+
+
+
+<blockquote><pre class="code">&lt;VirtualHost www.butterthlies.com&gt;
+LogFormat "Customer:..."
+...
+&lt;/VirtualHost&gt;
+
+&lt;VirtualHost sales.butterthlies.com&gt;
+LogFormat "Sales:..."
+...
+&lt;/VirtualHost&gt;</pre></blockquote>
+
+
+
+
+
+<p>Let's experiment with a format for customers, leaving
+everything else the same:</p>
+
+
+
+
+
+<blockquote><pre class="code">&lt;VirtualHost www.butterthlies.com&gt;
+LogFormat "customers: host %h, logname %l, user %u, time %t, request %r
+    status %s, bytes %b,"
+...</pre></blockquote>
+
+
+
+
+
+<p>We have inserted the words <em class="emphasis">host</em><em class="filename">,
+</em><em class="emphasis">logname</em>,<em class="filename"> </em>and so
+on, to make it clear in the file what is doing what. In real life you
+probably wouldn't want to clutter the file up in this way
+because you would look at it regularly and remember what was what,
+or, more likely, process the logs with a program that would know the
+format. Logging on to <em class="emphasis">www.butterthlies.com</em> and
+going to <tt class="literal">summer</tt> <tt class="literal">catalog</tt>
+produces this log file:</p>
+
+
+
+
+
+<blockquote><pre class="code">customers: host 192.168.123.1, logname unknown, user -, time [07/Nov/
+    1996:14:28:46 +0000], request GET / HTTP/1.0, status 200,bytes -
+customers: host 192.168.123.1, logname unknown, user -, time [07/Nov/
+    1996:14:28:49 +0000], request GET /hen.jpg HTTP/1.0, status 200,
+    bytes 12291,
+customers: host 192.168.123.1, logname unknown, user -, time [07/Nov
+    /1996:14:29:04 +0000], request GET /tree.jpg HTTP/1.0, status 200,
+    bytes 11532,
+customers: host 192.168.123.1, logname unknown, user -, time [07/Nov/
+    1996:14:29:19 +0000], request GET /bath.jpg HTTP/1.0, status 200,
+    bytes 5880,</pre></blockquote>
+
+
+
+
+
+<p>This is not too difficult to follow. Notice that while we have
+<tt class="literal">logname</tt> <tt class="literal">unknown</tt>, the user is
+"-", the usual report for an unknown value. This is
+because customers do not have to give an ID; the same log for
+salespeople<em class="filename">, </em>who do, would have a value here.</p>
+
+
+
+
+
+<p>We can improve things by inserting lists of conditions based on the
+error codes after the <tt class="literal">%</tt> and before the command
+letter. The <a name="INDEX-1024" /> <a name="INDEX-1025" /> <a name="INDEX-1026" /> <a name="INDEX-1027" />error codes are defined in the HTTP/1.0
+specification:</p>
+
+
+
+
+
+<blockquote><pre class="code">200 OK
+302 Found
+304 Not Modified
+400 Bad Request
+401 Unauthorized
+403 Forbidden
+404 Not found
+500 Server error
+503 Out of resources
+501 Not Implemented
+502 Bad Gateway</pre></blockquote>
+
+
+
+
+
+<p>The list from HTTP/1.1 is as follows:</p>
+
+
+
+
+
+<blockquote><pre class="code">100  Continue
+101  Switching Protocols
+200  OK
+201  Created
+202  Accepted
+203  Non-Authoritative Information
+204  No Content
+205  Reset Content 
+206  Partial Content
+300  Multiple Choices
+301  Moved Permanently
+302  Moved Temporarily
+303  See Other
+304  Not Modified
+305  Use Proxy
+400  Bad Request
+401  Unauthorized
+402  Payment Required
+403  Forbidden
+404  Not Found
+405  Method Not Allowed
+406  Not Acceptable
+407  Proxy Authentication Required
+408  Request Time-out
+409  Conflict
+410  Gone
+411  Length Required
+412  Precondition Failed
+413  Request Entity Too Large
+414  Request-URI Too Large
+415  Unsupported Media Type
+500  Internal Server Error
+501  Not Implemented
+502  Bad Gateway
+503  Service Unavailable
+504  Gateway Time-out
+505  HTTP Version not supported</pre></blockquote>
+
+
+
+
+
+<p>You can use "<tt class="literal">!</tt>" before a code to mean
+"if not." <tt class="literal">!200</tt> means "log this
+if the response was <em class="emphasis">not</em> OK." Let's
+put this in <em class="emphasis">salesmen</em>:</p>
+
+
+
+
+
+<blockquote><pre class="code">&lt;VirtualHost sales.butterthlies.com&gt;
+LogFormat "sales: host %!200h, logname %!200l, user %u, time %t, request %r,
+    status %s,bytes %b,"
+...</pre></blockquote>
+
+
+
+
+
+<p>An attempt to log in as <em class="emphasis">fred</em> with the password
+<tt class="literal">don't</tt> <tt class="literal">know</tt> produces the
+following entry:</p>
+
+
+
+
+
+<blockquote><pre class="code">sales: host 192.168.123.1, logname unknown, user fred, time [19/Aug/
+    1996:07:58:04 +0000], request GET HTTP/1.0, status 401, bytes -</pre></blockquote>
+
+
+
+
+
+<p>However, if it had been the infamous Bill with the password
+<tt class="literal">theft</tt>, we would see:</p>
+
+
+
+
+
+<blockquote><pre class="code">host -, logname -, user bill, ...</pre></blockquote>
+
+
+
+
+
+<p>because we asked for <tt class="literal">host</tt> and <tt class="literal">logname</tt> to be logged only if the
+request was not OK. We can combine more than one condition, so that
+if we only want to know about security problems on sales, we could
+log usernames only if they failed to authenticate:</p>
+
+
+
+
+
+<blockquote><pre class="code">LogFormat "sales: bad user: %400,401,403u"</pre></blockquote>
+
+
+
+
+
+<p>We can also extract data from the HTTP headers in both directions:</p>
+
+
+
+
+
+<blockquote><pre class="code">%[<em class="replaceable">condition</em>]{user-agent}i</pre></blockquote>
+
+
+
+
+
+<p>prints the user agent (i.e., the software the client is running) if
+<em class="replaceable">condition</em> is met. The old way of doing
+this was <tt class="literal">AgentLog</tt>
+<em class="replaceable">logfile</em> and <tt class="literal">ReferLog</tt>
+<em class="replaceable">logfile</em>.<a name="INDEX-1028" /> <a name="INDEX-1029" /> <a name="INDEX-1030" /></p>
+</div>
+
+
+<hr align="left" width="515" />
+<div class="navbar"><table border="0" width="515"><tr><td width="172" valign="top" align="left"><a href="ch11_04.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td width="171" valign="top" align="center"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td width="172" valign="top" align="right"><a href="ch12_01.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td width="172" valign="top" align="left">11.4. Server Info</td><td width="171" valign="top" align="center"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td width="172" valign="top" align="right">12. Extra Modules</td></tr></table></div>
+<hr align="left" width="515" />
+
+<img src="../gifs/navbar.gif" alt="Library Navigation Links" usemap="#library-map" border="0" />
+<p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2001</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map"><area href="../index.htm" coords="1,1,83,102" shape="rect" /><area href="../lnut/index.htm" coords="81,0,152,95" shape="rect" /><area href="../run/index.htm" coords="172,2,252,105" shape="rect" /><area href="../apache/index.htm" coords="238,2,334,95" shape="rect" /><area href="../sql/index.htm" coords="336,0,412,104" shape="rect" /><area href="../dbi/index.htm" coords="415,0,507,101" shape="rect" /><area href="../cgi/index.htm" coords="511,0,601,99" shape="rect" /></map>
+
+</body></html>

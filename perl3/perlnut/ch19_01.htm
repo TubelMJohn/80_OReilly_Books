@@ -1,0 +1,161 @@
+<html><head><title>Lightweight Directory Access with Net::LDAP (Perl in a Nutshell, 2nd Edition)</title><link rel="stylesheet" type="text/css" href="../style/style1.css" />
+
+<meta name="DC.Creator" content="Stephen Spainhour" /><meta name="DC.Format" content="text/xml" scheme="MIME" /><meta name="DC.Language" content="en-US" /><meta name="DC.Publisher" content="O'Reilly &amp; Associates, Inc." /><meta name="DC.Source" scheme="ISBN" content="0596002416L" /><meta name="DC.Subject.Keyword" content="stuff" /><meta name="DC.Title" content="Perl in a Nutshell, 2nd Edition" /><meta name="DC.Type" content="Text.Monograph" />
+
+</head><body bgcolor="#ffffff">
+
+<img src="gifs/smbanner.gif" usemap="#banner-map" border="0" alt="Book Home" /><map name="banner-map"><area shape="rect" coords="1,-2,616,66" href="index.htm" alt="Java and XSLT" /><area shape="rect" coords="629,-11,726,25" href="jobjects/fsearch.htm" alt="Search this book" /></map>
+
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch18_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228" /><td align="right" valign="top" width="228"><a href="ch19_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr></table></div>
+
+
+<h1 class="chapter">Chapter 19. Lightweight Directory Access with Net::LDAP</h1>
+<div class="htmltoc"><h4 class="tochead">Contents:</h4>
+  <p> <a href="#perlnut2-CHP-19-SECT-1">How Data Is Stored in LDAP</a><br />
+<a href="ch19_02.htm">Searching an LDAP Directory with Net::LDAP</a><br />
+<a href="ch19_03.htm">Adding an Entry to the Directory with Net::LDAP</a><br />
+<a href="ch19_04.htm">Net::LDAP Methods</a><br /></p></div>
+
+<p><a name="INDEX-2345" /></a>LDAP was
+designed as a client/server protocol to provide quick and simple
+access to entries that live in a directory. Initially, LDAP was
+designed to provide a better interface to X.500 directory services,
+but its ease of implementation and IETF-based change control means
+that LDAP has carved its own niche as a directory service.
+</p>
+
+<p>What is a <a name="INDEX-2346" /></a>directory service? In short, the
+directory is where you store an entry. Each entry implements
+information about an object. Entries have attributes with a type and
+at least one value. These attributes have a strict syntax that
+determines the types of values allowed for the attributes. Such
+attribute syntaxes include strings, JPEG photographs, and URLs.
+</p>
+
+<p>If you've ever tried to solve a complex problem in a
+heterogenous computing environment, such as syncing user accounts
+between different computing platforms, managing a company-wide
+address book, or building a public-key infrastructure, you might be
+interested in what LDAP has to offer.
+</p>
+
+<p>While the IETF governs changes to the LDAP spec, you are not limited
+to a single source for the availability of an LDAP server. Companies
+such as iPlanet, Novell, and Microsoft sell commercial LDAP
+implementations, and you'll also find a good, free
+LDAP implemenation in
+<a name="INDEX-2347" /></a>OpenLDAP
+(<a href="http://www.openldap.org">http://www.openldap.org</a>).
+</p>
+
+<p><a name="INDEX-2348" /></a>Net::LDAP
+implements the LDAP API for Perl programs. You can use Net::LDAP to
+search or modify the contents of your LDAP directory. In other words,
+Net::LDAP does everything that you need it to.
+</p>
+
+<p>This chapter covers Net::LDAP and how to operate on data in an LDAP
+directory, but it is not an LDAP tutorial. If you're
+unfamiliar with LDAP, it is strongly encouraged that you refer to
+your LDAP server documentation before attempting to make any changes
+to your directory.
+</p>
+<div class="sect1"><a name="perlnut2-CHP-19-SECT-1" /></a>
+<h2 class="sect1">19.1. How Data Is Stored in LDAP</h2>
+
+<p><a name="INDEX-2349" /></a>LDAP stores data in a structure as
+described in <a name="INDEX-2350" /></a>RFC 1617, which also offers guidelines
+as to how your naming style might look. While there are many ways to
+implement a data hierarchy in LADP, you can implement your directory
+structure so that all entries live under a single root that
+represents your organization. For example, you can import all your
+Unix account data for <em class="emphasis">your.domain</em> into a
+directory server with the following:
+</p>
+
+<blockquote><pre class="code">object: your.domain
+Organizational Unit: People
+Type for login name: uid</pre></blockquote>
+
+<p>Your Unix account information would be stored in LDAP like so: </p>
+
+<blockquote><pre class="code">uid=youruser,ou=People,o=your.domain</pre></blockquote>
+
+<p>At the simplest level, data as imported into LDAP by way of the
+<a name="INDEX-2351" /></a>LDAP Directory Interchange Format
+(LDIF). LDIF is a standard data format that specifies all the
+information about a record that you will insert into the directory.
+Take, for instance, a Unix account that lives in
+<em class="emphasis">/etc/passwd</em>:
+</p>
+
+<blockquote><pre class="code">nvp:-password-:1000:1000:Nathan V. Patwardhan:/home/nvp:/usr/bin/bash</pre></blockquote>
+
+<p>When you break the password entry down, the following fields exist: </p>
+
+<blockquote><pre class="code">login           nvp
+password        -password-
+uid             1000
+gid             1000
+gecos           Nathan V. Patwardhan
+home directory  /users/nvp
+shell           /usr/bin/bash</pre></blockquote>
+
+<p>The Unix <em class="emphasis">/etc/passwd</em> entries correspond to
+entries that you've created in LDAP, with the
+following naming differences:
+</p>
+
+<blockquote><pre class="code">UNIX            LDAP equivalent
+login           uid
+password        userPassword
+uid             uidNumber
+gid             gidNumber
+gecos           cn, gecos
+home directory  homeDirectory
+shell           loginShell</pre></blockquote>
+
+<p>Every LDIF begins with a <a name="INDEX-2352" /></a>DN, or distinguished name, which describes
+where the entry will live in the directory. Without the distinguished
+name, the LDIF is invalid. Unix accounts might live under
+<tt class="literal">ou=People</tt>, while addressbook entries might live
+under <tt class="literal">ou=Addresses</tt>. The LDIF also contains all of
+the attributes for a given entry and their corresponding values. For
+the Unix password entry shown above, the LDIF would look like:
+</p>
+
+<blockquote><pre class="code">dn: uid=nvp,ou=People,o=your.domain
+uid: nvp
+cn: Nathan Patwardhan
+givenname: Nathan
+sn: Patwardhan
+objectClass: person
+objectClass: organizationalPerson
+objectClass: account
+objectClass: shadowAccount
+objectClass: top
+userPassword:   {crypt}/-password-
+loginShell:     /usr/bin/bash
+uidNumber:      1000
+gidNumber:      1000
+homeDirectory:  /users/nvp</pre></blockquote>
+
+<p>Net::LDAP can output an LDIF file for the data that you give it (from
+which you can use a tool such as <i class="command">ldapadd</i> to add it
+to the directory) or add the record to the directory.<a name="INDEX-2353" /></a>
+</p>
+
+</div>
+
+<hr width="684" align="left" />
+<div class="navbar"><table width="684" border="0"><tr><td align="left" valign="top" width="228"><a href="ch18_03.htm"><img src="../gifs/txtpreva.gif" alt="Previous" border="0" /></a></td><td align="center" valign="top" width="228"><a href="index.htm"><img src="../gifs/txthome.gif" alt="Home" border="0" /></a></td><td align="right" valign="top" width="228"><a href="ch19_02.htm"><img src="../gifs/txtnexta.gif" alt="Next" border="0" /></a></td></tr><tr><td align="left" valign="top" width="228">18.3. FTP Configuration with Net::Netrc</td><td align="center" valign="top" width="228"><a href="index/index.htm"><img src="../gifs/index.gif" alt="Book Index" border="0" /></a></td><td align="right" valign="top" width="228">19.2. Searching an LDAP Directory with Net::LDAP</td></tr></table></div>
+<hr width="684" align="left" />
+
+<img src="../gifs/navbar.gif" usemap="#library-map" border="0" alt="Library Navigation Links" />
+<p><p><font size="-1"><a href="copyrght.htm">Copyright &copy; 2002</a> O'Reilly &amp; Associates. All rights reserved.</font></p>
+
+<map name="library-map">
+<area shape="rect" coords="1,0,85,94" href="../index.htm"><area shape="rect" coords="86,1,178,103" href="../lwp/index.htm"><area shape="rect" coords="180,0,265,103" href="../lperl/index.htm"><area shape="rect" coords="267,0,353,105" href="../perlnut/index.htm"><area shape="rect" coords="354,1,446,115" href="../prog/index.htm"><area shape="rect" coords="448,0,526,132" href="../tk/index.htm"><area shape="rect" coords="528,1,615,119" href="../cookbook/index.htm"><area shape="rect" coords="617,0,690,135" href="../pxml/index.htm">
+      </map>
+
+</body></html>
